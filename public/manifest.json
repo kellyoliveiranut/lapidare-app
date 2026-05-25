@@ -1,0 +1,33 @@
+{
+  "name": "Lapidare · Nutrição Estratégica",
+  "short_name": "Lapidare",
+  "description": "Plataforma de acompanhamento nutricional — plano, hábitos, suplementação e chat com sua nutri.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1c1712",
+  "theme_color": "#1c1712",
+  "lang": "pt-BR",
+  "categories": ["health", "lifestyle", "medical"],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

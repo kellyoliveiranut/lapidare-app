@@ -24,7 +24,22 @@ export default function Financeiro() {
   const [filtro, setFiltro] = useState('todas');
   const [novaVendaOpen, setNovaVendaOpen] = useState(false);
   const [parcelaEdit, setParcelaEdit] = useState(null);
+  const [vendaEdit, setVendaEdit] = useState(null);
   const [vendasExpandidas, setVendasExpandidas] = useState({});
+
+  async function excluirVenda(venda) {
+    const ok = window.confirm(
+      `Excluir a venda "${venda.servico}" de ${venda.paciente?.nome ?? 'Avulso'}?\n\n` +
+      `Todas as parcelas relacionadas também serão removidas. Essa ação não pode ser desfeita.`
+    );
+    if (!ok) return;
+    const { error } = await supabase.from('vendas').delete().eq('id', venda.id);
+    if (error) {
+      alert('Erro ao excluir venda: ' + error.message);
+      return;
+    }
+    await carregar();
+  }
 
   async function carregar() {
     if (!user) return;
@@ -264,6 +279,11 @@ export default function Financeiro() {
 
               {aberta && (
                 <div style={{ padding: '4px 16px 10px' }}>
+                  {ps.length > 0 && (
+                    <div style={{ fontSize: 11, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.4px', margin: '4px 0 2px' }}>
+                      Parcelas (clique pra editar)
+                    </div>
+                  )}
                   {ps.map((p, i) => {
                     const s = statusParcela(p);
                     const info = STATUS_INFO[s];
@@ -305,6 +325,35 @@ export default function Financeiro() {
                       </div>
                     );
                   })}
+
+                  {/* Ações da venda inteira */}
+                  <div style={{
+                    display: 'flex', gap: 8, marginTop: 12,
+                    paddingTop: 10, borderTop: '0.5px solid #f5f0e8',
+                  }}>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setVendaEdit(v); }}
+                      style={{
+                        flex: 1, padding: '8px 12px',
+                        background: 'transparent', color: 'var(--text2)',
+                        border: '0.5px solid var(--border)', borderRadius: 7,
+                        fontSize: 13, cursor: 'pointer', fontFamily: 'var(--font-sans)',
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                      }}>
+                      <i className="ti ti-pencil" aria-hidden="true"></i> Editar venda
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); excluirVenda(v); }}
+                      style={{
+                        flex: 1, padding: '8px 12px',
+                        background: 'transparent', color: 'var(--red)',
+                        border: '0.5px solid var(--red)', borderRadius: 7,
+                        fontSize: 13, cursor: 'pointer', fontFamily: 'var(--font-sans)',
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                      }}>
+                      <i className="ti ti-trash" aria-hidden="true"></i> Excluir venda
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -327,6 +376,15 @@ export default function Financeiro() {
           {...parcelaEdit}
           onClose={() => setParcelaEdit(null)}
           onSaved={async () => { setParcelaEdit(null); await carregar(); }}
+        />
+      )}
+
+      {vendaEdit && (
+        <EditarVendaModal
+          venda={vendaEdit}
+          pacientes={pacientes}
+          onClose={() => setVendaEdit(null)}
+          onSaved={async () => { setVendaEdit(null); await carregar(); }}
         />
       )}
       </>)}
@@ -661,6 +719,89 @@ function EditarParcelaModal({ parcela, venda, onClose, onSaved }) {
         }}>
         <i className="ti ti-trash" aria-hidden="true"></i> Excluir esta parcela
       </button>
+    </ModalShell>
+  );
+}
+
+/* ============================================================
+   EDITAR VENDA — modal
+   Edita só os dados "leves" da venda (paciente, serviço, data, obs).
+   Pra mudar valor/forma de pagamento, é mais seguro excluir e recriar
+   — assim as parcelas são regeradas corretamente.
+   ============================================================ */
+function EditarVendaModal({ venda, pacientes, onClose, onSaved }) {
+  const [pacienteId, setPacienteId] = useState(venda.paciente_id ?? '');
+  const [servico, setServico] = useState(venda.servico ?? '');
+  const [data, setData] = useState(venda.data_venda ?? '');
+  const [obs, setObs] = useState(venda.obs ?? '');
+  const [busy, setBusy] = useState(false);
+  const [erro, setErro] = useState(null);
+
+  async function salvar() {
+    setErro(null);
+    if (!servico.trim()) return setErro('Informe o serviço.');
+    if (!data) return setErro('Informe a data da venda.');
+
+    setBusy(true);
+    const { error } = await supabase
+      .from('vendas')
+      .update({
+        paciente_id: pacienteId || null,
+        servico: servico.trim(),
+        data_venda: data,
+        obs: obs.trim() || null,
+      })
+      .eq('id', venda.id);
+    setBusy(false);
+    if (error) return setErro('Erro ao salvar: ' + error.message);
+    onSaved();
+  }
+
+  return (
+    <ModalShell title="Editar venda" subtitle="Ajuste os dados desta venda" onClose={onClose}>
+      <label className="form-lbl">Paciente</label>
+      <select value={pacienteId} onChange={e => setPacienteId(e.target.value)}>
+        <option value="">— Avulso / não atribuir —</option>
+        {pacientes.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+      </select>
+
+      <label className="form-lbl">Serviço</label>
+      <input value={servico} onChange={e => setServico(e.target.value)}
+        placeholder="Ex: Acompanhamento trimestral" />
+
+      <label className="form-lbl">Data da venda</label>
+      <input type="date" value={data} onChange={e => setData(e.target.value)} />
+
+      <label className="form-lbl">Observação</label>
+      <textarea rows="2" value={obs} onChange={e => setObs(e.target.value)}
+        placeholder="Ex: desconto dado, condição especial..."
+        style={{ resize: 'none' }} />
+
+      <div style={{
+        background: 'var(--bg2)', borderRadius: 7, padding: '10px 12px',
+        marginTop: 12, fontSize: 12, color: 'var(--text2)', lineHeight: 1.5,
+      }}>
+        <strong>Pra mudar valor total ou forma de pagamento</strong>, é melhor
+        excluir essa venda e criar uma nova — assim as parcelas são geradas
+        corretamente. Pra ajustar valor de uma parcela específica, clique nela
+        na lista.
+      </div>
+
+      {erro && (
+        <div style={{
+          background: 'var(--red-bg)', color: 'var(--red)',
+          padding: '6px 10px', borderRadius: 6, fontSize: 13, marginTop: 10,
+        }}>{erro}</div>
+      )}
+
+      <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+        <button className="btn-outline" style={{ flex: 1, justifyContent: 'center' }} onClick={onClose}>
+          Cancelar
+        </button>
+        <button className="btn" style={{ flex: 1, justifyContent: 'center' }} onClick={salvar} disabled={busy}>
+          <i className="ti ti-check" aria-hidden="true"></i> {busy ? '...' : 'Salvar'}
+        </button>
+      </div>
     </ModalShell>
   );
 }
