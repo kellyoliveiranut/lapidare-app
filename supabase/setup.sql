@@ -25,6 +25,17 @@
 -- =============================================================
 create extension if not exists pgcrypto;
 
+-- Tenta habilitar pg_cron pra check-ins automáticos.
+-- Se não conseguir (sem permissão), o script continua normalmente — só
+-- não terá agendamento automático (precisa enviar check-ins manualmente).
+do $$
+begin
+  create extension if not exists pg_cron;
+  raise notice 'pg_cron habilitado: check-ins automáticos vão funcionar.';
+exception when others then
+  raise notice 'pg_cron não pôde ser habilitado automaticamente. Pra ativar check-ins automáticos, habilite manualmente em Database → Extensions → pg_cron e rode esse setup de novo.';
+end$$;
+
 
 -- =============================================================
 -- 2. TABELAS
@@ -920,19 +931,27 @@ end;
 $$;
 
 -- Agenda execução diária às 11 UTC (= 8h horário de Brasília)
--- (executar manualmente após habilitar a extensão pg_cron)
+-- pg_cron é OPCIONAL. Se não estiver habilitado, esse bloco simplesmente pula.
+-- Pra habilitar: Database → Extensions → busca "pg_cron" → enable → rode o setup de novo.
 do $$
 begin
-  perform cron.schedule(
-    'lapidare-checkins-diario',
-    '0 11 * * *',
-    $cron$select public.processar_agendamentos_checkin();$cron$
-  );
-exception
-  when undefined_function then
-    raise notice 'pg_cron não está habilitado — habilite em Database → Extensions e rode novamente';
-  when duplicate_object then
-    null;  -- já agendado, tudo bem
+  -- Só tenta agendar SE o schema "cron" existir (pg_cron habilitado)
+  if exists (select 1 from pg_namespace where nspname = 'cron') then
+    begin
+      perform cron.schedule(
+        'lapidare-checkins-diario',
+        '0 11 * * *',
+        $cron$select public.processar_agendamentos_checkin();$cron$
+      );
+      raise notice 'pg_cron agendado: check-ins automáticos vão rodar diariamente às 11 UTC';
+    exception
+      when duplicate_object then null;  -- já agendado, tudo bem
+      when others then
+        raise notice 'pg_cron presente mas não foi possível agendar: %', SQLERRM;
+    end;
+  else
+    raise notice 'pg_cron NÃO habilitado (opcional). Pra ativar check-ins automáticos: Database → Extensions → pg_cron → enable, depois rode o setup de novo.';
+  end if;
 end$$;
 
 
