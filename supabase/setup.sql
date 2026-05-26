@@ -1334,6 +1334,10 @@ create policy logos_storage_delete on storage.objects for delete using (
   bucket_id = 'logos' and auth.uid() is not null
 );
 
+-- DROP antes do CREATE pra permitir mudar o retorno (Postgres bloqueia
+-- create-or-replace quando o return type muda)
+drop function if exists public.buscar_personalizacao_nutri(uuid);
+
 create or replace function public.buscar_personalizacao_nutri(p_nutri_id uuid)
 returns table(
   marca_nome text, marca_subtitulo text, logo_url text,
@@ -1360,6 +1364,9 @@ grant execute on function public.buscar_personalizacao_nutri(uuid) to anon, auth
 -- 11.X buscar_marca_principal · usada pela tela de Login (anônimo)
 -- Cada deploy é de UMA nutri (a "dona"). Essa função retorna a marca dela
 -- pra personalizar a tela de Login antes mesmo de qualquer usuário logar.
+-- DROP antes pra permitir mudar o retorno (mesmo motivo da função acima)
+drop function if exists public.buscar_marca_principal();
+
 create or replace function public.buscar_marca_principal()
 returns table(
   marca_nome text, marca_subtitulo text, logo_url text,
