@@ -1883,6 +1883,9 @@ create unique index if not exists avaliacoes_fotos_registro_tipo_unique
 -- 16.1 Remove FK que amarrava pacientes.id a auth.users
 alter table public.pacientes drop constraint if exists pacientes_id_fkey;
 
+-- 16.1b Garante que id tenha default gen_random_uuid() após remoção do FK
+alter table public.pacientes alter column id set default gen_random_uuid();
+
 -- 16.2 Adiciona user_id (link opcional com auth.users)
 alter table public.pacientes add column if not exists user_id uuid references auth.users(id) on delete set null;
 create unique index if not exists pacientes_user_id_unique on public.pacientes(user_id) where user_id is not null;

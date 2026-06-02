@@ -73,6 +73,8 @@ export default function TratamentoOncologico({ pacienteId, nutriId }) {
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState(null);
   const [comparar, setComparar] = useState(false);
+  const [lendoPdf, setLendoPdf] = useState(false);
+  const fileInputRef = useRef(null);
 
   useEffect(() => { carregar(); }, [pacienteId]);
 
@@ -214,6 +216,85 @@ export default function TratamentoOncologico({ pacienteId, nutriId }) {
     if (!window.confirm('Remover este exame?')) return;
     await supabase.from('exames_laboratoriais').delete().eq('id', id);
     carregar();
+  }
+
+  async function importarPdf(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    setLendoPdf(true);
+    setFeedback(null);
+    try {
+      const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const isPdf = file.type === 'application/pdf';
+      const contentBlock = isPdf
+        ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } }
+        : { type: 'image',    source: { type: 'base64', media_type: file.type,           data: base64 } };
+      const promptText = `Analise este exame laboratorial e extraia APENAS os seguintes valores em formato JSON puro, sem texto adicional, sem markdown, sem explicações:
+{
+  "data_exame": "string (formato YYYY-MM-DD, se encontrar)",
+  "hemoglobina": "number ou null",
+  "leucocitos": "number ou null",
+  "neutrofilos": "number ou null",
+  "linfocitos": "number ou null",
+  "plaquetas": "number ou null",
+  "pcr": "number ou null",
+  "albumina": "number ou null",
+  "glicemia": "number ou null",
+  "obs": "string (valores adicionais relevantes encontrados no exame)"
+}
+Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-api-key': import.meta.env.VITE_ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1024,
+          messages: [{ role: 'user', content: [contentBlock, { type: 'text', text: promptText }] }],
+        }),
+      });
+      if (!resp.ok) {
+        const err = await resp.json();
+        throw new Error(err.error?.message ?? 'Erro na API Anthropic');
+      }
+      const apiData = await resp.json();
+      const rawText = apiData.content?.[0]?.text ?? '';
+      let parsed;
+      try {
+        const clean = rawText.replace(/```json\n?|\n?```/g, '').trim();
+        parsed = JSON.parse(clean);
+      } catch {
+        throw new Error('Não foi possível interpretar a resposta. Tente novamente.');
+      }
+      setNovoExame(prev => ({
+        ...prev,
+        data_exame:  parsed.data_exame  || prev.data_exame,
+        hemoglobina: parsed.hemoglobina != null ? String(parsed.hemoglobina) : prev.hemoglobina,
+        leucocitos:  parsed.leucocitos  != null ? String(parsed.leucocitos)  : prev.leucocitos,
+        neutrofilos: parsed.neutrofilos != null ? String(parsed.neutrofilos) : prev.neutrofilos,
+        linfocitos:  parsed.linfocitos  != null ? String(parsed.linfocitos)  : prev.linfocitos,
+        plaquetas:   parsed.plaquetas   != null ? String(parsed.plaquetas)   : prev.plaquetas,
+        pcr:         parsed.pcr         != null ? String(parsed.pcr)         : prev.pcr,
+        albumina:    parsed.albumina    != null ? String(parsed.albumina)    : prev.albumina,
+        glicemia:    parsed.glicemia    != null ? String(parsed.glicemia)    : prev.glicemia,
+        obs:         parsed.obs         || prev.obs,
+      }));
+      setFeedback({ tipo: 'ok', msg: 'Exame lido com sucesso! Confira os valores antes de salvar.' });
+    } catch (err) {
+      setFeedback({ tipo: 'erro', msg: err.message || 'Erro ao processar o exame.' });
+    } finally {
+      setLendoPdf(false);
+    }
   }
 
   // Janela de risco atual
@@ -598,6 +679,36 @@ export default function TratamentoOncologico({ pacienteId, nutriId }) {
               <div className="card-title">🔬 Registrar exame</div>
             </div>
             <div className="card-body">
+              <style>{`@keyframes lap-spin { to { transform: rotate(360deg); } }`}</style>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,image/jpeg,image/png"
+                style={{ display: 'none' }}
+                onChange={importarPdf}
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={lendoPdf}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  marginBottom: 16, padding: '7px 14px', fontSize: 13, fontWeight: 500,
+                  borderRadius: 7, cursor: lendoPdf ? 'default' : 'pointer',
+                  border: '1.5px solid var(--primary, #6366f1)',
+                  background: 'transparent', color: 'var(--primary, #6366f1)',
+                  opacity: lendoPdf ? 0.7 : 1,
+                }}
+              >
+                {lendoPdf ? (
+                  <>
+                    <i className="ti ti-loader-2" style={{ fontSize: 15, animation: 'lap-spin 1s linear infinite', display: 'inline-block' }} />
+                    Lendo exame...
+                  </>
+                ) : (
+                  <>📄 Importar PDF do exame</>
+                )}
+              </button>
+
               <div style={{ marginBottom: 10 }}>
                 <label className="field-label">Data do exame *</label>
                 <input type="date" value={novoExame.data_exame} onChange={e => setNovoExame(p => ({ ...p, data_exame: e.target.value }))} style={{ maxWidth: 200 }} />
