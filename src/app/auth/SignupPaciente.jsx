@@ -251,7 +251,7 @@ export default function SignupPaciente() {
               </div>
 
               <SelectField label="Objetivo" value={objetivo} onChange={setObjetivo} options={[
-                'Emagrecimento', 'Hipertrofia', 'Reeducação alimentar', 'Saúde geral', 'Performance esportiva',
+                'Emagrecimento', 'Hipertrofia', 'Reeducação alimentar', 'Saúde geral', 'Performance esportiva', 'Oncologia', 'Outro',
               ]} />
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>

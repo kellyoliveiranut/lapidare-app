@@ -26,6 +26,9 @@ export default function PacientePerfil() {
   const [editandoNasc, setEditandoNasc] = useState(false);
   const [novoNasc, setNovoNasc] = useState('');
   const [salvandoNasc, setSalvandoNasc] = useState(false);
+  const [editandoCampo, setEditandoCampo] = useState(null);
+  const [novoCampo, setNovoCampo] = useState('');
+  const [salvandoCampo, setSalvandoCampo] = useState(false);
 
   async function carregar() {
     const { data } = await supabase
@@ -69,6 +72,16 @@ export default function PacientePerfil() {
     } catch (err) {
       alert('Erro inesperado: ' + (err?.message || 'tente de novo'));
     }
+  }
+
+  async function salvarCampo() {
+    setSalvandoCampo(true);
+    const { error } = await supabase.from('pacientes')
+      .update({ [editandoCampo]: novoCampo || null }).eq('id', id);
+    setSalvandoCampo(false);
+    if (error) { alert('Erro: ' + error.message); return; }
+    setEditandoCampo(null);
+    carregar();
   }
 
   async function salvarNascimento() {
@@ -192,18 +205,77 @@ export default function PacientePerfil() {
       </div>
 
       <div className="g3">
-        <div className="stat">
-          <div className="stat-lbl">Objetivo</div>
-          <div className="stat-val" style={{ fontSize: 18 }}>{paciente.objetivo ?? '—'}</div>
-        </div>
-        <div className="stat">
-          <div className="stat-lbl">Tipo de plano</div>
-          <div className="stat-val" style={{ fontSize: 18 }}>{paciente.tipo_plano ?? '—'}</div>
-        </div>
-        <div className="stat">
-          <div className="stat-lbl">Modalidade</div>
-          <div className="stat-val" style={{ fontSize: 18 }}>{paciente.modalidade ?? '—'}</div>
-        </div>
+        {[
+          {
+            campo: 'objetivo',
+            label: 'Objetivo',
+            valor: paciente.objetivo,
+            tipo: 'select',
+            opcoes: ['Emagrecimento', 'Hipertrofia', 'Reeducação alimentar', 'Saúde geral', 'Performance esportiva', 'Oncologia', 'Outro'],
+          },
+          {
+            campo: 'tipo_plano',
+            label: 'Tipo de plano',
+            valor: paciente.tipo_plano,
+            tipo: 'text',
+            opcoes: ['trimestral', 'semestral', 'consultoria', 'acompanhamento'],
+          },
+          {
+            campo: 'modalidade',
+            label: 'Modalidade',
+            valor: paciente.modalidade,
+            tipo: 'select',
+            opcoes: ['Online', 'Presencial', 'Híbrido'],
+          },
+        ].map(({ campo, label, valor, tipo, opcoes }) => (
+          <div key={campo} className="stat">
+            <div className="stat-lbl" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
+              <span>{label}</span>
+              {editandoCampo !== campo && (
+                <button
+                  onClick={() => { setEditandoCampo(campo); setNovoCampo(valor ?? ''); }}
+                  title={`Editar ${label.toLowerCase()}`}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 0, fontSize: 12, lineHeight: 1 }}>
+                  <i className="ti ti-pencil" aria-hidden="true" />
+                </button>
+              )}
+            </div>
+            {editandoCampo === campo ? (
+              <div style={{ marginTop: 6 }}>
+                {tipo === 'select' ? (
+                  <select value={novoCampo} onChange={e => setNovoCampo(e.target.value)}
+                    style={{ fontSize: 13, padding: '4px 6px', width: '100%', marginBottom: 6, fontFamily: 'var(--font-sans)' }}>
+                    {opcoes.map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                ) : (
+                  <>
+                    <input
+                      list={`list-${campo}`}
+                      value={novoCampo}
+                      onChange={e => setNovoCampo(e.target.value)}
+                      style={{ fontSize: 13, padding: '4px 6px', width: '100%', marginBottom: 6, fontFamily: 'var(--font-sans)', boxSizing: 'border-box' }}
+                    />
+                    <datalist id={`list-${campo}`}>
+                      {opcoes.map(o => <option key={o} value={o} />)}
+                    </datalist>
+                  </>
+                )}
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <button onClick={salvarCampo} disabled={salvandoCampo}
+                    style={{ background: 'var(--dark)', color: '#fff', border: 'none', borderRadius: 6, padding: '3px 10px', fontSize: 11, cursor: 'pointer', flex: 1, fontFamily: 'var(--font-sans)' }}>
+                    {salvandoCampo ? '…' : 'Salvar'}
+                  </button>
+                  <button onClick={() => setEditandoCampo(null)}
+                    style={{ background: 'none', border: '0.5px solid var(--border)', borderRadius: 6, padding: '3px 8px', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--font-sans)' }}>
+                    ✕
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="stat-val" style={{ fontSize: 18 }}>{valor ?? '—'}</div>
+            )}
+          </div>
+        ))}
       </div>
 
       {/* Tabs */}

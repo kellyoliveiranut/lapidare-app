@@ -79,7 +79,30 @@ export default function Login() {
     setErro(null);
     setBusy(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password: senha });
+      let emailFinal = email.trim();
+
+      const parecePhone = !emailFinal.includes('@') && emailFinal.replace(/\D/g, '').length >= 8;
+      if (parecePhone) {
+        const digitsOnly = emailFinal.replace(/\D/g, '');
+        const { data: pacientes, error: lookupErr } = await supabase
+          .from('pacientes')
+          .select('email, telefone');
+        if (lookupErr) {
+          setBusy(false);
+          return setErro('Não foi possível buscar pelo telefone. Tente usar o email.');
+        }
+        const match = (pacientes ?? []).find(p => {
+          const d = (p.telefone ?? '').replace(/\D/g, '');
+          return d === digitsOnly || d.endsWith(digitsOnly) || digitsOnly.endsWith(d);
+        });
+        if (!match) {
+          setBusy(false);
+          return setErro('Telefone não encontrado. Verifique o número ou use seu email.');
+        }
+        emailFinal = match.email;
+      }
+
+      const { error } = await supabase.auth.signInWithPassword({ email: emailFinal, password: senha });
       setBusy(false);
       if (error) setErro(mensagemAmigavel(error));
     } catch (err) {
@@ -200,7 +223,14 @@ export default function Login() {
               <Field label="CRN" value={crn} onChange={setCrn} placeholder="opcional" />
             </>
           )}
-          <Field label="Email" type="email" value={email} onChange={setEmail} required autoFocus={mode === 'signin' || mode === 'forgot'} />
+          <Field
+            label={mode === 'signin' ? 'Email ou telefone' : 'Email'}
+            type={mode === 'signin' ? 'text' : 'email'}
+            value={email}
+            onChange={setEmail}
+            required
+            autoFocus={mode === 'signin' || mode === 'forgot'}
+          />
           {mode !== 'forgot' && (
             <Field label="Senha" type="password" value={senha} onChange={setSenha} required minLength={6} />
           )}
