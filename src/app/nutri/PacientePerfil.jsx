@@ -836,6 +836,11 @@ Retorne SOMENTE o JSON.`;
     return Number.isNaN(n) ? null : n;
   }
 
+  function numInt(v) {
+    const n = num(v);
+    return n != null ? Math.round(n) : null;
+  }
+
   async function salvar() {
     setFeedback(null);
     if (!form.data || !form.kg) {
@@ -847,7 +852,7 @@ Retorne SOMENTE o JSON.`;
       nutri_id: nutriId,
       data: form.data,
       kg: num(form.kg),
-      altura_cm: num(form.altura_cm),
+      altura_cm: numInt(form.altura_cm),
       cintura_cm: num(form.cintura_cm),
       quadril_cm: num(form.quadril_cm),
       abdome_cm: num(form.abdome_cm),
@@ -863,8 +868,8 @@ Retorne SOMENTE o JSON.`;
       mm_pct: num(form.mm_pct),
       gordura_kg: num(form.gordura_kg),
       hidratacao_pct: num(form.hidratacao_pct),
-      geb_kcal: num(form.geb_kcal),
-      get_kcal: num(form.get_kcal),
+      geb_kcal: numInt(form.geb_kcal),
+      get_kcal: numInt(form.get_kcal),
       obs: form.obs.trim() || null,
     };
     const { error } = await supabase.from('peso_registros').insert(payload);
