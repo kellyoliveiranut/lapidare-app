@@ -1566,6 +1566,154 @@ grant select, insert, update, delete on public.anamneses          to anon, authe
 
 
 -- =============================================================
+-- ONCOLOGIA: TRATAMENTO, CICLOS, EXAMES, FOTOS DE AVALIAÇÃO
+-- =============================================================
+
+-- Tratamento oncológico (um registro por paciente, upsert)
+create table if not exists public.tratamentos_oncologicos (
+  id                  uuid primary key default gen_random_uuid(),
+  paciente_id         uuid not null references public.pacientes(id) on delete cascade,
+  nutri_id            uuid not null references public.nutris(id) on delete cascade,
+  -- Diagnóstico
+  tipo_cancer         text,
+  estadiamento        text,
+  medico              text,
+  hospital            text,
+  data_diagnostico    date,
+  -- Intenção
+  intencao            text,
+  -- Metástase
+  metastatico         text check (metastatico in ('sim','nao','investigacao')),
+  locais_metastase    text[],
+  -- Doença
+  doenca_atividade    text check (doenca_atividade in ('ativa','nao','estavel','progressao','remissao')),
+  -- Tratamento sistêmico
+  tipo_trat_sistemico text,
+  protocolo           text,
+  medicamentos        text[],
+  total_ciclos        integer,
+  ciclo_atual         integer,
+  intervalo_ciclos    integer,
+  data_ultima_quimio  date,
+  -- Radioterapia
+  radio_ativa         boolean default false,
+  radio_area          text,
+  radio_sessao_atual  integer,
+  radio_total_sessoes integer,
+  radio_inicio        date,
+  radio_termino       date,
+  -- Cirurgia
+  cirurgia_indicada   boolean default false,
+  cirurgia_realizada  boolean default false,
+  cirurgia_data       date,
+  cirurgia_complicacoes text,
+  cirurgia_preparo_nutricional boolean default false,
+  -- Ação da semana (preenchida pela nutri)
+  acao_semana         text,
+  created_at          timestamptz not null default now(),
+  updated_at          timestamptz not null default now(),
+  unique (paciente_id)
+);
+
+create index if not exists tratamentos_onco_nutri_idx on public.tratamentos_oncologicos(nutri_id);
+
+-- Ciclos de quimioterapia (com janelas D+3/D+7/D+10/D+14 calculadas)
+create table if not exists public.ciclos_quimio (
+  id              uuid primary key default gen_random_uuid(),
+  tratamento_id   uuid not null references public.tratamentos_oncologicos(id) on delete cascade,
+  paciente_id     uuid not null references public.pacientes(id) on delete cascade,
+  nutri_id        uuid not null references public.nutris(id) on delete cascade,
+  numero_ciclo    integer not null,
+  data_quimio     date not null,
+  d3              date generated always as (data_quimio + 3)  stored,
+  d7              date generated always as (data_quimio + 7)  stored,
+  d10             date generated always as (data_quimio + 10) stored,
+  d14             date generated always as (data_quimio + 14) stored,
+  obs             text,
+  created_at      timestamptz not null default now()
+);
+
+create index if not exists ciclos_quimio_paciente_idx on public.ciclos_quimio(paciente_id, data_quimio desc);
+
+-- Exames laboratoriais
+create table if not exists public.exames_laboratoriais (
+  id              uuid primary key default gen_random_uuid(),
+  paciente_id     uuid not null references public.pacientes(id) on delete cascade,
+  nutri_id        uuid not null references public.nutris(id) on delete cascade,
+  data_exame      date not null,
+  hemoglobina     numeric(5,1),
+  leucocitos      numeric(8,0),
+  neutrofilos     numeric(8,0),
+  linfocitos      numeric(8,0),
+  plaquetas       numeric(8,0),
+  pcr             numeric(6,1),
+  albumina        numeric(4,1),
+  glicemia        numeric(5,0),
+  obs             text,
+  created_at      timestamptz not null default now()
+);
+
+create index if not exists exames_lab_paciente_idx on public.exames_laboratoriais(paciente_id, data_exame desc);
+
+-- Fotos de avaliação antropométrica (nutri-only)
+create table if not exists public.avaliacoes_fotos (
+  id                  uuid primary key default gen_random_uuid(),
+  peso_registro_id    uuid not null references public.peso_registros(id) on delete cascade,
+  paciente_id         uuid not null references public.pacientes(id) on delete cascade,
+  nutri_id            uuid not null references public.nutris(id) on delete cascade,
+  tipo                text check (tipo in ('frente','lado','costas')),
+  url                 text not null,
+  created_at          timestamptz not null default now()
+);
+
+-- RLS
+alter table public.tratamentos_oncologicos  enable row level security;
+alter table public.ciclos_quimio            enable row level security;
+alter table public.exames_laboratoriais     enable row level security;
+alter table public.avaliacoes_fotos         enable row level security;
+
+-- Nutri acessa tudo das suas pacientes
+drop policy if exists trat_onco_nutri on public.tratamentos_oncologicos;
+create policy trat_onco_nutri on public.tratamentos_oncologicos
+  for all using (nutri_id = auth.uid()) with check (nutri_id = auth.uid());
+
+drop policy if exists ciclos_nutri on public.ciclos_quimio;
+create policy ciclos_nutri on public.ciclos_quimio
+  for all using (nutri_id = auth.uid()) with check (nutri_id = auth.uid());
+
+drop policy if exists exames_nutri on public.exames_laboratoriais;
+create policy exames_nutri on public.exames_laboratoriais
+  for all using (nutri_id = auth.uid()) with check (nutri_id = auth.uid());
+
+drop policy if exists aval_fotos_nutri on public.avaliacoes_fotos;
+create policy aval_fotos_nutri on public.avaliacoes_fotos
+  for all using (nutri_id = auth.uid()) with check (nutri_id = auth.uid());
+
+-- Bucket privado para fotos de avaliação
+insert into storage.buckets (id, name, public)
+values ('avaliacoes_nutri', 'avaliacoes_nutri', false)
+on conflict (id) do nothing;
+
+drop policy if exists aval_storage_nutri on storage.objects;
+create policy aval_storage_nutri on storage.objects
+  for all using (
+    bucket_id = 'avaliacoes_nutri'
+    and split_part(name, '/', 1) = auth.uid()::text
+  ) with check (
+    bucket_id = 'avaliacoes_nutri'
+    and split_part(name, '/', 1) = auth.uid()::text
+  );
+
+-- Expansão da tabela de check-in oncológico com novos sintomas
+alter table public.monitoramento_oncologico add column if not exists dor_engolir   smallint check (dor_engolir   between 0 and 10);
+alter table public.monitoramento_oncologico add column if not exists mucosite      smallint check (mucosite      between 0 and 10);
+alter table public.monitoramento_oncologico add column if not exists boca_seca     smallint check (boca_seca     between 0 and 10);
+alter table public.monitoramento_oncologico add column if not exists paladar_alt   smallint check (paladar_alt   between 0 and 10);
+alter table public.monitoramento_oncologico add column if not exists febre         boolean;
+alter table public.monitoramento_oncologico add column if not exists disposicao    smallint check (disposicao    between 0 and 10);
+alter table public.monitoramento_oncologico add column if not exists mobilidade    text check (mobilidade in ('deitada','sentada','caminhei_casa','caminhei_fora','exercicio'));
+
+-- =============================================================
 -- MONITORAMENTO ONCOLÓGICO
 -- =============================================================
 

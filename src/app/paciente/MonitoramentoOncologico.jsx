@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 
-const TOTAL_STEPS = 9;
+const TOTAL_STEPS = 11;
 
 const REFEICOES = [
   { key: 'ref_cafe',         label: 'Café da manhã',   emoji: '☕' },
@@ -71,6 +71,13 @@ export default function MonitoramentoOncologico() {
   const [diarreia,    setDiarreia]    = useState(null);
   const [constipacao, setConstipacao] = useState(null);
   const [energia,     setEnergia]     = useState(null);
+  const [dor_engolir,  setDorEngolir]  = useState(null);
+  const [mucosite,     setMucosite]    = useState(null);
+  const [boca_seca,    setBocaSeca]    = useState(null);
+  const [paladar_alt,  setPaladarAlt]  = useState(null);
+  const [febre,        setFebre]       = useState(null);
+  const [disposicao,   setDisposicao]  = useState(null);
+  const [mobilidade,   setMobilidade]  = useState(null);
   const [impedimentos, setImpedimentos] = useState([]);
 
   useEffect(() => {
@@ -102,6 +109,13 @@ export default function MonitoramentoOncologico() {
     setDiarreia(r.diarreia);
     setConstipacao(r.constipacao);
     setEnergia(r.energia);
+    setDorEngolir(r.dor_engolir);
+    setMucosite(r.mucosite);
+    setBocaSeca(r.boca_seca);
+    setPaladarAlt(r.paladar_alt);
+    setFebre(r.febre);
+    setDisposicao(r.disposicao);
+    setMobilidade(r.mobilidade);
     setImpedimentos(r.impedimentos ?? []);
   }
 
@@ -139,6 +153,13 @@ export default function MonitoramentoOncologico() {
       diarreia,
       constipacao,
       energia,
+      dor_engolir,
+      mucosite,
+      boca_seca,
+      paladar_alt,
+      febre,
+      disposicao,
+      mobilidade,
       impedimentos: impedimentos.length ? impedimentos : null,
       updated_at:   new Date().toISOString(),
     };
@@ -396,45 +417,139 @@ export default function MonitoramentoOncologico() {
         </StepShell>
       )}
 
-      {/* ── Step 7: Diarreia + constipação ── */}
+      {/* ── Step 7: Sintomas orais ── */}
       {step === 7 && (
         <StepShell
-          title="Como está o intestino?"
+          title="Sintomas na boca e garganta"
           subtitle="0 = nenhum, 10 = muito intenso"
           onBack={() => setStep(6)}
           onNext={() => setStep(8)}
-          nextDisabled={diarreia === null || constipacao === null}
+          nextDisabled={dor_engolir === null || mucosite === null || boca_seca === null || paladar_alt === null}
         >
-          <div style={{ marginBottom: 24 }}>
-            <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 12, color: 'var(--ink)' }}>💧 Diarreia</div>
-            <Scale010 value={diarreia} onChange={setDiarreia} lowLabel="0 · Nenhuma" highLabel="10 · Muito forte" />
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 10, color: 'var(--ink)' }}>🫁 Dor ao engolir</div>
+            <Scale010 value={dor_engolir} onChange={setDorEngolir} lowLabel="0 · Nenhuma" highLabel="10 · Muito forte" />
+          </div>
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 10, color: 'var(--ink)' }}>🔴 Mucosite (feridas na boca)</div>
+            <Scale010 value={mucosite} onChange={setMucosite} lowLabel="0 · Nenhuma" highLabel="10 · Muito intensa" />
+          </div>
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 10, color: 'var(--ink)' }}>👄 Boca seca</div>
+            <Scale010 value={boca_seca} onChange={setBocaSeca} lowLabel="0 · Normal" highLabel="10 · Muito seca" />
           </div>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 12, color: 'var(--ink)' }}>🔒 Constipação (prisão de ventre)</div>
-            <Scale010 value={constipacao} onChange={setConstipacao} lowLabel="0 · Nenhuma" highLabel="10 · Muito forte" />
+            <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 10, color: 'var(--ink)' }}>👅 Alteração no paladar</div>
+            <Scale010 value={paladar_alt} onChange={setPaladarAlt} lowLabel="0 · Normal" highLabel="10 · Muito alterado" />
           </div>
         </StepShell>
       )}
 
-      {/* ── Step 8: Energia ── */}
+      {/* ── Step 8: Diarreia + constipação + febre ── */}
       {step === 8 && (
+        <StepShell
+          title="Intestino e febre"
+          subtitle="0 = nenhum, 10 = muito intenso"
+          onBack={() => setStep(7)}
+          onNext={() => setStep(9)}
+          nextDisabled={diarreia === null || constipacao === null || febre === null}
+        >
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 10, color: 'var(--ink)' }}>💧 Diarreia</div>
+            <Scale010 value={diarreia} onChange={setDiarreia} lowLabel="0 · Nenhuma" highLabel="10 · Muito forte" />
+          </div>
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 10, color: 'var(--ink)' }}>🔒 Constipação (prisão de ventre)</div>
+            <Scale010 value={constipacao} onChange={setConstipacao} lowLabel="0 · Nenhuma" highLabel="10 · Muito forte" />
+          </div>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 10, color: 'var(--ink)' }}>🌡️ Teve febre hoje?</div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              {[{v:true,l:'Sim, tive febre'},{v:false,l:'Não'}].map(op => {
+                const sel = febre === op.v;
+                return (
+                  <button key={String(op.v)} onClick={() => setFebre(op.v)} style={{
+                    flex: 1, padding: '14px', borderRadius: 14,
+                    border: sel ? `2px solid ${op.v ? '#dc2626' : '#16a34a'}` : '1.5px solid var(--hair)',
+                    background: sel ? (op.v ? '#fee2e2' : '#dcfce7') : 'var(--paper)',
+                    fontSize: 14, fontWeight: sel ? 600 : 400,
+                    color: sel ? (op.v ? '#dc2626' : '#16a34a') : 'var(--ink)',
+                    cursor: 'pointer',
+                  }}>{op.l}</button>
+                );
+              })}
+            </div>
+            {febre === true && (
+              <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 10, background: '#fee2e2', color: '#991b1b', fontSize: 13 }}>
+                ⚠️ Informe sua nutricionista o mais rápido possível.
+              </div>
+            )}
+          </div>
+        </StepShell>
+      )}
+
+      {/* ── Step 9: Energia + disposição ── */}
+      {step === 9 && (
         <StepShell
           title="Energia e disposição hoje"
           subtitle="0 = sem forças nenhuma, 10 = muito disposta"
-          onBack={() => setStep(7)}
-          onNext={() => setStep(9)}
-          nextDisabled={energia === null}
+          onBack={() => setStep(8)}
+          onNext={() => setStep(10)}
+          nextDisabled={energia === null || disposicao === null}
         >
-          <Scale010 value={energia} onChange={setEnergia} lowLabel="0 · Sem forças" highLabel="10 · Muito disposta" />
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 10, color: 'var(--ink)' }}>⚡ Energia física</div>
+            <Scale010 value={energia} onChange={setEnergia} lowLabel="0 · Sem forças" highLabel="10 · Muita energia" />
+          </div>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 10, color: 'var(--ink)' }}>😊 Disposição e humor</div>
+            <Scale010 value={disposicao} onChange={setDisposicao} lowLabel="0 · Muito baixa" highLabel="10 · Ótima" />
+          </div>
         </StepShell>
       )}
 
-      {/* ── Step 9: Impedimentos ── */}
-      {step === 9 && (
+      {/* ── Step 10: Mobilidade ── */}
+      {step === 10 && (
+        <StepShell
+          title="Conseguiu se movimentar hoje?"
+          onBack={() => setStep(9)}
+          onNext={() => setStep(11)}
+          nextDisabled={mobilidade === null}
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {[
+              { v: 'deitada',         l: 'Fiquei deitada a maior parte do tempo',   e: '🛏️' },
+              { v: 'sentada',         l: 'Fiquei sentada, sem me levantar muito',    e: '🪑' },
+              { v: 'caminhei_casa',   l: 'Caminhei dentro de casa',                 e: '🚶' },
+              { v: 'caminhei_fora',   l: 'Caminhei do lado de fora',               e: '🌳' },
+              { v: 'exercicio',       l: 'Fiz exercício orientado',                 e: '🏃' },
+            ].map(op => {
+              const sel = mobilidade === op.v;
+              return (
+                <button key={op.v} onClick={() => setMobilidade(op.v)} style={{
+                  padding: '14px 16px', borderRadius: 14, textAlign: 'left',
+                  border: sel ? '2px solid var(--gold-deep)' : '1.5px solid var(--hair)',
+                  background: sel ? 'var(--gold-soft)' : 'var(--paper)',
+                  display: 'flex', alignItems: 'center', gap: 14,
+                  fontSize: 14, fontWeight: sel ? 600 : 400,
+                  color: sel ? 'var(--gold-deep)' : 'var(--ink)',
+                  cursor: 'pointer', transition: 'all .15s',
+                }}>
+                  <span style={{ fontSize: 22 }}>{op.e}</span>
+                  {op.l}
+                </button>
+              );
+            })}
+          </div>
+        </StepShell>
+      )}
+
+      {/* ── Step 11: Impedimentos ── */}
+      {step === 11 && (
         <StepShell
           title="O que te impediu de comer melhor?"
           subtitle="Pode marcar mais de um. Se não houve impedimento, clique em Concluir."
-          onBack={() => setStep(8)}
+          onBack={() => setStep(10)}
           onSalvar={salvar}
           salvando={salvando}
           erro={erro}

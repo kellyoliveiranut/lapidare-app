@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
@@ -13,6 +13,7 @@ import FollowUp from './_FollowUp.jsx';
 import Suplementacao from './_Suplementacao.jsx';
 import Habitos from './_Habitos.jsx';
 import Anamnese from './_Anamnese.jsx';
+import TratamentoOncologico from './_TratamentoOncologico.jsx';
 import DicaJSON from '../../components/DicaJSON.jsx';
 
 export default function PacientePerfil() {
@@ -212,6 +213,7 @@ export default function PacientePerfil() {
       }}>
         {[
           { id: 'evolucao',    label: 'Evolução',     icon: 'chart-line' },
+          { id: 'oncologia',   label: 'Oncologia',    icon: 'stethoscope' },
           { id: 'anamnese',    label: 'Anamnese',     icon: 'clipboard-text' },
           { id: 'followup',    label: 'Follow-up',    icon: 'notebook' },
           { id: 'plano',       label: 'Plano',        icon: 'salad' },
@@ -244,6 +246,7 @@ export default function PacientePerfil() {
       </div>
 
       {tab === 'evolucao' && <Evolucao pacienteId={paciente.id} paciente={paciente} nutriId={user.id} />}
+      {tab === 'oncologia' && <TratamentoOncologico pacienteId={paciente.id} nutriId={user.id} />}
       {tab === 'anamnese' && <Anamnese pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
       {tab === 'followup' && <FollowUp pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
       {tab === 'suplementacao' && <Suplementacao pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
@@ -425,9 +428,14 @@ function CheckinPersonalizado({ pacienteId, nutriId, pacienteNome }) {
    ============================================================ */
 function RegistrarAvaliacao({ pacienteId, nutriId }) {
   const [historico, setHistorico] = useState([]);
+  const [fotos, setFotos] = useState({});          // { [peso_registro_id]: [{ tipo, url }] }
+  const [avFotos, setAvFotos] = useState(null);    // id da avaliação com painel de fotos aberto
+  const [comparar, setComparar] = useState([]);    // até 2 ids para comparar
+  const [uploadingFoto, setUploadingFoto] = useState(false);
   const [form, setForm] = useState(novaAvaliacao());
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState(null);
+  const fileRef = useRef(null);
 
   function novaAvaliacao() {
     return {
@@ -438,14 +446,48 @@ function RegistrarAvaliacao({ pacienteId, nutriId }) {
   }
 
   async function carregar() {
-    const { data } = await supabase
-      .from('peso_registros')
-      .select('id, data, kg, altura_cm, cintura_cm, quadril_cm, braco_cm, coxa_cm, pgc, mm_kg, obs')
-      .eq('paciente_id', pacienteId)
-      .order('data', { ascending: false });
-    setHistorico(data ?? []);
+    const [{ data: av }, { data: ft }] = await Promise.all([
+      supabase.from('peso_registros')
+        .select('id, data, kg, altura_cm, cintura_cm, quadril_cm, braco_cm, coxa_cm, pgc, mm_kg, obs')
+        .eq('paciente_id', pacienteId)
+        .order('data', { ascending: false }),
+      supabase.from('avaliacoes_fotos')
+        .select('id, peso_registro_id, tipo, url')
+        .eq('paciente_id', pacienteId),
+    ]);
+    setHistorico(av ?? []);
+    // agrupa fotos por avaliação
+    const map = {};
+    (ft ?? []).forEach(f => { (map[f.peso_registro_id] ??= []).push(f); });
+    setFotos(map);
   }
   useEffect(() => { carregar(); }, [pacienteId]);
+
+  async function uploadFoto(avaliacaoId, tipo, file) {
+    setUploadingFoto(true);
+    const ext = file.name.split('.').pop();
+    const path = `${nutriId}/${pacienteId}/${avaliacaoId}/${tipo}.${ext}`;
+    const { error: upErr } = await supabase.storage
+      .from('avaliacoes_nutri')
+      .upload(path, file, { upsert: true, contentType: file.type });
+    if (upErr) { setFeedback({ tipo: 'erro', msg: 'Erro no upload: ' + upErr.message }); setUploadingFoto(false); return; }
+    const { data } = supabase.storage.from('avaliacoes_nutri').getPublicUrl(path);
+    // Salva referência na tabela
+    await supabase.from('avaliacoes_fotos').upsert({
+      peso_registro_id: avaliacaoId, paciente_id: pacienteId, nutri_id: nutriId,
+      tipo, url: data.publicUrl + '?t=' + Date.now(),
+    }, { onConflict: 'peso_registro_id,tipo' });
+    setUploadingFoto(false);
+    carregar();
+  }
+
+  function toggleComparar(id) {
+    setComparar(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id)
+      : prev.length < 2 ? [...prev, id]
+      : prev
+    );
+  }
 
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
 
@@ -577,45 +619,122 @@ function RegistrarAvaliacao({ pacienteId, nutriId }) {
         </div>
       </div>
 
-      <div className="section-label">Histórico ({historico.length})</div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+        <div className="section-label" style={{ margin: 0 }}>Histórico ({historico.length})</div>
+        {comparar.length === 2 && (
+          <button className="btn-outline" style={{ fontSize: 12 }} onClick={() => setComparar([])}>
+            Fechar comparação
+          </button>
+        )}
+        {comparar.length > 0 && comparar.length < 2 && (
+          <span style={{ fontSize: 12, color: 'var(--text3)' }}>Selecione mais 1 avaliação para comparar</span>
+        )}
+      </div>
+
+      {/* Comparação de fotos lado a lado */}
+      {comparar.length === 2 && (() => {
+        const [a1, a2] = comparar.map(id => historico.find(h => h.id === id));
+        const TIPOS = ['frente', 'lado', 'costas'];
+        return (
+          <div className="card" style={{ padding: 14, marginBottom: 12 }}>
+            <div className="card-title" style={{ marginBottom: 12 }}>Comparação de fotos</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              {[a1, a2].map((av, ci) => (
+                <div key={ci}>
+                  <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8 }}>{dataBR(av?.data)}</div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    {TIPOS.map(tipo => {
+                      const f = (fotos[av?.id] ?? []).find(ft => ft.tipo === tipo);
+                      return f ? (
+                        <img key={tipo} src={f.url} alt={tipo} style={{ width: '31%', aspectRatio: '3/4', objectFit: 'cover', borderRadius: 8, border: '0.5px solid var(--border)' }} />
+                      ) : (
+                        <div key={tipo} style={{ width: '31%', aspectRatio: '3/4', background: 'var(--bg2)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: 'var(--text3)' }}>{tipo}</div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
       {historico.length === 0 ? (
         <div className="card empty-card">
           <div className="empty-sub">Nenhuma avaliação registrada ainda.</div>
         </div>
       ) : (
-        <div className="card" style={{ padding: 0 }}>
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Data</th>
-                <th>Peso</th>
-                <th>Cintura</th>
-                <th>Quadril</th>
-                <th>% gordura</th>
-                <th>M. magra</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {historico.map(a => (
-                <tr key={a.id}>
-                  <td>{dataBR(a.data)}</td>
-                  <td><strong>{a.kg ? `${a.kg} kg` : '—'}</strong></td>
-                  <td>{a.cintura_cm ? `${a.cintura_cm} cm` : '—'}</td>
-                  <td>{a.quadril_cm ? `${a.quadril_cm} cm` : '—'}</td>
-                  <td>{a.pgc ? `${a.pgc}%` : '—'}</td>
-                  <td>{a.mm_kg ? `${a.mm_kg} kg` : '—'}</td>
-                  <td style={{ textAlign: 'right' }}>
-                    <button onClick={() => remover(a.id)}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--red)', padding: 4 }}
-                      title="Remover">
-                      <i className="ti ti-trash" style={{ fontSize: 15 }} aria-hidden="true"></i>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {historico.map(a => {
+            const ftsDaAv = fotos[a.id] ?? [];
+            const aberta = avFotos === a.id;
+            const selecionado = comparar.includes(a.id);
+            const TIPOS_FOTO = ['frente', 'lado', 'costas'];
+            return (
+              <div key={a.id} className="card" style={{ padding: 0, outline: selecionado ? '2px solid var(--amber)' : 'none' }}>
+                {/* Linha de dados */}
+                <div style={{ display: 'flex', alignItems: 'center', padding: '10px 12px', gap: 8, flexWrap: 'wrap' }}>
+                  <span style={{ fontWeight: 500, fontSize: 13, minWidth: 80 }}>{dataBR(a.data)}</span>
+                  <span style={{ fontSize: 13 }}>{a.kg ? <strong>{a.kg} kg</strong> : '—'}</span>
+                  {a.cintura_cm && <span style={{ fontSize: 12, color: 'var(--text3)' }}>C: {a.cintura_cm}cm</span>}
+                  {a.quadril_cm && <span style={{ fontSize: 12, color: 'var(--text3)' }}>Q: {a.quadril_cm}cm</span>}
+                  {a.pgc && <span style={{ fontSize: 12, color: 'var(--text3)' }}>GC: {a.pgc}%</span>}
+                  {a.mm_kg && <span style={{ fontSize: 12, color: 'var(--text3)' }}>MM: {a.mm_kg}kg</span>}
+                  <div style={{ marginLeft: 'auto', display: 'flex', gap: 6, alignItems: 'center' }}>
+                    {/* Miniaturas de fotos existentes */}
+                    {ftsDaAv.map(f => (
+                      <img key={f.tipo} src={f.url} alt={f.tipo} style={{ width: 28, height: 36, objectFit: 'cover', borderRadius: 4, border: '0.5px solid var(--border)' }} />
+                    ))}
+                    <button onClick={() => setAvFotos(aberta ? null : a.id)}
+                      style={{ background: 'none', border: '0.5px solid var(--border)', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: 12, color: 'var(--text2)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <i className="ti ti-camera" style={{ fontSize: 13 }} />
+                      {ftsDaAv.length > 0 ? `${ftsDaAv.length} foto${ftsDaAv.length > 1 ? 's' : ''}` : 'Fotos'}
                     </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    <button onClick={() => toggleComparar(a.id)}
+                      style={{ background: selecionado ? 'var(--amber)' : 'none', border: '0.5px solid var(--border)', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: 11, color: selecionado ? 'var(--dark)' : 'var(--text3)' }}>
+                      {selecionado ? '✓ Selecionada' : 'Comparar'}
+                    </button>
+                    <button onClick={() => remover(a.id)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--red)', padding: 4 }}>
+                      <i className="ti ti-trash" style={{ fontSize: 14 }} />
+                    </button>
+                  </div>
+                </div>
+                {/* Painel de fotos */}
+                {aberta && (
+                  <div style={{ borderTop: '0.5px solid var(--border)', padding: '12px 14px', background: 'var(--bg2)', display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                    {TIPOS_FOTO.map(tipo => {
+                      const f = ftsDaAv.find(ft => ft.tipo === tipo);
+                      return (
+                        <div key={tipo} style={{ textAlign: 'center' }}>
+                          {f ? (
+                            <img src={f.url} alt={tipo} style={{ width: 80, height: 110, objectFit: 'cover', borderRadius: 8, display: 'block', marginBottom: 4, border: '0.5px solid var(--border)' }} />
+                          ) : (
+                            <div style={{ width: 80, height: 110, background: 'var(--bg3)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: 'var(--text3)', marginBottom: 4 }}>
+                              sem foto
+                            </div>
+                          )}
+                          <div style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 4 }}>{tipo}</div>
+                          <label style={{
+                            display: 'inline-block', padding: '3px 8px', fontSize: 11,
+                            background: 'var(--white)', border: '0.5px solid var(--border)',
+                            borderRadius: 4, cursor: 'pointer',
+                          }}>
+                            {uploadingFoto ? '…' : (f ? 'Trocar' : 'Adicionar')}
+                            <input type="file" accept="image/*" style={{ display: 'none' }}
+                              onChange={e => { const file = e.target.files[0]; if (file) uploadFoto(a.id, tipo, file); }} />
+                          </label>
+                        </div>
+                      );
+                    })}
+                    <div style={{ fontSize: 11, color: 'var(--text3)', marginLeft: 'auto', maxWidth: 160, lineHeight: 1.4 }}>
+                      Fotos visíveis apenas para você. A paciente não tem acesso.
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </>
