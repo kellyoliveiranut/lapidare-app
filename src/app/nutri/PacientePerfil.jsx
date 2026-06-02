@@ -8,6 +8,10 @@ import {
 } from '../../lib/utils.js';
 import { TEMPLATE_PADRAO } from '../../lib/checkinDefault.js';
 import { callAnthropic } from '../../lib/anthropic.js';
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid,
+  Tooltip, ResponsiveContainer, LabelList,
+} from 'recharts';
 import CheckinForm from '../../components/CheckinForm.jsx';
 import Evolucao from './_Evolucao.jsx';
 import FollowUp from './_FollowUp.jsx';
@@ -1028,6 +1032,8 @@ Retorne SOMENTE o JSON.`;
         </div>
       </div>
 
+      {historico.length >= 2 && <GraficosEvolucao historico={historico} />}
+
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
         <div className="section-label" style={{ margin: 0 }}>Histórico ({historico.length})</div>
         {comparar.length === 2 && (
@@ -1934,6 +1940,166 @@ function ModalUploadEbookPaciente({ nutriId, pacienteId, onClose, onSaved }) {
             <i className="ti ti-upload" aria-hidden="true"></i> {busy ? 'Enviando...' : 'Subir e atribuir'}
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   GRÁFICOS DE EVOLUÇÃO — estilo Shaped
+   ============================================================ */
+const SHAPED_VERDE = '#2D6A4F';
+
+function fmtVal(v) {
+  if (v == null) return '—';
+  return Number(v).toFixed(1).replace(/\.0$/, '');
+}
+
+function DotLabel({ x, y, value }) {
+  if (value == null) return null;
+  return (
+    <text x={x} y={y - 8} textAnchor="middle" fontSize={10} fill={SHAPED_VERDE} fontWeight={600}>
+      {fmtVal(value)}
+    </text>
+  );
+}
+
+const METRICAS_EV = [
+  { key: 'kg',             label: 'Peso',        unidade: 'kg', melhoraDiminuindo: true  },
+  { key: 'pgc',            label: '% Gordura',   unidade: '%',  melhoraDiminuindo: true  },
+  { key: 'mm_kg',          label: 'Massa Magra', unidade: 'kg', melhoraDiminuindo: false },
+  { key: 'gordura_kg',     label: 'Massa Gorda', unidade: 'kg', melhoraDiminuindo: true  },
+  { key: 'hidratacao_pct', label: 'Hidratação',  unidade: '%',  melhoraDiminuindo: false },
+  { key: 'cintura_cm',     label: 'Cintura',     unidade: 'cm', melhoraDiminuindo: true  },
+  { key: 'quadril_cm',     label: 'Quadril',     unidade: 'cm', melhoraDiminuindo: true  },
+  { key: 'panturrilha_cm', label: 'Panturrilha', unidade: 'cm', melhoraDiminuindo: false },
+  { key: 'braco_dir_cm',   label: 'Braço',       unidade: 'cm', melhoraDiminuindo: false, alt: 'braco_cm' },
+  { key: 'coxa_dir_cm',    label: 'Coxa',        unidade: 'cm', melhoraDiminuindo: false, alt: 'coxa_cm'  },
+];
+
+const MESES_ABR = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+
+function xLabel(iso) {
+  if (!iso) return '';
+  const d = new Date(iso + 'T12:00');
+  const m = MESES_ABR[d.getMonth()];
+  const anoAtual = new Date().getFullYear();
+  return d.getFullYear() === anoAtual ? m : `${m}/${String(d.getFullYear()).slice(2)}`;
+}
+
+function getVal(a, m) {
+  const v = a[m.key];
+  if (v != null) return v;
+  return m.alt ? (a[m.alt] ?? null) : null;
+}
+
+function GraficosEvolucao({ historico }) {
+  const dadosAsc = [...historico].reverse();
+
+  return (
+    <div style={{ marginTop: 24 }}>
+      <div className="section-label" style={{ marginBottom: 12 }}>Evolução</div>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+        gap: 12,
+      }}>
+        {METRICAS_EV.map(m => {
+          const pontos = dadosAsc
+            .map(a => ({ x: xLabel(a.data), v: getVal(a, m) }))
+            .filter(p => p.v != null);
+
+          if (pontos.length < 2) return null;
+
+          const curr = getVal(historico[0], m);
+          const prev = getVal(historico[1], m);
+          const diff = curr != null && prev != null ? curr - prev : null;
+
+          let badgeBg = '#f0ece7';
+          let badgeColor = 'var(--text3)';
+          let badgeStr = '=';
+          if (diff != null && Math.abs(diff) >= 0.05) {
+            const melhorou = m.melhoraDiminuindo ? diff < 0 : diff > 0;
+            badgeBg = melhorou ? '#d4edda' : '#fde8e8';
+            badgeColor = melhorou ? SHAPED_VERDE : '#c0392b';
+            badgeStr = `${diff > 0 ? '+' : ''}${fmtVal(diff)} ${m.unidade}`;
+          }
+
+          return (
+            <div key={m.key} style={{
+              background: 'var(--white)', borderRadius: 12,
+              border: '0.5px solid var(--border)',
+              padding: '14px 16px 8px',
+            }}>
+              {/* Header do card */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+                <div>
+                  <div style={{
+                    fontSize: 10, color: 'var(--text3)', fontWeight: 600,
+                    letterSpacing: '.06em', textTransform: 'uppercase',
+                  }}>
+                    {m.label}
+                  </div>
+                  <div style={{ marginTop: 2 }}>
+                    <span style={{ fontSize: 22, fontWeight: 700, color: 'var(--dark)', lineHeight: 1.1 }}>
+                      {curr != null ? fmtVal(curr) : '—'}
+                    </span>
+                    <span style={{ fontSize: 12, color: 'var(--text3)', marginLeft: 3 }}>{m.unidade}</span>
+                  </div>
+                </div>
+                <div style={{
+                  background: badgeBg, color: badgeColor,
+                  borderRadius: 20, padding: '3px 10px',
+                  fontSize: 12, fontWeight: 600, marginTop: 4,
+                  whiteSpace: 'nowrap',
+                }}>
+                  {badgeStr}
+                </div>
+              </div>
+
+              {/* Area chart */}
+              <ResponsiveContainer width="100%" height={100}>
+                <AreaChart data={pontos} margin={{ top: 22, right: 4, left: -32, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id={`ev-${m.key}`} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={SHAPED_VERDE} stopOpacity={0.2} />
+                      <stop offset="100%" stopColor={SHAPED_VERDE} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid vertical={false} stroke="#f2ede6" />
+                  <XAxis
+                    dataKey="x"
+                    tick={{ fontSize: 10, fill: '#9b9087' }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis hide domain={['auto', 'auto']} />
+                  <Tooltip
+                    contentStyle={{
+                      fontSize: 12, borderRadius: 8,
+                      border: '0.5px solid var(--border)',
+                      background: 'var(--white)', boxShadow: 'none',
+                    }}
+                    formatter={v => [`${fmtVal(v)} ${m.unidade}`, m.label]}
+                    labelStyle={{ fontSize: 10, color: 'var(--text3)' }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="v"
+                    stroke={SHAPED_VERDE}
+                    strokeWidth={2}
+                    fill={`url(#ev-${m.key})`}
+                    dot={{ r: 4, fill: SHAPED_VERDE, stroke: '#fff', strokeWidth: 2 }}
+                    activeDot={{ r: 5, fill: SHAPED_VERDE }}
+                    connectNulls
+                  >
+                    <LabelList dataKey="v" content={DotLabel} />
+                  </Area>
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
