@@ -11,6 +11,7 @@ export default function Pacientes() {
   const [pacientes, setPacientes] = useState(null);
   const [pendentes, setPendentes] = useState([]);
   const [busca, setBusca] = useState('');
+  const [filtroStatus, setFiltroStatus] = useState('ativo');
   const [importerOpen, setImporterOpen] = useState(false);
   const [showPendentes, setShowPendentes] = useState(false);
 
@@ -18,7 +19,7 @@ export default function Pacientes() {
     const [pacRes, pendRes] = await Promise.all([
       supabase
         .from('pacientes')
-        .select('id, nome, email, objetivo, tipo_plano, modalidade, avatar_url, created_at')
+        .select('id, nome, email, objetivo, tipo_plano, modalidade, avatar_url, created_at, status_paciente')
         .order('created_at', { ascending: false }),
       supabase
         .from('pacientes_pendentes')
@@ -48,12 +49,13 @@ export default function Pacientes() {
 
   const filtradas = useMemo(() => {
     if (!pacientes) return [];
+    const porStatus = pacientes.filter(p => (p.status_paciente ?? 'ativo') === filtroStatus);
     const q = busca.trim().toLowerCase();
-    if (!q) return pacientes;
-    return pacientes.filter(p =>
+    if (!q) return porStatus;
+    return porStatus.filter(p =>
       p.nome?.toLowerCase().includes(q) || p.email?.toLowerCase().includes(q)
     );
-  }, [pacientes, busca]);
+  }, [pacientes, busca, filtroStatus]);
 
   return (
     <>
@@ -77,6 +79,42 @@ export default function Pacientes() {
             Nova paciente
           </button>
         </div>
+      </div>
+
+      {/* Abas de status */}
+      <div style={{ display: 'flex', gap: 2, background: 'var(--bg2)', borderRadius: 8, padding: 3, marginBottom: 14 }}>
+        {[
+          { id: 'ativo',      label: 'Ativas',       icon: 'users' },
+          { id: 'finalizado', label: 'Finalizadas',   icon: 'archive' },
+          { id: 'obito',      label: 'In memoriam',   icon: 'heart-off' },
+        ].map(t => {
+          const count = (pacientes ?? []).filter(p => (p.status_paciente ?? 'ativo') === t.id).length;
+          return (
+            <button key={t.id} onClick={() => setFiltroStatus(t.id)}
+              style={{
+                flex: 1, padding: '7px 10px', fontSize: 12, fontWeight: 500,
+                borderRadius: 6, border: 'none', cursor: 'pointer',
+                color: filtroStatus === t.id ? 'var(--dark)' : 'var(--text3)',
+                background: filtroStatus === t.id ? 'var(--white)' : 'transparent',
+                boxShadow: filtroStatus === t.id ? 'var(--shadow-sm, 0 1px 2px rgba(0,0,0,.05))' : 'none',
+                fontFamily: 'var(--font-sans)',
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+                whiteSpace: 'nowrap',
+              }}>
+              <i className={`ti ti-${t.icon}`} style={{ fontSize: 13 }} aria-hidden="true" />
+              {t.label}
+              {count > 0 && (
+                <span style={{
+                  fontSize: 10, padding: '1px 5px', borderRadius: 999,
+                  background: filtroStatus === t.id ? 'var(--bg2)' : 'transparent',
+                  color: 'var(--text3)',
+                }}>
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {/* Banner de pendentes */}
@@ -200,6 +238,28 @@ export default function Pacientes() {
               <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4, lineHeight: 1.3 }}>
                 {p.nome}
               </div>
+
+              {/* Badge de status arquivado */}
+              {p.status_paciente === 'finalizado' && (
+                <div style={{
+                  display: 'inline-block', fontSize: 10, fontWeight: 500,
+                  padding: '2px 7px', borderRadius: 999,
+                  background: '#ebebeb', color: '#666', marginBottom: 4,
+                }}>
+                  Finalizado
+                </div>
+              )}
+              {p.status_paciente === 'obito' && (
+                <div style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 3,
+                  fontSize: 10, fontWeight: 500,
+                  padding: '2px 7px', borderRadius: 999,
+                  background: '#f5eeff', color: '#6c3483', marginBottom: 4,
+                }}>
+                  <i className="ti ti-heart-off" style={{ fontSize: 11 }} aria-hidden="true" />
+                  In memoriam
+                </div>
+              )}
 
               {/* Objetivo */}
               {p.objetivo && (

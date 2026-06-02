@@ -55,6 +55,7 @@ export default function Financeiro() {
       supabase.from('pacientes')
         .select('id, nome')
         .eq('nutri_id', user.id)
+        .eq('status_paciente', 'ativo')
         .order('nome'),
       supabase.from('servicos')
         .select('id, nome, ticket, ativo')

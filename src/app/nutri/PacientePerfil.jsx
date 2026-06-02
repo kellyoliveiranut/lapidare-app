@@ -29,6 +29,7 @@ export default function PacientePerfil() {
   const [editandoCampo, setEditandoCampo] = useState(null);
   const [novoCampo, setNovoCampo] = useState('');
   const [salvandoCampo, setSalvandoCampo] = useState(false);
+  const [arquivarOpen, setArquivarOpen] = useState(false);
 
   async function carregar() {
     const { data } = await supabase
@@ -278,6 +279,32 @@ export default function PacientePerfil() {
         ))}
       </div>
 
+      {/* Banner de status arquivado */}
+      {paciente.status_paciente === 'finalizado' && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          padding: '10px 14px', borderRadius: 8, marginBottom: 16,
+          background: '#f5f5f5', border: '0.5px solid #ccc',
+        }}>
+          <i className="ti ti-archive" style={{ fontSize: 16, color: 'var(--text3)' }} aria-hidden="true" />
+          <div style={{ fontSize: 13, color: 'var(--text2)' }}>
+            <strong>Acompanhamento finalizado</strong> — esta paciente está arquivada.
+          </div>
+        </div>
+      )}
+      {paciente.status_paciente === 'obito' && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          padding: '10px 14px', borderRadius: 8, marginBottom: 16,
+          background: '#f5eeff', border: '0.5px solid #9b59b6',
+        }}>
+          <i className="ti ti-heart-off" style={{ fontSize: 16, color: '#9b59b6' }} aria-hidden="true" />
+          <div style={{ fontSize: 13, color: '#6c3483' }}>
+            <strong>In memoriam</strong> — registro feito com respeito.
+          </div>
+        </div>
+      )}
+
       {/* Tabs */}
       <div style={{
         display: 'flex', gap: 2, background: 'var(--bg2)',
@@ -330,7 +357,153 @@ export default function PacientePerfil() {
       {tab === 'ebooks' && <EbooksDaPaciente pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
       {tab === 'avaliacao' && <RegistrarAvaliacao pacienteId={paciente.id} nutriId={user.id} paciente={paciente} />}
       {tab === 'checkin' && <CheckinPersonalizado pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
+
+      {paciente.status_paciente === 'ativo' && (
+        <div style={{ marginTop: 32, paddingTop: 16, borderTop: '0.5px solid var(--border)', textAlign: 'center' }}>
+          <button onClick={() => setArquivarOpen(true)} style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            fontSize: 12, color: 'var(--text3)', fontFamily: 'var(--font-sans)',
+            display: 'inline-flex', alignItems: 'center', gap: 5,
+          }}>
+            <i className="ti ti-archive" style={{ fontSize: 13 }} aria-hidden="true" />
+            Arquivar paciente
+          </button>
+        </div>
+      )}
+
+      {arquivarOpen && (
+        <ModalArquivar
+          paciente={paciente}
+          onClose={() => setArquivarOpen(false)}
+          onArquivado={() => navigate('/nutri/pacientes')}
+        />
+      )}
     </>
+  );
+}
+
+/* ============================================================
+   MODAL ARQUIVAR PACIENTE
+   ============================================================ */
+function ModalArquivar({ paciente, onClose, onArquivado }) {
+  const [status, setStatus] = useState(null);
+  const [confirmObito, setConfirmObito] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  async function confirmar() {
+    if (!status) return;
+    if (status === 'obito' && !confirmObito) {
+      setConfirmObito(true);
+      return;
+    }
+    setBusy(true);
+    const { error } = await supabase.from('pacientes')
+      .update({ status_paciente: status }).eq('id', paciente.id);
+    setBusy(false);
+    if (error) { alert('Erro: ' + error.message); return; }
+    onArquivado();
+  }
+
+  const OPCOES = [
+    {
+      value: 'finalizado',
+      icon: 'ti-check',
+      label: 'Acompanhamento finalizado',
+      desc: 'A paciente concluiu ou encerrou o acompanhamento',
+      cor: 'var(--text2)',
+      bg: '#f5f5f5',
+      borda: '#ccc',
+    },
+    {
+      value: 'obito',
+      icon: 'ti-heart-off',
+      label: 'Paciente veio a óbito',
+      desc: 'Registrar com respeito e cuidado',
+      cor: '#6c3483',
+      bg: '#f5eeff',
+      borda: '#9b59b6',
+    },
+  ];
+
+  return (
+    <div onClick={onClose} style={{
+      position: 'fixed', inset: 0, background: 'rgba(28,23,18,.55)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      zIndex: 100, padding: 16,
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: 'var(--white)', borderRadius: 12, padding: 24,
+        width: 420, maxWidth: '92vw',
+        border: '0.5px solid var(--border)',
+      }}>
+        <div style={{ fontFamily: 'var(--font-serif)', fontSize: 18, marginBottom: 4 }}>
+          Arquivar paciente
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 20 }}>
+          {paciente.nome} — escolha o motivo do arquivamento
+        </div>
+
+        {confirmObito ? (
+          <div style={{
+            padding: '14px 16px', borderRadius: 8, marginBottom: 20,
+            background: '#f5eeff', border: '0.5px solid #9b59b6',
+            fontSize: 14, color: '#6c3483', lineHeight: 1.5,
+          }}>
+            <strong>Tem certeza?</strong><br />
+            Esta ação registra o falecimento de {paciente.nome.split(' ')[0]}.
+            O perfil ficará preservado em "In memoriam".
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
+            {OPCOES.map(op => (
+              <button key={op.value} onClick={() => setStatus(op.value)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 14,
+                  padding: '14px 16px', borderRadius: 10, cursor: 'pointer',
+                  textAlign: 'left', fontFamily: 'var(--font-sans)',
+                  background: status === op.value ? op.bg : 'var(--white)',
+                  border: `1.5px solid ${status === op.value ? op.borda : 'var(--border)'}`,
+                  transition: 'all .15s',
+                }}>
+                <div style={{
+                  width: 36, height: 36, borderRadius: 9, flexShrink: 0,
+                  background: status === op.value ? op.bg : 'var(--bg2)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <i className={`ti ${op.icon}`} style={{ fontSize: 18, color: status === op.value ? op.cor : 'var(--text3)' }} aria-hidden="true" />
+                </div>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 500, color: status === op.value ? op.cor : 'var(--dark)' }}>
+                    {op.label}
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>{op.desc}</div>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn-outline" style={{ flex: 1, justifyContent: 'center' }}
+            onClick={confirmObito ? () => setConfirmObito(false) : onClose}>
+            {confirmObito ? '← Voltar' : 'Cancelar'}
+          </button>
+          <button
+            onClick={confirmar}
+            disabled={!status || busy}
+            style={{
+              flex: 1, padding: '10px 14px', borderRadius: 8, border: 'none',
+              cursor: status ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 500,
+              fontFamily: 'var(--font-sans)', opacity: status ? 1 : 0.4,
+              background: status === 'obito' ? '#9b59b6' : 'var(--dark)',
+              color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            }}>
+            <i className="ti ti-archive" aria-hidden="true" />
+            {busy ? 'Arquivando…' : 'Confirmar'}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

@@ -2235,3 +2235,12 @@ create policy suplementos_storage_delete on storage.objects for delete using (
 -- =============================================================
 alter table public.consultas add column if not exists lembrete_ativo  boolean not null default true;
 alter table public.consultas add column if not exists lembrete_enviado boolean not null default false;
+
+
+
+-- =============================================================
+-- 19. STATUS DA PACIENTE (ativo / finalizado / obito)
+-- =============================================================
+alter table public.pacientes add column if not exists status_paciente text not null default 'ativo'
+  check (status_paciente in ('ativo', 'finalizado', 'obito'));
+create index if not exists pacientes_status_nutri_idx on public.pacientes(nutri_id, status_paciente);

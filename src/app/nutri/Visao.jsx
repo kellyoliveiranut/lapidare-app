@@ -62,7 +62,7 @@ export default function Visao() {
         msgRes, feedRes, supRes, supLogRes,
       ] = await Promise.all([
         // pacientes ativas (com nascimento pra aniversário)
-        supabase.from('pacientes').select('id, nome, tipo_plano, nascimento').eq('nutri_id', user.id),
+        supabase.from('pacientes').select('id, nome, tipo_plano, nascimento').eq('nutri_id', user.id).eq('status_paciente', 'ativo'),
         // consultas da semana
         supabase.from('consultas').select('id, data_hora, tipo, duracao_min, paciente:pacientes(id, nome)')
           .eq('nutri_id', user.id).neq('status', 'cancelada')
