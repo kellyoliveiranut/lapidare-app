@@ -23,6 +23,8 @@ const INTERVALOS = [7, 14, 21, 28];
 
 const ESTADIAMENTOS = ['I', 'II', 'III', 'IV', 'IA', 'IB', 'IIA', 'IIB', 'IIIA', 'IIIB', 'IIIC'];
 
+const AREAS_RADIO = ['Mama', 'Pelve', 'Cabeça e pescoço', 'Abdome', 'Tórax', 'SNC', 'Outro'];
+
 const SECOES = [
   { id: 'diagnostico', label: 'Diagnóstico',         icon: 'dna' },
   { id: 'tratamento',  label: 'Tratamento Sistêmico', icon: 'needle' },
@@ -35,16 +37,25 @@ const SECOES = [
 function dadosDefault() {
   return {
     tipo_cancer: '', estadiamento: '', medico: '', hospital: '', data_diagnostico: '',
+    data_inicio_acompanhamento: '',
     intencao: '', metastatico: '', locais_metastase: '',
     doenca_atividade: '',
     tipo_trat_sistemico: '', protocolo: '', medicamentos: '', total_ciclos: '', ciclo_atual: '',
     intervalo_ciclos: '', data_ultima_quimio: '',
+    usa_corticoide: '', atraso_ciclo: '',
     radio_ativa: false, radio_area: '', radio_sessao_atual: '', radio_total_sessoes: '',
     radio_inicio: '', radio_termino: '',
+    cirurgia_status: '', cirurgia_tipo: '',
     cirurgia_indicada: false, cirurgia_realizada: false, cirurgia_data: '',
     cirurgia_complicacoes: '', cirurgia_preparo_nutricional: false,
     acao_semana: '',
   };
+}
+
+function addDays(dateStr, n) {
+  const d = new Date(dateStr + 'T12:00:00');
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
 }
 
 function exameDefault() {
@@ -77,6 +88,7 @@ export default function TratamentoOncologico({ pacienteId, nutriId }) {
         tipo_cancer: trat.tipo_cancer ?? '', estadiamento: trat.estadiamento ?? '',
         medico: trat.medico ?? '', hospital: trat.hospital ?? '',
         data_diagnostico: trat.data_diagnostico ?? '',
+        data_inicio_acompanhamento: trat.data_inicio_acompanhamento ?? '',
         intencao: trat.intencao ?? '', metastatico: trat.metastatico ?? '',
         locais_metastase: (trat.locais_metastase ?? []).join(', '),
         doenca_atividade: trat.doenca_atividade ?? '',
@@ -84,9 +96,13 @@ export default function TratamentoOncologico({ pacienteId, nutriId }) {
         medicamentos: (trat.medicamentos ?? []).join(', '),
         total_ciclos: trat.total_ciclos ?? '', ciclo_atual: trat.ciclo_atual ?? '',
         intervalo_ciclos: trat.intervalo_ciclos ?? '', data_ultima_quimio: trat.data_ultima_quimio ?? '',
+        usa_corticoide: trat.usa_corticoide == null ? '' : String(trat.usa_corticoide),
+        atraso_ciclo: trat.atraso_ciclo == null ? '' : String(trat.atraso_ciclo),
         radio_ativa: trat.radio_ativa ?? false, radio_area: trat.radio_area ?? '',
         radio_sessao_atual: trat.radio_sessao_atual ?? '', radio_total_sessoes: trat.radio_total_sessoes ?? '',
         radio_inicio: trat.radio_inicio ?? '', radio_termino: trat.radio_termino ?? '',
+        cirurgia_status: trat.cirurgia_status ?? (trat.cirurgia_indicada ? 'sim' : ''),
+        cirurgia_tipo: trat.cirurgia_tipo ?? '',
         cirurgia_indicada: trat.cirurgia_indicada ?? false, cirurgia_realizada: trat.cirurgia_realizada ?? false,
         cirurgia_data: trat.cirurgia_data ?? '', cirurgia_complicacoes: trat.cirurgia_complicacoes ?? '',
         cirurgia_preparo_nutricional: trat.cirurgia_preparo_nutricional ?? false,
@@ -116,6 +132,7 @@ export default function TratamentoOncologico({ pacienteId, nutriId }) {
       medico: dados.medico.trim() || null,
       hospital: dados.hospital.trim() || null,
       data_diagnostico: dados.data_diagnostico || null,
+      data_inicio_acompanhamento: dados.data_inicio_acompanhamento || null,
       intencao: dados.intencao || null,
       metastatico: dados.metastatico || null,
       locais_metastase: toArr(dados.locais_metastase),
@@ -127,13 +144,17 @@ export default function TratamentoOncologico({ pacienteId, nutriId }) {
       ciclo_atual: num(dados.ciclo_atual),
       intervalo_ciclos: num(dados.intervalo_ciclos),
       data_ultima_quimio: dados.data_ultima_quimio || null,
+      usa_corticoide: dados.usa_corticoide === '' ? null : dados.usa_corticoide === 'true',
+      atraso_ciclo: dados.atraso_ciclo === '' ? null : dados.atraso_ciclo === 'true',
       radio_ativa: dados.radio_ativa,
-      radio_area: dados.radio_area.trim() || null,
+      radio_area: dados.radio_area || null,
       radio_sessao_atual: num(dados.radio_sessao_atual),
       radio_total_sessoes: num(dados.radio_total_sessoes),
       radio_inicio: dados.radio_inicio || null,
       radio_termino: dados.radio_termino || null,
-      cirurgia_indicada: dados.cirurgia_indicada,
+      cirurgia_status: dados.cirurgia_status || null,
+      cirurgia_tipo: dados.cirurgia_tipo.trim() || null,
+      cirurgia_indicada: dados.cirurgia_status === 'sim',
       cirurgia_realizada: dados.cirurgia_realizada,
       cirurgia_data: dados.cirurgia_data || null,
       cirurgia_complicacoes: dados.cirurgia_complicacoes.trim() || null,
@@ -259,10 +280,13 @@ export default function TratamentoOncologico({ pacienteId, nutriId }) {
                 </select>
               </div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
               <F label="Médico oncologista" value={dados.medico} onChange={set('medico')} />
               <F label="Hospital / Instituição" value={dados.hospital} onChange={set('hospital')} />
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
               <F label="Data do diagnóstico" type="date" value={dados.data_diagnostico} onChange={set('data_diagnostico')} />
+              <F label="Início do acompanhamento nutricional" type="date" value={dados.data_inicio_acompanhamento} onChange={set('data_inicio_acompanhamento')} />
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
@@ -341,6 +365,24 @@ export default function TratamentoOncologico({ pacienteId, nutriId }) {
               </div>
               <F label="Data última quimio" type="date" value={dados.data_ultima_quimio} onChange={set('data_ultima_quimio')} />
             </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+              <div>
+                <label className="field-label">Usa corticoide?</label>
+                <select value={dados.usa_corticoide} onChange={set('usa_corticoide')}>
+                  <option value="">—</option>
+                  <option value="true">Sim</option>
+                  <option value="false">Não</option>
+                </select>
+              </div>
+              <div>
+                <label className="field-label">Teve atraso de ciclo?</label>
+                <select value={dados.atraso_ciclo} onChange={set('atraso_ciclo')}>
+                  <option value="">—</option>
+                  <option value="true">Sim</option>
+                  <option value="false">Não</option>
+                </select>
+              </div>
+            </div>
             <button className="btn" onClick={salvarTratamento} disabled={busy}>
               {busy ? 'Salvando…' : 'Salvar tratamento'}
             </button>
@@ -377,8 +419,51 @@ export default function TratamentoOncologico({ pacienteId, nutriId }) {
             </div>
           </div>
 
+          {ciclos.length > 0 && (() => {
+            const uc = ciclos[0];
+            const intervalo = num(dados.intervalo_ciclos) || 21;
+            const marcos = [
+              { d: uc.data_quimio,                   label: 'D0',          desc: 'Quimio',             cor: '#6366f1' },
+              { d: uc.d3,                             label: 'D+3',         desc: 'Início da piora',    cor: '#f59e0b' },
+              { d: uc.d7,                             label: 'D+7',         desc: 'Janela de risco',    cor: '#ef4444' },
+              { d: uc.d10,                            label: 'D+10',        desc: 'Pico de risco',      cor: '#dc2626' },
+              { d: uc.d14,                            label: 'D+14',        desc: 'Fim da janela',      cor: '#f97316' },
+              { d: addDays(uc.data_quimio, intervalo), label: `D+${intervalo}`, desc: 'Próximo ciclo', cor: '#16a34a' },
+            ];
+            return (
+              <div className="card" style={{ padding: 16, marginBottom: 12, overflow: 'hidden' }}>
+                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 14, color: 'var(--dark)' }}>
+                  Linha do tempo · Ciclo {uc.numero_ciclo} ({dataBR(uc.data_quimio)})
+                </div>
+                <div style={{ position: 'relative', padding: '0 6px 32px' }}>
+                  <div style={{ position: 'absolute', top: 10, left: 6, right: 6, height: 2, background: 'var(--bg3, #e8e2d8)', borderRadius: 1 }} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', position: 'relative' }}>
+                    {marcos.map((m, i) => {
+                      const passado = m.d <= hoje;
+                      const isHoje  = m.d === hoje;
+                      return (
+                        <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+                          <div style={{
+                            width: 20, height: 20, borderRadius: '50%', zIndex: 1, marginBottom: 6,
+                            background: passado ? m.cor : '#fff',
+                            border: `2px solid ${passado ? m.cor : 'var(--border)'}`,
+                            boxShadow: isHoje ? `0 0 0 3px ${m.cor}40` : 'none',
+                          }} />
+                          <div style={{ fontSize: 10, fontWeight: 700, color: passado ? m.cor : 'var(--text3)', textAlign: 'center', lineHeight: 1.3 }}>{m.label}</div>
+                          <div style={{ fontSize: 9, color: 'var(--text3)', textAlign: 'center', lineHeight: 1.3 }}>{dataBR(m.d)}</div>
+                          <div style={{ fontSize: 9, color: 'var(--text3)', textAlign: 'center', lineHeight: 1.3, maxWidth: 56 }}>{m.desc}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
           {ciclos.length > 0 && (
             <div className="card" style={{ padding: 0 }}>
+              <div style={{ overflowX: 'auto' }}>
               <table className="table">
                 <thead>
                   <tr>
@@ -414,6 +499,7 @@ export default function TratamentoOncologico({ pacienteId, nutriId }) {
                   })}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
         </>
@@ -433,7 +519,13 @@ export default function TratamentoOncologico({ pacienteId, nutriId }) {
             {dados.radio_ativa && (
               <>
                 <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
-                  <F label="Área irradiada" value={dados.radio_area} onChange={set('radio_area')} placeholder="ex: Mama direita + axilas" />
+                  <div>
+                    <label className="field-label">Área irradiada</label>
+                    <select value={dados.radio_area} onChange={set('radio_area')}>
+                      <option value="">Selecione</option>
+                      {AREAS_RADIO.map(a => <option key={a} value={a}>{a}</option>)}
+                    </select>
+                  </div>
                   <F label="Sessão atual" type="number" value={dados.radio_sessao_atual} onChange={set('radio_sessao_atual')} />
                   <F label="Total de sessões" type="number" value={dados.radio_total_sessoes} onChange={set('radio_total_sessoes')} />
                 </div>
@@ -457,24 +549,40 @@ export default function TratamentoOncologico({ pacienteId, nutriId }) {
             <div className="card-title">🔪 Cirurgia</div>
           </div>
           <div className="card-body">
-            <div style={{ display: 'flex', gap: 20, marginBottom: 12, flexWrap: 'wrap' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-                <input type="checkbox" checked={dados.cirurgia_indicada} onChange={set('cirurgia_indicada')} />
-                Indicada
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-                <input type="checkbox" checked={dados.cirurgia_realizada} onChange={set('cirurgia_realizada')} />
-                Já realizada
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-                <input type="checkbox" checked={dados.cirurgia_preparo_nutricional} onChange={set('cirurgia_preparo_nutricional')} />
-                Necessita preparo nutricional
-              </label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+              <div>
+                <label className="field-label">Cirurgia indicada?</label>
+                <select value={dados.cirurgia_status} onChange={set('cirurgia_status')}>
+                  <option value="">Selecione</option>
+                  <option value="sim">Sim</option>
+                  <option value="nao">Não</option>
+                  <option value="avaliacao">Em avaliação</option>
+                </select>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: 4 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13 }}>
+                  <input type="checkbox" checked={dados.cirurgia_preparo_nutricional} onChange={set('cirurgia_preparo_nutricional')} />
+                  Necessita preparo nutricional
+                </label>
+              </div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 10 }}>
-              <F label="Data da cirurgia" type="date" value={dados.cirurgia_data} onChange={set('cirurgia_data')} />
-              <F label="Complicações / observações" value={dados.cirurgia_complicacoes} onChange={set('cirurgia_complicacoes')} />
-            </div>
+            {dados.cirurgia_status === 'sim' && (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+                  <F label="Tipo de cirurgia" value={dados.cirurgia_tipo} onChange={set('cirurgia_tipo')} placeholder="ex: Mastectomia, Histerectomia" />
+                  <F label="Data marcada" type="date" value={dados.cirurgia_data} onChange={set('cirurgia_data')} />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 10, marginBottom: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: 4 }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13 }}>
+                      <input type="checkbox" checked={dados.cirurgia_realizada} onChange={set('cirurgia_realizada')} />
+                      Já realizada
+                    </label>
+                  </div>
+                  <F label="Complicações / observações" value={dados.cirurgia_complicacoes} onChange={set('cirurgia_complicacoes')} />
+                </div>
+              </>
+            )}
             <button className="btn" style={{ marginTop: 10 }} onClick={salvarTratamento} disabled={busy}>
               {busy ? 'Salvando…' : 'Salvar cirurgia'}
             </button>

@@ -94,6 +94,13 @@ export default function MonitoramentoOncologico() {
   const [selecionado, setSelecionado] = useState(null); // id da paciente selecionada
   const [detalheRegs, setDetalheRegs] = useState([]); // registros da paciente selecionada
   const [loading, setLoading] = useState(true);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
+
+  useEffect(() => {
+    function onResize() { setIsMobile(window.innerWidth < 768); }
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -151,7 +158,7 @@ export default function MonitoramentoOncologico() {
       <div className="page-title">Monitoramento Oncológico</div>
       <div className="page-sub">Acompanhe o estado nutricional das suas pacientes em tratamento</div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 16, alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '280px 1fr', gap: 16, alignItems: 'start' }}>
 
         {/* ── Lista de pacientes ── */}
         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
@@ -163,7 +170,7 @@ export default function MonitoramentoOncologico() {
               Nenhuma paciente cadastrada.
             </div>
           ) : (
-            <div style={{ maxHeight: 'calc(100vh - 220px)', overflowY: 'auto' }}>
+            <div style={{ maxHeight: isMobile ? 260 : 'calc(100vh - 220px)', overflowY: 'auto' }}>
               {pacientes.map(p => {
                 const ul = ultimoReg[p.id];
                 const sem = calcSemaforo(ul);
@@ -280,7 +287,7 @@ export default function MonitoramentoOncologico() {
               )}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 14 }}>
 
               {/* ── Alertas ── */}
               <div className="card" style={{ padding: '14px 16px' }}>
@@ -341,7 +348,7 @@ export default function MonitoramentoOncologico() {
               {!indic || indic.diasCheckin === 0 ? (
                 <div style={{ fontSize: 13, color: 'var(--muted)' }}>Sem check-ins nos últimos 7 dias.</div>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', gap: 10 }}>
                   <IndicCard label="Dias com check-in"    value={`${indic.diasCheckin}/7`}            cor="var(--blue)" />
                   <IndicCard label="Apetite médio"        value={indic.apetiteMedio   ? `${indic.apetiteMedio}/10` : '—'} cor={indic.apetiteMedio < 4 ? '#dc2626' : indic.apetiteMedio < 6 ? '#d97706' : '#16a34a'} />
                   <IndicCard label="Energia média"        value={indic.energiaMedio   ? `${indic.energiaMedio}/10` : '—'} cor={indic.energiaMedio < 4 ? '#dc2626' : indic.energiaMedio < 6 ? '#d97706' : '#16a34a'} />

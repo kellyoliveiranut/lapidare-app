@@ -1827,6 +1827,23 @@ create policy avatares_pacientes_delete on storage.objects
   );
 
 -- =============================================================
+-- 14. CAMPOS ADICIONAIS — TRATAMENTO ONCOLÓGICO
+-- =============================================================
+alter table public.tratamentos_oncologicos add column if not exists data_inicio_acompanhamento date;
+alter table public.tratamentos_oncologicos add column if not exists usa_corticoide boolean;
+alter table public.tratamentos_oncologicos add column if not exists atraso_ciclo boolean;
+alter table public.tratamentos_oncologicos add column if not exists cirurgia_tipo text;
+alter table public.tratamentos_oncologicos add column if not exists cirurgia_status text;
+alter table public.tratamentos_oncologicos drop constraint if exists trat_onco_cirurgia_status_check;
+alter table public.tratamentos_oncologicos add constraint trat_onco_cirurgia_status_check
+  check (cirurgia_status in ('sim','nao','avaliacao'));
+
+-- Unique constraint necessário para o upsert de fotos de avaliação
+create unique index if not exists avaliacoes_fotos_registro_tipo_unique
+  on public.avaliacoes_fotos (peso_registro_id, tipo);
+
+
+-- =============================================================
 -- FIM — Lapidare setup
 -- =============================================================
 -- Pós-instalação na nutri:

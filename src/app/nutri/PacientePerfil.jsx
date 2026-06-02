@@ -213,7 +213,7 @@ export default function PacientePerfil() {
       }}>
         {[
           { id: 'evolucao',    label: 'Evolução',     icon: 'chart-line' },
-          { id: 'oncologia',   label: 'Oncologia',    icon: 'stethoscope' },
+          { id: 'oncologia',   label: 'Oncologia',    icon: 'dna' },
           { id: 'anamnese',    label: 'Anamnese',     icon: 'clipboard-text' },
           { id: 'followup',    label: 'Follow-up',    icon: 'notebook' },
           { id: 'plano',       label: 'Plano',        icon: 'salad' },
