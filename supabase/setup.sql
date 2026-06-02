@@ -1,4 +1,4 @@
--- =============================================================
+﻿-- =============================================================
 -- LAPIDARE · Setup do Supabase
 -- =============================================================
 -- Cole este arquivo INTEIRO em:
@@ -1875,3 +1875,363 @@ create unique index if not exists avaliacoes_fotos_registro_tipo_unique
 --   4. (Opcional) Em Database → Extensions, habilite `pg_cron`
 --      para envio automático de check-ins.
 -- =============================================================
+
+-- =============================================================
+-- 16. PACIENTES DIRETOS — email opcional, sem obrigação de auth
+-- =============================================================
+
+-- 16.1 Remove FK que amarrava pacientes.id a auth.users
+alter table public.pacientes drop constraint if exists pacientes_id_fkey;
+
+-- 16.2 Adiciona user_id (link opcional com auth.users)
+alter table public.pacientes add column if not exists user_id uuid references auth.users(id) on delete set null;
+create unique index if not exists pacientes_user_id_unique on public.pacientes(user_id) where user_id is not null;
+
+-- 16.3 Backfill: todos os pacientes existentes mantêm user_id = id
+update public.pacientes set user_id = id where user_id is null;
+
+-- 16.4 Email e obs opcionais em pacientes
+alter table public.pacientes alter column email drop not null;
+alter table public.pacientes add column if not exists obs text;
+
+-- 16.5 pacientes_pendentes: email opcional
+alter table public.pacientes_pendentes alter column email drop not null;
+
+-- 16.6 Função helper: id do paciente autenticado
+create or replace function public.minha_paciente_id()
+returns uuid language sql security definer stable set search_path = public
+as $$
+  select id from public.pacientes where user_id = auth.uid() limit 1;
+$$;
+grant execute on function public.minha_paciente_id() to anon, authenticated;
+
+-- 16.7 Atualizar RLS de pacientes para usar user_id
+drop policy if exists pacientes_select on public.pacientes;
+create policy pacientes_select on public.pacientes
+  for select using (user_id = auth.uid() or nutri_id = auth.uid());
+
+drop policy if exists pacientes_insert on public.pacientes;
+create policy pacientes_insert on public.pacientes
+  for insert with check (nutri_id = auth.uid());
+
+drop policy if exists pacientes_update on public.pacientes;
+create policy pacientes_update on public.pacientes
+  for update using (user_id = auth.uid() or nutri_id = auth.uid());
+
+drop policy if exists pacientes_update_self on public.pacientes;
+create policy pacientes_update_self on public.pacientes for update
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+-- 16.8 Atualizar políticas das tabelas filho (paciente_id = auth.uid() → usa minha_paciente_id())
+drop policy if exists planos_select on public.planos;
+create policy planos_select on public.planos for select using (
+  paciente_id = public.minha_paciente_id() or nutri_id = auth.uid()
+);
+
+drop policy if exists listas_compras_select on public.listas_compras;
+create policy listas_compras_select on public.listas_compras for select using (
+  paciente_id = public.minha_paciente_id() or nutri_id = auth.uid()
+);
+
+drop policy if exists prescricoes_select on public.prescricoes;
+create policy prescricoes_select on public.prescricoes for select using (
+  paciente_id = public.minha_paciente_id() or nutri_id = auth.uid()
+);
+
+drop policy if exists mensagens_select on public.mensagens;
+create policy mensagens_select on public.mensagens for select using (
+  paciente_id = public.minha_paciente_id() or nutri_id = auth.uid()
+);
+
+drop policy if exists mensagens_insert on public.mensagens;
+create policy mensagens_insert on public.mensagens for insert with check (
+  (de = 'nutri'    and nutri_id    = auth.uid()) or
+  (de = 'paciente' and paciente_id = public.minha_paciente_id())
+);
+
+drop policy if exists mensagens_update_lida on public.mensagens;
+create policy mensagens_update_lida on public.mensagens for update using (
+  paciente_id = public.minha_paciente_id() or nutri_id = auth.uid()
+);
+
+drop policy if exists peso_select_paciente on public.peso_registros;
+create policy peso_select_paciente on public.peso_registros for select using (
+  paciente_id = public.minha_paciente_id()
+);
+
+drop policy if exists feed_select on public.feed_pratos;
+create policy feed_select on public.feed_pratos for select using (
+  paciente_id = public.minha_paciente_id()
+  or paciente_id in (select id from public.pacientes where nutri_id = auth.uid())
+);
+
+drop policy if exists feed_insert_paciente on public.feed_pratos;
+create policy feed_insert_paciente on public.feed_pratos for insert with check (
+  paciente_id = public.minha_paciente_id()
+);
+
+drop policy if exists feed_update on public.feed_pratos;
+create policy feed_update on public.feed_pratos for update using (
+  paciente_id = public.minha_paciente_id()
+  or paciente_id in (select id from public.pacientes where nutri_id = auth.uid())
+);
+
+drop policy if exists feed_delete_paciente on public.feed_pratos;
+create policy feed_delete_paciente on public.feed_pratos for delete using (
+  paciente_id = public.minha_paciente_id()
+);
+
+drop policy if exists checkin_templates_select_paciente on public.checkin_templates;
+create policy checkin_templates_select_paciente on public.checkin_templates for select using (
+  paciente_id = public.minha_paciente_id()
+  or (paciente_id is null and nutri_id in (
+    select nutri_id from public.pacientes where id = public.minha_paciente_id()
+  ))
+);
+
+drop policy if exists checkin_envios_select on public.checkin_envios;
+create policy checkin_envios_select on public.checkin_envios for select using (
+  paciente_id = public.minha_paciente_id() or nutri_id = auth.uid()
+);
+
+drop policy if exists checkin_envios_update on public.checkin_envios;
+create policy checkin_envios_update on public.checkin_envios
+  for update using (paciente_id = public.minha_paciente_id() or nutri_id = auth.uid())
+  with check (paciente_id = public.minha_paciente_id() or nutri_id = auth.uid());
+
+drop policy if exists fotos_evolucao_select on public.fotos_evolucao;
+create policy fotos_evolucao_select on public.fotos_evolucao for select using (
+  paciente_id = public.minha_paciente_id()
+  or exists (select 1 from public.pacientes p where p.id = paciente_id and p.nutri_id = auth.uid())
+);
+
+drop policy if exists fotos_evolucao_insert_paciente on public.fotos_evolucao;
+create policy fotos_evolucao_insert_paciente on public.fotos_evolucao for insert with check (
+  paciente_id = public.minha_paciente_id()
+);
+
+drop policy if exists fotos_evolucao_delete on public.fotos_evolucao;
+create policy fotos_evolucao_delete on public.fotos_evolucao for delete using (
+  paciente_id = public.minha_paciente_id()
+  or exists (select 1 from public.pacientes p where p.id = paciente_id and p.nutri_id = auth.uid())
+);
+
+drop policy if exists suplementos_select on public.suplementos;
+create policy suplementos_select on public.suplementos for select using (
+  paciente_id = public.minha_paciente_id() or nutri_id = auth.uid()
+);
+
+drop policy if exists suplementos_logs_select on public.suplementos_logs;
+create policy suplementos_logs_select on public.suplementos_logs for select using (
+  paciente_id = public.minha_paciente_id()
+  or exists (select 1 from public.pacientes p where p.id = paciente_id and p.nutri_id = auth.uid())
+);
+
+drop policy if exists suplementos_logs_write_paciente on public.suplementos_logs;
+create policy suplementos_logs_write_paciente on public.suplementos_logs for all
+  using (paciente_id = public.minha_paciente_id())
+  with check (paciente_id = public.minha_paciente_id());
+
+drop policy if exists habitos_select on public.habitos;
+create policy habitos_select on public.habitos for select using (
+  paciente_id = public.minha_paciente_id() or nutri_id = auth.uid()
+);
+
+drop policy if exists habitos_logs_select on public.habitos_logs;
+create policy habitos_logs_select on public.habitos_logs for select using (
+  paciente_id = public.minha_paciente_id()
+  or exists (select 1 from public.pacientes p where p.id = paciente_id and p.nutri_id = auth.uid())
+);
+
+drop policy if exists habitos_logs_write_paciente on public.habitos_logs;
+create policy habitos_logs_write_paciente on public.habitos_logs for all
+  using (paciente_id = public.minha_paciente_id())
+  with check (paciente_id = public.minha_paciente_id());
+
+drop policy if exists monit_paciente_select on public.monitoramento_oncologico;
+create policy monit_paciente_select on public.monitoramento_oncologico for select using (
+  paciente_id = public.minha_paciente_id()
+);
+
+drop policy if exists monit_paciente_insert on public.monitoramento_oncologico;
+create policy monit_paciente_insert on public.monitoramento_oncologico for insert with check (
+  paciente_id = public.minha_paciente_id()
+);
+
+drop policy if exists monit_paciente_update on public.monitoramento_oncologico;
+create policy monit_paciente_update on public.monitoramento_oncologico for update using (
+  paciente_id = public.minha_paciente_id()
+);
+
+-- 16.9 Storage policies atualizadas
+drop policy if exists fotos_evolucao_storage_insert_paciente on storage.objects;
+create policy fotos_evolucao_storage_insert_paciente on storage.objects for insert with check (
+  bucket_id = 'fotos_evolucao'
+  and split_part(name, '/', 1) in (select id::text from public.pacientes where user_id = auth.uid())
+);
+
+drop policy if exists fotos_pratos_storage_insert_paciente on storage.objects;
+create policy fotos_pratos_storage_insert_paciente on storage.objects for insert with check (
+  bucket_id = 'fotos_pratos'
+  and split_part(name, '/', 1) in (select id::text from public.pacientes where user_id = auth.uid())
+);
+
+drop policy if exists fotos_pratos_storage_delete_paciente on storage.objects;
+create policy fotos_pratos_storage_delete_paciente on storage.objects for delete using (
+  bucket_id = 'fotos_pratos'
+  and split_part(name, '/', 1) in (select id::text from public.pacientes where user_id = auth.uid())
+);
+
+drop policy if exists avatares_pacientes_insert on storage.objects;
+create policy avatares_pacientes_insert on storage.objects for insert with check (
+  bucket_id = 'avatares_pacientes'
+  and split_part(name, '/', 1) in (select id::text from public.pacientes where user_id = auth.uid())
+);
+
+drop policy if exists avatares_pacientes_update on storage.objects;
+create policy avatares_pacientes_update on storage.objects for update using (
+  bucket_id = 'avatares_pacientes'
+  and split_part(name, '/', 1) in (select id::text from public.pacientes where user_id = auth.uid())
+);
+
+drop policy if exists avatares_pacientes_delete on storage.objects;
+create policy avatares_pacientes_delete on storage.objects for delete using (
+  bucket_id = 'avatares_pacientes'
+  and split_part(name, '/', 1) in (select id::text from public.pacientes where user_id = auth.uid())
+);
+
+drop policy if exists prescricoes_storage_select on storage.objects;
+create policy prescricoes_storage_select on storage.objects for select using (
+  bucket_id = 'prescricoes'
+  and (
+    split_part(name, '/', 1) in (select id::text from public.pacientes where user_id = auth.uid())
+    or split_part(name, '/', 1) in (select id::text from public.pacientes where nutri_id = auth.uid())
+  )
+);
+
+-- 16.10 Trigger handle_new_user atualizado: vincula user_id a registro existente
+create or replace function public.handle_new_user()
+returns trigger language plpgsql security definer set search_path = public
+as $$
+declare
+  v_role    text := coalesce(new.raw_user_meta_data ->> 'role', '');
+begin
+  if v_role = 'nutri' then
+    insert into public.nutris (id, nome, crn, email)
+    values (
+      new.id,
+      coalesce(new.raw_user_meta_data ->> 'nome', new.email),
+      new.raw_user_meta_data ->> 'crn',
+      new.email
+    ) on conflict (id) do nothing;
+
+  elsif v_role = 'paciente' then
+    declare
+      v_nutri_id  uuid := (new.raw_user_meta_data ->> 'nutri_id')::uuid;
+      v_pendente  public.pacientes_pendentes%rowtype;
+      v_template  record;
+      v_pac_id    uuid;
+    begin
+      select * into v_pendente from public.pacientes_pendentes
+      where nutri_id = v_nutri_id and lower(email) = lower(new.email) limit 1;
+
+      update public.pacientes
+        set user_id = new.id
+      where nutri_id = v_nutri_id
+        and lower(email) = lower(new.email)
+        and user_id is null
+      returning id into v_pac_id;
+
+      if v_pac_id is null then
+        insert into public.pacientes (id, user_id, nutri_id, nome, email, objetivo, tipo_plano, modalidade, nascimento, telefone, endereco)
+        values (
+          new.id, new.id, v_nutri_id,
+          coalesce(new.raw_user_meta_data ->> 'nome', coalesce(v_pendente.nome, new.email)),
+          new.email,
+          coalesce(new.raw_user_meta_data ->> 'objetivo',   v_pendente.objetivo),
+          coalesce(new.raw_user_meta_data ->> 'tipo_plano', v_pendente.tipo_plano),
+          coalesce(new.raw_user_meta_data ->> 'modalidade', v_pendente.modalidade),
+          coalesce((new.raw_user_meta_data ->> 'nascimento')::date, v_pendente.nascimento),
+          v_pendente.telefone,
+          v_pendente.endereco
+        ) on conflict (id) do nothing;
+        v_pac_id := new.id;
+      end if;
+
+      if v_pendente.id is not null then
+        update public.pacientes_pendentes set status = 'ativado' where id = v_pendente.id;
+      end if;
+
+      for v_template in
+        select id, nome, perguntas from public.checkin_templates
+        where nutri_id = v_nutri_id and tipo = 'pre_consulta'
+      loop
+        insert into public.checkin_envios (nutri_id, paciente_id, nome, tipo, perguntas, enviado_em)
+        values (v_nutri_id, v_pac_id,
+          coalesce(v_template.nome, 'Check-in pre-consulta'),
+          'pre_consulta', v_template.perguntas, now());
+      end loop;
+    end;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created after insert on auth.users
+  for each row execute function public.handle_new_user();
+
+grant select, insert, update, delete on public.pacientes to anon, authenticated, service_role;
+
+-- =============================================================
+-- 17. SUPLEMENTAÇÃO: FOTO E FAVORITOS
+-- =============================================================
+
+alter table public.suplementos add column if not exists foto_url text;
+
+create table if not exists public.suplementos_favoritos (
+  id          uuid primary key default gen_random_uuid(),
+  nutri_id    uuid not null references public.nutris(id) on delete cascade,
+  nome        text not null,
+  dose        text,
+  horario     text,
+  obs         text,
+  foto_url    text,
+  created_at  timestamptz not null default now()
+);
+create index if not exists sup_fav_nutri_idx on public.suplementos_favoritos(nutri_id, nome);
+alter table public.suplementos_favoritos enable row level security;
+drop policy if exists sup_fav_all_nutri on public.suplementos_favoritos;
+create policy sup_fav_all_nutri on public.suplementos_favoritos for all
+  using (nutri_id = auth.uid()) with check (nutri_id = auth.uid());
+grant select, insert, update, delete on public.suplementos_favoritos to anon, authenticated, service_role;
+
+-- Bucket público para fotos de suplementos
+insert into storage.buckets (id, name, public)
+values ('suplementos', 'suplementos', true)
+on conflict (id) do nothing;
+update storage.buckets set public = true where id = 'suplementos';
+
+drop policy if exists suplementos_storage_select on storage.objects;
+create policy suplementos_storage_select on storage.objects for select using (bucket_id = 'suplementos');
+
+drop policy if exists suplementos_storage_insert on storage.objects;
+create policy suplementos_storage_insert on storage.objects for insert with check (
+  bucket_id = 'suplementos' and auth.uid() is not null
+);
+
+drop policy if exists suplementos_storage_update on storage.objects;
+create policy suplementos_storage_update on storage.objects for update using (
+  bucket_id = 'suplementos' and auth.uid() is not null
+) with check (bucket_id = 'suplementos' and auth.uid() is not null);
+
+drop policy if exists suplementos_storage_delete on storage.objects;
+create policy suplementos_storage_delete on storage.objects for delete using (
+  bucket_id = 'suplementos' and auth.uid() is not null
+);
+
+-- =============================================================
+-- 18. AGENDA: LEMBRETE 24H
+-- =============================================================
+alter table public.consultas add column if not exists lembrete_ativo  boolean not null default true;
+alter table public.consultas add column if not exists lembrete_enviado boolean not null default false;

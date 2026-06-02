@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { dataBR } from '../../lib/utils.js';
@@ -14,6 +15,7 @@ const MODALIDADES = ['Presencial', 'Online', 'Híbrido'];
 
 export default function Cadastrar() {
   const { user } = useSession();
+  const navigate = useNavigate();
 
   const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
@@ -52,15 +54,15 @@ export default function Cadastrar() {
     e?.preventDefault?.();
     setErro(null); setSucesso(null);
     if (!nome.trim()) return setErro('Informe o nome.');
-    if (!email.trim()) return setErro('Informe o email.');
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return setErro('Email inválido.');
+    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return setErro('Email inválido.');
     if (!telefone.trim()) return setErro('Informe o telefone.');
 
     setBusy(true);
-    const payload = {
+    const emailVal = email.trim().toLowerCase() || null;
+    const pacientePayload = {
       nutri_id: user.id,
       nome: nome.trim(),
-      email: email.trim().toLowerCase(),
+      email: emailVal,
       telefone: telefone.trim(),
       nascimento: nascimento || null,
       objetivo,
@@ -68,40 +70,60 @@ export default function Cadastrar() {
       modalidade,
       endereco: endereco.trim() || null,
       obs: obs.trim() || null,
-      status: 'pendente',
     };
-    // upsert (caso já exista pendente com mesmo email, atualiza dados)
-    const { data, error } = await supabase
-      .from('pacientes_pendentes')
-      .upsert(payload, { onConflict: 'nutri_id,email' })
-      .select('*')
+    const { data: pacienteData, error: pacienteError } = await supabase
+      .from('pacientes')
+      .insert(pacientePayload)
+      .select('id, nome, email')
       .single();
-    setBusy(false);
-    if (error) return setErro('Erro ao cadastrar: ' + error.message);
+    if (pacienteError) { setBusy(false); return setErro('Erro ao cadastrar: ' + pacienteError.message); }
 
-    setSucesso(data);
+    let pendente = null;
+    if (emailVal) {
+      const pendentePayload = {
+        nutri_id: user.id,
+        nome: nome.trim(),
+        email: emailVal,
+        telefone: telefone.trim(),
+        nascimento: nascimento || null,
+        objetivo,
+        tipo_plano: tipoPlano,
+        modalidade,
+        endereco: endereco.trim() || null,
+        status: 'pendente',
+      };
+      const { data: pData } = await supabase
+        .from('pacientes_pendentes')
+        .upsert(pendentePayload, { onConflict: 'nutri_id,email' })
+        .select('*')
+        .single();
+      pendente = pData ?? null;
+    }
+
+    setBusy(false);
+    setSucesso({ id: pacienteData.id, nome: pacienteData.nome, email: pacienteData.email, pendente });
     resetForm();
     carregarPendentes();
   }
 
-  function linkDe(pendente) {
-    return `${window.location.origin}/signup-paciente/${user.id}/${pendente.token}`;
+  function linkDe(p) {
+    return `${window.location.origin}/signup-paciente/${user.id}/${p.token}`;
   }
 
-  function mensagemWhats(pendente) {
-    const link = linkDe(pendente);
-    const primeiroNome = pendente.nome.split(' ')[0];
+  function mensagemWhats(p) {
+    const link = linkDe(p);
+    const primeiroNome = p.nome.split(' ')[0];
     return encodeURIComponent(
       `Oi ${primeiroNome}! 😊\n\nPreparei seu acesso ao app de acompanhamento nutricional. Clica no link abaixo, cria sua senha e já entra:\n\n${link}\n\nQualquer dúvida, me chama por aqui!`
     );
   }
 
-  async function copiarLink(pendente) {
+  async function copiarLink(p) {
     try {
-      await navigator.clipboard.writeText(linkDe(pendente));
+      await navigator.clipboard.writeText(linkDe(p));
       alert('Link copiado!');
     } catch {
-      prompt('Copie o link abaixo:', linkDe(pendente));
+      prompt('Copie o link abaixo:', linkDe(p));
     }
   }
 
@@ -124,7 +146,7 @@ export default function Cadastrar() {
 
           <Field label="Nome completo *" value={nome} onChange={setNome} required autoFocus />
           <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 0.9fr', gap: 10 }}>
-            <Field label="Email *" type="email" value={email} onChange={setEmail} required />
+            <Field label="Email (opcional)" type="email" value={email} onChange={setEmail} />
             <Field label="Telefone *" type="tel" value={telefone} onChange={setTelefone} required placeholder="(11) 99999-9999" />
             <Field label="Data de nascimento" type="date" value={nascimento} onChange={setNascimento} />
           </div>
@@ -161,18 +183,22 @@ export default function Cadastrar() {
 
           <button type="submit" className="btn" disabled={busy} style={{ width: '100%', justifyContent: 'center' }}>
             <i className="ti ti-user-plus" aria-hidden="true"></i>
-            {busy ? 'Cadastrando...' : 'Cadastrar e gerar link'}
+            {busy ? 'Cadastrando...' : 'Cadastrar paciente'}
           </button>
         </form>
 
         {/* ─── Painel direito: sucesso recente OU instruções ─── */}
         <div>
           {sucesso ? (
-            <CartaoSucesso pendente={sucesso}
-              link={linkDe(sucesso)}
-              mensagemWhats={mensagemWhats(sucesso)}
-              onCopiar={() => copiarLink(sucesso)}
-              onDispensar={() => setSucesso(null)} />
+            <CartaoSucesso
+              pacienteId={sucesso.id}
+              nome={sucesso.nome}
+              pendente={sucesso.pendente}
+              link={sucesso.pendente ? linkDe(sucesso.pendente) : null}
+              mensagemWhats={sucesso.pendente ? mensagemWhats(sucesso.pendente) : null}
+              onCopiar={sucesso.pendente ? () => copiarLink(sucesso.pendente) : null}
+              onDispensar={() => setSucesso(null)}
+              onIrPerfil={() => navigate(`/nutri/pacientes/${sucesso.id}`)} />
           ) : (
             <div className="al-b" style={{ marginBottom: 12 }}>
               <i className="ti ti-info-circle" style={{ fontSize: 16, color: 'var(--blue)', marginTop: 1 }} aria-hidden="true"></i>
@@ -257,7 +283,8 @@ export default function Cadastrar() {
 }
 
 
-function CartaoSucesso({ pendente, link, mensagemWhats, onCopiar, onDispensar }) {
+function CartaoSucesso({ pacienteId, nome, pendente, link, mensagemWhats, onCopiar, onDispensar, onIrPerfil }) {
+  const primeiroNome = nome?.split(' ')[0] ?? '';
   return (
     <div style={{
       padding: 16, borderRadius: 12,
@@ -269,10 +296,12 @@ function CartaoSucesso({ pendente, link, mensagemWhats, onCopiar, onDispensar })
       <div style={{ display: 'flex', alignItems: 'start', justifyContent: 'space-between', gap: 8 }}>
         <div>
           <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--green, #10b981)', marginBottom: 4 }}>
-            ✓ {pendente.nome.split(' ')[0]} cadastrada
+            ✓ {primeiroNome} cadastrada
           </div>
           <div style={{ fontSize: 12, color: 'var(--text2)' }}>
-            Agora envie o link abaixo. Ela só vai precisar criar a senha.
+            {pendente
+              ? 'Agora envie o link abaixo. Ela só vai precisar criar a senha.'
+              : 'Cadastrada sem email. Você pode acessar o perfil para preencher mais dados.'}
           </div>
         </div>
         <button onClick={onDispensar}
@@ -283,23 +312,34 @@ function CartaoSucesso({ pendente, link, mensagemWhats, onCopiar, onDispensar })
           <i className="ti ti-x" aria-hidden="true"></i>
         </button>
       </div>
-      <div style={{
-        marginTop: 10, padding: '8px 10px',
-        background: 'var(--white)', borderRadius: 6,
-        fontSize: 11, fontFamily: 'monospace', color: 'var(--ink-soft)',
-        wordBreak: 'break-all',
-      }}>{link}</div>
-      <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
-        <button className="btn" onClick={onCopiar} style={{ flex: 1, justifyContent: 'center', fontSize: 12 }}>
-          <i className="ti ti-copy" aria-hidden="true"></i> Copiar link
-        </button>
-        <a className="btn-outline"
-          href={`https://wa.me/?text=${mensagemWhats}`}
-          target="_blank" rel="noreferrer"
-          style={{ flex: 1, justifyContent: 'center', fontSize: 12, textDecoration: 'none' }}>
-          <i className="ti ti-brand-whatsapp" aria-hidden="true"></i> WhatsApp
-        </a>
-      </div>
+
+      {pendente && link ? (
+        <>
+          <div style={{
+            marginTop: 10, padding: '8px 10px',
+            background: 'var(--white)', borderRadius: 6,
+            fontSize: 11, fontFamily: 'monospace', color: 'var(--ink-soft)',
+            wordBreak: 'break-all',
+          }}>{link}</div>
+          <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
+            <button className="btn" onClick={onCopiar} style={{ flex: 1, justifyContent: 'center', fontSize: 12 }}>
+              <i className="ti ti-copy" aria-hidden="true"></i> Copiar link
+            </button>
+            <a className="btn-outline"
+              href={`https://wa.me/?text=${mensagemWhats}`}
+              target="_blank" rel="noreferrer"
+              style={{ flex: 1, justifyContent: 'center', fontSize: 12, textDecoration: 'none' }}>
+              <i className="ti ti-brand-whatsapp" aria-hidden="true"></i> WhatsApp
+            </a>
+          </div>
+        </>
+      ) : (
+        <div style={{ marginTop: 10 }}>
+          <button className="btn" onClick={onIrPerfil} style={{ fontSize: 12, justifyContent: 'center' }}>
+            <i className="ti ti-arrow-right" aria-hidden="true"></i> Ir para o perfil
+          </button>
+        </div>
+      )}
     </div>
   );
 }

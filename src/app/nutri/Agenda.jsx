@@ -41,7 +41,7 @@ function tipoColor(tipo) {
 }
 
 export default function Agenda() {
-  const { user } = useSession();
+  const { user, profile } = useSession();
   const [consultas, setConsultas] = useState(undefined);
   const [pacientes, setPacientes] = useState([]);
   const [modalState, setModalState] = useState({ open: false, consulta: null });
@@ -50,6 +50,8 @@ export default function Agenda() {
     return new Date(d.getFullYear(), d.getMonth(), 1);
   });
   const [diaSelecionado, setDiaSelecionado] = useState(() => new Date());
+  const [lembretes, setLembretes] = useState([]);
+  const [enviadosLocais, setEnviadosLocais] = useState(new Set());
 
   async function carregar() {
     if (!user) return;
@@ -57,6 +59,7 @@ export default function Agenda() {
       .from('consultas')
       .select(`
         id, data_hora, duracao_min, tipo, status, obs, meet_link, links_extras,
+        lembrete_ativo, lembrete_enviado,
         paciente:pacientes(id, nome)
       `)
       .eq('nutri_id', user.id)
@@ -72,7 +75,26 @@ export default function Agenda() {
     setPacientes(data ?? []);
   }
 
-  useEffect(() => { carregar(); carregarPacientes(); }, [user]);
+  async function verificarLembretes() {
+    if (!user) return;
+    const { data } = await supabase
+      .from('consultas')
+      .select('id, data_hora, paciente:pacientes(id, nome, telefone)')
+      .eq('nutri_id', user.id)
+      .eq('lembrete_ativo', true)
+      .eq('lembrete_enviado', false)
+      .eq('status', 'agendada')
+      .gte('data_hora', new Date(Date.now() + 23 * 3600 * 1000).toISOString())
+      .lte('data_hora', new Date(Date.now() + 26 * 3600 * 1000).toISOString());
+    setLembretes(data ?? []);
+  }
+
+  async function marcarEnviado(consultaId) {
+    await supabase.from('consultas').update({ lembrete_enviado: true }).eq('id', consultaId);
+    setEnviadosLocais(prev => new Set([...prev, consultaId]));
+  }
+
+  useEffect(() => { carregar(); carregarPacientes(); verificarLembretes(); }, [user]);
 
   const agora = new Date().toISOString();
   const ativas = (consultas ?? []).filter(c => c.status !== 'cancelada');
@@ -113,6 +135,55 @@ export default function Agenda() {
           <div>
             <div className="al-t" style={{ color: 'var(--blue)' }}>Cadastre uma paciente primeiro</div>
             <div className="al-d">A agenda precisa de pelo menos uma paciente para você poder marcar consultas.</div>
+          </div>
+        </div>
+      )}
+
+      {lembretes.filter(l => !enviadosLocais.has(l.id)).length > 0 && (
+        <div style={{
+          marginBottom: 14, padding: '12px 16px', borderRadius: 10,
+          background: 'var(--orange-bg)', border: '0.5px solid var(--orange)',
+          borderLeft: '3px solid var(--orange)',
+        }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+            <i className="ti ti-bell" style={{ fontSize: 16, color: 'var(--orange)' }} aria-hidden="true"></i>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--orange)' }}>
+              Lembrete 24h — consultas amanhã
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {lembretes.filter(l => !enviadosLocais.has(l.id)).map(l => {
+              const hora = new Date(l.data_hora).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+              const nutriNome = profile?.nome ?? 'sua nutricionista';
+              const pacNome = l.paciente?.nome ?? '';
+              const tel = l.paciente?.telefone?.replace(/\D/g, '') ?? '';
+              const msg = encodeURIComponent(`Olá ${pacNome.split(' ')[0]}! Lembrando que sua consulta com ${nutriNome} é amanhã às ${hora}. Qualquer dúvida estou à disposição! 😊`);
+              return (
+                <div key={l.id} style={{
+                  display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap',
+                  background: 'var(--white)', borderRadius: 8, padding: '8px 12px',
+                  border: '0.5px solid var(--border)',
+                }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ fontSize: 13, fontWeight: 500 }}>{pacNome}</span>
+                    <span style={{ fontSize: 12, color: 'var(--text3)', marginLeft: 8 }}>{hora}</span>
+                  </div>
+                  {tel ? (
+                    <a href={`https://wa.me/55${tel}?text=${msg}`}
+                      target="_blank" rel="noreferrer"
+                      className="btn-outline"
+                      onClick={() => marcarEnviado(l.id)}
+                      style={{ fontSize: 11, padding: '3px 10px', textDecoration: 'none' }}>
+                      <i className="ti ti-brand-whatsapp" aria-hidden="true"></i> WhatsApp
+                    </a>
+                  ) : null}
+                  <button className="btn-outline" style={{ fontSize: 11, padding: '3px 10px' }}
+                    onClick={() => marcarEnviado(l.id)}>
+                    Marcar enviado
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -444,6 +515,7 @@ function ConsultaModal({ consulta, pacientes, nutriId, onClose, onSaved }) {
   const [obs, setObs] = useState(initial.obs);
   const [meetLink, setMeetLink] = useState(initial.meetLink);
   const [linksExtras, setLinksExtras] = useState(initial.linksExtras);
+  const [lembreteAtivo, setLembreteAtivo] = useState(consulta?.lembrete_ativo ?? true);
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState(null);
   const [copiado, setCopiado] = useState(false);
@@ -515,6 +587,7 @@ function ConsultaModal({ consulta, pacientes, nutriId, onClose, onSaved }) {
       obs: obs.trim() || null,
       meet_link: meetLink.trim() || null,
       links_extras: linksValidos.length > 0 ? linksValidos : null,
+      lembrete_ativo: lembreteAtivo,
     };
     const { error } = isEdit
       ? await supabase.from('consultas').update(payload).eq('id', consulta.id)
@@ -607,6 +680,12 @@ function ConsultaModal({ consulta, pacientes, nutriId, onClose, onSaved }) {
             </select>
           </>
         )}
+
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, fontSize: 13, cursor: 'pointer' }}>
+          <input type="checkbox" checked={lembreteAtivo}
+            onChange={e => setLembreteAtivo(e.target.checked)} />
+          Enviar lembrete 24h antes (via WhatsApp)
+        </label>
 
         <label className="form-lbl">Link da call (opcional)</label>
         <input type="url" value={meetLink} onChange={e => setMeetLink(e.target.value)}

@@ -30,7 +30,7 @@ async function resolveRole(userId) {
   const paciente = await supabase
     .from('pacientes')
     .select('*')
-    .eq('id', userId)
+    .eq('user_id', userId)
     .maybeSingle();
   if (paciente.data) return { role: 'paciente', profile: paciente.data };
 
