@@ -10,6 +10,7 @@ import TermoConsentimento from './components/TermoConsentimento.jsx';
 import Login from './app/auth/Login.jsx';
 import Callback from './app/auth/Callback.jsx';
 import SignupPaciente from './app/auth/SignupPaciente.jsx';
+import RedefinirSenha from './app/auth/RedefinirSenha.jsx';
 
 import Visao from './app/nutri/Visao.jsx';
 import Pacientes from './app/nutri/Pacientes.jsx';
@@ -53,6 +54,7 @@ export default function App() {
           <Route path="/auth/callback" element={<Callback />} />
           <Route path="/signup-paciente/:nutriId" element={<SignupPaciente />} />
           <Route path="/signup-paciente/:nutriId/:token" element={<SignupPaciente />} />
+          <Route path="/redefinir-senha" element={<RedefinirSenha />} />
 
           {/* Painel da Nutri */}
           <Route element={<RequireAuth role="nutri"><NutriLayout /></RequireAuth>}>

@@ -209,6 +209,43 @@ Mesma causa do "Falha ao buscar" — segue o passo a passo acima.
 
 ---
 
+## 🔓 Recuperação de senha (importante)
+
+A partir da v1.7 o Lapidare tem:
+- Botão **"Esqueci minha senha"** na tela de Login (auto-serviço pra paciente)
+- Botão **"Enviar redefinição de senha"** no perfil da paciente (nutri ajuda)
+
+Pra esses botões funcionarem, você precisa fazer **2 configurações no Supabase** (1 vez só):
+
+### 1. Adicionar Redirect URL
+
+1. No Supabase → **Authentication** → **URL Configuration**
+2. Em **Redirect URLs**, adiciona:
+   ```
+   https://SUA-URL.netlify.app/redefinir-senha
+   ```
+   (Substitui `SUA-URL` pelo nome do seu site Netlify)
+3. Salva
+
+### 2. (OPCIONAL) Configurar Resend pra emails ilimitados
+
+O Supabase grátis envia **só 3 emails/hora**. Se você espera muito reset de senha, configura Resend (grátis, 3000 emails/mês):
+
+1. Cria conta em [resend.com](https://resend.com) (gratuita)
+2. **API Keys** → cria uma nova → copia
+3. (Opcional) Verifica seu próprio domínio em **Domains** pra usar `nutri@suamarca.com.br` como remetente. Se pular, usa `onboarding@resend.dev` (funciona mas parece menos profissional).
+4. No Supabase: **Project Settings** → **Authentication** → **SMTP Settings** → marca **Enable Custom SMTP**
+5. Preenche:
+   - Sender email: `onboarding@resend.dev` (ou seu domínio verificado)
+   - Sender name: o nome da sua marca
+   - Host: `smtp.resend.com`
+   - Port: `465`
+   - Username: `resend`
+   - Password: a API key que você copiou
+6. Salva. Pronto — todos os emails (signup, reset de senha, etc.) vão pelo Resend.
+
+---
+
 ## 🔄 Como atualizar quando sair versão nova
 
 1. No GitHub do seu fork, clica em **Sync fork** (botão no topo da página)

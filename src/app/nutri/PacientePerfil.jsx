@@ -43,6 +43,32 @@ export default function PacientePerfil() {
     return () => { active = false; };
   }, [id]);
 
+  async function enviarRedefinicaoSenha() {
+    if (!paciente?.email) return;
+    const ok = window.confirm(
+      `Enviar email de redefinição de senha para ${paciente.email}?\n\n` +
+      `A paciente vai receber um link válido por 1 hora pra criar uma nova senha. ` +
+      `Você não precisa fazer mais nada.`
+    );
+    if (!ok) return;
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(paciente.email, {
+        redirectTo: `${window.location.origin}/redefinir-senha`,
+      });
+      if (error) {
+        if (/rate limit/i.test(error.message)) {
+          alert('Limite de emails atingido (3/hora no plano grátis do Supabase). Tente de novo daqui a pouco ou configure SMTP próprio em Project Settings → Authentication → SMTP.');
+        } else {
+          alert('Erro ao enviar: ' + error.message);
+        }
+        return;
+      }
+      alert(`✅ Email enviado pra ${paciente.email}!\n\nPede pra paciente verificar a caixa de entrada (e o spam). O link funciona por 1 hora.`);
+    } catch (err) {
+      alert('Erro inesperado: ' + (err?.message || 'tente de novo'));
+    }
+  }
+
   async function salvarNascimento() {
     setSalvandoNasc(true);
     const { error } = await supabase.from('pacientes')
@@ -101,8 +127,20 @@ export default function PacientePerfil() {
         }}>{iniciais(paciente.nome)}</div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="page-title" style={{ marginBottom: 2 }}>{paciente.nome}</div>
-          <div className="page-sub" style={{ marginBottom: 4 }}>
-            {paciente.email} · cadastrada em {dataBR(paciente.created_at)}
+          <div className="page-sub" style={{ marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span>{paciente.email} · cadastrada em {dataBR(paciente.created_at)}</span>
+            <button onClick={enviarRedefinicaoSenha}
+              title="Envia um email pra paciente com link de redefinição de senha"
+              style={{
+                background: 'transparent', border: '0.5px solid var(--border)',
+                borderRadius: 6, padding: '3px 9px', fontSize: 11,
+                color: 'var(--gold-deep)', cursor: 'pointer',
+                fontFamily: 'var(--font-sans)',
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+              }}>
+              <i className="ti ti-key" aria-hidden="true" style={{ fontSize: 13 }}></i>
+              Enviar redefinição de senha
+            </button>
           </div>
           {editandoNasc ? (
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12 }}>

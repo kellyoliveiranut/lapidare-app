@@ -11,7 +11,7 @@ export default function Login() {
   const { session, role, loading: sessionLoading } = useSession();
   const tema = useTheme();
 
-  const [mode, setMode] = useState('signin'); // 'signin' | 'signup'
+  const [mode, setMode] = useState('signin'); // 'signin' | 'signup' | 'forgot'
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [nome, setNome] = useState('');
@@ -19,6 +19,24 @@ export default function Login() {
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState(null);
   const [aviso, setAviso] = useState(null);
+
+  async function handleForgotPassword(e) {
+    e.preventDefault();
+    setErro(null); setAviso(null);
+    if (!email.trim()) return setErro('Informe seu email.');
+    setBusy(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: `${window.location.origin}/redefinir-senha`,
+      });
+      setBusy(false);
+      if (error) return setErro(mensagemAmigavel(error));
+      setAviso('Pronto! Verifique seu email (e a caixa de spam) — chegou um link pra criar uma nova senha. Funciona por 1 hora.');
+    } catch (err) {
+      setBusy(false);
+      setErro(mensagemAmigavel(err));
+    }
+  }
 
   // Redireciona automaticamente após login bem-sucedido
   useEffect(() => {
@@ -129,18 +147,21 @@ export default function Login() {
             fontFamily: 'var(--font-serif)', fontWeight: 500, fontSize: 28,
             letterSpacing: '-0.02em', color: 'var(--ink)'
           }}>
-            {mode === 'signin' ? 'Entrar' : 'Criar conta'}
+            {mode === 'signin' ? 'Entrar' : mode === 'signup' ? 'Criar conta' : 'Recuperar senha'}
           </h1>
           <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>
             {mode === 'signin'
               ? (tema.mensagem_login ?? 'Acesse seu painel ou app')
-              : 'Cadastro de nutricionista'}
+              : mode === 'signup'
+                ? 'Cadastro de nutricionista'
+                : 'Esqueceu? A gente te ajuda 💛'}
           </p>
         </div>
 
-        {/* Tabs */}
+        {/* Tabs — escondidas no modo forgot pra focar a UX */}
         <div style={{
-          display: 'flex', gap: 2, background: 'var(--bg-deep)',
+          display: mode === 'forgot' ? 'none' : 'flex',
+          gap: 2, background: 'var(--bg-deep)',
           borderRadius: 10, padding: 3, marginBottom: 18
         }}>
           {[
@@ -163,15 +184,43 @@ export default function Login() {
           ))}
         </div>
 
-        <form onSubmit={mode === 'signin' ? handleSignIn : handleSignUp}>
+        <form onSubmit={
+          mode === 'signin' ? handleSignIn :
+          mode === 'signup' ? handleSignUp :
+          handleForgotPassword
+        }>
           {mode === 'signup' && (
             <>
               <Field label="Nome completo" value={nome} onChange={setNome} required autoFocus />
               <Field label="CRN" value={crn} onChange={setCrn} placeholder="opcional" />
             </>
           )}
-          <Field label="Email" type="email" value={email} onChange={setEmail} required autoFocus={mode === 'signin'} />
-          <Field label="Senha" type="password" value={senha} onChange={setSenha} required minLength={6} />
+          <Field label="Email" type="email" value={email} onChange={setEmail} required autoFocus={mode === 'signin' || mode === 'forgot'} />
+          {mode !== 'forgot' && (
+            <Field label="Senha" type="password" value={senha} onChange={setSenha} required minLength={6} />
+          )}
+
+          {/* Link "Esqueci minha senha" só aparece no modo signin */}
+          {mode === 'signin' && (
+            <div style={{ textAlign: 'right', marginTop: -6, marginBottom: 12 }}>
+              <button type="button"
+                onClick={() => { setMode('forgot'); setErro(null); setAviso(null); }}
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  fontSize: 11, color: 'var(--gold-deep)', padding: 0,
+                  textDecoration: 'underline', fontFamily: 'var(--font-sans)',
+                }}>
+                Esqueci minha senha
+              </button>
+            </div>
+          )}
+
+          {/* Link "voltar pro login" no modo forgot */}
+          {mode === 'forgot' && (
+            <div style={{ marginTop: -6, marginBottom: 12, fontSize: 11, color: 'var(--muted)', lineHeight: 1.5 }}>
+              Digite seu email cadastrado. Vamos te enviar um link pra criar uma nova senha.
+            </div>
+          )}
 
           {erro && (
             <div style={{
@@ -184,7 +233,7 @@ export default function Login() {
           {aviso && (
             <div style={{
               fontSize: 12, color: 'var(--green)', background: 'var(--green-soft)',
-              padding: '8px 12px', borderRadius: 8, marginBottom: 12
+              padding: '8px 12px', borderRadius: 8, marginBottom: 12, lineHeight: 1.5,
             }}>
               {aviso}
             </div>
@@ -199,8 +248,25 @@ export default function Login() {
               borderRadius: 12, fontSize: 13, fontWeight: 500,
               opacity: busy ? .6 : 1, transition: 'opacity .15s'
             }}>
-            {busy ? '...' : (mode === 'signin' ? 'Entrar' : 'Criar conta de nutri')}
+            {busy ? '...' : (
+              mode === 'signin' ? 'Entrar' :
+              mode === 'signup' ? 'Criar conta de nutri' :
+              'Enviar link de recuperação'
+            )}
           </button>
+
+          {mode === 'forgot' && (
+            <button type="button"
+              onClick={() => { setMode('signin'); setErro(null); setAviso(null); }}
+              style={{
+                marginTop: 10, width: '100%',
+                background: 'none', border: 'none', cursor: 'pointer',
+                fontSize: 12, color: 'var(--muted)', padding: 6,
+                textDecoration: 'underline', fontFamily: 'var(--font-sans)',
+              }}>
+              ← Voltar pro login
+            </button>
+          )}
         </form>
         <BrandFooter />
       </div>
