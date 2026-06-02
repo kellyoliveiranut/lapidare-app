@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, lazy, Suspense } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
@@ -14,7 +14,7 @@ import Suplementacao from './_Suplementacao.jsx';
 import Habitos from './_Habitos.jsx';
 import Anamnese from './_Anamnese.jsx';
 import TratamentoOncologico from './_TratamentoOncologico.jsx';
-import AnalisarAvaliacao from './_AnalisarAvaliacao.jsx';
+const AnalisarAvaliacao = lazy(() => import('./_AnalisarAvaliacao.jsx'));
 import DicaJSON from '../../components/DicaJSON.jsx';
 
 export default function PacientePerfil() {
@@ -560,12 +560,14 @@ function RegistrarAvaliacao({ pacienteId, nutriId, paciente }) {
   return (
     <>
       {analisarOpen && (
-        <AnalisarAvaliacao
-          historico={historico}
-          fotos={fotos}
-          paciente={paciente}
-          onClose={() => setAnalisarOpen(false)}
-        />
+        <Suspense fallback={null}>
+          <AnalisarAvaliacao
+            historico={historico}
+            fotos={fotos}
+            paciente={paciente}
+            onClose={() => setAnalisarOpen(false)}
+          />
+        </Suspense>
       )}
 
       <div className="card">
