@@ -8,7 +8,7 @@ export async function callAnthropic(messages, { model = 'claude-sonnet-4-6', max
       'x-api-key': apiKey,
       'anthropic-version': '2023-06-01',
       'content-type': 'application/json',
-      'anthropic-dangerous-allow-browser': 'true',
+      'anthropic-dangerous-direct-browser-access': 'true',
     },
     body: JSON.stringify({ model, max_tokens: maxTokens, messages }),
   });

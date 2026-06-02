@@ -777,6 +777,7 @@ Retorne SOMENTE o JSON.`;
 
       setFeedback({ tipo: 'ok', msg: 'Avaliação importada com sucesso! Confira os dados antes de salvar.' });
     } catch (err) {
+      console.error('[importarShaped]', err);
       setFeedback({ tipo: 'erro', msg: 'Erro ao ler avaliação Shaped: ' + (err?.message ?? 'tente novamente') });
     } finally {
       setImportandoShaped(false);
