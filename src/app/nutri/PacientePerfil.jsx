@@ -7,6 +7,7 @@ import {
   validarPlano, validarLista, contarItensLista,
 } from '../../lib/utils.js';
 import { TEMPLATE_PADRAO } from '../../lib/checkinDefault.js';
+import { callAnthropic } from '../../lib/anthropic.js';
 import CheckinForm from '../../components/CheckinForm.jsx';
 import Evolucao from './_Evolucao.jsx';
 import FollowUp from './_FollowUp.jsx';
@@ -682,7 +683,9 @@ function RegistrarAvaliacao({ pacienteId, nutriId, paciente }) {
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState(null);
   const [analisarOpen, setAnalisarOpen] = useState(false);
+  const [importandoShaped, setImportandoShaped] = useState(false);
   const fileRef = useRef(null);
+  const shapedRef = useRef(null);
 
   function novaAvaliacao() {
     return {
@@ -696,6 +699,89 @@ function RegistrarAvaliacao({ pacienteId, nutriId, paciente }) {
       hidratacao_pct: '', geb_kcal: '', get_kcal: '',
       obs: '',
     };
+  }
+
+  async function importarShaped(file) {
+    setImportandoShaped(true);
+    setFeedback(null);
+    try {
+      const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const prompt = `Analise este relatório de avaliação física do Shaped e extraia APENAS os valores abaixo em JSON puro sem texto adicional:
+{
+  data: string (formato YYYY-MM-DD),
+  peso: number,
+  altura: number (em cm, converter se necessário),
+  gordura_perc: number (percentual de gordura),
+  gordura_kg: number (massa gorda em kg),
+  massa_magra_kg: number,
+  massa_magra_perc: number,
+  hidratacao: number (água corporal em % — calcular: agua_litros / peso * 100),
+  geb: number (gasto energético de repouso em kcal),
+  get: number (se não houver, calcular geb * 1.3),
+  cintura: number (cm),
+  quadril: number (cm),
+  abdome: number ou null,
+  panturrilha: number (cm),
+  braco_d: number (cm, usar valor de braço),
+  braco_e: number ou null,
+  coxa_d: number (cm, usar valor de coxa),
+  coxa_e: number ou null,
+  obs: string (incluir IMC, shaped score se houver, e classificações de risco encontradas)
+}
+Retorne SOMENTE o JSON.`;
+
+      const text = await callAnthropic([
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'document',
+              source: { type: 'base64', media_type: 'application/pdf', data: base64 },
+            },
+            { type: 'text', text: prompt },
+          ],
+        },
+      ], { maxTokens: 1024 });
+
+      const cleaned = text.replace(/```(?:json)?\n?/g, '').trim();
+      const d = JSON.parse(cleaned);
+
+      setForm(f => ({
+        ...f,
+        data:          d.data         ?? f.data,
+        kg:            d.peso         != null ? String(d.peso)          : f.kg,
+        altura_cm:     d.altura       != null ? String(d.altura)        : f.altura_cm,
+        pgc:           d.gordura_perc != null ? String(d.gordura_perc)  : f.pgc,
+        gordura_kg:    d.gordura_kg   != null ? String(d.gordura_kg)    : f.gordura_kg,
+        mm_kg:         d.massa_magra_kg   != null ? String(d.massa_magra_kg)  : f.mm_kg,
+        mm_pct:        d.massa_magra_perc != null ? String(d.massa_magra_perc): f.mm_pct,
+        hidratacao_pct:d.hidratacao   != null ? String(d.hidratacao)    : f.hidratacao_pct,
+        geb_kcal:      d.geb          != null ? String(d.geb)           : f.geb_kcal,
+        get_kcal:      d.get          != null ? String(d.get)           : f.get_kcal,
+        cintura_cm:    d.cintura      != null ? String(d.cintura)       : f.cintura_cm,
+        quadril_cm:    d.quadril      != null ? String(d.quadril)       : f.quadril_cm,
+        abdome_cm:     d.abdome       != null ? String(d.abdome)        : f.abdome_cm,
+        panturrilha_cm:d.panturrilha  != null ? String(d.panturrilha)   : f.panturrilha_cm,
+        braco_dir_cm:  d.braco_d      != null ? String(d.braco_d)       : f.braco_dir_cm,
+        braco_esq_cm:  d.braco_e      != null ? String(d.braco_e)       : f.braco_esq_cm,
+        coxa_dir_cm:   d.coxa_d       != null ? String(d.coxa_d)        : f.coxa_dir_cm,
+        coxa_esq_cm:   d.coxa_e       != null ? String(d.coxa_e)        : f.coxa_esq_cm,
+        obs:           d.obs          ?? f.obs,
+      }));
+
+      setFeedback({ tipo: 'ok', msg: 'Avaliação importada com sucesso! Confira os dados antes de salvar.' });
+    } catch (err) {
+      setFeedback({ tipo: 'erro', msg: 'Erro ao ler avaliação Shaped: ' + (err?.message ?? 'tente novamente') });
+    } finally {
+      setImportandoShaped(false);
+      if (shapedRef.current) shapedRef.current.value = '';
+    }
   }
 
   async function carregar() {
@@ -837,6 +923,34 @@ function RegistrarAvaliacao({ pacienteId, nutriId, paciente }) {
           )}
         </div>
         <div className="card-body">
+          {/* Importar do Shaped */}
+          <div style={{ marginBottom: 16 }}>
+            <input
+              ref={shapedRef}
+              type="file"
+              accept="application/pdf,.pdf"
+              style={{ display: 'none' }}
+              onChange={e => { const f = e.target.files?.[0]; if (f) importarShaped(f); }}
+            />
+            <button
+              type="button"
+              onClick={() => shapedRef.current?.click()}
+              disabled={importandoShaped}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 7,
+                padding: '8px 14px', borderRadius: 8,
+                border: '1px dashed var(--border)',
+                background: 'var(--bg2)', color: 'var(--text2)',
+                fontSize: 13, cursor: importandoShaped ? 'default' : 'pointer',
+                fontFamily: 'var(--font-sans)',
+              }}>
+              {importandoShaped
+                ? <><i className="ti ti-loader-2" style={{ fontSize: 15 }} aria-hidden="true" /> Lendo avaliação Shaped...</>
+                : <>📄 Importar do Shaped</>
+              }
+            </button>
+          </div>
+
           {/* Linha 1: Data, Peso, Altura */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
             <div>
