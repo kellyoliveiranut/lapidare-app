@@ -42,6 +42,7 @@
   display: flex;
   flex-direction: column;
   height: 100vh;
+  height: 100dvh; /* corrige iOS: 100vh inclui a barra do browser */
   overflow: hidden;
   transition: width .25s;
   position: relative;
@@ -81,7 +82,7 @@
 .nutri-panel .sidebar.collapsed .sidebar-brand,
 .nutri-panel .sidebar.collapsed .sidebar-title { display: none; }
 
-.nutri-panel .sidebar-nav { flex: 1; overflow-y: auto; padding: 12px 0; }
+.nutri-panel .sidebar-nav { flex: 1; min-height: 0; overflow-y: auto; padding: 12px 0; }
 .nutri-panel .sidebar-nav::-webkit-scrollbar { display: none; }
 .nutri-panel .nav-group {
   font-size: 11px; color: var(--dark-label);
@@ -413,6 +414,7 @@
     position: fixed;
     top: 0; left: 0; bottom: 0;
     width: 260px;
+    height: 100%; /* top+bottom já definem a altura; evita conflito com 100dvh */
     transform: translateX(-100%);
     transition: transform .25s cubic-bezier(.2, .8, .2, 1);
     z-index: 100;
