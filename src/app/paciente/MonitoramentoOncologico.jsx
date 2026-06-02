@@ -27,10 +27,10 @@ const PROTEINAS = [
 ];
 
 const HIDRATACAO_OPTS = [
-  { v: 0, l: '0 a 2 copos' },
-  { v: 1, l: '3 a 4 copos' },
-  { v: 2, l: '5 a 6 copos' },
-  { v: 3, l: '7 ou mais' },
+  { v: 0, l: '0–2 copos (até 400ml)' },
+  { v: 1, l: '3–4 copos (600–800ml)' },
+  { v: 2, l: '5–6 copos (1000–1200ml)' },
+  { v: 3, l: '7+ copos (1400ml+)' },
 ];
 
 const IMPEDIMENTOS = [
@@ -598,10 +598,10 @@ function JaPreenchidoHoje({ registro, onEditar }) {
           <ResumoRow label="Energia" value={registro.energia != null ? `${registro.energia}/10` : '—'} />
           <ResumoRow label="Náusea"  value={registro.nausea  != null ? `${registro.nausea}/10`  : '—'} />
           <ResumoRow label="Hidratação" value={
-            registro.hidratacao === 0 ? '0–2 copos'
-            : registro.hidratacao === 1 ? '3–4 copos'
-            : registro.hidratacao === 2 ? '5–6 copos'
-            : registro.hidratacao === 3 ? '7+ copos' : '—'
+            registro.hidratacao === 0 ? '0–2 copos (até 400ml)'
+            : registro.hidratacao === 1 ? '3–4 copos (600–800ml)'
+            : registro.hidratacao === 2 ? '5–6 copos (1000–1200ml)'
+            : registro.hidratacao === 3 ? '7+ copos (1400ml+)' : '—'
           } />
           <ResumoRow label="Suplemento" value={
             registro.suplemento === 'todos' ? 'Tomou todos'

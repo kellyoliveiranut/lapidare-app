@@ -7,7 +7,7 @@ import {
   gerarDiasCalendario, ehMesmoDia, mesAnoExtenso, DIAS_SEMANA_CURTOS,
 } from '../../lib/utils.js';
 
-// Opções do dropdown: 1ª, Consulta 02..12, Avaliação
+// Opções do dropdown: 1ª, Consulta 02..12, Avaliação, Retorno
 const TIPOS = [
   { value: 'primeira', label: '1ª consulta' },
   ...Array.from({ length: 11 }, (_, i) => {
@@ -15,6 +15,7 @@ const TIPOS = [
     return { value: `consulta_${n}`, label: `Consulta ${String(n).padStart(2, '0')}` };
   }),
   { value: 'avaliacao', label: 'Avaliação' },
+  { value: 'retorno',   label: 'Retorno' },
 ];
 
 const STATUS_OPCOES = [
@@ -326,7 +327,7 @@ function CalendarioMensal({ mesVisivel, diaSelecionado, consultas, onMudarMes, o
 
       <div style={{ display: 'flex', gap: 14, marginTop: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
         <Legenda cor="var(--blue)" label="1ª consulta" />
-        <Legenda cor="var(--green)" label="Retorno / numerada" />
+        <Legenda cor="var(--green)" label="Retorno" />
         <Legenda cor="var(--orange)" label="Avaliação" />
       </div>
     </div>

@@ -1132,8 +1132,11 @@ create policy pacientes_update_self on public.pacientes for update
 
 -- 10.6 Bucket de e-books + policies ----------------------------
 insert into storage.buckets (id, name, public)
-values ('ebooks', 'ebooks', false)
+values ('ebooks', 'ebooks', true)
 on conflict (id) do nothing;
+
+-- Garante que o bucket seja público (idempotente)
+update storage.buckets set public = true where id = 'ebooks';
 
 drop policy if exists ebooks_storage_select on storage.objects;
 create policy ebooks_storage_select on storage.objects for select using (

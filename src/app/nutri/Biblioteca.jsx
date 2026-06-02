@@ -49,11 +49,9 @@ export default function Biblioteca() {
   }
   useEffect(() => { carregar(); }, [user]);
 
-  async function abrirEbook(eb) {
-    const { data, error } = await supabase.storage
-      .from('ebooks').createSignedUrl(eb.storage_path, 120);
-    if (error) return alert('Não foi possível abrir: ' + error.message);
-    window.open(data.signedUrl, '_blank', 'noopener');
+  function abrirEbook(eb) {
+    const { data } = supabase.storage.from('ebooks').getPublicUrl(eb.storage_path);
+    window.open(data.publicUrl, '_blank', 'noopener');
   }
 
   async function excluirEbook(eb) {
@@ -273,7 +271,9 @@ function ModalUpload({ nutriId, onClose, onSaved }) {
       <input type="file" accept="application/pdf" onChange={e => setArquivo(e.target.files?.[0] ?? null)}
         style={{ padding: 6 }} />
       <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
-        {arquivo ? `${arquivo.name} · ${(arquivo.size / 1024 / 1024).toFixed(1)} MB` : 'Nenhum arquivo selecionado'}
+        {arquivo
+          ? `${arquivo.name} · ${(arquivo.size / 1024 / 1024).toFixed(1)} MB`
+          : 'Nenhum arquivo selecionado · Tamanho máximo: 20 MB'}
       </div>
 
       <label className="form-lbl" style={{ marginTop: 12 }}>Título</label>

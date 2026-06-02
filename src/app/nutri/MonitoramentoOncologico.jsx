@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { iniciais } from '../../lib/utils.js';
 
-const HIDRATACAO_LABEL = ['0–2 copos', '3–4 copos', '5–6 copos', '7+ copos'];
+const HIDRATACAO_LABEL = ['0–2 copos (até 400ml)', '3–4 copos (600–800ml)', '5–6 copos (1000–1200ml)', '7+ copos (1400ml+)'];
 const SUPLEMENTO_LABEL = { todos: 'Todos ✓', parcialmente: 'Parcial', nao: 'Não tomou' };
 
 // ── Lógica de semáforo ────────────────────────────────────────────
@@ -47,7 +47,7 @@ function gerarAlertas(r) {
   if (mediaRef !== null && mediaRef < 1.5) al.push({ icon: 'leaf-off', msg: 'Ingesta alimentar muito reduzida', nivel: 'red' });
 
   if (r.suplemento  === 'nao')       al.push({ icon: 'pill-off',        msg: 'Suplemento não tomado',              nivel: 'yellow' });
-  if (r.hidratacao  === 0)           al.push({ icon: 'droplet-half-2',  msg: 'Hidratação muito baixa (0–2 copos)', nivel: 'yellow' });
+  if (r.hidratacao  === 0)           al.push({ icon: 'droplet-half-2',  msg: 'Hidratação muito baixa (0–2 copos, até 400ml)', nivel: 'yellow' });
   if (r.urina_escura === 'sim')      al.push({ icon: 'alert-triangle',  msg: 'Urina escura — possível desidratação', nivel: 'yellow' });
   if (r.energia != null && r.energia <= 2) al.push({ icon: 'battery-1', msg: `Energia muito baixa (${r.energia}/10)`,   nivel: 'yellow' });
   if (r.vomito  != null && r.vomito  >= 5) al.push({ icon: 'circle-x',  msg: `Vômito intenso (${r.vomito}/10)`,        nivel: 'yellow' });

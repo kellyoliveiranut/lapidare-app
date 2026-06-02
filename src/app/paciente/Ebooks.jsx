@@ -37,11 +37,9 @@ export default function Ebooks() {
     })();
   }, [user]);
 
-  async function abrir(eb) {
-    const { data, error } = await supabase.storage
-      .from('ebooks').createSignedUrl(eb.storage_path, 300);
-    if (error) return alert('Não foi possível abrir: ' + error.message);
-    window.open(data.signedUrl, '_blank', 'noopener');
+  function abrir(eb) {
+    const { data } = supabase.storage.from('ebooks').getPublicUrl(eb.storage_path);
+    window.open(data.publicUrl, '_blank', 'noopener');
   }
 
   return (

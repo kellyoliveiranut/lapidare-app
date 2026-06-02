@@ -160,6 +160,22 @@
   display: flex; align-items: center;
   padding: 0 24px; gap: 12px; flex-shrink: 0;
 }
+
+/* Safe-area: em mobile (sidebar off-canvas) o topbar fica no topo e precisa
+   descer o conteúdo abaixo do notch/status-bar */
+@supports (padding-top: env(safe-area-inset-top)) {
+  @media (max-width: 900px) {
+    .nutri-panel .topbar {
+      height: calc(52px + env(safe-area-inset-top, 0px));
+      padding-top: env(safe-area-inset-top, 0px);
+      align-items: flex-end;
+      padding-bottom: 0;
+    }
+    .nutri-panel .sidebar-head {
+      padding-top: max(24px, calc(env(safe-area-inset-top, 0px) + 8px));
+    }
+  }
+}
 .nutri-panel .topbar-zone {
   font-size: 12px; color: #4a3828;
   letter-spacing: 1.2px; text-transform: uppercase;

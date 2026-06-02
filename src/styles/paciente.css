@@ -44,7 +44,7 @@
 
 /* ── HEADER ── */
 .paciente-app .app-header {
-  padding: 18px 22px 14px;
+  padding: max(18px, calc(env(safe-area-inset-top, 0px) + 8px)) 22px 14px;
   display: flex; justify-content: space-between; align-items: flex-end;
   flex-shrink: 0; gap: 10px;
   background: var(--bg);
@@ -88,7 +88,7 @@
 .paciente-app .body {
   flex: 1;
   overflow-y: auto;
-  padding-bottom: 80px; /* espaço para tab bar */
+  padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)); /* espaço para tab bar + gesto */
 }
 
 /* ── CARDS — com sombra suave e profundidade ── */
