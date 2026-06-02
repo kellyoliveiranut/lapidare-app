@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import BrandFooter from './BrandFooter.jsx';
 import { useSession, signOut } from '../lib/session.jsx';
@@ -21,11 +21,12 @@ const MAIS_ITEMS = [
   { path: '/paciente/habitos',     icon: 'checklist',     label: 'Hábitos',              sub: 'Tracker diário' },
   { path: '/paciente/prescricoes', icon: 'file-text',     label: 'Prescrições',          sub: 'Documentos da Dra.' },
   { path: '/paciente/ebooks',      icon: 'book-2',        label: 'E-books',              sub: 'Materiais da Dra.' },
-  { path: '/paciente/chat',        icon: 'message-circle', label: 'Chat com a Dra.',     sub: 'Conversa direta' },
+  { path: '/paciente/chat',                    icon: 'message-circle', label: 'Chat com a Dra.',          sub: 'Conversa direta' },
+  { path: '/paciente/monitoramento-oncologico', icon: 'stethoscope',    label: 'Monitoramento Oncológico', sub: 'Check-in diário' },
 ];
 
 const HEADERS = {
-  '/paciente/inicio':       (nome) =>           ({ eyebrow: 'Meu plano',         title: `Bom dia, ${nome}` }),
+  '/paciente/inicio':       (nome) =>           ({ eyebrow: 'Essentia',          title: `Bom dia, ${nome}` }),
   '/paciente/plano':        () =>                ({ eyebrow: 'Plano alimentar',  title: 'Meu plano',         subtitle: '' }),
   '/paciente/feed':         () =>                ({ eyebrow: 'Diário alimentar', title: 'Pratos',            subtitle: 'Registre o que você comeu' }),
   '/paciente/progresso':    () =>                ({ eyebrow: 'Minha evolução',   title: 'Progresso' }),
@@ -34,19 +35,21 @@ const HEADERS = {
   '/paciente/ebooks':       () =>                ({ eyebrow: 'Materiais',        title: 'E-books',           subtitle: 'Compartilhados pela sua nutri' }),
   '/paciente/suplementos':  () =>                ({ eyebrow: 'Habit tracker',    title: 'Meus suplementos',  subtitle: 'Marque diariamente' }),
   '/paciente/habitos':      () =>                ({ eyebrow: 'Hábitos do dia',   title: 'Meus hábitos',      subtitle: 'Acompanhe sua rotina' }),
-  '/paciente/chat':         (_nome, nutriNome) => ({ eyebrow: 'Conversa',         title: nutriNome || 'Sua nutri', subtitle: 'Online' }),
+  '/paciente/chat':                     (_nome, nutriNome) => ({ eyebrow: 'Conversa',              title: nutriNome || 'Sua nutri',      subtitle: 'Online' }),
+  '/paciente/monitoramento-oncologico': ()                => ({ eyebrow: 'Check-in diário',      title: 'Como você está hoje?',        subtitle: 'Leva menos de 2 minutos' }),
 };
 
 export default function PacienteLayout() {
-  const { profile, user } = useSession();
+  const { profile, user, refreshProfile } = useSession();
   const tema = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   const [moreOpen, setMoreOpen] = useState(false);
+  const [perfilOpen, setPerfilOpen] = useState(false);
   const [unreadChat, setUnreadChat] = useState(0);
 
   const isChat = location.pathname === '/paciente/chat';
-  const primeiroNome = profile?.nome?.split(' ')[0] ?? '';
+  const primeiroNome = profile?.apelido || profile?.nome?.split(' ')[0] || '';
 
   // Conta mensagens não lidas vindas da nutri
   useEffect(() => {
@@ -107,7 +110,17 @@ export default function PacienteLayout() {
           {header.subtitle && <div className="app-subtitle">{header.subtitle}</div>}
         </div>
         <div className="header-right">
-          <div className="header-avatar">{iniciais(profile?.nome)}</div>
+          <button
+            className="header-avatar"
+            onClick={() => setPerfilOpen(true)}
+            aria-label="Editar perfil"
+            style={{ border: 'none', cursor: 'pointer', padding: 0, overflow: 'hidden' }}
+          >
+            {profile?.avatar_url
+              ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              : iniciais(profile?.nome)
+            }
+          </button>
         </div>
       </header>
 
@@ -215,6 +228,146 @@ export default function PacienteLayout() {
           </div>
         </div>
       )}
+      {perfilOpen && (
+        <PerfilSheet
+          profile={profile}
+          user={user}
+          onClose={() => setPerfilOpen(false)}
+          refreshProfile={refreshProfile}
+        />
+      )}
+    </div>
+  );
+}
+
+function PerfilSheet({ profile, user, onClose, refreshProfile }) {
+  const [apelido, setApelido] = useState(profile?.apelido ?? '');
+  const [avatarPreview, setAvatarPreview] = useState(profile?.avatar_url ?? null);
+  const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [erro, setErro] = useState(null);
+  const fileRef = useRef(null);
+
+  async function handleFile(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setErro(null);
+    setUploading(true);
+    const ext = file.name.split('.').pop();
+    const path = `${user.id}/avatar.${ext}`;
+    const { error: upErr } = await supabase.storage
+      .from('avatares_pacientes')
+      .upload(path, file, { upsert: true, contentType: file.type });
+    if (upErr) { setErro('Erro ao enviar foto.'); setUploading(false); return; }
+    const { data } = supabase.storage.from('avatares_pacientes').getPublicUrl(path);
+    // Adiciona timestamp para evitar cache do browser
+    setAvatarPreview(data.publicUrl + '?t=' + Date.now());
+    setUploading(false);
+  }
+
+  async function salvar() {
+    setErro(null);
+    setSaving(true);
+    const updates = { apelido: apelido.trim() || null };
+    if (avatarPreview && avatarPreview !== profile?.avatar_url) {
+      updates.avatar_url = avatarPreview;
+    }
+    const { error } = await supabase
+      .from('pacientes')
+      .update(updates)
+      .eq('id', user.id);
+    setSaving(false);
+    if (error) { setErro('Erro ao salvar: ' + error.message); return; }
+    await refreshProfile();
+    onClose();
+  }
+
+  return (
+    <div className="sheet-backdrop" onClick={onClose}>
+      <div className="sheet" onClick={e => e.stopPropagation()}>
+        <div className="grabber"></div>
+        <div className="serif" style={{ fontSize: 22, marginBottom: 20 }}>Meu perfil</div>
+
+        {/* Avatar */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 24 }}>
+          <div style={{ position: 'relative', width: 80, height: 80 }}>
+            <div style={{
+              width: 80, height: 80, borderRadius: '50%',
+              background: 'var(--gold)', overflow: 'hidden',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 22, fontWeight: 600, color: 'var(--ink)',
+            }}>
+              {avatarPreview
+                ? <img src={avatarPreview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                : iniciais(profile?.nome)
+              }
+            </div>
+            <button
+              onClick={() => fileRef.current?.click()}
+              disabled={uploading}
+              style={{
+                position: 'absolute', bottom: 0, right: 0,
+                width: 26, height: 26, borderRadius: '50%',
+                background: 'var(--ink)', border: '2px solid var(--paper)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', padding: 0,
+              }}>
+              <i className="ti ti-camera" style={{ fontSize: 13, color: '#fff' }} aria-hidden="true"></i>
+            </button>
+          </div>
+          <button
+            onClick={() => fileRef.current?.click()}
+            disabled={uploading}
+            style={{
+              marginTop: 10, background: 'none', border: 'none',
+              fontSize: 12, color: 'var(--gold-deep)', cursor: 'pointer',
+              fontFamily: 'var(--font-sans)', padding: 0,
+            }}>
+            {uploading ? 'Enviando...' : 'Trocar foto'}
+          </button>
+          <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFile} />
+        </div>
+
+        {/* Apelido */}
+        <label style={{ display: 'block', marginBottom: 16 }}>
+          <span style={{ display: 'block', fontSize: 11, color: 'var(--muted)', marginBottom: 5, fontWeight: 500 }}>
+            Como gostaria de ser chamada?
+          </span>
+          <input
+            type="text"
+            value={apelido}
+            onChange={e => setApelido(e.target.value)}
+            placeholder={profile?.nome?.split(' ')[0] ?? ''}
+            maxLength={30}
+            style={{
+              width: '100%', padding: '10px 12px', fontSize: 14,
+              border: '0.5px solid var(--hair)', borderRadius: 10,
+              outline: 'none', fontFamily: 'var(--font-sans)',
+              boxSizing: 'border-box', background: 'var(--bg-soft)',
+            }}
+          />
+        </label>
+
+        {erro && (
+          <div style={{
+            fontSize: 12, padding: '8px 12px', borderRadius: 8, marginBottom: 12,
+            background: 'var(--red-soft)', color: 'var(--red)',
+          }}>{erro}</div>
+        )}
+
+        <button
+          onClick={salvar}
+          disabled={saving || uploading}
+          style={{
+            width: '100%', padding: '12px 18px',
+            background: 'var(--ink)', color: 'var(--paper)',
+            border: 'none', borderRadius: 12, fontSize: 14, fontWeight: 500,
+            cursor: 'pointer', fontFamily: 'var(--font-sans)',
+            opacity: (saving || uploading) ? 0.6 : 1,
+          }}>
+          {saving ? 'Salvando...' : 'Salvar'}
+        </button>
+      </div>
     </div>
   );
 }

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
-import { dataBR, iniciais } from '../../lib/utils.js';
+import { iniciais } from '../../lib/utils.js';
 import ImportarCsv from './_ImportarCsv.jsx';
 
 export default function Pacientes() {
@@ -18,7 +18,7 @@ export default function Pacientes() {
     const [pacRes, pendRes] = await Promise.all([
       supabase
         .from('pacientes')
-        .select('id, nome, email, objetivo, tipo_plano, modalidade, created_at')
+        .select('id, nome, email, objetivo, tipo_plano, modalidade, avatar_url, created_at')
         .order('created_at', { ascending: false }),
       supabase
         .from('pacientes_pendentes')
@@ -166,46 +166,72 @@ export default function Pacientes() {
           <div className="empty-sub">Nenhuma paciente encontrada para "{busca}".</div>
         </div>
       ) : (
-        <div className="card" style={{ padding: 0 }}>
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Paciente</th>
-                <th>Objetivo</th>
-                <th>Plano</th>
-                <th>Modalidade</th>
-                <th>Cadastro</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtradas.map(p => (
-                <tr key={p.id} style={{ cursor: 'pointer' }} onClick={() => navigate(`/nutri/pacientes/${p.id}`)}>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div style={{
-                        width: 30, height: 30, borderRadius: '50%',
-                        background: 'var(--bg2)', display: 'flex',
-                        alignItems: 'center', justifyContent: 'center',
-                        fontSize: 12, fontWeight: 600, color: 'var(--dark)'
-                      }}>{iniciais(p.nome)}</div>
-                      <div>
-                        <div style={{ fontWeight: 500 }}>{p.nome}</div>
-                        <div style={{ fontSize: 12, color: 'var(--text3)' }}>{p.email}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td>{p.objetivo ?? '—'}</td>
-                  <td>{p.tipo_plano ?? '—'}</td>
-                  <td>{p.modalidade ?? '—'}</td>
-                  <td>{dataBR(p.created_at)}</td>
-                  <td style={{ textAlign: 'right' }}>
-                    <i className="ti ti-chevron-right" style={{ color: 'var(--text3)' }} aria-hidden="true"></i>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+          gap: 14,
+        }}>
+          {filtradas.map(p => (
+            <div
+              key={p.id}
+              className="card"
+              onClick={() => navigate(`/nutri/pacientes/${p.id}`)}
+              style={{ padding: '20px 16px', cursor: 'pointer', textAlign: 'center', transition: 'box-shadow .15s' }}
+              onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,.1)'}
+              onMouseLeave={e => e.currentTarget.style.boxShadow = ''}
+            >
+              {/* Avatar */}
+              <div style={{
+                width: 64, height: 64, borderRadius: '50%',
+                background: 'var(--bg2)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 20, fontWeight: 600, color: 'var(--dark)',
+                margin: '0 auto 12px',
+                overflow: 'hidden',
+                border: '2px solid var(--border)',
+              }}>
+                {p.avatar_url
+                  ? <img src={p.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  : iniciais(p.nome)
+                }
+              </div>
+
+              {/* Nome */}
+              <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4, lineHeight: 1.3 }}>
+                {p.nome}
+              </div>
+
+              {/* Objetivo */}
+              {p.objetivo && (
+                <div style={{
+                  display: 'inline-block',
+                  fontSize: 10, fontWeight: 500,
+                  padding: '2px 8px', borderRadius: 999,
+                  background: 'var(--gold-soft, #fdf6e3)',
+                  color: 'var(--gold-deep, #a08456)',
+                  marginBottom: 10,
+                }}>
+                  {p.objetivo}
+                </div>
+              )}
+
+              {/* Metas: plano + modalidade */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: p.objetivo ? 0 : 10 }}>
+                {p.tipo_plano && (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, fontSize: 11, color: 'var(--text3)' }}>
+                    <i className="ti ti-calendar-check" style={{ fontSize: 12 }} aria-hidden="true"></i>
+                    {p.tipo_plano.charAt(0).toUpperCase() + p.tipo_plano.slice(1)}
+                  </div>
+                )}
+                {p.modalidade && (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, fontSize: 11, color: 'var(--text3)' }}>
+                    <i className="ti ti-map-pin" style={{ fontSize: 12 }} aria-hidden="true"></i>
+                    {p.modalidade}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </>

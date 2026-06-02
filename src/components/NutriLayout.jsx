@@ -17,8 +17,9 @@ const NAV_CONFIG = [
       { id: 'chat',         path: '/nutri/chat',         label: 'Chat',                icon: 'message-circle' },
       { id: 'feed',         path: '/nutri/feed',         label: 'Feed de pratos',      icon: 'camera' },
       { id: 'prescricoes',  path: '/nutri/prescricoes',  label: 'Prescrições',         icon: 'file-text' },
-      { id: 'biblioteca',   path: '/nutri/biblioteca',   label: 'Biblioteca',          icon: 'book-2' },
-      { id: 'checkins',     path: '/nutri/checkins',     label: 'Check-ins',           icon: 'clipboard-check' },
+      { id: 'biblioteca',      path: '/nutri/biblioteca',      label: 'Biblioteca',              icon: 'book-2' },
+      { id: 'monitoramento',   path: '/nutri/monitoramento-oncologico', label: 'Monit. Oncológico', icon: 'stethoscope' },
+      { id: 'checkins',        path: '/nutri/checkins',        label: 'Check-ins',               icon: 'clipboard-check' },
       { id: 'questionarios', path: '/nutri/questionarios', label: 'Pré-consulta',       icon: 'clipboard-list' },
       { id: 'cadastrar',    path: '/nutri/cadastrar',    label: 'Cadastrar paciente',  icon: 'user-plus' },
     ],
@@ -53,6 +54,7 @@ export default function NutriLayout() {
   const meta = useMemo(() => {
     if (ROUTE_META[location.pathname]) return ROUTE_META[location.pathname];
     if (location.pathname.startsWith('/nutri/pacientes/')) return ROUTE_META['/nutri/pacientes'];
+    if (location.pathname === '/nutri/monitoramento-oncologico') return ROUTE_META['/nutri/monitoramento-oncologico'];
     return { zone: '', label: '' };
   }, [location.pathname]);
 

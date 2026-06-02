@@ -1157,18 +1157,27 @@ create policy ebooks_storage_delete on storage.objects for delete using (
 );
 
 
+-- Novas colunas: telefone (obrigatório) e endereço (opcional, nota fiscal)
+alter table public.pacientes_pendentes add column if not exists telefone text;
+alter table public.pacientes_pendentes add column if not exists endereco  text;
+alter table public.pacientes           add column if not exists telefone text;
+alter table public.pacientes           add column if not exists endereco  text;
+
 -- 10.7 Função pública pra buscar pendente por token ------------
+drop function if exists public.buscar_pendente_por_token(uuid);
 create or replace function public.buscar_pendente_por_token(p_token uuid)
 returns table(
   nome text, email text, nascimento date,
   objetivo text, tipo_plano text, modalidade text,
-  nutri_id uuid, nutri_nome text, status text
+  nutri_id uuid, nutri_nome text, status text,
+  telefone text, endereco text
 )
 language sql security definer set search_path = public
 as $$
   select pp.nome, pp.email, pp.nascimento, pp.objetivo,
     pp.tipo_plano, pp.modalidade, pp.nutri_id,
-    n.nome as nutri_nome, pp.status
+    n.nome as nutri_nome, pp.status,
+    pp.telefone, pp.endereco
   from public.pacientes_pendentes pp
   join public.nutris n on n.id = pp.nutri_id
   where pp.token = p_token
@@ -1203,7 +1212,7 @@ begin
       where nutri_id = v_nutri_id and lower(email) = lower(new.email) limit 1;
 
       if found then
-        insert into public.pacientes (id, nutri_id, nome, email, objetivo, tipo_plano, modalidade, nascimento)
+        insert into public.pacientes (id, nutri_id, nome, email, objetivo, tipo_plano, modalidade, nascimento, telefone, endereco)
         values (
           new.id, v_nutri_id,
           coalesce(new.raw_user_meta_data ->> 'nome',       v_pendente.nome,       new.email),
@@ -1211,7 +1220,9 @@ begin
           coalesce(new.raw_user_meta_data ->> 'objetivo',   v_pendente.objetivo),
           coalesce(new.raw_user_meta_data ->> 'tipo_plano', v_pendente.tipo_plano),
           coalesce(new.raw_user_meta_data ->> 'modalidade', v_pendente.modalidade),
-          coalesce((new.raw_user_meta_data ->> 'nascimento')::date, v_pendente.nascimento)
+          coalesce((new.raw_user_meta_data ->> 'nascimento')::date, v_pendente.nascimento),
+          v_pendente.telefone,
+          v_pendente.endereco
         ) on conflict (id) do nothing;
         update public.pacientes_pendentes set status = 'ativado' where id = v_pendente.id;
       else
@@ -1553,6 +1564,119 @@ create policy anamneses_all_nutri on public.anamneses for all
 grant select, insert, update, delete on public.anamnese_templates to anon, authenticated, service_role;
 grant select, insert, update, delete on public.anamneses          to anon, authenticated, service_role;
 
+
+-- =============================================================
+-- MONITORAMENTO ONCOLÓGICO
+-- =============================================================
+
+create table if not exists public.monitoramento_oncologico (
+  id            uuid primary key default gen_random_uuid(),
+  paciente_id   uuid not null references public.pacientes(id) on delete cascade,
+  nutri_id      uuid not null references public.nutris(id)    on delete cascade,
+  data          date not null default current_date,
+
+  -- Q1: apetite 0-10
+  apetite       smallint check (apetite between 0 and 10),
+
+  -- Q2: refeições — 0=não consegui, 1=comi pouco, 2=comi metade, 3=comi tudo
+  ref_cafe              smallint check (ref_cafe between 0 and 3),
+  ref_lanche_manha      smallint check (ref_lanche_manha between 0 and 3),
+  ref_almoco            smallint check (ref_almoco between 0 and 3),
+  ref_lanche_tarde      smallint check (ref_lanche_tarde between 0 and 3),
+  ref_jantar            smallint check (ref_jantar between 0 and 3),
+  ref_ceia              smallint check (ref_ceia between 0 and 3),
+
+  -- Q3: proteínas (array de strings)
+  proteinas     text[],
+
+  -- Q4: suplemento
+  suplemento    text check (suplemento in ('todos', 'parcialmente', 'nao')),
+
+  -- Q5: hidratação — 0=0-2 copos, 1=3-4, 2=5-6, 3=7+
+  hidratacao    smallint check (hidratacao between 0 and 3),
+  urina_escura  text check (urina_escura in ('sim', 'nao', 'nao_observei')),
+
+  -- Q7: sintomas 0-10
+  nausea        smallint check (nausea     between 0 and 10),
+  vomito        smallint check (vomito     between 0 and 10),
+  diarreia      smallint check (diarreia   between 0 and 10),
+  constipacao   smallint check (constipacao between 0 and 10),
+
+  -- Q8: energia 0-10
+  energia       smallint check (energia between 0 and 10),
+
+  -- Q9: impedimentos (array de strings)
+  impedimentos  text[],
+
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now(),
+
+  unique (paciente_id, data)
+);
+
+create index if not exists monit_onco_nutri_idx    on public.monitoramento_oncologico(nutri_id, data desc);
+create index if not exists monit_onco_paciente_idx on public.monitoramento_oncologico(paciente_id, data desc);
+
+alter table public.monitoramento_oncologico enable row level security;
+
+-- Paciente: ver e editar apenas os próprios registros
+drop policy if exists monit_paciente_select on public.monitoramento_oncologico;
+create policy monit_paciente_select on public.monitoramento_oncologico
+  for select using (paciente_id = auth.uid());
+
+drop policy if exists monit_paciente_insert on public.monitoramento_oncologico;
+create policy monit_paciente_insert on public.monitoramento_oncologico
+  for insert with check (paciente_id = auth.uid());
+
+drop policy if exists monit_paciente_update on public.monitoramento_oncologico;
+create policy monit_paciente_update on public.monitoramento_oncologico
+  for update using (paciente_id = auth.uid());
+
+-- Nutri: ver todos os registros das suas pacientes
+drop policy if exists monit_nutri_select on public.monitoramento_oncologico;
+create policy monit_nutri_select on public.monitoramento_oncologico
+  for select using (nutri_id = auth.uid());
+
+-- =============================================================
+-- PERFIL DA PACIENTE: apelido + avatar
+-- =============================================================
+
+alter table public.pacientes add column if not exists apelido    text;
+alter table public.pacientes add column if not exists avatar_url text;
+
+-- Bucket público para avatares das pacientes
+insert into storage.buckets (id, name, public)
+values ('avatares_pacientes', 'avatares_pacientes', true)
+on conflict (id) do nothing;
+
+update storage.buckets set public = true where id = 'avatares_pacientes';
+
+-- Leitura pública
+drop policy if exists avatares_pacientes_select on storage.objects;
+create policy avatares_pacientes_select on storage.objects
+  for select using (bucket_id = 'avatares_pacientes');
+
+-- Upload/atualização/exclusão: só a própria paciente (pasta = seu user_id)
+drop policy if exists avatares_pacientes_insert on storage.objects;
+create policy avatares_pacientes_insert on storage.objects
+  for insert with check (
+    bucket_id = 'avatares_pacientes'
+    and split_part(name, '/', 1) = auth.uid()::text
+  );
+
+drop policy if exists avatares_pacientes_update on storage.objects;
+create policy avatares_pacientes_update on storage.objects
+  for update using (
+    bucket_id = 'avatares_pacientes'
+    and split_part(name, '/', 1) = auth.uid()::text
+  );
+
+drop policy if exists avatares_pacientes_delete on storage.objects;
+create policy avatares_pacientes_delete on storage.objects
+  for delete using (
+    bucket_id = 'avatares_pacientes'
+    and split_part(name, '/', 1) = auth.uid()::text
+  );
 
 -- =============================================================
 -- FIM — Lapidare setup

@@ -27,6 +27,7 @@ import Previsibilidade from './app/nutri/Previsibilidade.jsx';
 import Financeiro from './app/nutri/Financeiro.jsx';
 import Biblioteca from './app/nutri/Biblioteca.jsx';
 import Personalizacao from './app/nutri/Personalizacao.jsx';
+import MonitoramentoOncologicoNutri from './app/nutri/MonitoramentoOncologico.jsx';
 
 import Inicio from './app/paciente/Inicio.jsx';
 import Plano from './app/paciente/Plano.jsx';
@@ -39,6 +40,7 @@ import Checkin from './app/paciente/Checkin.jsx';
 import EbooksPaciente from './app/paciente/Ebooks.jsx';
 import SuplementosPaciente from './app/paciente/Suplementos.jsx';
 import HabitosPaciente from './app/paciente/Habitos.jsx';
+import MonitoramentoOncologicoPaciente from './app/paciente/MonitoramentoOncologico.jsx';
 
 export default function App() {
   return (
@@ -70,6 +72,7 @@ export default function App() {
             <Route path="/nutri/previsibilidade" element={<Previsibilidade />} />
             <Route path="/nutri/financeiro" element={<Financeiro />} />
             <Route path="/nutri/biblioteca" element={<Biblioteca />} />
+            <Route path="/nutri/monitoramento-oncologico" element={<MonitoramentoOncologicoNutri />} />
             <Route path="/nutri/personalizacao" element={<Personalizacao />} />
           </Route>
 
@@ -87,6 +90,7 @@ export default function App() {
             <Route path="/paciente/suplementos" element={<SuplementosPaciente />} />
             <Route path="/paciente/habitos" element={<HabitosPaciente />} />
             <Route path="/paciente/checkin/:envioId" element={<Checkin />} />
+            <Route path="/paciente/monitoramento-oncologico" element={<MonitoramentoOncologicoPaciente />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

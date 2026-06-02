@@ -4,7 +4,7 @@ import { useSession } from '../lib/session.jsx';
 
 // Versão do termo. Se atualizar o texto abaixo, incrementa a versão
 // e todas as pacientes precisam aceitar de novo.
-export const TERMO_VERSAO = '1.0';
+export const TERMO_VERSAO = '1.1';
 
 const TERMO_HTML = `
 <h3>1. Sobre este aplicativo</h3>
@@ -17,7 +17,7 @@ const TERMO_HTML = `
 
 <h3>2. Dados que coletamos</h3>
 <ul>
-  <li><strong>Cadastro:</strong> nome, e-mail, data de nascimento.</li>
+  <li><strong>Cadastro:</strong> nome, e-mail, telefone, data de nascimento e, quando fornecido, endereço completo (utilizado para emissão de nota fiscal).</li>
   <li><strong>Saúde:</strong> peso, medidas, % de gordura, fotos de evolução.</li>
   <li><strong>Comportamento:</strong> aderência ao plano, suplementos, check-ins, fotos de refeições.</li>
   <li><strong>Comunicação:</strong> histórico de mensagens com a nutricionista.</li>

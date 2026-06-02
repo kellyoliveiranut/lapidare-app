@@ -483,7 +483,7 @@ export default function Inicio() {
       ) : (
         <div className="card" style={{ padding: '20px 18px', textAlign: 'center' }}>
           <i className="ti ti-sparkles" style={{ fontSize: 28, color: 'var(--gold-deep)', display: 'block', marginBottom: 8 }}></i>
-          <div className="serif" style={{ fontSize: 18, marginBottom: 4 }}>Bem-vinda ao seu app</div>
+          <div className="serif" style={{ fontSize: 18, marginBottom: 4 }}>Seu acompanhamento nutricional começa aqui.</div>
           <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>
             Sua nutricionista publicará seu plano em breve. Você será notificada!
           </div>

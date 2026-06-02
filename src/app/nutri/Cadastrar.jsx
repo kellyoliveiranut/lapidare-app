@@ -17,10 +17,12 @@ export default function Cadastrar() {
 
   const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
+  const [telefone, setTelefone] = useState('');
   const [nascimento, setNascimento] = useState('');
   const [objetivo, setObjetivo] = useState('Emagrecimento');
   const [tipoPlano, setTipoPlano] = useState('trimestral');
   const [modalidade, setModalidade] = useState('Online');
+  const [endereco, setEndereco] = useState('');
   const [obs, setObs] = useState('');
 
   const [busy, setBusy] = useState(false);
@@ -41,9 +43,9 @@ export default function Cadastrar() {
   useEffect(() => { carregarPendentes(); }, [user]);
 
   function resetForm() {
-    setNome(''); setEmail(''); setNascimento('');
+    setNome(''); setEmail(''); setTelefone(''); setNascimento('');
     setObjetivo('Emagrecimento'); setTipoPlano('trimestral');
-    setModalidade('Online'); setObs('');
+    setModalidade('Online'); setEndereco(''); setObs('');
   }
 
   async function salvar(e) {
@@ -52,16 +54,19 @@ export default function Cadastrar() {
     if (!nome.trim()) return setErro('Informe o nome.');
     if (!email.trim()) return setErro('Informe o email.');
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return setErro('Email inválido.');
+    if (!telefone.trim()) return setErro('Informe o telefone.');
 
     setBusy(true);
     const payload = {
       nutri_id: user.id,
       nome: nome.trim(),
       email: email.trim().toLowerCase(),
+      telefone: telefone.trim(),
       nascimento: nascimento || null,
       objetivo,
       tipo_plano: tipoPlano,
       modalidade,
+      endereco: endereco.trim() || null,
       obs: obs.trim() || null,
       status: 'pendente',
     };
@@ -118,8 +123,9 @@ export default function Cadastrar() {
           <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 12 }}>Novo cadastro</div>
 
           <Field label="Nome completo *" value={nome} onChange={setNome} required autoFocus />
-          <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 0.9fr', gap: 10 }}>
             <Field label="Email *" type="email" value={email} onChange={setEmail} required />
+            <Field label="Telefone *" type="tel" value={telefone} onChange={setTelefone} required placeholder="(11) 99999-9999" />
             <Field label="Data de nascimento" type="date" value={nascimento} onChange={setNascimento} />
           </div>
 
@@ -128,6 +134,8 @@ export default function Cadastrar() {
             <SelectField label="Tipo de plano" value={tipoPlano} onChange={setTipoPlano} options={PLANOS} />
             <SelectField label="Modalidade" value={modalidade} onChange={setModalidade} options={MODALIDADES} />
           </div>
+
+          <Field label="Endereço completo (opcional · para nota fiscal)" value={endereco} onChange={setEndereco} placeholder="Rua, número, bairro, cidade, UF, CEP" />
 
           <label style={{ display: 'block', marginBottom: 12 }}>
             <span style={{
@@ -297,7 +305,7 @@ function CartaoSucesso({ pendente, link, mensagemWhats, onCopiar, onDispensar })
 }
 
 
-function Field({ label, value, onChange, type = 'text', required, autoFocus }) {
+function Field({ label, value, onChange, type = 'text', required, autoFocus, placeholder }) {
   return (
     <label style={{ display: 'block', marginBottom: 12 }}>
       <span style={{
@@ -307,7 +315,7 @@ function Field({ label, value, onChange, type = 'text', required, autoFocus }) {
       <input
         type={type} value={value}
         onChange={e => onChange(e.target.value)}
-        required={required} autoFocus={autoFocus}
+        required={required} autoFocus={autoFocus} placeholder={placeholder}
         style={{
           width: '100%', padding: '10px 12px', fontSize: 13,
           border: '0.5px solid var(--border)', borderRadius: 8,
