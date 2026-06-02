@@ -196,6 +196,8 @@ export default function MonitoramentoOncologico() {
 
   return (
     <Wrap>
+      {/* Instruções de fotos — colapsável */}
+      <InstrucoesPhoto />
       {/* Barra de progresso */}
       <div style={{ marginBottom: 28 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--muted)', marginBottom: 6 }}>
@@ -739,6 +741,63 @@ function Scale010({ value, onChange, lowLabel, highLabel }) {
         <span>{lowLabel}</span>
         <span>{highLabel}</span>
       </div>
+    </div>
+  );
+}
+
+// ── Instruções de fotos ───────────────────────────────────────────
+function InstrucoesPhoto() {
+  const [aberto, setAberto] = useState(false);
+  return (
+    <div style={{
+      background: 'var(--gold-soft, #fdf6e3)',
+      border: '0.5px solid var(--gold-deep, #a08456)',
+      borderRadius: 14, padding: '12px 16px', marginBottom: 24,
+    }}>
+      <button
+        onClick={() => setAberto(a => !a)}
+        style={{
+          width: '100%', background: 'none', border: 'none', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: 0, fontFamily: 'var(--font-sans)',
+        }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <i className="ti ti-camera" style={{ fontSize: 18, color: 'var(--gold-deep, #a08456)' }} />
+          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>
+            Como fazer as fotos de avaliação
+          </span>
+        </div>
+        <i className={`ti ti-chevron-${aberto ? 'up' : 'down'}`} style={{ fontSize: 16, color: 'var(--muted)' }} />
+      </button>
+      {aberto && (
+        <div style={{ marginTop: 14, fontSize: 13, color: 'var(--ink)', lineHeight: 1.7 }}>
+          <p style={{ margin: '0 0 12px' }}>
+            O registro de fotos ajuda a Dra. a entender melhor sua composição corporal ao longo do tempo — vai muito além do peso na balança.
+          </p>
+          <div style={{ fontWeight: 600, marginBottom: 6 }}>Como fazer as fotos em casa:</div>
+          <ul style={{ margin: '0 0 12px', paddingLeft: 18 }}>
+            <li>Use roupas justas ou biquíni</li>
+            <li>Escolha um local bem iluminado com parede neutra</li>
+            <li>Apoie o celular na altura entre o umbigo e o peitoral</li>
+            <li>Mantenha sempre a mesma postura e local</li>
+          </ul>
+          <div style={{ marginBottom: 8 }}>
+            <strong>📸 Foto de frente:</strong> fique de frente para a câmera, braços e pernas abertos e afastados do corpo.
+          </div>
+          <div style={{ marginBottom: 12 }}>
+            <strong>📸 Foto do lado direito:</strong> corpo reto, braços e pernas esticadas e juntas ao corpo.
+          </div>
+          <div style={{ marginBottom: 4 }}>
+            Também registre: altura e peso atual.
+          </div>
+          <div style={{
+            marginTop: 10, padding: '10px 12px', borderRadius: 8,
+            background: 'rgba(160,132,86,.12)', fontSize: 12, color: 'var(--muted)',
+          }}>
+            Manter o mesmo padrão em todas as fotos permite comparar sua evolução de forma fiel.
+          </div>
+        </div>
+      )}
     </div>
   );
 }

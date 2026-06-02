@@ -14,6 +14,7 @@ import Suplementacao from './_Suplementacao.jsx';
 import Habitos from './_Habitos.jsx';
 import Anamnese from './_Anamnese.jsx';
 import TratamentoOncologico from './_TratamentoOncologico.jsx';
+import AnalisarAvaliacao from './_AnalisarAvaliacao.jsx';
 import DicaJSON from '../../components/DicaJSON.jsx';
 
 export default function PacientePerfil() {
@@ -255,7 +256,7 @@ export default function PacientePerfil() {
       {tab === 'compras' && <PublicarLista pacienteId={paciente.id} nutriId={user.id} />}
       {tab === 'prescricoes' && <EnviarPrescricao pacienteId={paciente.id} nutriId={user.id} />}
       {tab === 'ebooks' && <EbooksDaPaciente pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
-      {tab === 'avaliacao' && <RegistrarAvaliacao pacienteId={paciente.id} nutriId={user.id} />}
+      {tab === 'avaliacao' && <RegistrarAvaliacao pacienteId={paciente.id} nutriId={user.id} paciente={paciente} />}
       {tab === 'checkin' && <CheckinPersonalizado pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
     </>
   );
@@ -426,29 +427,36 @@ function CheckinPersonalizado({ pacienteId, nutriId, pacienteNome }) {
 /* ============================================================
    AVALIAÇÃO ANTROPOMÉTRICA
    ============================================================ */
-function RegistrarAvaliacao({ pacienteId, nutriId }) {
+function RegistrarAvaliacao({ pacienteId, nutriId, paciente }) {
   const [historico, setHistorico] = useState([]);
-  const [fotos, setFotos] = useState({});          // { [peso_registro_id]: [{ tipo, url }] }
-  const [avFotos, setAvFotos] = useState(null);    // id da avaliação com painel de fotos aberto
-  const [comparar, setComparar] = useState([]);    // até 2 ids para comparar
+  const [fotos, setFotos] = useState({});
+  const [avFotos, setAvFotos] = useState(null);
+  const [comparar, setComparar] = useState([]);
   const [uploadingFoto, setUploadingFoto] = useState(false);
   const [form, setForm] = useState(novaAvaliacao());
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState(null);
+  const [analisarOpen, setAnalisarOpen] = useState(false);
   const fileRef = useRef(null);
 
   function novaAvaliacao() {
     return {
       data: new Date().toISOString().slice(0, 10),
-      kg: '', altura_cm: '', cintura_cm: '', quadril_cm: '',
-      braco_cm: '', coxa_cm: '', pgc: '', mm_kg: '', obs: '',
+      kg: '', altura_cm: '',
+      cintura_cm: '', quadril_cm: '', abdome_cm: '',
+      braco_dir_cm: '', braco_esq_cm: '', braco_cm: '',
+      coxa_dir_cm: '', coxa_esq_cm: '', coxa_cm: '',
+      panturrilha_cm: '',
+      pgc: '', mm_kg: '', mm_pct: '', gordura_kg: '',
+      hidratacao_pct: '', geb_kcal: '', get_kcal: '',
+      obs: '',
     };
   }
 
   async function carregar() {
     const [{ data: av }, { data: ft }] = await Promise.all([
       supabase.from('peso_registros')
-        .select('id, data, kg, altura_cm, cintura_cm, quadril_cm, braco_cm, coxa_cm, pgc, mm_kg, obs')
+        .select('id, data, kg, altura_cm, cintura_cm, quadril_cm, abdome_cm, braco_cm, braco_dir_cm, braco_esq_cm, coxa_cm, coxa_dir_cm, coxa_esq_cm, panturrilha_cm, pgc, mm_kg, mm_pct, gordura_kg, hidratacao_pct, geb_kcal, get_kcal, obs')
         .eq('paciente_id', pacienteId)
         .order('data', { ascending: false }),
       supabase.from('avaliacoes_fotos')
@@ -456,7 +464,6 @@ function RegistrarAvaliacao({ pacienteId, nutriId }) {
         .eq('paciente_id', pacienteId),
     ]);
     setHistorico(av ?? []);
-    // agrupa fotos por avaliação
     const map = {};
     (ft ?? []).forEach(f => { (map[f.peso_registro_id] ??= []).push(f); });
     setFotos(map);
@@ -511,10 +518,21 @@ function RegistrarAvaliacao({ pacienteId, nutriId }) {
       altura_cm: num(form.altura_cm),
       cintura_cm: num(form.cintura_cm),
       quadril_cm: num(form.quadril_cm),
+      abdome_cm: num(form.abdome_cm),
       braco_cm: num(form.braco_cm),
+      braco_dir_cm: num(form.braco_dir_cm),
+      braco_esq_cm: num(form.braco_esq_cm),
       coxa_cm: num(form.coxa_cm),
+      coxa_dir_cm: num(form.coxa_dir_cm),
+      coxa_esq_cm: num(form.coxa_esq_cm),
+      panturrilha_cm: num(form.panturrilha_cm),
       pgc: num(form.pgc),
       mm_kg: num(form.mm_kg),
+      mm_pct: num(form.mm_pct),
+      gordura_kg: num(form.gordura_kg),
+      hidratacao_pct: num(form.hidratacao_pct),
+      geb_kcal: num(form.geb_kcal),
+      get_kcal: num(form.get_kcal),
       obs: form.obs.trim() || null,
     };
     const { error } = await supabase.from('peso_registros').insert(payload);
@@ -541,14 +559,38 @@ function RegistrarAvaliacao({ pacienteId, nutriId }) {
 
   return (
     <>
+      {analisarOpen && (
+        <AnalisarAvaliacao
+          historico={historico}
+          fotos={fotos}
+          paciente={paciente}
+          onClose={() => setAnalisarOpen(false)}
+        />
+      )}
+
       <div className="card">
         <div className="card-header">
           <div>
             <div className="card-title">Nova avaliação antropométrica</div>
             <div className="card-sub">Registre peso e medidas — a paciente verá o gráfico de evolução</div>
           </div>
+          {historico.length > 0 && (
+            <button
+              onClick={() => setAnalisarOpen(true)}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '7px 14px', borderRadius: 8, border: 'none', cursor: 'pointer',
+                background: 'var(--dark)', color: '#fff',
+                fontSize: 12, fontWeight: 500, fontFamily: 'var(--font-sans)',
+                flexShrink: 0,
+              }}>
+              <i className="ti ti-sparkles" style={{ fontSize: 14 }} />
+              Analisar com IA
+            </button>
+          )}
         </div>
         <div className="card-body">
+          {/* Linha 1: Data, Peso, Altura */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
             <div>
               <label className="field-label">Data</label>
@@ -573,36 +615,36 @@ function RegistrarAvaliacao({ pacienteId, nutriId }) {
             </div>
           )}
 
+          {/* Circunferências */}
           <div className="section-label" style={{ marginTop: 14, marginBottom: 6 }}>Circunferências (cm)</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 10 }}>
-            <div>
-              <label className="field-label">Cintura</label>
-              <input inputMode="decimal" value={form.cintura_cm} onChange={set('cintura_cm')} />
-            </div>
-            <div>
-              <label className="field-label">Quadril</label>
-              <input inputMode="decimal" value={form.quadril_cm} onChange={set('quadril_cm')} />
-            </div>
-            <div>
-              <label className="field-label">Braço</label>
-              <input inputMode="decimal" value={form.braco_cm} onChange={set('braco_cm')} />
-            </div>
-            <div>
-              <label className="field-label">Coxa</label>
-              <input inputMode="decimal" value={form.coxa_cm} onChange={set('coxa_cm')} />
-            </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 8 }}>
+            <div><label className="field-label">Cintura</label><input inputMode="decimal" value={form.cintura_cm} onChange={set('cintura_cm')} /></div>
+            <div><label className="field-label">Quadril</label><input inputMode="decimal" value={form.quadril_cm} onChange={set('quadril_cm')} /></div>
+            <div><label className="field-label">Abdome</label><input inputMode="decimal" value={form.abdome_cm} onChange={set('abdome_cm')} /></div>
+            <div><label className="field-label">Panturrilha</label><input inputMode="decimal" value={form.panturrilha_cm} onChange={set('panturrilha_cm')} /></div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+            <div><label className="field-label">Braço D</label><input inputMode="decimal" value={form.braco_dir_cm} onChange={set('braco_dir_cm')} /></div>
+            <div><label className="field-label">Braço E</label><input inputMode="decimal" value={form.braco_esq_cm} onChange={set('braco_esq_cm')} /></div>
+            <div><label className="field-label">Coxa D</label><input inputMode="decimal" value={form.coxa_dir_cm} onChange={set('coxa_dir_cm')} /></div>
+            <div><label className="field-label">Coxa E</label><input inputMode="decimal" value={form.coxa_esq_cm} onChange={set('coxa_esq_cm')} /></div>
           </div>
 
+          {/* Composição corporal */}
           <div className="section-label" style={{ marginTop: 14, marginBottom: 6 }}>Composição corporal</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <div>
-              <label className="field-label">% gordura corporal</label>
-              <input inputMode="decimal" placeholder="ex: 28,5" value={form.pgc} onChange={set('pgc')} />
-            </div>
-            <div>
-              <label className="field-label">Massa magra (kg)</label>
-              <input inputMode="decimal" placeholder="ex: 48,2" value={form.mm_kg} onChange={set('mm_kg')} />
-            </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+            <div><label className="field-label">% gordura</label><input inputMode="decimal" placeholder="28,5" value={form.pgc} onChange={set('pgc')} /></div>
+            <div><label className="field-label">Gordura (kg)</label><input inputMode="decimal" placeholder="20,0" value={form.gordura_kg} onChange={set('gordura_kg')} /></div>
+            <div><label className="field-label">Massa magra (kg)</label><input inputMode="decimal" placeholder="48,2" value={form.mm_kg} onChange={set('mm_kg')} /></div>
+            <div><label className="field-label">Massa magra (%)</label><input inputMode="decimal" placeholder="65,0" value={form.mm_pct} onChange={set('mm_pct')} /></div>
+          </div>
+
+          {/* Hidratação e gasto energético */}
+          <div className="section-label" style={{ marginTop: 14, marginBottom: 6 }}>Hidratação e gasto energético</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+            <div><label className="field-label">Hidratação (%)</label><input inputMode="decimal" placeholder="55,0" value={form.hidratacao_pct} onChange={set('hidratacao_pct')} /></div>
+            <div><label className="field-label">GEB (kcal)</label><input inputMode="decimal" placeholder="1400" value={form.geb_kcal} onChange={set('geb_kcal')} /></div>
+            <div><label className="field-label">GET (kcal)</label><input inputMode="decimal" placeholder="1800" value={form.get_kcal} onChange={set('get_kcal')} /></div>
           </div>
 
           <label className="field-label" style={{ marginTop: 14 }}>Observação (opcional)</label>

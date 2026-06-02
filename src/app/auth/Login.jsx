@@ -133,7 +133,12 @@ export default function Login() {
             <img
               src={tema.logo_url}
               alt={tema.marca_nome ?? 'Lapidare'}
-              style={{ maxHeight: 48, maxWidth: 200, margin: '0 auto 8px', display: 'block' }}
+              style={{
+                height: 'clamp(140px, 20vw, 160px)',
+                width: 'auto', maxWidth: '80%',
+                margin: '0 auto 8px', display: 'block',
+                objectFit: 'contain',
+              }}
             />
           ) : (
             <div style={{

@@ -1830,7 +1830,23 @@ create policy avatares_pacientes_delete on storage.objects
   );
 
 -- =============================================================
--- 14. CAMPOS ADICIONAIS — TRATAMENTO ONCOLÓGICO
+-- 14. CAMPOS ADICIONAIS — AVALIAÇÃO ANTROPOMÉTRICA (peso_registros)
+-- =============================================================
+alter table public.peso_registros add column if not exists abdome_cm      numeric(5,2);
+alter table public.peso_registros add column if not exists braco_dir_cm   numeric(5,2);
+alter table public.peso_registros add column if not exists braco_esq_cm   numeric(5,2);
+alter table public.peso_registros add column if not exists coxa_dir_cm    numeric(5,2);
+alter table public.peso_registros add column if not exists coxa_esq_cm    numeric(5,2);
+alter table public.peso_registros add column if not exists panturrilha_cm numeric(5,2);
+alter table public.peso_registros add column if not exists mm_pct         numeric(5,2);   -- massa magra %
+alter table public.peso_registros add column if not exists gordura_kg     numeric(5,2);   -- gordura em kg
+alter table public.peso_registros add column if not exists hidratacao_pct numeric(5,2);   -- hidratação %
+alter table public.peso_registros add column if not exists geb_kcal       integer;         -- gasto energético basal
+alter table public.peso_registros add column if not exists get_kcal       integer;         -- gasto energético total
+
+
+-- =============================================================
+-- 15. CAMPOS ADICIONAIS — TRATAMENTO ONCOLÓGICO
 -- =============================================================
 alter table public.tratamentos_oncologicos add column if not exists data_inicio_acompanhamento date;
 alter table public.tratamentos_oncologicos add column if not exists usa_corticoide boolean;
