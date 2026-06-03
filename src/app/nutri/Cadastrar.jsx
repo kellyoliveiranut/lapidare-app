@@ -6,10 +6,8 @@ import { dataBR } from '../../lib/utils.js';
 
 const OBJETIVOS = ['Emagrecimento', 'Hipertrofia', 'Reeducação alimentar', 'Saúde geral', 'Performance esportiva', 'Oncologia', 'Outro'];
 const PLANOS    = [
-  { v: 'trimestral',     l: 'Trimestral' },
-  { v: 'semestral',      l: 'Semestral' },
-  { v: 'consultoria',    l: 'Consultoria' },
-  { v: 'acompanhamento', l: 'Acompanhamento' },
+  { v: 'avulsa',   l: 'Avulsa' },
+  { v: 'essentia', l: 'Essentia' },
 ];
 const MODALIDADES = ['Presencial', 'Online', 'Híbrido'];
 
@@ -22,7 +20,7 @@ export default function Cadastrar() {
   const [telefone, setTelefone] = useState('');
   const [nascimento, setNascimento] = useState('');
   const [objetivo, setObjetivo] = useState('Emagrecimento');
-  const [tipoPlano, setTipoPlano] = useState('trimestral');
+  const [tipoPlano, setTipoPlano] = useState('avulsa');
   const [modalidade, setModalidade] = useState('Online');
   const [endereco, setEndereco] = useState('');
   const [obs, setObs] = useState('');
@@ -46,7 +44,7 @@ export default function Cadastrar() {
 
   function resetForm() {
     setNome(''); setEmail(''); setTelefone(''); setNascimento('');
-    setObjetivo('Emagrecimento'); setTipoPlano('trimestral');
+    setObjetivo('Emagrecimento'); setTipoPlano('avulsa');
     setModalidade('Online'); setEndereco(''); setObs('');
   }
 
