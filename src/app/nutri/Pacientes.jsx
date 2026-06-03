@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
@@ -47,6 +47,16 @@ export default function Pacientes() {
     carregar();
   }
 
+  const contagemPorStatus = useMemo(() => {
+    if (!pacientes) return {};
+    const m = {};
+    for (const p of pacientes) {
+      const s = p.status_paciente ?? 'ativo';
+      m[s] = (m[s] ?? 0) + 1;
+    }
+    return m;
+  }, [pacientes]);
+
   const filtradas = useMemo(() => {
     if (!pacientes) return [];
     const porStatus = pacientes.filter(p => (p.status_paciente ?? 'ativo') === filtroStatus);
@@ -88,7 +98,7 @@ export default function Pacientes() {
           { id: 'finalizado', label: 'Finalizadas',   icon: 'archive' },
           { id: 'obito',      label: 'In memoriam',   icon: 'heart-off' },
         ].map(t => {
-          const count = (pacientes ?? []).filter(p => (p.status_paciente ?? 'ativo') === t.id).length;
+          const count = contagemPorStatus[t.id] ?? 0;
           return (
             <button key={t.id} onClick={() => setFiltroStatus(t.id)}
               style={{
@@ -185,8 +195,22 @@ export default function Pacientes() {
       )}
 
       {pacientes === null ? (
-        <div className="card empty-card">
-          <div className="empty-sub">Carregando…</div>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+          gap: 14,
+        }}>
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="card" style={{ padding: '20px 16px', textAlign: 'center' }}>
+              <div style={{
+                width: 64, height: 64, borderRadius: '50%',
+                background: 'var(--bg2)', margin: '0 auto 12px',
+                animation: 'lapidare-spin 1.5s ease-in-out infinite alternate',
+              }} />
+              <div style={{ height: 14, borderRadius: 6, background: 'var(--bg2)', margin: '0 auto 8px', width: '70%' }} />
+              <div style={{ height: 11, borderRadius: 6, background: 'var(--bg2)', margin: '0 auto', width: '45%' }} />
+            </div>
+          ))}
         </div>
       ) : pacientes.length === 0 ? (
         <div className="card empty-card">
@@ -210,90 +234,90 @@ export default function Pacientes() {
           gap: 14,
         }}>
           {filtradas.map(p => (
-            <div
-              key={p.id}
-              className="card"
-              onClick={() => navigate(`/nutri/pacientes/${p.id}`)}
-              style={{ padding: '20px 16px', cursor: 'pointer', textAlign: 'center', transition: 'box-shadow .15s' }}
-              onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,.1)'}
-              onMouseLeave={e => e.currentTarget.style.boxShadow = ''}
-            >
-              {/* Avatar */}
-              <div style={{
-                width: 64, height: 64, borderRadius: '50%',
-                background: 'var(--bg2)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 20, fontWeight: 600, color: 'var(--dark)',
-                margin: '0 auto 12px',
-                overflow: 'hidden',
-                border: '2px solid var(--border)',
-              }}>
-                {p.avatar_url
-                  ? <img src={p.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  : iniciais(p.nome)
-                }
-              </div>
-
-              {/* Nome */}
-              <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4, lineHeight: 1.3 }}>
-                {p.nome}
-              </div>
-
-              {/* Badge de status arquivado */}
-              {p.status_paciente === 'finalizado' && (
-                <div style={{
-                  display: 'inline-block', fontSize: 10, fontWeight: 500,
-                  padding: '2px 7px', borderRadius: 999,
-                  background: '#ebebeb', color: '#666', marginBottom: 4,
-                }}>
-                  Finalizado
-                </div>
-              )}
-              {p.status_paciente === 'obito' && (
-                <div style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 3,
-                  fontSize: 10, fontWeight: 500,
-                  padding: '2px 7px', borderRadius: 999,
-                  background: '#f5eeff', color: '#6c3483', marginBottom: 4,
-                }}>
-                  <i className="ti ti-heart-off" style={{ fontSize: 11 }} aria-hidden="true" />
-                  In memoriam
-                </div>
-              )}
-
-              {/* Objetivo */}
-              {p.objetivo && (
-                <div style={{
-                  display: 'inline-block',
-                  fontSize: 10, fontWeight: 500,
-                  padding: '2px 8px', borderRadius: 999,
-                  background: 'var(--gold-soft, #fdf6e3)',
-                  color: 'var(--gold-deep, #a08456)',
-                  marginBottom: 10,
-                }}>
-                  {p.objetivo}
-                </div>
-              )}
-
-              {/* Metas: plano + modalidade */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: p.objetivo ? 0 : 10 }}>
-                {p.tipo_plano && (
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, fontSize: 11, color: 'var(--text3)' }}>
-                    <i className="ti ti-calendar-check" style={{ fontSize: 12 }} aria-hidden="true"></i>
-                    {p.tipo_plano.charAt(0).toUpperCase() + p.tipo_plano.slice(1)}
-                  </div>
-                )}
-                {p.modalidade && (
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, fontSize: 11, color: 'var(--text3)' }}>
-                    <i className="ti ti-map-pin" style={{ fontSize: 12 }} aria-hidden="true"></i>
-                    {p.modalidade}
-                  </div>
-                )}
-              </div>
-            </div>
+            <PacienteCard key={p.id} paciente={p} onNavigate={navigate} />
           ))}
         </div>
       )}
     </>
   );
 }
+
+const PacienteCard = memo(function PacienteCard({ paciente: p, onNavigate }) {
+  return (
+    <div
+      className="card"
+      onClick={() => onNavigate(`/nutri/pacientes/${p.id}`)}
+      style={{ padding: '20px 16px', cursor: 'pointer', textAlign: 'center', transition: 'box-shadow .15s' }}
+      onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,.1)'}
+      onMouseLeave={e => e.currentTarget.style.boxShadow = ''}
+    >
+      <div style={{
+        width: 64, height: 64, borderRadius: '50%',
+        background: 'var(--bg2)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: 20, fontWeight: 600, color: 'var(--dark)',
+        margin: '0 auto 12px',
+        overflow: 'hidden',
+        border: '2px solid var(--border)',
+      }}>
+        {p.avatar_url
+          ? <img src={p.avatar_url} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          : iniciais(p.nome)
+        }
+      </div>
+
+      <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4, lineHeight: 1.3 }}>
+        {p.nome}
+      </div>
+
+      {p.status_paciente === 'finalizado' && (
+        <div style={{
+          display: 'inline-block', fontSize: 10, fontWeight: 500,
+          padding: '2px 7px', borderRadius: 999,
+          background: '#ebebeb', color: '#666', marginBottom: 4,
+        }}>
+          Finalizado
+        </div>
+      )}
+      {p.status_paciente === 'obito' && (
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 3,
+          fontSize: 10, fontWeight: 500,
+          padding: '2px 7px', borderRadius: 999,
+          background: '#f5eeff', color: '#6c3483', marginBottom: 4,
+        }}>
+          <i className="ti ti-heart-off" style={{ fontSize: 11 }} aria-hidden="true" />
+          In memoriam
+        </div>
+      )}
+
+      {p.objetivo && (
+        <div style={{
+          display: 'inline-block',
+          fontSize: 10, fontWeight: 500,
+          padding: '2px 8px', borderRadius: 999,
+          background: 'var(--gold-soft, #fdf6e3)',
+          color: 'var(--gold-deep, #a08456)',
+          marginBottom: 10,
+        }}>
+          {p.objetivo}
+        </div>
+      )}
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: p.objetivo ? 0 : 10 }}>
+        {p.tipo_plano && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, fontSize: 11, color: 'var(--text3)' }}>
+            <i className="ti ti-calendar-check" style={{ fontSize: 12 }} aria-hidden="true"></i>
+            {p.tipo_plano.charAt(0).toUpperCase() + p.tipo_plano.slice(1)}
+          </div>
+        )}
+        {p.modalidade && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, fontSize: 11, color: 'var(--text3)' }}>
+            <i className="ti ti-map-pin" style={{ fontSize: 12 }} aria-hidden="true"></i>
+            {p.modalidade}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+});

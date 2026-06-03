@@ -218,7 +218,7 @@ Dados da paciente: peso ${fmt(atual?.kg)} kg | altura ${fmt(atual?.altura_cm)} c
                     <XAxis dataKey="data" tick={{ fontSize: 11 }} />
                     <YAxis tick={{ fontSize: 11 }} domain={['auto', 'auto']} />
                     <Tooltip />
-                    <Line type="monotone" dataKey="Peso" stroke="#a08456" strokeWidth={2} dot={{ r: 4 }} connectNulls />
+                    <Line type="monotone" dataKey="Peso" stroke="#a08456" strokeWidth={2} dot={{ r: 4 }} connectNulls isAnimationActive={false} />
                   </LineChart>
                 </ResponsiveContainer>
               </GraficoCard>
@@ -233,8 +233,8 @@ Dados da paciente: peso ${fmt(atual?.kg)} kg | altura ${fmt(atual?.altura_cm)} c
                       <YAxis tick={{ fontSize: 11 }} />
                       <Tooltip />
                       <Legend wrapperStyle={{ fontSize: 11 }} />
-                      <Bar dataKey="Massa magra" fill="#3a6b1a" radius={[3, 3, 0, 0]} />
-                      <Bar dataKey="Gordura" fill="#8c1a1a" radius={[3, 3, 0, 0]} />
+                      <Bar dataKey="Massa magra" fill="#3a6b1a" radius={[3, 3, 0, 0]} isAnimationActive={false} />
+                      <Bar dataKey="Gordura" fill="#8c1a1a" radius={[3, 3, 0, 0]} isAnimationActive={false} />
                     </BarChart>
                   </ResponsiveContainer>
                 </GraficoCard>
@@ -250,9 +250,9 @@ Dados da paciente: peso ${fmt(atual?.kg)} kg | altura ${fmt(atual?.altura_cm)} c
                       <YAxis tick={{ fontSize: 11 }} domain={['auto', 'auto']} />
                       <Tooltip />
                       <Legend wrapperStyle={{ fontSize: 11 }} />
-                      <Line type="monotone" dataKey="Cintura" stroke={CORES[0]} strokeWidth={2} dot={{ r: 3 }} connectNulls />
-                      <Line type="monotone" dataKey="Quadril" stroke={CORES[1]} strokeWidth={2} dot={{ r: 3 }} connectNulls />
-                      <Line type="monotone" dataKey="Abdome" stroke={CORES[2]} strokeWidth={2} dot={{ r: 3 }} connectNulls />
+                      <Line type="monotone" dataKey="Cintura" stroke={CORES[0]} strokeWidth={2} dot={{ r: 3 }} connectNulls isAnimationActive={false} />
+                      <Line type="monotone" dataKey="Quadril" stroke={CORES[1]} strokeWidth={2} dot={{ r: 3 }} connectNulls isAnimationActive={false} />
+                      <Line type="monotone" dataKey="Abdome" stroke={CORES[2]} strokeWidth={2} dot={{ r: 3 }} connectNulls isAnimationActive={false} />
                     </LineChart>
                   </ResponsiveContainer>
                 </GraficoCard>
@@ -268,8 +268,8 @@ Dados da paciente: peso ${fmt(atual?.kg)} kg | altura ${fmt(atual?.altura_cm)} c
                       <YAxis tick={{ fontSize: 11 }} domain={['auto', 'auto']} />
                       <Tooltip />
                       <Legend wrapperStyle={{ fontSize: 11 }} />
-                      <Line type="monotone" dataKey="Hidratação %" stroke="#1a5a8c" strokeWidth={2} dot={{ r: 3 }} connectNulls />
-                      <Line type="monotone" dataKey="% Gordura" stroke="#8c1a1a" strokeWidth={2} dot={{ r: 3 }} connectNulls />
+                      <Line type="monotone" dataKey="Hidratação %" stroke="#1a5a8c" strokeWidth={2} dot={{ r: 3 }} connectNulls isAnimationActive={false} />
+                      <Line type="monotone" dataKey="% Gordura" stroke="#8c1a1a" strokeWidth={2} dot={{ r: 3 }} connectNulls isAnimationActive={false} />
                     </LineChart>
                   </ResponsiveContainer>
                 </GraficoCard>

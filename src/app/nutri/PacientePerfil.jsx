@@ -2108,6 +2108,7 @@ function GraficosEvolucao({ historico }) {
                     dot={{ r: 4, fill: SHAPED_VERDE, stroke: '#fff', strokeWidth: 2 }}
                     activeDot={{ r: 5, fill: SHAPED_VERDE }}
                     connectNulls
+                    isAnimationActive={false}
                   >
                     <LabelList dataKey="v" content={DotLabel} />
                   </Area>
