@@ -248,9 +248,12 @@ export default function Visao() {
   const pctMeta = metaMensal && metaMensal > 0 ? Math.min(100, (receitaMes / metaMensal) * 100) : 0;
   const faltaMeta = metaMensal ? Math.max(0, metaMensal - receitaMes) : 0;
 
+  const hora = new Date().getHours();
+  const saudacao = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';
+
   return (
     <>
-      <div className="page-title">{semNome ? `${(() => { const h = new Date().getHours(); return h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite'; })()}, ${semNome}` : 'Visão geral'}</div>
+      <div className="page-title">{semNome ? `${saudacao}, ${semNome}` : 'Visão geral'}</div>
       <div className="page-sub">O que está acontecendo no seu consultório hoje</div>
 
       {/* ─── STATS RÁPIDAS ─── */}

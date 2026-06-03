@@ -663,44 +663,12 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
                   </div>
                   <F label="Complicações / observações" value={dados.cirurgia_complicacoes} onChange={set('cirurgia_complicacoes')} />
                 </div>
-
-                {/* Protocolo Pré-Cirúrgico */}
-                <div style={{
-                  marginTop: 6, marginBottom: 4,
-                  padding: '14px 16px',
-                  background: 'linear-gradient(135deg, #fdf6ec 0%, #fef0d4 100%)',
-                  border: '1.5px solid var(--amber)',
-                  borderRadius: 10,
-                  display: 'flex',
-                  gap: 12,
-                  alignItems: 'flex-start',
-                }}>
-                  <div style={{
-                    flexShrink: 0,
-                    width: 38, height: 38,
-                    background: 'var(--amber)',
-                    borderRadius: 8,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>
-                    <i className="ti ti-shield-check" style={{ fontSize: 19, color: 'var(--dark)' }} aria-hidden="true" />
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--dark)', marginBottom: 3, letterSpacing: '.2px' }}>
-                      Protocolo Pré-Cirúrgico
-                    </div>
-                    <div style={{ fontSize: 13, color: 'var(--dark)', lineHeight: 1.5 }}>
-                      Prescrição de <strong>Impact®</strong> por 7 dias no pré-operatório
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--brown, #8c7b6b)', marginTop: 5, lineHeight: 1.5 }}>
-                      Imunonutriente com arginina, ômega-3 e nucleotídeos — indicado no pré-cirúrgico oncológico para melhora da resposta imune e redução de complicações pós-operatórias.
-                    </div>
-                  </div>
-                </div>
               </>
             )}
             <button className="btn" style={{ marginTop: 10 }} onClick={salvarTratamento} disabled={busy}>
               {busy ? 'Salvando…' : 'Salvar cirurgia'}
             </button>
+            {dados.cirurgia_preparo_nutricional && <ProtocoloImunonutricao />}
           </div>
         </div>
       )}
@@ -840,6 +808,178 @@ function F({ label, value, onChange, type = 'text', placeholder }) {
     <div>
       {label && <label className="field-label">{label}</label>}
       <input type={type} value={value} onChange={onChange} placeholder={placeholder} />
+    </div>
+  );
+}
+
+/* ============================================================
+   PROTOCOLO DE IMUNONUTRIÇÃO PERIOPERATÓRIA
+   ============================================================ */
+const PROTOCOLOS = {
+  sem_risco: {
+    label: 'Sem risco nutricional',
+    titulo: 'Protocolo de Imunonutrição Pré-Operatória',
+    subtitulo: 'Indicação: paciente sem risco nutricional',
+    linhas: [
+      'Produto: Impact® (Nestlé) — fórmula com arginina, ômega-3 e nucleotídeos',
+      'Dose: 1 caixinha (237 mL) 3x ao dia',
+      'Início: 7 dias antes da cirurgia',
+      'Duração: 7 dias no pré-operatório',
+      'Dose total: 21 caixinhas',
+    ],
+    obs: 'Manter dieta oral habitual até 6h antes da cirurgia (sólidos) e 2h (líquidos claros). O Impact® pode ser usado como complemento entre as refeições.',
+  },
+  com_risco: {
+    label: 'Com risco nutricional',
+    titulo: 'Protocolo de Imunonutrição Perioperatória',
+    subtitulo: 'Indicação: paciente com risco nutricional',
+    linhas: [
+      'Produto: Impact® (Nestlé) — fórmula com arginina, ômega-3 e nucleotídeos',
+      'Dose: 1 caixinha (237 mL) 3x ao dia',
+      '● Pré-operatório: iniciar 7 dias antes da cirurgia (21 caixinhas)',
+      '● Pós-operatório: retomar assim que dieta oral for liberada por 7 dias (21 caixinhas)',
+      'Dose total: 42 caixinhas (14 dias × 3 caixinhas/dia)',
+    ],
+    obs: 'Monitorar tolerância gastrointestinal no pós-operatório. Ajustar conforme evolução clínica, aceitação alimentar e orientação da equipe médica.',
+  },
+};
+
+function ProtocoloImunonutricao() {
+  const [risco, setRisco] = useState('sem_risco');
+  const [copiado, setCopiado] = useState(false);
+  const proto = PROTOCOLOS[risco];
+
+  function textoParaCopiar() {
+    return [
+      proto.titulo,
+      proto.subtitulo,
+      '',
+      'Prescrição:',
+      ...proto.linhas.map(l => `  • ${l}`),
+      '',
+      `Observações: ${proto.obs}`,
+    ].join('\n');
+  }
+
+  async function copiar() {
+    try {
+      await navigator.clipboard.writeText(textoParaCopiar());
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 2000);
+    } catch {
+      /* fallback silencioso */
+    }
+  }
+
+  return (
+    <div style={{
+      marginTop: 14,
+      border: '1.5px solid #c4b5fd',
+      borderRadius: 12,
+      background: '#faf5ff',
+      overflow: 'hidden',
+    }}>
+      {/* Cabeçalho */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '12px 16px',
+        background: '#f3e8ff',
+        borderBottom: '1px solid #e9d5ff',
+      }}>
+        <div style={{
+          width: 32, height: 32, borderRadius: 7, flexShrink: 0,
+          background: '#7c3aed',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <i className="ti ti-pill" style={{ fontSize: 16, color: '#fff' }} aria-hidden="true" />
+        </div>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: '#4c1d95', lineHeight: 1.2 }}>
+            Protocolo de Imunonutrição Perioperatória
+          </div>
+          <div style={{ fontSize: 11, color: '#7c3aed', marginTop: 1 }}>
+            Impact® (Nestlé) · baseado em risco nutricional
+          </div>
+        </div>
+      </div>
+
+      <div style={{ padding: '14px 16px' }}>
+        {/* Seleção de risco */}
+        <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+          {Object.entries(PROTOCOLOS).map(([key, p]) => (
+            <label key={key} style={{
+              flex: 1, display: 'flex', alignItems: 'center', gap: 8,
+              padding: '9px 12px', borderRadius: 8, cursor: 'pointer',
+              border: `1.5px solid ${risco === key ? '#7c3aed' : '#e9d5ff'}`,
+              background: risco === key ? '#ede9fe' : '#fff',
+              fontSize: 13, fontWeight: risco === key ? 600 : 400,
+              color: risco === key ? '#4c1d95' : '#6b7280',
+              transition: 'all .15s',
+            }}>
+              <input
+                type="radio"
+                name="protocolo-risco"
+                value={key}
+                checked={risco === key}
+                onChange={() => setRisco(key)}
+                style={{ accentColor: '#7c3aed' }}
+              />
+              {p.label}
+            </label>
+          ))}
+        </div>
+
+        {/* Conteúdo do protocolo */}
+        <div style={{
+          background: '#fff', borderRadius: 8,
+          border: '1px solid #e9d5ff',
+          padding: '12px 14px',
+          marginBottom: 12,
+        }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#4c1d95', marginBottom: 2, letterSpacing: '.3px', textTransform: 'uppercase' }}>
+            {proto.titulo}
+          </div>
+          <div style={{ fontSize: 11, color: '#7c3aed', marginBottom: 10 }}>
+            {proto.subtitulo}
+          </div>
+          <ul style={{ margin: 0, padding: '0 0 0 4px', listStyle: 'none' }}>
+            {proto.linhas.map((l, i) => (
+              <li key={i} style={{
+                fontSize: 12.5, color: '#1f2937', lineHeight: 1.6,
+                paddingLeft: l.startsWith('●') ? 0 : 8,
+                fontWeight: l.startsWith('●') ? 500 : 400,
+              }}>
+                {l.startsWith('●') ? l : `• ${l}`}
+              </li>
+            ))}
+          </ul>
+          <div style={{
+            marginTop: 10, paddingTop: 10,
+            borderTop: '1px dashed #e9d5ff',
+            fontSize: 11, color: '#6b7280', lineHeight: 1.5,
+          }}>
+            <strong style={{ color: '#4c1d95' }}>Obs.:</strong> {proto.obs}
+          </div>
+        </div>
+
+        {/* Botão copiar */}
+        <button
+          onClick={copiar}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            padding: '7px 14px', borderRadius: 7, cursor: 'pointer',
+            border: '1.5px solid #7c3aed',
+            background: copiado ? '#7c3aed' : 'transparent',
+            color: copiado ? '#fff' : '#7c3aed',
+            fontSize: 12, fontWeight: 500,
+            fontFamily: 'var(--font-sans)',
+            transition: 'all .2s',
+          }}
+        >
+          <i className={`ti ${copiado ? 'ti-check' : 'ti-copy'}`} style={{ fontSize: 14 }} aria-hidden="true" />
+          {copiado ? 'Copiado!' : 'Copiar protocolo'}
+        </button>
+      </div>
     </div>
   );
 }
