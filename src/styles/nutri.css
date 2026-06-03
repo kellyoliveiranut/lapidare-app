@@ -151,7 +151,9 @@
 /* ── MAIN ── */
 .nutri-panel .main {
   display: flex; flex-direction: column;
-  height: 100vh; overflow: hidden;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
   background: var(--bg);
 }
 
@@ -197,7 +199,9 @@
 /* ── CONTENT ── */
 .nutri-panel .content {
   flex: 1; overflow-y: auto;
-  padding: 24px; background: var(--bg);
+  padding: 24px;
+  padding-bottom: max(24px, calc(env(safe-area-inset-bottom, 0px) + 16px));
+  background: var(--bg);
 }
 .nutri-panel .content::-webkit-scrollbar { width: 4px; }
 .nutri-panel .content::-webkit-scrollbar-track { background: transparent; }
@@ -459,8 +463,11 @@
   .nutri-panel .topbar-date { display: none; }
   .nutri-panel .topbar-page { font-size: 14px; }
 
-  /* Content: menos padding */
-  .nutri-panel .content { padding: 16px; }
+  /* Content: padding uniforme + safe-area no bottom */
+  .nutri-panel .content {
+    padding: 16px;
+    padding-bottom: max(24px, calc(env(safe-area-inset-bottom, 0px) + 16px));
+  }
 
   /* Grids 2-col e 3-col viram 1 col */
   .nutri-panel .g2,
@@ -483,9 +490,9 @@
     font-size: 22px;
   }
 
-  /* Page title menor */
+  /* Page title menor — menos espaço antes dos cards de dados */
   .nutri-panel .page-title { font-size: 22px; }
-  .nutri-panel .page-sub { font-size: 13px; margin-bottom: 14px; }
+  .nutri-panel .page-sub { font-size: 13px; margin-bottom: 10px; }
 
   /* Card overflow horizontal para tabelas largas */
   .nutri-panel .card {
@@ -518,7 +525,10 @@
   .nutri-panel .stats-grid {
     grid-template-columns: 1fr;
   }
-  .nutri-panel .content { padding: 12px; }
+  .nutri-panel .content {
+    padding: 12px;
+    padding-bottom: max(20px, calc(env(safe-area-inset-bottom, 0px) + 12px));
+  }
   .nutri-panel .page-title { font-size: 20px; }
 
   /* Empty card menor */
