@@ -319,7 +319,7 @@
 /* ── INPUTS ── */
 .nutri-panel .input-field,
 .nutri-panel .select-field,
-.nutri-panel input,
+.nutri-panel input:not([type="checkbox"]):not([type="radio"]),
 .nutri-panel select,
 .nutri-panel textarea {
   width: 100%; border: 0.5px solid var(--border);
@@ -330,7 +330,7 @@
 }
 .nutri-panel .input-field:focus,
 .nutri-panel .select-field:focus,
-.nutri-panel input:focus,
+.nutri-panel input:not([type="checkbox"]):not([type="radio"]):focus,
 .nutri-panel select:focus,
 .nutri-panel textarea:focus { border-color: var(--amber); }
 
@@ -506,7 +506,7 @@
   .nutri-panel .btn-outline {
     min-height: 36px;
   }
-  .nutri-panel input,
+  .nutri-panel input:not([type="checkbox"]):not([type="radio"]),
   .nutri-panel select,
   .nutri-panel textarea {
     padding: 10px 12px;
