@@ -668,7 +668,9 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
             <button className="btn" style={{ marginTop: 10 }} onClick={salvarTratamento} disabled={busy}>
               {busy ? 'Salvando…' : 'Salvar cirurgia'}
             </button>
-            {dados.cirurgia_preparo_nutricional && <ProtocoloImunonutricao />}
+            {dados.cirurgia_preparo_nutricional && (
+              <ProtocoloImunonutricao pacienteId={pacienteId} nutriId={nutriId} />
+            )}
           </div>
         </div>
       )}
@@ -821,11 +823,11 @@ const PROTOCOLOS = {
     titulo: 'Protocolo de Imunonutrição Pré-Operatória',
     subtitulo: 'Indicação: paciente sem risco nutricional',
     linhas: [
-      'Produto: Impact® (Nestlé) — fórmula com arginina, ômega-3 e nucleotídeos',
-      'Dose: 1 caixinha (237 mL) 3x ao dia',
+      'Produto: Impact® — fórmula com arginina, ômega-3 e nucleotídeos',
+      'Dose: 1 unidade (237 mL) 3x ao dia',
       'Início: 7 dias antes da cirurgia',
       'Duração: 7 dias no pré-operatório',
-      'Dose total: 21 caixinhas',
+      'Dose total: 21 unidades',
     ],
     obs: 'Manter dieta oral habitual até 6h antes da cirurgia (sólidos) e 2h (líquidos claros). O Impact® pode ser usado como complemento entre as refeições.',
   },
@@ -834,19 +836,21 @@ const PROTOCOLOS = {
     titulo: 'Protocolo de Imunonutrição Perioperatória',
     subtitulo: 'Indicação: paciente com risco nutricional',
     linhas: [
-      'Produto: Impact® (Nestlé) — fórmula com arginina, ômega-3 e nucleotídeos',
-      'Dose: 1 caixinha (237 mL) 3x ao dia',
-      '● Pré-operatório: iniciar 7 dias antes da cirurgia (21 caixinhas)',
-      '● Pós-operatório: retomar assim que dieta oral for liberada por 7 dias (21 caixinhas)',
-      'Dose total: 42 caixinhas (14 dias × 3 caixinhas/dia)',
+      'Produto: Impact® — fórmula com arginina, ômega-3 e nucleotídeos',
+      'Dose: 1 unidade (237 mL) 3x ao dia',
+      '● Pré-operatório: iniciar 7 dias antes da cirurgia (21 unidades)',
+      '● Pós-operatório: retomar assim que dieta oral for liberada por 7 dias (21 unidades)',
+      'Dose total: 42 unidades (14 dias × 3 unidades/dia)',
     ],
     obs: 'Monitorar tolerância gastrointestinal no pós-operatório. Ajustar conforme evolução clínica, aceitação alimentar e orientação da equipe médica.',
   },
 };
 
-function ProtocoloImunonutricao() {
+function ProtocoloImunonutricao({ pacienteId, nutriId }) {
   const [risco, setRisco] = useState('sem_risco');
   const [copiado, setCopiado] = useState(false);
+  const [salvando, setSalvando] = useState(false);
+  const [feedbackPlano, setFeedbackPlano] = useState(null);
   const proto = PROTOCOLOS[risco];
 
   function textoParaCopiar() {
@@ -866,9 +870,53 @@ function ProtocoloImunonutricao() {
       await navigator.clipboard.writeText(textoParaCopiar());
       setCopiado(true);
       setTimeout(() => setCopiado(false), 2000);
-    } catch {
-      /* fallback silencioso */
+    } catch { /* fallback silencioso */ }
+  }
+
+  async function salvarNoPlano() {
+    setSalvando(true);
+    setFeedbackPlano(null);
+
+    const secaoProtocolo = {
+      nome: 'Protocolo Pré-Cirúrgico',
+      emoji: '🛡️',
+      protocolo_cirurgico: true,
+      alimentos: proto.linhas.map(l => ({ nome: l.startsWith('● ') ? l.slice(2) : l })),
+      obs: `${proto.subtitulo}. ${proto.obs}`,
+    };
+
+    const { data: planoAtual, error: errBusca } = await supabase
+      .from('planos')
+      .select('id, dados')
+      .eq('paciente_id', pacienteId)
+      .order('publicado_em', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (errBusca) {
+      setSalvando(false);
+      return setFeedbackPlano({ tipo: 'erro', msg: 'Erro ao buscar plano: ' + errBusca.message });
     }
+
+    if (!planoAtual) {
+      setSalvando(false);
+      return setFeedbackPlano({ tipo: 'aviso', msg: 'Nenhum plano publicado para esta paciente. Publique um plano alimentar primeiro.' });
+    }
+
+    const refeicoes = planoAtual.dados?.refeicoes ?? [];
+    const idx = refeicoes.findIndex(r => r.protocolo_cirurgico || r.nome === 'Protocolo Pré-Cirúrgico');
+    const novasRefeicoes = idx >= 0
+      ? [...refeicoes.slice(0, idx), secaoProtocolo, ...refeicoes.slice(idx + 1)]
+      : [...refeicoes, secaoProtocolo];
+
+    const { error } = await supabase
+      .from('planos')
+      .update({ dados: { ...planoAtual.dados, refeicoes: novasRefeicoes } })
+      .eq('id', planoAtual.id);
+
+    setSalvando(false);
+    if (error) return setFeedbackPlano({ tipo: 'erro', msg: 'Erro ao salvar: ' + error.message });
+    setFeedbackPlano({ tipo: 'ok', msg: 'Protocolo adicionado ao plano da paciente.' });
   }
 
   return (
@@ -979,6 +1027,36 @@ function ProtocoloImunonutricao() {
           <i className={`ti ${copiado ? 'ti-check' : 'ti-copy'}`} style={{ fontSize: 14 }} aria-hidden="true" />
           {copiado ? 'Copiado!' : 'Copiar protocolo'}
         </button>
+
+        <button
+          onClick={salvarNoPlano}
+          disabled={salvando}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            padding: '7px 14px', borderRadius: 7, cursor: salvando ? 'default' : 'pointer',
+            border: 'none',
+            background: '#7c3aed',
+            color: '#fff',
+            fontSize: 12, fontWeight: 500,
+            fontFamily: 'var(--font-sans)',
+            opacity: salvando ? 0.7 : 1,
+            marginLeft: 8,
+          }}
+        >
+          <i className="ti ti-device-floppy" style={{ fontSize: 14 }} aria-hidden="true" />
+          {salvando ? 'Salvando…' : 'Salvar no plano da paciente'}
+        </button>
+
+        {feedbackPlano && (
+          <div style={{
+            marginTop: 10, padding: '7px 10px', borderRadius: 6, fontSize: 12,
+            background: feedbackPlano.tipo === 'ok' ? '#f0fdf4' : feedbackPlano.tipo === 'aviso' ? '#fffbeb' : '#fef2f2',
+            color: feedbackPlano.tipo === 'ok' ? '#166534' : feedbackPlano.tipo === 'aviso' ? '#92400e' : '#991b1b',
+            border: `1px solid ${feedbackPlano.tipo === 'ok' ? '#bbf7d0' : feedbackPlano.tipo === 'aviso' ? '#fde68a' : '#fecaca'}`,
+          }}>
+            {feedbackPlano.msg}
+          </div>
+        )}
       </div>
     </div>
   );
