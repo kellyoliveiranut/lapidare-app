@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
+import DateInput from '../../components/DateInput.jsx';
 import {
   brl, dataBR,
   gerarParcelas, statusParcela,
@@ -523,7 +524,7 @@ function NovaVendaModal({ pacientes, servicos, nutriId, onClose, onSaved }) {
         </div>
         <div>
           <label className="form-lbl">Data da venda</label>
-          <input type="date" value={data} onChange={e => setData(e.target.value)} />
+          <DateInput value={data} onChange={e => setData(e.target.value)} />
         </div>
       </div>
 
@@ -682,7 +683,7 @@ function EditarParcelaModal({ parcela, venda, onClose, onSaved }) {
       {status === 'pago' && (
         <>
           <label className="form-lbl">Data de pagamento</label>
-          <input type="date" value={dataPgto} onChange={e => setDataPgto(e.target.value)} />
+          <DateInput value={dataPgto} onChange={e => setDataPgto(e.target.value)} />
         </>
       )}
 
@@ -771,7 +772,7 @@ function EditarVendaModal({ venda, pacientes, onClose, onSaved }) {
         placeholder="Ex: Acompanhamento trimestral" />
 
       <label className="form-lbl">Data da venda</label>
-      <input type="date" value={data} onChange={e => setData(e.target.value)} />
+      <DateInput value={data} onChange={e => setData(e.target.value)} />
 
       <label className="form-lbl">Observação</label>
       <textarea rows="2" value={obs} onChange={e => setObs(e.target.value)}

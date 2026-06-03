@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { dataBR } from '../../lib/utils.js';
+import DateInput from '../../components/DateInput.jsx';
 
 const INTENCOES = [
   { v: 'neoadjuvante', l: 'Neoadjuvante' },
@@ -487,7 +488,7 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
                 </div>
                 <div>
                   <label className="field-label">Data da quimio *</label>
-                  <input type="date" value={novoCiclo.data_quimio} onChange={e => setNovoCiclo(p => ({ ...p, data_quimio: e.target.value }))} />
+                  <DateInput value={novoCiclo.data_quimio} onChange={e => setNovoCiclo(p => ({ ...p, data_quimio: e.target.value }))} />
                 </div>
                 <div>
                   <label className="field-label">Observação</label>
@@ -711,7 +712,7 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
 
               <div style={{ marginBottom: 10 }}>
                 <label className="field-label">Data do exame *</label>
-                <input type="date" value={novoExame.data_exame} onChange={e => setNovoExame(p => ({ ...p, data_exame: e.target.value }))} style={{ maxWidth: 200 }} />
+                <DateInput value={novoExame.data_exame} onChange={e => setNovoExame(p => ({ ...p, data_exame: e.target.value }))} style={{ maxWidth: 200 }} />
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 10 }}>
                 {[

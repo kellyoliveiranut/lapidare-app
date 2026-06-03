@@ -555,7 +555,7 @@ function EditorGasto({ gasto, nutriId, onClose, onSaved }) {
         {tipo === 'esporadico' && (
           <>
             <label className="form-lbl">Data do gasto</label>
-            <input type="date" value={dataGasto} onChange={e => setDataGasto(e.target.value)} />
+            <DateInput value={dataGasto} onChange={e => setDataGasto(e.target.value)} />
           </>
         )}
 

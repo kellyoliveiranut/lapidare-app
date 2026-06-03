@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { dataBR } from '../../lib/utils.js';
 import { formatarResposta } from '../../lib/checkinDefault.js';
+import DateInput from '../../components/DateInput.jsx';
 
 const TIPOS_FOTO = [
   { id: 'frente',          label: 'Frente' },
@@ -615,7 +616,7 @@ function UploadFoto({ pacienteId, nutriId, onClose, onSaved }) {
         </div>
         <div>
           <label className="form-lbl">Data da foto</label>
-          <input type="date" value={data} onChange={e => setData(e.target.value)} />
+          <DateInput value={data} onChange={e => setData(e.target.value)} />
         </div>
       </div>
 

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { dataBR, iniciais } from '../../lib/utils.js';
+import DateInput from '../../components/DateInput.jsx';
 import {
   TEMPLATE_PADRAO,
   formatarResposta,
@@ -981,7 +982,7 @@ function AgendamentoEditor({ agendamento, templates, pacientes, nutriId, onClose
         </div>
         <div>
           <label className="form-lbl">Próximo envio</label>
-          <input type="date" value={proximoEnvio} onChange={e => setProximoEnvio(e.target.value)} />
+          <DateInput value={proximoEnvio} onChange={e => setProximoEnvio(e.target.value)} />
         </div>
       </div>
 
