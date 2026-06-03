@@ -250,7 +250,7 @@ export default function Visao() {
 
   return (
     <>
-      <div className="page-title">{semNome ? `Bom dia, ${semNome}` : 'Visão geral'}</div>
+      <div className="page-title">{semNome ? `${(() => { const h = new Date().getHours(); return h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite'; })()}, ${semNome}` : 'Visão geral'}</div>
       <div className="page-sub">O que está acontecendo no seu consultório hoje</div>
 
       {/* ─── STATS RÁPIDAS ─── */}
