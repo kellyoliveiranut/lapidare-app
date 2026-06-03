@@ -159,9 +159,15 @@
 
 /* ── TOPBAR ── */
 .nutri-panel .topbar {
-  height: 52px; background: var(--dark);
+  /* fallback sem safe-area, depois sobrescreve com env() */
+  height: 52px;
+  height: calc(52px + env(safe-area-inset-top, 0px));
+  background: var(--dark);
   display: flex; align-items: center;
-  padding: 0 24px; gap: 12px; flex-shrink: 0;
+  /* padding-top empurra o conteúdo abaixo do notch/status-bar */
+  padding: 0 24px;
+  padding-top: env(safe-area-inset-top, 0px);
+  gap: 12px; flex-shrink: 0;
 }
 
 .nutri-panel .topbar-zone {
@@ -441,13 +447,11 @@
     display: inline-flex;
   }
 
-  /* Topbar: esconde a categoria, foco no título; safe-area para notch/status-bar iOS */
+  /* Topbar mobile: só ajusta padding lateral e gap (safe-area já está na regra base) */
   .nutri-panel .topbar {
-    padding: 0 14px;
+    padding-left: 14px;
+    padding-right: 14px;
     gap: 8px;
-    padding-top: env(safe-area-inset-top, 0px);
-    height: calc(52px + env(safe-area-inset-top, 0px));
-    align-items: flex-end;
   }
   .nutri-panel .sidebar-head {
     padding-top: max(24px, calc(env(safe-area-inset-top, 0px) + 8px));

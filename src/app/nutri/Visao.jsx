@@ -474,9 +474,6 @@ export default function Visao() {
             <button className="btn-outline" onClick={() => navigate('/nutri/servicos')}>
               <i className="ti ti-settings" aria-hidden="true"></i> Cadastrar serviços
             </button>
-            <button className="btn" onClick={() => navigate('/nutri/cadastrar')}>
-              <i className="ti ti-user-plus" aria-hidden="true"></i> Cadastrar paciente
-            </button>
           </div>
         </div>
       )}
