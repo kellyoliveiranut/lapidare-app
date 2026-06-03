@@ -1,4 +1,20 @@
 import { lazy, Suspense } from 'react';
+
+function LoadingSpinner() {
+  return (
+    <div style={{
+      minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: 'var(--bg)',
+    }}>
+      <div style={{
+        width: 32, height: 32, borderRadius: '50%',
+        border: '2.5px solid var(--hair)',
+        borderTopColor: 'var(--gold-deep)',
+        animation: 'lapidare-spin 0.75s linear infinite',
+      }} />
+    </div>
+  );
+}
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { SessionProvider } from './lib/session.jsx';
 import { ThemeProvider } from './lib/theme.jsx';
@@ -52,7 +68,7 @@ export default function App() {
     <SessionProvider>
       <ThemeProvider>
         <BrowserRouter>
-          <Suspense fallback={null}>
+          <Suspense fallback={<LoadingSpinner />}>
             <Routes>
               <Route path="/" element={<RootRedirect />} />
               <Route path="/login" element={<Login />} />

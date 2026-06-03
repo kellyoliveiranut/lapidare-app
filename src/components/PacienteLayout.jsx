@@ -117,7 +117,7 @@ export default function PacienteLayout() {
             style={{ border: 'none', cursor: 'pointer', padding: 0, overflow: 'hidden' }}
           >
             {profile?.avatar_url
-              ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ? <img src={profile.avatar_url} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               : iniciais(profile?.nome)
             }
           </button>

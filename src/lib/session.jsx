@@ -20,20 +20,14 @@ const SessionContext = createContext({
 async function resolveRole(userId) {
   if (!userId) return { role: null, profile: null };
 
-  const nutri = await supabase
-    .from('nutris')
-    .select('*')
-    .eq('id', userId)
-    .maybeSingle();
-  if (nutri.data) return { role: 'nutri', profile: nutri.data };
+  // Queries em paralelo — elimina 1 round-trip extra para pacientes
+  const [nutriRes, pacienteRes] = await Promise.all([
+    supabase.from('nutris').select('*').eq('id', userId).maybeSingle(),
+    supabase.from('pacientes').select('*').eq('user_id', userId).maybeSingle(),
+  ]);
 
-  const paciente = await supabase
-    .from('pacientes')
-    .select('*')
-    .eq('user_id', userId)
-    .maybeSingle();
-  if (paciente.data) return { role: 'paciente', profile: paciente.data };
-
+  if (nutriRes.data) return { role: 'nutri', profile: nutriRes.data };
+  if (pacienteRes.data) return { role: 'paciente', profile: pacienteRes.data };
   return { role: null, profile: null };
 }
 

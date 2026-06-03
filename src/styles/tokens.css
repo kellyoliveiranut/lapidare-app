@@ -87,6 +87,10 @@
   --shadow-md: 0 4px 12px rgba(28, 23, 18, .06), 0 2px 4px rgba(28, 23, 18, .04);
 }
 
+@keyframes lapidare-spin {
+  to { transform: rotate(360deg); }
+}
+
 /* Reset enxuto */
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
