@@ -9,10 +9,6 @@ import {
 import { TEMPLATE_PADRAO } from '../../lib/checkinDefault.js';
 import { callAnthropic } from '../../lib/anthropic.js';
 import DateInput from '../../components/DateInput.jsx';
-import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, LabelList,
-} from 'recharts';
 import CheckinForm from '../../components/CheckinForm.jsx';
 import Evolucao from './_Evolucao.jsx';
 import FollowUp from './_FollowUp.jsx';
@@ -1971,12 +1967,52 @@ function fmtVal(v) {
   return Number(v).toFixed(1).replace(/\.0$/, '');
 }
 
-function DotLabel({ x, y, value }) {
-  if (value == null) return null;
+function SvgAreaChart({ pontos, color, gradId, unidade, label }) {
+  const W = 400, H = 100;
+  const pad = { t: 24, r: 8, b: 22, l: 8 };
+  const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+  const n = pontos.length;
+  if (n === 0) return null;
+  const vals = pontos.map(p => p.v);
+  const span = Math.max(...vals) - Math.min(...vals) || 1;
+  const lo = Math.min(...vals) - span * 0.15;
+  const hi = Math.max(...vals) + span * 0.15;
+  const tx = i => pad.l + (n < 2 ? pw / 2 : (i / (n - 1)) * pw);
+  const ty = v => pad.t + ph - ((v - lo) / (hi - lo)) * ph;
+  const pts = pontos.map((p, i) => ({ x: tx(i), y: ty(p.v), v: p.v, lbl: p.x }));
+  const linePath = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+  const baseY = pad.t + ph;
+  const areaPath = `${linePath} L ${pts[pts.length - 1].x} ${baseY} L ${pts[0].x} ${baseY} Z`;
+  const xStep = Math.max(1, Math.ceil(n / 5));
   return (
-    <text x={x} y={y - 8} textAnchor="middle" fontSize={10} fill={SHAPED_VERDE} fontWeight={600}>
-      {fmtVal(value)}
-    </text>
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: H, display: 'block' }}>
+      <defs>
+        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity={0.2} />
+          <stop offset="100%" stopColor={color} stopOpacity={0} />
+        </linearGradient>
+      </defs>
+      {[0.25, 0.5, 0.75].map((f, i) => (
+        <line key={i} x1={pad.l} y1={pad.t + ph * f} x2={W - pad.r} y2={pad.t + ph * f} stroke="#f2ede6" strokeWidth={1} />
+      ))}
+      <path d={areaPath} fill={`url(#${gradId})`} />
+      <path d={linePath} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+      {pts.map((p, i) => (
+        <g key={i}>
+          <circle cx={p.x} cy={p.y} r={4} fill={color} stroke="#fff" strokeWidth={2}>
+            <title>{`${label}: ${p.v.toFixed(1)} ${unidade}`}</title>
+          </circle>
+          <text x={p.x} y={p.y - 8} textAnchor="middle" fontSize={10} fill={color} fontWeight={600}>
+            {fmtVal(p.v)}
+          </text>
+          {i % xStep === 0 && (
+            <text x={p.x} y={H - 4} textAnchor="middle" fontSize={9} fill="#9b9087">
+              {p.lbl}
+            </text>
+          )}
+        </g>
+      ))}
+    </svg>
   );
 }
 
@@ -2074,46 +2110,13 @@ function GraficosEvolucao({ historico }) {
               </div>
 
               {/* Area chart */}
-              <ResponsiveContainer width="100%" height={100}>
-                <AreaChart data={pontos} margin={{ top: 22, right: 4, left: -32, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id={`ev-${m.key}`} x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={SHAPED_VERDE} stopOpacity={0.2} />
-                      <stop offset="100%" stopColor={SHAPED_VERDE} stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid vertical={false} stroke="#f2ede6" />
-                  <XAxis
-                    dataKey="x"
-                    tick={{ fontSize: 10, fill: '#9b9087' }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <YAxis hide domain={['auto', 'auto']} />
-                  <Tooltip
-                    contentStyle={{
-                      fontSize: 12, borderRadius: 8,
-                      border: '0.5px solid var(--border)',
-                      background: 'var(--white)', boxShadow: 'none',
-                    }}
-                    formatter={v => [`${fmtVal(v)} ${m.unidade}`, m.label]}
-                    labelStyle={{ fontSize: 10, color: 'var(--text3)' }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="v"
-                    stroke={SHAPED_VERDE}
-                    strokeWidth={2}
-                    fill={`url(#ev-${m.key})`}
-                    dot={{ r: 4, fill: SHAPED_VERDE, stroke: '#fff', strokeWidth: 2 }}
-                    activeDot={{ r: 5, fill: SHAPED_VERDE }}
-                    connectNulls
-                    isAnimationActive={false}
-                  >
-                    <LabelList dataKey="v" content={DotLabel} />
-                  </Area>
-                </AreaChart>
-              </ResponsiveContainer>
+              <SvgAreaChart
+                pontos={pontos}
+                color={SHAPED_VERDE}
+                gradId={`ev-${m.key}`}
+                unidade={m.unidade}
+                label={m.label}
+              />
             </div>
           );
         })}

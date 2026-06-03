@@ -1,8 +1,4 @@
 import { useState } from 'react';
-import {
-  ResponsiveContainer, LineChart, Line, BarChart, Bar,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-} from 'recharts';
 import { dataBR } from '../../lib/utils.js';
 import { callAnthropic, urlToBase64 } from '../../lib/anthropic.js';
 
@@ -212,66 +208,62 @@ Dados da paciente: peso ${fmt(atual?.kg)} kg | altura ${fmt(atual?.altura_cm)} c
 
               {/* Evolução do peso */}
               <GraficoCard titulo="Evolução do Peso (kg)">
-                <ResponsiveContainer width="100%" height={180}>
-                  <LineChart data={dados}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#eae4dc" />
-                    <XAxis dataKey="data" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} domain={['auto', 'auto']} />
-                    <Tooltip />
-                    <Line type="monotone" dataKey="Peso" stroke="#a08456" strokeWidth={2} dot={{ r: 4 }} connectNulls isAnimationActive={false} />
-                  </LineChart>
-                </ResponsiveContainer>
+                <SvgLineChart
+                  data={dados}
+                  lines={[{ key: 'Peso', color: '#a08456', label: 'Peso (kg)' }]}
+                />
               </GraficoCard>
 
               {/* Composição corporal */}
               {dados.some(d => d['Massa magra'] != null || d['Gordura'] != null) && (
                 <GraficoCard titulo="Composição Corporal (kg) — Massa Magra vs Gordura">
-                  <ResponsiveContainer width="100%" height={180}>
-                    <BarChart data={dados} barCategoryGap="30%">
-                      <CartesianGrid strokeDasharray="3 3" stroke="#eae4dc" />
-                      <XAxis dataKey="data" tick={{ fontSize: 11 }} />
-                      <YAxis tick={{ fontSize: 11 }} />
-                      <Tooltip />
-                      <Legend wrapperStyle={{ fontSize: 11 }} />
-                      <Bar dataKey="Massa magra" fill="#3a6b1a" radius={[3, 3, 0, 0]} isAnimationActive={false} />
-                      <Bar dataKey="Gordura" fill="#8c1a1a" radius={[3, 3, 0, 0]} isAnimationActive={false} />
-                    </BarChart>
-                  </ResponsiveContainer>
+                  <SvgBarChart
+                    data={dados}
+                    bars={[
+                      { key: 'Massa magra', color: '#3a6b1a', label: 'Massa magra' },
+                      { key: 'Gordura',     color: '#8c1a1a', label: 'Gordura' },
+                    ]}
+                  />
+                  <ChartLegend items={[
+                    { color: '#3a6b1a', label: 'Massa magra' },
+                    { color: '#8c1a1a', label: 'Gordura' },
+                  ]} />
                 </GraficoCard>
               )}
 
               {/* Circunferências */}
               {dados.some(d => d['Cintura'] != null || d['Quadril'] != null || d['Abdome'] != null) && (
                 <GraficoCard titulo="Circunferências Principais (cm)">
-                  <ResponsiveContainer width="100%" height={180}>
-                    <LineChart data={dados}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#eae4dc" />
-                      <XAxis dataKey="data" tick={{ fontSize: 11 }} />
-                      <YAxis tick={{ fontSize: 11 }} domain={['auto', 'auto']} />
-                      <Tooltip />
-                      <Legend wrapperStyle={{ fontSize: 11 }} />
-                      <Line type="monotone" dataKey="Cintura" stroke={CORES[0]} strokeWidth={2} dot={{ r: 3 }} connectNulls isAnimationActive={false} />
-                      <Line type="monotone" dataKey="Quadril" stroke={CORES[1]} strokeWidth={2} dot={{ r: 3 }} connectNulls isAnimationActive={false} />
-                      <Line type="monotone" dataKey="Abdome" stroke={CORES[2]} strokeWidth={2} dot={{ r: 3 }} connectNulls isAnimationActive={false} />
-                    </LineChart>
-                  </ResponsiveContainer>
+                  <SvgLineChart
+                    data={dados}
+                    lines={[
+                      { key: 'Cintura', color: CORES[0], label: 'Cintura' },
+                      { key: 'Quadril', color: CORES[1], label: 'Quadril' },
+                      { key: 'Abdome',  color: CORES[2], label: 'Abdome' },
+                    ]}
+                  />
+                  <ChartLegend items={[
+                    { color: CORES[0], label: 'Cintura' },
+                    { color: CORES[1], label: 'Quadril' },
+                    { color: CORES[2], label: 'Abdome' },
+                  ]} />
                 </GraficoCard>
               )}
 
               {/* Hidratação e gordura % */}
               {dados.some(d => d['Hidratação %'] != null || d['% Gordura'] != null) && (
                 <GraficoCard titulo="Hidratação (%) e Gordura Corporal (%)">
-                  <ResponsiveContainer width="100%" height={180}>
-                    <LineChart data={dados}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#eae4dc" />
-                      <XAxis dataKey="data" tick={{ fontSize: 11 }} />
-                      <YAxis tick={{ fontSize: 11 }} domain={['auto', 'auto']} />
-                      <Tooltip />
-                      <Legend wrapperStyle={{ fontSize: 11 }} />
-                      <Line type="monotone" dataKey="Hidratação %" stroke="#1a5a8c" strokeWidth={2} dot={{ r: 3 }} connectNulls isAnimationActive={false} />
-                      <Line type="monotone" dataKey="% Gordura" stroke="#8c1a1a" strokeWidth={2} dot={{ r: 3 }} connectNulls isAnimationActive={false} />
-                    </LineChart>
-                  </ResponsiveContainer>
+                  <SvgLineChart
+                    data={dados}
+                    lines={[
+                      { key: 'Hidratação %', color: '#1a5a8c', label: 'Hidratação %' },
+                      { key: '% Gordura',    color: '#8c1a1a', label: '% Gordura' },
+                    ]}
+                  />
+                  <ChartLegend items={[
+                    { color: '#1a5a8c', label: 'Hidratação %' },
+                    { color: '#8c1a1a', label: '% Gordura' },
+                  ]} />
                 </GraficoCard>
               )}
             </div>
@@ -384,6 +376,112 @@ function GraficoCard({ titulo, children }) {
         {titulo}
       </div>
       {children}
+    </div>
+  );
+}
+
+/* ── SVG charts (sem dependência externa) ── */
+
+function SvgLineChart({ data, lines }) {
+  const W = 560, H = 180;
+  const pad = { t: 20, r: 16, b: 32, l: 42 };
+  const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+  const n = data.length;
+  if (n === 0) return null;
+  const allVals = lines.flatMap(l => data.map(d => d[l.key]).filter(v => v != null));
+  if (!allVals.length) return null;
+  const rawMin = Math.min(...allVals), rawMax = Math.max(...allVals);
+  const span = rawMax - rawMin || 1;
+  const lo = rawMin - span * 0.1, hi = rawMax + span * 0.1;
+  const tx = i => pad.l + (n < 2 ? pw / 2 : (i / (n - 1)) * pw);
+  const ty = v => pad.t + ph - ((v - lo) / (hi - lo)) * ph;
+  const yTicks = Array.from({ length: 4 }, (_, i) => lo + ((hi - lo) * i) / 3);
+  const xStep = Math.max(1, Math.ceil(n / 7));
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: H, display: 'block' }}>
+      {yTicks.map((v, i) => (
+        <g key={i}>
+          <line x1={pad.l} y1={ty(v)} x2={W - pad.r} y2={ty(v)} stroke="#eae4dc" strokeWidth={1} />
+          <text x={pad.l - 5} y={ty(v) + 4} textAnchor="end" fontSize={10} fill="#aaa">
+            {Math.abs(v) >= 100 ? Math.round(v) : v.toFixed(1)}
+          </text>
+        </g>
+      ))}
+      {data.map((d, i) => i % xStep === 0 && (
+        <text key={i} x={tx(i)} y={H - 6} textAnchor="middle" fontSize={10} fill="#aaa">{d.data}</text>
+      ))}
+      {lines.map(l => {
+        let path = '';
+        data.forEach((pt, i) => {
+          const v = pt[l.key];
+          if (v == null) return;
+          path += path === '' ? `M ${tx(i)} ${ty(v)}` : ` L ${tx(i)} ${ty(v)}`;
+        });
+        return path ? <path key={l.key} d={path} fill="none" stroke={l.color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" /> : null;
+      })}
+      {lines.flatMap(l =>
+        data.map((pt, i) => {
+          const v = pt[l.key];
+          if (v == null) return null;
+          return (
+            <circle key={`${l.key}-${i}`} cx={tx(i)} cy={ty(v)} r={4} fill={l.color} stroke="#fff" strokeWidth={1.5}>
+              <title>{`${l.label}: ${v.toFixed(1)}`}</title>
+            </circle>
+          );
+        })
+      )}
+    </svg>
+  );
+}
+
+function SvgBarChart({ data, bars }) {
+  const W = 560, H = 180;
+  const pad = { t: 20, r: 16, b: 32, l: 42 };
+  const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+  const n = data.length;
+  if (n === 0) return null;
+  const allVals = bars.flatMap(b => data.map(d => d[b.key]).filter(v => v != null && v > 0));
+  if (!allVals.length) return null;
+  const maxVal = Math.max(...allVals) * 1.1;
+  const ty = v => pad.t + ph - (v / maxVal) * ph;
+  const th = v => (v / maxVal) * ph;
+  const nB = bars.length;
+  const groupW = pw / n;
+  const barW = Math.min((groupW * 0.65) / nB, 28);
+  const gx = i => pad.l + i * groupW + (groupW - barW * nB - (nB - 1) * 2) / 2;
+  const xStep = Math.max(1, Math.ceil(n / 7));
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: H, display: 'block' }}>
+      {[0, 0.33, 0.67, 1].map((f, i) => (
+        <line key={i} x1={pad.l} y1={pad.t + ph * (1 - f)} x2={W - pad.r} y2={pad.t + ph * (1 - f)} stroke="#eae4dc" strokeWidth={1} />
+      ))}
+      {data.map((pt, i) =>
+        bars.map((b, bi) => {
+          const v = pt[b.key];
+          if (!v || v <= 0) return null;
+          return (
+            <rect key={`${b.key}-${i}`} x={gx(i) + bi * (barW + 2)} y={ty(v)} width={barW} height={th(v)} fill={b.color} rx={2}>
+              <title>{`${b.label}: ${v.toFixed(1)}`}</title>
+            </rect>
+          );
+        })
+      )}
+      {data.map((pt, i) => i % xStep === 0 && (
+        <text key={i} x={pad.l + i * groupW + groupW / 2} y={H - 6} textAnchor="middle" fontSize={10} fill="#aaa">{pt.data}</text>
+      ))}
+    </svg>
+  );
+}
+
+function ChartLegend({ items }) {
+  return (
+    <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 6, justifyContent: 'center' }}>
+      {items.map(it => (
+        <div key={it.label} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#666' }}>
+          <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: it.color }} />
+          {it.label}
+        </div>
+      ))}
     </div>
   );
 }
