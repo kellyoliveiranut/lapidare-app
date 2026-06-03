@@ -9,7 +9,7 @@ export default function Suplementos() {
   const [suplementos, setSuplementos] = useState(null);
   const [logs, setLogs] = useState([]);   // últimos 30 dias
 
-  async function carregar() {
+  async function carregar(signal) {
     if (!user) return;
     const [supRes, logRes] = await Promise.all([
       supabase.from('suplementos').select('*')
@@ -20,10 +20,15 @@ export default function Suplementos() {
         .gte('data', new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10))
         .order('data', { ascending: false }),
     ]);
+    if (signal.cancelled) return;
     setSuplementos(supRes.data ?? []);
     setLogs(logRes.data ?? []);
   }
-  useEffect(() => { carregar(); }, [user]);
+  useEffect(() => {
+    const signal = { cancelled: false };
+    carregar(signal);
+    return () => { signal.cancelled = true; };
+  }, [user]);
 
   async function toggle(s) {
     const hoje = HOJE();

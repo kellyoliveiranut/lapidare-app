@@ -48,7 +48,8 @@ export default function PrescricoesNutri() {
   async function remover(item) {
     if (!window.confirm(`Remover "${item.titulo}"?`)) return;
     await supabase.storage.from('prescricoes').remove([item.storage_path]);
-    await supabase.from('prescricoes').delete().eq('id', item.id);
+    const { error } = await supabase.from('prescricoes').delete().eq('id', item.id);
+    if (error) return alert('Erro ao remover: ' + error.message);
     carregar();
   }
 

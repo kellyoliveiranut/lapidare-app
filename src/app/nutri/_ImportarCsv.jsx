@@ -89,7 +89,7 @@ export default function ImportarCsv({ onClose, onImported }) {
   }
 
   const linhasValidas = useMemo(() => {
-    if (!mapa.nome === undefined || mapa.email === undefined) return [];
+    if (mapa.nome === undefined || mapa.email === undefined) return [];
     const out = [];
     const errs = [];
     csv.rows.forEach((row, i) => {

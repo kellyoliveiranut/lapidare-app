@@ -33,24 +33,30 @@ export default function FeedPaciente() {
   const [erro, setErro] = useState(null);
   const fileInputRef = useRef(null);
 
-  async function carregar() {
+  async function carregar(signal) {
     if (!user) return;
     const { data } = await supabase
       .from('feed_pratos')
       .select('id, refeicao, legenda, storage_path, comentario_nutri, created_at')
       .eq('paciente_id', user.id)
       .order('created_at', { ascending: false });
+    if (signal.cancelled) return;
     setPosts(data ?? []);
 
     // Pre-fetch signed URLs
     const novasUrls = {};
     for (const p of data ?? []) {
+      if (signal.cancelled) return;
       const url = await getSignedUrl(p.storage_path);
       if (url) novasUrls[p.id] = url;
     }
-    setUrls(novasUrls);
+    if (!signal.cancelled) setUrls(novasUrls);
   }
-  useEffect(() => { carregar(); }, [user]);
+  useEffect(() => {
+    const signal = { cancelled: false };
+    carregar(signal);
+    return () => { signal.cancelled = true; };
+  }, [user]);
 
   function selecionarFoto(e) {
     const file = e.target.files?.[0];

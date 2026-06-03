@@ -663,6 +663,39 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
                   </div>
                   <F label="Complicações / observações" value={dados.cirurgia_complicacoes} onChange={set('cirurgia_complicacoes')} />
                 </div>
+
+                {/* Protocolo Pré-Cirúrgico */}
+                <div style={{
+                  marginTop: 6, marginBottom: 4,
+                  padding: '14px 16px',
+                  background: 'linear-gradient(135deg, #fdf6ec 0%, #fef0d4 100%)',
+                  border: '1.5px solid var(--amber)',
+                  borderRadius: 10,
+                  display: 'flex',
+                  gap: 12,
+                  alignItems: 'flex-start',
+                }}>
+                  <div style={{
+                    flexShrink: 0,
+                    width: 38, height: 38,
+                    background: 'var(--amber)',
+                    borderRadius: 8,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <i className="ti ti-shield-check" style={{ fontSize: 19, color: 'var(--dark)' }} aria-hidden="true" />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--dark)', marginBottom: 3, letterSpacing: '.2px' }}>
+                      Protocolo Pré-Cirúrgico
+                    </div>
+                    <div style={{ fontSize: 13, color: 'var(--dark)', lineHeight: 1.5 }}>
+                      Prescrição de <strong>Impact®</strong> por 7 dias no pré-operatório
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--brown, #8c7b6b)', marginTop: 5, lineHeight: 1.5 }}>
+                      Imunonutriente com arginina, ômega-3 e nucleotídeos — indicado no pré-cirúrgico oncológico para melhora da resposta imune e redução de complicações pós-operatórias.
+                    </div>
+                  </div>
+                </div>
               </>
             )}
             <button className="btn" style={{ marginTop: 10 }} onClick={salvarTratamento} disabled={busy}>

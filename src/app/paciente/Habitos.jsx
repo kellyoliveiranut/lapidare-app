@@ -9,7 +9,7 @@ export default function Habitos() {
   const [habitos, setHabitos] = useState(null);
   const [logs, setLogs] = useState([]);
 
-  async function carregar() {
+  async function carregar(signal) {
     if (!user) return;
     const [hRes, lRes] = await Promise.all([
       supabase.from('habitos').select('*')
@@ -19,10 +19,15 @@ export default function Habitos() {
         .gte('data', new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10))
         .order('data', { ascending: false }),
     ]);
+    if (signal.cancelled) return;
     setHabitos(hRes.data ?? []);
     setLogs(lRes.data ?? []);
   }
-  useEffect(() => { carregar(); }, [user]);
+  useEffect(() => {
+    const signal = { cancelled: false };
+    carregar(signal);
+    return () => { signal.cancelled = true; };
+  }, [user]);
 
   // Mapa { habito_id: { data: valor } }
   const logMap = useMemo(() => {
