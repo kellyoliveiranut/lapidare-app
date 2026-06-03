@@ -30,8 +30,8 @@ const SECOES = [
   { id: 'diagnostico', label: 'Diagnóstico',         icon: 'dna' },
   { id: 'tratamento',  label: 'Tratamento Sistêmico', icon: 'needle' },
   { id: 'ciclos',      label: 'Ciclos',              icon: 'calendar-event' },
-  { id: 'radio',       label: 'Radioterapia',        icon: 'radiation' },
-  { id: 'cirurgia',    label: 'Cirurgia',            icon: 'scalpel' },
+  { id: 'radio',       label: 'Radioterapia',        icon: 'radioactive' },
+  { id: 'cirurgia',    label: 'Cirurgia',            icon: 'face-mask' },
   { id: 'exames',      label: 'Exames Laboratoriais', icon: 'microscope' },
 ];
 
