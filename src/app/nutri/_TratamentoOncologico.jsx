@@ -320,10 +320,10 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
       )}
 
       {/* Tabs de seção */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 2, background: 'var(--bg2)', borderRadius: 8, padding: 3, marginBottom: 16 }}>
+      <div style={{ display: 'flex', gap: 2, background: 'var(--bg2)', borderRadius: 8, padding: 3, marginBottom: 16, overflowX: 'auto', scrollbarWidth: 'none' }}>
         {SECOES.map(s => (
           <button key={s.id} onClick={() => setSecao(s.id)} style={{
-            padding: '4px 8px', fontSize: 12, fontWeight: 500,
+            flex: '0 0 auto', padding: '6px 12px', fontSize: 12, fontWeight: 500,
             borderRadius: 6, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
             background: secao === s.id ? 'var(--white)' : 'transparent',
             color: secao === s.id ? 'var(--dark)' : 'var(--text3)',

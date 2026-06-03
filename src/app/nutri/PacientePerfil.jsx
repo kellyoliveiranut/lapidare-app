@@ -309,38 +309,39 @@ export default function PacientePerfil() {
 
       {/* Tabs */}
       <div style={{
-        display: 'flex', flexWrap: 'wrap', gap: 2,
-        background: 'var(--bg2)', borderRadius: 10,
-        padding: 3, marginBottom: 16,
+        display: 'flex', gap: 2, background: 'var(--bg2)',
+        borderRadius: 10, padding: 3, marginBottom: 16,
+        overflowX: 'auto', scrollbarWidth: 'none',
       }}>
         {[
-          { id: 'evolucao',      label: 'Evolução',       icon: 'chart-line' },
-          { id: 'oncologia',     label: 'Oncologia',      icon: 'dna' },
-          { id: 'anamnese',      label: 'Anamnese',       icon: 'clipboard-text' },
-          { id: 'followup',      label: 'Follow-up',      icon: 'notebook' },
-          { id: 'plano',         label: 'Plano',          icon: 'salad' },
-          { id: 'compras',       label: 'Compras',        icon: 'shopping-cart' },
-          { id: 'suplementacao', label: 'Suplementação',  icon: 'pill' },
-          { id: 'habitos',       label: 'Hábitos',        icon: 'checklist' },
-          { id: 'prescricoes',   label: 'Prescrições',    icon: 'file-text' },
-          { id: 'ebooks',        label: 'E-books',        icon: 'book-2' },
-          { id: 'avaliacao',     label: 'Avaliação',      icon: 'ruler-measure' },
-          { id: 'checkin',       label: 'Check-in',       icon: 'clipboard-check' },
+          { id: 'evolucao',      label: 'Evolução',      icon: 'chart-line' },
+          { id: 'oncologia',     label: 'Oncologia',     icon: 'dna' },
+          { id: 'anamnese',      label: 'Anamnese',      icon: 'clipboard-text' },
+          { id: 'followup',      label: 'Follow-up',     icon: 'notebook' },
+          { id: 'plano',         label: 'Plano',         icon: 'salad' },
+          { id: 'compras',       label: 'Compras',       icon: 'shopping-cart' },
+          { id: 'suplementacao', label: 'Suplementação', icon: 'pill' },
+          { id: 'habitos',       label: 'Hábitos',       icon: 'checklist' },
+          { id: 'prescricoes',   label: 'Prescrições',   icon: 'file-text' },
+          { id: 'ebooks',        label: 'E-books',       icon: 'book-2' },
+          { id: 'avaliacao',     label: 'Avaliação',     icon: 'ruler-measure' },
+          { id: 'checkin',       label: 'Check-in',      icon: 'clipboard-check' },
         ].map(t => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
             style={{
-              padding: '4px 8px', fontSize: 12, fontWeight: 500,
-              borderRadius: 7, border: 'none', cursor: 'pointer',
+              flex: '0 0 auto',
+              padding: '7px 12px', fontSize: 13, fontWeight: 500,
+              borderRadius: 8, border: 'none', cursor: 'pointer',
               color: tab === t.id ? 'var(--dark)' : 'var(--text3)',
               background: tab === t.id ? 'var(--white)' : 'transparent',
               boxShadow: tab === t.id ? 'var(--shadow-sm, 0 1px 2px rgba(0,0,0,.05))' : 'none',
               fontFamily: 'var(--font-sans)',
               whiteSpace: 'nowrap',
-              display: 'inline-flex', alignItems: 'center', gap: 5,
+              display: 'inline-flex', alignItems: 'center', gap: 6,
             }}>
-            <i className={`ti ti-${t.icon}`} style={{ fontSize: 13 }} aria-hidden="true"></i>
+            <i className={`ti ti-${t.icon}`} style={{ fontSize: 14 }} aria-hidden="true"></i>
             {t.label}
           </button>
         ))}
