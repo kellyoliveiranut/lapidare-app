@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
+import DateInput from '../../components/DateInput.jsx';
 import {
   brl, dataBR,
   CATEGORIAS_GASTO, infoCategoria,

@@ -119,11 +119,34 @@ export default function Habitos({ pacienteId, nutriId, pacienteNome }) {
           {habitos === null ? (
             <div style={{ padding: 16, color: 'var(--text3)', fontSize: 13 }}>Carregando…</div>
           ) : habitos.length === 0 ? (
-            <div style={{
-              padding: '14px 16px', borderRadius: 8, background: 'var(--bg2)',
-              fontSize: 12, color: 'var(--text3)', marginBottom: 14,
-            }}>
-              Nenhum hábito ainda. Adicione um modelo pronto abaixo ou crie um custom em "+ Novo hábito".
+            <div style={{ marginBottom: 14 }}>
+              {/* Cards de exemplo */}
+              {[
+                { emoji: '💧', nome: 'Hidratação', sub: 'Meta: 1,5 L/dia', pct: 71 },
+                { emoji: '😴', nome: 'Sono',       sub: '6h por noite',    pct: 57 },
+                { emoji: '🏃', nome: 'Atividade física', sub: 'Caminhada 3×/semana', pct: 43 },
+                { emoji: '🌿', nome: 'Intestino',  sub: 'Evacuação diária', pct: 86 },
+              ].map(ex => (
+                <div key={ex.nome} style={{
+                  display: 'flex', gap: 10, alignItems: 'center',
+                  padding: 12, borderRadius: 8, marginBottom: 6,
+                  background: 'var(--bg2)', border: '0.5px dashed var(--border)',
+                  opacity: 0.55, pointerEvents: 'none', userSelect: 'none',
+                }}>
+                  <span style={{ fontSize: 22 }}>{ex.emoji}</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 14, fontWeight: 500 }}>{ex.nome}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text3)' }}>{ex.sub}</div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: 16, fontWeight: 600, color: ex.pct >= 70 ? 'var(--green)' : ex.pct >= 40 ? 'var(--orange)' : 'var(--red)' }}>{ex.pct}%</div>
+                    <div style={{ fontSize: 10, color: 'var(--text3)' }}>últ. 7 dias</div>
+                  </div>
+                </div>
+              ))}
+              <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 8 }}>
+                Exemplo de tracker — adicione um modelo abaixo ou crie um hábito custom.
+              </div>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>

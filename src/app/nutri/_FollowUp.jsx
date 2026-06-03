@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { dataBR } from '../../lib/utils.js';
+import DateInput from '../../components/DateInput.jsx';
 
 export default function FollowUp({ pacienteId, nutriId, pacienteNome }) {
   const [followups, setFollowups] = useState(null);
@@ -95,15 +96,38 @@ export default function FollowUp({ pacienteId, nutriId, pacienteNome }) {
           {followups === null ? (
             <div style={{ padding: 20, color: 'var(--text3)', fontSize: 13 }}>Carregando…</div>
           ) : followups.length === 0 ? (
-            <div className="empty-card" style={{ padding: 24 }}>
-              <i className="ti ti-notebook empty-icon" aria-hidden="true"></i>
-              <div className="empty-title">Nenhum follow-up ainda</div>
-              <div className="empty-sub">
-                Crie sua primeira anotação — começa em branco ou a partir de um modelo seu.
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {/* Card de exemplo */}
+              <div style={{
+                border: '0.5px dashed var(--border)', borderRadius: 10,
+                padding: 14, opacity: 0.6, pointerEvents: 'none', userSelect: 'none',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'start', gap: 12 }}>
+                  <div style={{
+                    flexShrink: 0, padding: '4px 10px', borderRadius: 6,
+                    background: 'var(--bg2)', fontSize: 11, fontWeight: 500, color: 'var(--dark)',
+                  }}>
+                    {new Date().toLocaleDateString('pt-BR')}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 5 }}>
+                      Retorno mensal · junho
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.6 }}>
+                      Paciente relatou melhora na disposição. Manteve dieta 80% da semana. Queixa de náusea nas manhãs.{' '}
+                      <strong>Conduta:</strong> manter plano, revisar café da manhã.
+                    </div>
+                  </div>
+                </div>
               </div>
-              <button className="btn" onClick={novoEmBranco}>
-                <i className="ti ti-plus" aria-hidden="true"></i> Criar follow-up
-              </button>
+              <div style={{ textAlign: 'center', padding: '4px 0 8px' }}>
+                <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 8 }}>
+                  Exemplo de follow-up — crie o primeiro agora
+                </div>
+                <button className="btn" onClick={novoEmBranco}>
+                  <i className="ti ti-plus" aria-hidden="true"></i> Criar follow-up
+                </button>
+              </div>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -237,7 +261,7 @@ function ModalEditarFollowup({ fu, pacienteId, nutriId, onClose, onSaved }) {
           </div>
           <div>
             <label className="form-lbl">Data</label>
-            <input type="date" value={data} onChange={e => setData(e.target.value)} />
+            <DateInput value={data} onChange={e => setData(e.target.value)} />
           </div>
         </div>
 

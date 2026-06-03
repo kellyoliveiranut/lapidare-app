@@ -126,6 +126,14 @@ export default function PacienteLayout() {
 
       <div className="body">
         <Outlet />
+        <div style={{
+          textAlign: 'center', padding: '20px 24px 6px',
+          fontSize: 11, color: 'var(--muted)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+          lineHeight: 1.4,
+        }}>
+          🔒 Seus dados estão protegidos pela Lei Geral de Proteção de Dados (LGPD).
+        </div>
         <BrandFooter compact />
       </div>
 

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
+import DateInput from '../../components/DateInput.jsx';
 import {
   dataConsultaBR, textoDias, iniciais,
   linkCall, gerarLinkJitsi, gerarGoogleCalendarUrl, consultaEmBreve,
@@ -654,7 +655,7 @@ function ConsultaModal({ consulta, pacientes, nutriId, onClose, onSaved }) {
         </select>
 
         <label className="form-lbl">Data</label>
-        <input type="date" value={data} onChange={e => setData(e.target.value)} />
+        <DateInput value={data} onChange={e => setData(e.target.value)} />
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
           <div>

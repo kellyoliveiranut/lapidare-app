@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase.js';
 import { dataBR } from '../../lib/utils.js';
 import { ANAMNESE_LAPIDARE, QFA_LAPIDARE, RECORDATORIO_LAPIDARE, formatarRespostaAnamnese } from '../../lib/anamneseDefault.js';
 import DicaJSON from '../../components/DicaJSON.jsx';
+import DateInput from '../../components/DateInput.jsx';
 
 export default function Anamnese({ pacienteId, nutriId, pacienteNome }) {
   const [anamneses, setAnamneses] = useState(null);
@@ -295,7 +296,7 @@ function ModalEditar({ a, pacienteId, nutriId, pacienteNome, onClose, onSaved })
         </div>
         <div>
           <label className="form-lbl">Data</label>
-          <input type="date" value={data} onChange={e => setData(e.target.value)} />
+          <DateInput value={data} onChange={e => setData(e.target.value)} />
         </div>
       </div>
 

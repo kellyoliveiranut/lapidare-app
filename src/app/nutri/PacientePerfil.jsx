@@ -8,6 +8,7 @@ import {
 } from '../../lib/utils.js';
 import { TEMPLATE_PADRAO } from '../../lib/checkinDefault.js';
 import { callAnthropic } from '../../lib/anthropic.js';
+import DateInput from '../../components/DateInput.jsx';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, LabelList,
@@ -165,7 +166,7 @@ export default function PacientePerfil() {
           </div>
           {editandoNasc ? (
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
-              <input type="date" value={novoNasc} onChange={e => setNovoNasc(e.target.value)}
+              <DateInput value={novoNasc} onChange={e => setNovoNasc(e.target.value)}
                 style={{
                   padding: '4px 8px', fontSize: 12, margin: 0,
                   border: '0.5px solid var(--border)', borderRadius: 6,
@@ -626,8 +627,23 @@ function CheckinPersonalizado({ pacienteId, nutriId, pacienteNome }) {
 
       <div className="section-label">Últimos check-ins ({envios.length})</div>
       {envios.length === 0 ? (
-        <div className="card empty-card">
-          <div className="empty-sub">Nada enviado para esta paciente ainda.</div>
+        <div className="card" style={{ padding: 0, border: '0.5px dashed var(--border)', opacity: 0.65 }}>
+          {[
+            { q: 'Como você se sentiu essa semana?', r: '4 / 5 — Bem, tive alguns dias cansada mas consegui manter o foco.' },
+            { q: 'Seguiu o plano alimentar?',         r: 'Sim, em torno de 80% das refeições.' },
+            { q: 'Observações livres',                r: 'Senti menos inchaço desde que tirei o glúten.' },
+          ].map((ex, i, arr) => (
+            <div key={i} style={{
+              padding: '11px 14px',
+              borderBottom: i < arr.length - 1 ? '0.5px solid #f5f0e8' : 'none',
+            }}>
+              <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 3 }}>{ex.q}</div>
+              <div style={{ fontSize: 13, color: 'var(--dark)' }}>{ex.r}</div>
+            </div>
+          ))}
+          <div style={{ padding: '8px 14px 12px', fontSize: 11, color: 'var(--text3)', textAlign: 'center' }}>
+            Exemplo de resposta de check-in — envie um para começar
+          </div>
         </div>
       ) : (
         <div className="card" style={{ padding: 0 }}>
@@ -965,7 +981,7 @@ Retorne SOMENTE o JSON.`;
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
             <div>
               <label className="field-label">Data</label>
-              <input type="date" value={form.data} onChange={set('data')} />
+              <DateInput value={form.data} onChange={set('data')} />
             </div>
             <div>
               <label className="field-label">Peso (kg) *</label>
@@ -1236,7 +1252,7 @@ function PublicarPlano({ pacienteId, nutriId }) {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, marginTop: 10 }}>
             <div>
               <label className="field-label">Validade (opcional)</label>
-              <input type="date" value={validade} onChange={e => setValidade(e.target.value)} />
+              <DateInput value={validade} onChange={e => setValidade(e.target.value)} />
             </div>
             <div style={{ display: 'flex', alignItems: 'flex-end' }}>
               <button className="btn" onClick={publicar} disabled={busy || !json.trim()}>
