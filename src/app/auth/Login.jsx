@@ -156,6 +156,7 @@ export default function Login() {
             <img
               src={tema.logo_url}
               alt={tema.marca_nome ?? 'Lapidare'}
+              loading="lazy" decoding="async"
               style={{
                 height: 'clamp(140px, 20vw, 160px)',
                 width: 'auto', maxWidth: '80%',

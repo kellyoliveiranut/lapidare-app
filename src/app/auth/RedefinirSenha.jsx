@@ -82,6 +82,7 @@ export default function RedefinirSenha() {
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
           {tema.logo_url ? (
             <img src={tema.logo_url} alt={tema.marca_nome ?? 'Lapidare'}
+              loading="lazy" decoding="async"
               style={{ maxHeight: 48, maxWidth: 200, margin: '0 auto 8px', display: 'block' }} />
           ) : (
             <div style={{

@@ -140,6 +140,7 @@ export default function FeedPaciente() {
           {preview && (
             <div style={{ marginBottom: 12, borderRadius: 10, overflow: 'hidden', background: 'var(--bg-deep)' }}>
               <img src={preview} alt="prévia"
+                loading="lazy" decoding="async"
                 style={{ width: '100%', maxHeight: 280, objectFit: 'cover', display: 'block' }} />
             </div>
           )}
@@ -209,6 +210,7 @@ export default function FeedPaciente() {
             <div style={{ background: 'var(--bg-deep)', height: 240 }}>
               {urls[p.id] ? (
                 <img src={urls[p.id]} alt={p.legenda ?? 'prato'}
+                  loading="lazy" decoding="async"
                   style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
               ) : (
                 <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

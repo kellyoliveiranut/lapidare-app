@@ -39,8 +39,8 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
 
   async function carregar() {
     const [avRes, ftRes, ckRes, plRes, prRes, csRes] = await Promise.all([
-      supabase.from('peso_registros').select('*').eq('paciente_id', pacienteId).order('data'),
-      supabase.from('fotos_evolucao').select('*').eq('paciente_id', pacienteId).order('data_foto'),
+      supabase.from('peso_registros').select('id,data,kg,altura_cm,pgc,mm_kg,mm_pct,gordura_kg,cintura_cm,quadril_cm,abdome_cm,braco_cm,braco_dir_cm,braco_esq_cm,coxa_cm,coxa_dir_cm,coxa_esq_cm,panturrilha_cm,hidratacao_pct,geb_kcal,get_kcal,obs').eq('paciente_id', pacienteId).order('data'),
+      supabase.from('fotos_evolucao').select('id,storage_path,data_foto,tipo').eq('paciente_id', pacienteId).order('data_foto'),
       supabase.from('checkin_envios').select('id, perguntas, respostas, respondido_em, enviado_em').eq('paciente_id', pacienteId).not('respondido_em', 'is', null).order('respondido_em'),
       supabase.from('planos').select('id, dados, publicado_em').eq('paciente_id', pacienteId).order('publicado_em'),
       supabase.from('prescricoes').select('id, tipo, titulo, created_at').eq('paciente_id', pacienteId).order('created_at'),
@@ -318,6 +318,7 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
                 }}>
                   {foto && urls[foto.id] ? (
                     <img src={urls[foto.id]} alt={label}
+                      loading="lazy" decoding="async"
                       style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
                     <i className="ti ti-photo" style={{ fontSize: 36, color: 'var(--text3)' }} aria-hidden="true"></i>
@@ -370,6 +371,7 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
                     }}>
                     {urls[f.id] && (
                       <img src={urls[f.id]} alt=""
+                        loading="lazy" decoding="async"
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     )}
                     <button
@@ -569,6 +571,7 @@ function UploadFoto({ pacienteId, nutriId, onClose, onSaved }) {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
             <img src={preview} alt="prévia"
+              loading="lazy" decoding="async"
               style={{
                 maxWidth: swap ? '320px' : '100%',
                 maxHeight: swap ? '100%' : '320px',

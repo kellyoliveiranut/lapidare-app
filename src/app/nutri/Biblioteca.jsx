@@ -166,6 +166,7 @@ export default function Biblioteca() {
                     <img
                       src={supabase.storage.from('ebooks').getPublicUrl(it.storage_path).data.publicUrl}
                       alt={it.titulo}
+                      loading="lazy" decoding="async"
                       style={{ width: 42, height: 42, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }}
                     />
                   ) : (

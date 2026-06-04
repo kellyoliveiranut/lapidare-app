@@ -100,6 +100,7 @@ export default function ChatPaciente() {
       <div className="card cream" style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '0 16px 10px', padding: '10px 14px' }}>
         {tema.nutri_foto_url ? (
           <img src={tema.nutri_foto_url} alt={nutriNome}
+            loading="lazy" decoding="async"
             style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }} />
         ) : (
           <div style={{

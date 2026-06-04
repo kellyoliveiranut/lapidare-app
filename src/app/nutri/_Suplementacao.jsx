@@ -229,6 +229,7 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
                 }}>
                   {s.foto_url ? (
                     <img src={s.foto_url} alt={s.nome}
+                      loading="lazy" decoding="async"
                       style={{ width: 36, height: 36, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />
                   ) : (
                     <i className="ti ti-pill" style={{ fontSize: 18, color: 'var(--gold-deep, var(--dark))', flexShrink: 0 }} aria-hidden="true"></i>
@@ -377,6 +378,7 @@ function ModalFavoritos({ favoritos, onUsar, onExcluir, onClose }) {
               }}>
                 {fav.foto_url ? (
                   <img src={fav.foto_url} alt={fav.nome}
+                    loading="lazy" decoding="async"
                     style={{ width: 36, height: 36, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />
                 ) : (
                   <i className="ti ti-pill" style={{ fontSize: 18, color: 'var(--text3)', flexShrink: 0 }} aria-hidden="true"></i>
@@ -466,6 +468,7 @@ function ModalSuplemento({ s, onClose, onSave, onSalvarFavorito, busy }) {
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 4 }}>
           {fotoPreview && (
             <img src={fotoPreview} alt="preview"
+              loading="lazy" decoding="async"
               style={{ width: 52, height: 52, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
           )}
           <input type="file" accept="image/*" onChange={handleFotoChange}

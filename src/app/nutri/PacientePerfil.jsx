@@ -10,16 +10,16 @@ import { TEMPLATE_PADRAO } from '../../lib/checkinDefault.js';
 import { callAnthropic } from '../../lib/anthropic.js';
 import DateInput from '../../components/DateInput.jsx';
 import CheckinForm from '../../components/CheckinForm.jsx';
-import Evolucao from './_Evolucao.jsx';
-import FollowUp from './_FollowUp.jsx';
-import Suplementacao from './_Suplementacao.jsx';
-import Habitos from './_Habitos.jsx';
-import Anamnese from './_Anamnese.jsx';
-import TratamentoOncologico from './_TratamentoOncologico.jsx';
-import RelatorioEvolucao from './_RelatorioEvolucao.jsx';
-import Emagrecimento from './_Emagrecimento.jsx';
-import Calculos from './_Calculos.jsx';
-const AnalisarAvaliacao = lazy(() => import('./_AnalisarAvaliacao.jsx'));
+const Evolucao             = lazy(() => import('./_Evolucao.jsx'));
+const FollowUp             = lazy(() => import('./_FollowUp.jsx'));
+const Suplementacao        = lazy(() => import('./_Suplementacao.jsx'));
+const Habitos              = lazy(() => import('./_Habitos.jsx'));
+const Anamnese             = lazy(() => import('./_Anamnese.jsx'));
+const TratamentoOncologico = lazy(() => import('./_TratamentoOncologico.jsx'));
+const RelatorioEvolucao    = lazy(() => import('./_RelatorioEvolucao.jsx'));
+const Emagrecimento        = lazy(() => import('./_Emagrecimento.jsx'));
+const Calculos             = lazy(() => import('./_Calculos.jsx'));
+const AnalisarAvaliacao    = lazy(() => import('./_AnalisarAvaliacao.jsx'));
 import DicaJSON from '../../components/DicaJSON.jsx';
 
 export default function PacientePerfil() {
@@ -368,21 +368,23 @@ export default function PacientePerfil() {
         ))}
       </div>
 
-      {tab === 'evolucao'   && <Evolucao pacienteId={paciente.id} paciente={paciente} nutriId={user.id} />}
-      {tab === 'relatorio'  && <RelatorioEvolucao pacienteId={paciente.id} paciente={paciente} nutriId={user.id} />}
-      {tab === 'oncologia'     && <TratamentoOncologico pacienteId={paciente.id} nutriId={user.id} />}
-      {tab === 'emagrecimento' && <Emagrecimento pacienteId={paciente.id} nutriId={user.id} />}
-      {tab === 'anamnese' && <Anamnese pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
-      {tab === 'followup' && <FollowUp pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
-      {tab === 'suplementacao' && <Suplementacao pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
-      {tab === 'habitos' && <Habitos pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
-      {tab === 'plano' && <PublicarPlano pacienteId={paciente.id} nutriId={user.id} />}
-      {tab === 'compras' && <PublicarLista pacienteId={paciente.id} nutriId={user.id} />}
-      {tab === 'prescricoes' && <EnviarPrescricao pacienteId={paciente.id} nutriId={user.id} />}
-      {tab === 'ebooks' && <EbooksDaPaciente pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
-      {tab === 'avaliacao' && <RegistrarAvaliacao pacienteId={paciente.id} nutriId={user.id} paciente={paciente} />}
-      {tab === 'checkin' && <CheckinPersonalizado pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
-      {tab === 'calculos' && <Calculos pacienteId={paciente.id} nutriId={user.id} paciente={paciente} />}
+      <Suspense fallback={<div className="card empty-card"><div className="empty-sub">Carregando…</div></div>}>
+        {tab === 'evolucao'      && <Evolucao pacienteId={paciente.id} paciente={paciente} nutriId={user.id} />}
+        {tab === 'relatorio'     && <RelatorioEvolucao pacienteId={paciente.id} paciente={paciente} nutriId={user.id} />}
+        {tab === 'oncologia'     && <TratamentoOncologico pacienteId={paciente.id} nutriId={user.id} />}
+        {tab === 'emagrecimento' && <Emagrecimento pacienteId={paciente.id} nutriId={user.id} />}
+        {tab === 'anamnese'      && <Anamnese pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
+        {tab === 'followup'      && <FollowUp pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
+        {tab === 'suplementacao' && <Suplementacao pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
+        {tab === 'habitos'       && <Habitos pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
+        {tab === 'plano'         && <PublicarPlano pacienteId={paciente.id} nutriId={user.id} />}
+        {tab === 'compras'       && <PublicarLista pacienteId={paciente.id} nutriId={user.id} />}
+        {tab === 'prescricoes'   && <EnviarPrescricao pacienteId={paciente.id} nutriId={user.id} />}
+        {tab === 'ebooks'        && <EbooksDaPaciente pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
+        {tab === 'avaliacao'     && <RegistrarAvaliacao pacienteId={paciente.id} nutriId={user.id} paciente={paciente} />}
+        {tab === 'checkin'       && <CheckinPersonalizado pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
+        {tab === 'calculos'      && <Calculos pacienteId={paciente.id} nutriId={user.id} paciente={paciente} />}
+      </Suspense>
 
       {paciente.status_paciente === 'ativo' && (
         <div style={{ marginTop: 32, paddingTop: 16, borderTop: '0.5px solid var(--border)', textAlign: 'center' }}>

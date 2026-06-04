@@ -81,9 +81,9 @@ export default function TratamentoOncologico({ pacienteId, nutriId }) {
 
   async function carregar() {
     const [{ data: trat }, { data: cic }, { data: ex }] = await Promise.all([
-      supabase.from('tratamentos_oncologicos').select('*').eq('paciente_id', pacienteId).maybeSingle(),
-      supabase.from('ciclos_quimio').select('*').eq('paciente_id', pacienteId).order('data_quimio', { ascending: false }),
-      supabase.from('exames_laboratoriais').select('*').eq('paciente_id', pacienteId).order('data_exame', { ascending: false }),
+      supabase.from('tratamentos_oncologicos').select('id,tipo_cancer,estadiamento,medico,hospital,data_diagnostico,data_inicio_acompanhamento,intencao,metastatico,locais_metastase,doenca_atividade,tipo_trat_sistemico,protocolo,medicamentos,total_ciclos,ciclo_atual,intervalo_ciclos,data_ultima_quimio,usa_corticoide,atraso_ciclo,radio_ativa,radio_area,radio_sessao_atual,radio_total_sessoes,radio_inicio,radio_termino,cirurgia_status,cirurgia_tipo,cirurgia_indicada,cirurgia_realizada,cirurgia_data,cirurgia_complicacoes,cirurgia_preparo_nutricional,acao_semana').eq('paciente_id', pacienteId).maybeSingle(),
+      supabase.from('ciclos_quimio').select('id,numero_ciclo,data_quimio,d3,d7,d10,d14,obs').eq('paciente_id', pacienteId).order('data_quimio', { ascending: false }),
+      supabase.from('exames_laboratoriais').select('id,data_exame,hemoglobina,leucocitos,neutrofilos,linfocitos,plaquetas,pcr,albumina,glicemia,obs').eq('paciente_id', pacienteId).order('data_exame', { ascending: false }),
     ]);
     if (trat) {
       setTratamentoId(trat.id);

@@ -19,18 +19,18 @@ export default function RelatorioEvolucao({ pacienteId, paciente, nutriId }) {
 
     const [pesosRes, supsRes, supLogsRes, habitosRes, habitoLogsRes,
            checkinsRes, followupsRes, planosRes, consultasRes] = await Promise.all([
-      supabase.from('peso_registros').select('*').eq('paciente_id', pacienteId).order('data'),
-      supabase.from('suplementos').select('*').eq('paciente_id', pacienteId).eq('ativo', true).order('ordem'),
-      supabase.from('suplementos_logs').select('*').eq('paciente_id', pacienteId).gte('data', trintaDiasAtras),
-      supabase.from('habitos').select('*').eq('paciente_id', pacienteId).eq('ativo', true).order('ordem'),
-      supabase.from('habitos_logs').select('*').eq('paciente_id', pacienteId).gte('data', trintaDiasAtras),
-      supabase.from('checkin_envios').select('*').eq('paciente_id', pacienteId)
+      supabase.from('peso_registros').select('data,kg,pgc,mm_kg,cintura_cm').eq('paciente_id', pacienteId).order('data'),
+      supabase.from('suplementos').select('id,nome,dose,unidade,horario,objetivo').eq('paciente_id', pacienteId).eq('ativo', true).order('ordem'),
+      supabase.from('suplementos_logs').select('suplemento_id,data,tomado').eq('paciente_id', pacienteId).gte('data', trintaDiasAtras),
+      supabase.from('habitos').select('id,nome,meta,unidade').eq('paciente_id', pacienteId).eq('ativo', true).order('ordem'),
+      supabase.from('habitos_logs').select('habito_id,data,valor').eq('paciente_id', pacienteId).gte('data', trintaDiasAtras),
+      supabase.from('checkin_envios').select('respondido_em,enviado_em,perguntas,respostas,nome').eq('paciente_id', pacienteId)
         .not('respondido_em', 'is', null).order('respondido_em', { ascending: false }).limit(5),
-      supabase.from('followups').select('*').eq('paciente_id', pacienteId)
+      supabase.from('followups').select('data,titulo,conteudo').eq('paciente_id', pacienteId)
         .order('data', { ascending: false }).limit(8),
-      supabase.from('planos').select('*').eq('paciente_id', pacienteId)
+      supabase.from('planos').select('dados,publicado_em').eq('paciente_id', pacienteId)
         .order('publicado_em', { ascending: false }).limit(1),
-      supabase.from('consultas').select('*').eq('paciente_id', pacienteId)
+      supabase.from('consultas').select('data_hora,status,tipo').eq('paciente_id', pacienteId)
         .eq('status', 'realizada').order('data_hora'),
     ]);
 

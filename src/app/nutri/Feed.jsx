@@ -141,6 +141,7 @@ export default function FeedNutri() {
                     <a href={url} target="_blank" rel="noreferrer"
                        style={{ display: 'block', width: '100%', height: '100%' }}>
                       <img src={url} alt={p.legenda ?? 'prato'}
+                        loading="lazy" decoding="async"
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     </a>
                   ) : (

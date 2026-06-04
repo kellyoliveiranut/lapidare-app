@@ -189,7 +189,7 @@ export default function Personalizacao() {
               borderRadius: 10, background: 'var(--bg2)',
             }}>
               {form.logo_url ? (
-                <img src={form.logo_url} alt="Logo" style={{
+                <img src={form.logo_url} alt="Logo" loading="lazy" decoding="async" style={{
                   width: 60, height: 60, objectFit: 'contain',
                   background: 'var(--white)', borderRadius: 8, padding: 4,
                 }} />
@@ -245,6 +245,7 @@ export default function Personalizacao() {
             }}>
               {form.foto_url ? (
                 <img src={form.foto_url} alt="Foto"
+                  loading="lazy" decoding="async"
                   style={{
                     width: 60, height: 60, borderRadius: '50%', objectFit: 'cover',
                     background: 'var(--white)',
@@ -396,7 +397,7 @@ export default function Personalizacao() {
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
               {form.logo_url ? (
-                <img src={form.logo_url} alt="" style={{ width: 36, height: 36, objectFit: 'contain' }} />
+                <img src={form.logo_url} alt="" loading="lazy" decoding="async" style={{ width: 36, height: 36, objectFit: 'contain' }} />
               ) : (
                 <div style={{
                   width: 36, height: 36, borderRadius: '50%',

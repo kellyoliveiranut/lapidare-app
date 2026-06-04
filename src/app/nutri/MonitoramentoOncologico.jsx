@@ -198,7 +198,7 @@ export default function MonitoramentoOncologico() {
                       fontSize: 12, fontWeight: 600, color: 'var(--dark)',
                     }}>
                       {p.avatar_url
-                        ? <img src={p.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ? <img src={p.avatar_url} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         : iniciais(p.nome)
                       }
                     </div>

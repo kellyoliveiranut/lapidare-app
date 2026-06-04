@@ -399,6 +399,7 @@ function FotosEvolucao() {
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
                   <img src={preview} alt="prévia"
+                    loading="lazy" decoding="async"
                     style={{
                       maxWidth: swap ? '320px' : '100%',
                       maxHeight: swap ? '100%' : '320px',
@@ -499,6 +500,7 @@ function FotosEvolucao() {
             }}>
               {urls[f.id] ? (
                 <img src={urls[f.id]} alt=""
+                  loading="lazy" decoding="async"
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : (
                 <div style={{

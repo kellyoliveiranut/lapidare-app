@@ -100,7 +100,7 @@ export default function NutriLayout() {
           >‹</button>
           {tema.logo_url ? (
             <img src={tema.logo_url} alt={tema.marca_nome}
-              className="sidebar-logo"
+              className="sidebar-logo" loading="lazy" decoding="async"
               style={{ maxHeight: 28, maxWidth: '80%', objectFit: 'contain', marginBottom: 4 }} />
           ) : null}
           <div className="sidebar-brand">{tema.marca_nome}</div>
