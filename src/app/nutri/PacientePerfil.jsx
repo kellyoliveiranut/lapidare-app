@@ -1048,56 +1048,275 @@ Retorne SOMENTE o JSON.`;
 /* ============================================================
    PUBLICAR PLANO
    ============================================================ */
+const REFEICAO_SUGESTOES = ['Café da manhã', 'Almoço', 'Lanche da tarde', 'Jantar', 'Ceia', 'Pré-treino', 'Pós-treino', 'Lanche da manhã'];
+
+function novaRefeicao() {
+  return { _id: Math.random().toString(36).slice(2), nome: '', horario: '', alimentos: [] };
+}
+function novoAlimento() {
+  return { _id: Math.random().toString(36).slice(2), nome: '', quantidade: '', subs: '' };
+}
+
 function PublicarPlano({ pacienteId, nutriId }) {
+  const [macros, setMacros]       = useState({ kcal: '', proteinas_g: '', carbo_g: '', gorduras_g: '', agua_l: '' });
+  const [refeicoes, setRefeicoes] = useState([]);
+  const [obs, setObs]             = useState('');
+  const [validade, setValidade]   = useState('');
   const [historico, setHistorico] = useState([]);
-  const [json, setJson] = useState('');
-  const [validade, setValidade] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [feedback, setFeedback] = useState(null);
-  const [verJson, setVerJson] = useState(null);
+  const [busy, setBusy]           = useState(false);
+  const [feedback, setFeedback]   = useState(null);
+  const [gerando, setGerando]     = useState(false);
+  const [erroIA, setErroIA]       = useState(null);
+
+  useEffect(() => { carregar(); }, [pacienteId]);
 
   async function carregar() {
     const { data } = await supabase
-      .from('planos')
-      .select('id, dados, validade, publicado_em')
+      .from('planos').select('id, dados, validade, publicado_em')
       .eq('paciente_id', pacienteId)
-      .order('publicado_em', { ascending: false })
-      .limit(5);
+      .order('publicado_em', { ascending: false }).limit(5);
     setHistorico(data ?? []);
   }
-  useEffect(() => { carregar(); }, [pacienteId]);
+
+  /* ── mutações de refeições ── */
+  const addRefeicao = () => setRefeicoes(p => [...p, novaRefeicao()]);
+
+  const removeRefeicao = id =>
+    setRefeicoes(p => p.filter(r => r._id !== id));
+
+  const setRef = (id, key, val) =>
+    setRefeicoes(p => p.map(r => r._id === id ? { ...r, [key]: val } : r));
+
+  const addAlimento = (rid) =>
+    setRefeicoes(p => p.map(r =>
+      r._id === rid ? { ...r, alimentos: [...r.alimentos, novoAlimento()] } : r
+    ));
+
+  const removeAlimento = (rid, aid) =>
+    setRefeicoes(p => p.map(r =>
+      r._id === rid ? { ...r, alimentos: r.alimentos.filter(a => a._id !== aid) } : r
+    ));
+
+  const setAlim = (rid, aid, key, val) =>
+    setRefeicoes(p => p.map(r =>
+      r._id === rid
+        ? { ...r, alimentos: r.alimentos.map(a => a._id === aid ? { ...a, [key]: val } : a) }
+        : r
+    ));
+
+  /* ── build dados ── */
+  function buildDados() {
+    const m = {};
+    if (macros.kcal)        m.kcal        = Number(macros.kcal);
+    if (macros.proteinas_g) m.proteinas_g = Number(macros.proteinas_g);
+    if (macros.carbo_g)     m.carbo_g     = Number(macros.carbo_g);
+    if (macros.gorduras_g)  m.gorduras_g  = Number(macros.gorduras_g);
+    if (macros.agua_l)      m.agua_l      = Number(macros.agua_l);
+
+    const refs = refeicoes.map(r => {
+      const obj = { nome: r.nome };
+      if (r.horario.trim()) obj.horario = r.horario.trim();
+      const alims = r.alimentos
+        .filter(a => a.nome.trim())
+        .map(a => {
+          const o = { nome: a.nome.trim() };
+          if (a.quantidade.trim()) o.quantidade = a.quantidade.trim();
+          const subsArr = a.subs.split(',').map(s => s.trim()).filter(Boolean);
+          if (subsArr.length) o.subs = subsArr.map(s => ({ nome: s }));
+          return o;
+        });
+      if (alims.length) obj.alimentos = alims;
+      return obj;
+    });
+
+    const dados = { macros: m, refeicoes: refs };
+    if (obs.trim()) dados.obs = obs.trim();
+    return dados;
+  }
 
   async function publicar() {
     setFeedback(null);
-    let dados;
-    try { dados = JSON.parse(json); }
-    catch (e) { return setFeedback({ tipo: 'erro', msg: 'JSON inválido: ' + e.message }); }
+    if (!refeicoes.length)
+      return setFeedback({ tipo: 'erro', msg: 'Adicione pelo menos uma refeição.' });
+    if (refeicoes.some(r => !r.nome.trim()))
+      return setFeedback({ tipo: 'erro', msg: 'Todas as refeições precisam de um nome.' });
 
+    const dados = buildDados();
     const v = validarPlano(dados);
     if (!v.ok) return setFeedback({ tipo: 'erro', msg: v.erro });
 
     setBusy(true);
     const { error } = await supabase.from('planos').insert({
-      paciente_id: pacienteId,
-      nutri_id: nutriId,
-      dados,
-      validade: validade || dados.validade || null,
+      paciente_id: pacienteId, nutri_id: nutriId,
+      dados, validade: validade || null,
     });
     setBusy(false);
     if (error) return setFeedback({ tipo: 'erro', msg: error.message });
-    setFeedback({ tipo: 'ok', msg: 'Plano publicado! A paciente verá agora.' });
-    setJson('');
+
+    setFeedback({ tipo: 'ok', msg: 'Plano publicado! A paciente já pode visualizar.' });
+    setMacros({ kcal: '', proteinas_g: '', carbo_g: '', gorduras_g: '', agua_l: '' });
+    setRefeicoes([]);
+    setObs('');
     setValidade('');
     carregar();
   }
 
   async function excluirPlano(p) {
-    const data = dataBR(p.publicado_em);
-    if (!window.confirm(`Excluir plano publicado em ${data}?\n\nA paciente não verá mais este plano. Esta ação não pode ser desfeita.`)) return;
+    if (!window.confirm(`Excluir plano publicado em ${dataBR(p.publicado_em)}?`)) return;
     const { error } = await supabase.from('planos').delete().eq('id', p.id);
     if (error) return setFeedback({ tipo: 'erro', msg: error.message });
     setFeedback({ tipo: 'ok', msg: 'Plano excluído.' });
     carregar();
+  }
+
+  async function gerarComIA() {
+    setGerando(true);
+    setErroIA(null);
+
+    try {
+      // Busca paralela de todos os dados clínicos
+      const [pacRes, pesoRes, tratRes, anamRes, sintRes] = await Promise.all([
+        supabase.from('pacientes').select('nome, nascimento, objetivo, tipo_plano').eq('id', pacienteId).maybeSingle(),
+        supabase.from('peso_registros').select('*').eq('paciente_id', pacienteId).order('data', { ascending: false }).limit(1).maybeSingle(),
+        supabase.from('tratamentos_oncologicos').select('tipo_cancer, intencao, tipo_trat_sistemico, protocolo, medicamentos').eq('paciente_id', pacienteId).maybeSingle(),
+        supabase.from('anamneses').select('estrutura, respostas').eq('paciente_id', pacienteId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+        supabase.from('emagrecimento_sintomas').select('sintoma, categoria').eq('paciente_id', pacienteId).eq('presente', true),
+      ]);
+
+      const pac  = pacRes.data;
+      const peso = pesoRes.data;
+      const trat = tratRes.data;
+      const anam = anamRes.data;
+      const sint = sintRes.data ?? [];
+
+      // Calcula idade
+      let idade = null;
+      if (pac?.nascimento) {
+        const hoje = new Date();
+        const nasc = new Date(pac.nascimento + 'T00:00:00');
+        idade = hoje.getFullYear() - nasc.getFullYear();
+        if (hoje.getMonth() < nasc.getMonth() || (hoje.getMonth() === nasc.getMonth() && hoje.getDate() < nasc.getDate())) idade--;
+      }
+
+      // Extrai respostas de anamnese como texto
+      let anamTexto = '';
+      if (anam?.estrutura && anam?.respostas) {
+        const perguntas = Array.isArray(anam.estrutura)
+          ? anam.estrutura
+          : (anam.estrutura?.secoes ?? []).flatMap(s => s.perguntas ?? []);
+        const pares = perguntas
+          .map(p => {
+            const r = anam.respostas[p.id];
+            return r != null && r !== '' ? `${p.texto || p.label || p.id}: ${r}` : null;
+          })
+          .filter(Boolean);
+        anamTexto = pares.slice(0, 30).join('\n');
+      }
+
+      // Sintomas de emagrecimento presentes
+      const sintomasPresentes = sint.map(s => s.sintoma.replace(/_/g, ' ')).join(', ');
+
+      const prompt = `Você é uma nutricionista clínica especializada em oncologia e emagrecimento.
+Crie um plano alimentar personalizado baseado nos dados clínicos abaixo.
+
+RETORNE APENAS JSON puro sem texto adicional, sem markdown, sem explicações.
+Formato exato:
+{
+  "macros": {
+    "kcal": número,
+    "proteinas_g": número,
+    "carbo_g": número,
+    "gorduras_g": número,
+    "agua_l": número com uma casa decimal
+  },
+  "refeicoes": [
+    {
+      "nome": "nome da refeição",
+      "horario": "HH:MM",
+      "alimentos": [
+        { "nome": "alimento", "quantidade": "ex: 100g", "subs": "substituto1, substituto2" }
+      ]
+    }
+  ],
+  "obs": "orientações clínicas personalizadas em 2-3 parágrafos"
+}
+
+DADOS DA PACIENTE
+Nome: ${pac?.nome ?? '—'}
+Idade: ${idade != null ? idade + ' anos' : '—'}
+Objetivo: ${pac?.objetivo ?? '—'}
+Plano: ${pac?.tipo_plano ?? '—'}
+${peso ? `Peso atual: ${peso.kg} kg | Altura: ${peso.altura_cm ?? '—'} cm | %Gordura: ${peso.pgc ?? '—'}% | Massa magra: ${peso.mm_kg ?? '—'} kg` : 'Sem dados antropométricos'}
+
+DIAGNÓSTICO ONCOLÓGICO
+${trat ? `Tipo de câncer: ${trat.tipo_cancer ?? '—'}
+Intenção: ${trat.intencao ?? '—'}
+Tratamento: ${trat.tipo_trat_sistemico ?? '—'}
+Protocolo: ${trat.protocolo ?? '—'}
+Medicamentos: ${(trat.medicamentos ?? []).join(', ') || '—'}` : 'Não informado'}
+
+SINTOMAS PRESENTES (emagrecimento/menopausa)
+${sintomasPresentes || 'Nenhum registrado'}
+
+ANAMNESE CLÍNICA (principais respostas)
+${anamTexto || 'Não preenchida'}
+
+DIRETRIZES:
+- Priorize proteína adequada para preservação de massa muscular (mínimo 1,2g/kg)
+- Considere efeitos colaterais do tratamento oncológico
+- Prefira alimentos anti-inflamatórios e de fácil digestão
+- Se houver fadiga ou náusea: refeições menores e mais frequentes
+- Indique 5-6 refeições com horários práticos
+- Para cada alimento, ofereça 1-2 substitutos práticos`;
+
+      const resposta = await callAnthropic(
+        [{ role: 'user', content: prompt }],
+        { model: 'claude-sonnet-4-6', maxTokens: 3000 }
+      );
+
+      // Extrai JSON da resposta (remove possível markdown)
+      const jsonStr = resposta.replace(/```json\n?|\n?```/g, '').trim();
+      let planoIA;
+      try {
+        planoIA = JSON.parse(jsonStr);
+      } catch {
+        throw new Error('A IA retornou um formato inesperado. Tente novamente.');
+      }
+
+      // Preenche macros
+      const m = planoIA.macros ?? {};
+      setMacros({
+        kcal:        m.kcal        != null ? String(m.kcal)        : '',
+        proteinas_g: m.proteinas_g != null ? String(m.proteinas_g) : '',
+        carbo_g:     m.carbo_g     != null ? String(m.carbo_g)     : '',
+        gorduras_g:  m.gorduras_g  != null ? String(m.gorduras_g)  : '',
+        agua_l:      m.agua_l      != null ? String(m.agua_l)      : '',
+      });
+
+      // Preenche refeições convertendo para o formato interno do formulário
+      const refs = (planoIA.refeicoes ?? []).map(r => ({
+        _id: Math.random().toString(36).slice(2),
+        nome:     r.nome     ?? '',
+        horario:  r.horario  ?? '',
+        alimentos: (r.alimentos ?? []).map(a => ({
+          _id:        Math.random().toString(36).slice(2),
+          nome:       a.nome       ?? '',
+          quantidade: a.quantidade ?? '',
+          subs:       Array.isArray(a.subs)
+            ? a.subs.map(s => (typeof s === 'object' ? s.nome : s)).join(', ')
+            : (a.subs ?? ''),
+        })),
+      }));
+      setRefeicoes(refs);
+
+      // Preenche observações
+      if (planoIA.obs) setObs(planoIA.obs);
+
+    } catch (e) {
+      setErroIA(e.message || 'Erro ao gerar plano com IA.');
+    }
+
+    setGerando(false);
   }
 
   return (
@@ -1105,33 +1324,260 @@ function PublicarPlano({ pacienteId, nutriId }) {
       <div className="card">
         <div className="card-header">
           <div>
-            <div className="card-title">Publicar novo plano alimentar</div>
-            <div className="card-sub">Cole o JSON gerado pela sua Skill 6 (plano + macros + refeições)</div>
+            <div className="card-title">Novo plano alimentar</div>
+            <div className="card-sub">Preencha manualmente ou gere com IA a partir dos dados da paciente</div>
           </div>
+          <button
+            onClick={gerarComIA}
+            disabled={gerando}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              padding: '7px 14px', borderRadius: 8, cursor: gerando ? 'default' : 'pointer',
+              border: 'none',
+              background: 'linear-gradient(135deg, #7c3aed, #a08456)',
+              color: '#fff', fontSize: 13, fontWeight: 600,
+              fontFamily: 'var(--font-sans)',
+              opacity: gerando ? 0.75 : 1,
+              boxShadow: '0 2px 8px rgba(124,58,237,.25)',
+              flexShrink: 0,
+            }}
+          >
+            <i
+              className={`ti ti-${gerando ? 'loader-2' : 'sparkles'}`}
+              style={gerando ? { animation: 'lapidare-spin .75s linear infinite' } : {}}
+              aria-hidden="true"
+            />
+            {gerando ? 'Gerando plano...' : '✨ Gerar com IA'}
+          </button>
         </div>
-        <div className="card-body">
-          <label className="field-label">JSON do plano</label>
-          <textarea
-            value={json}
-            onChange={e => setJson(e.target.value)}
-            rows={10}
-            placeholder='{"macros": {"kcal": 1500, ...}, "refeicoes": [...]}'
-            style={{ width: '100%', fontFamily: 'monospace', fontSize: 13, resize: 'vertical' }}
-          />
 
-          <DicaJSON
-            exemploPrompt='gera um JSON de plano alimentar pra paciente com objetivo de emagrecimento, 1500 kcal, 4 refeições (café, almoço, lanche, jantar). Estrutura: { "macros": { "kcal": 1500, "proteinas_g": 90, "carbo_g": 150, "gorduras_g": 50, "agua_l": 2.5 }, "refeicoes": [{ "nome": "Café da manhã", "horario": "07:30", "alimentos": [{ "nome": "...", "quantidade": "...", "subs": [{ "nome": "..." }] }] }] }' />
+        {erroIA && (
+          <div style={{
+            margin: '0 16px', padding: '8px 12px', borderRadius: 6,
+            background: 'var(--red-bg)', color: 'var(--red)', fontSize: 12,
+            display: 'flex', alignItems: 'center', gap: 8,
+          }}>
+            <i className="ti ti-alert-triangle" />
+            {erroIA}
+          </div>
+        )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, marginTop: 10 }}>
-            <div>
-              <label className="field-label">Validade (opcional)</label>
-              <DateInput value={validade} onChange={e => setValidade(e.target.value)} />
+        {gerando && (
+          <div style={{
+            margin: '0 16px', padding: '10px 14px', borderRadius: 8,
+            background: 'linear-gradient(135deg, #f5f0ff, #fdf8ee)',
+            border: '1px solid #e9d5ff', fontSize: 12, color: '#7c3aed',
+            display: 'flex', alignItems: 'center', gap: 8,
+          }}>
+            <i className="ti ti-loader-2" style={{ animation: 'lapidare-spin .75s linear infinite' }} />
+            A IA está analisando os dados clínicos e gerando o plano personalizado...
+          </div>
+        )}
+
+        <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+          {/* ── Metas nutricionais ── */}
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--amber)', letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 10 }}>
+              Metas Nutricionais
             </div>
-            <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-              <button className="btn" onClick={publicar} disabled={busy || !json.trim()}>
-                <i className="ti ti-send" aria-hidden="true"></i> {busy ? 'Publicando...' : 'Publicar plano'}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8 }}>
+              {[
+                { k: 'kcal',        l: 'Calorias',   u: 'kcal', t: 'number' },
+                { k: 'proteinas_g', l: 'Proteínas',  u: 'g',    t: 'number' },
+                { k: 'carbo_g',     l: 'Carboidratos', u: 'g',  t: 'number' },
+                { k: 'gorduras_g',  l: 'Gorduras',   u: 'g',    t: 'number' },
+                { k: 'agua_l',      l: 'Água',        u: 'L',   t: 'number', step: '0.1' },
+              ].map(({ k, l, u, t, step }) => (
+                <div key={k}>
+                  <label className="field-label">{l}</label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type={t} inputMode="decimal" step={step || '1'}
+                      value={macros[k]}
+                      onChange={e => setMacros(m => ({ ...m, [k]: e.target.value }))}
+                      placeholder="—"
+                      style={{ paddingRight: 28 }}
+                    />
+                    <span style={{
+                      position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
+                      fontSize: 10, color: 'var(--text3)', pointerEvents: 'none',
+                    }}>{u}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ── Refeições ── */}
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--amber)', letterSpacing: 1.2, textTransform: 'uppercase' }}>
+                Refeições
+              </div>
+              <button
+                className="btn-outline"
+                style={{ fontSize: 12, padding: '4px 10px', gap: 4 }}
+                onClick={addRefeicao}
+              >
+                <i className="ti ti-plus" style={{ fontSize: 13 }} />
+                Adicionar refeição
               </button>
             </div>
+
+            {refeicoes.length === 0 && (
+              <div style={{
+                border: '1.5px dashed var(--border)', borderRadius: 8,
+                padding: '20px 16px', textAlign: 'center',
+                color: 'var(--text3)', fontSize: 13,
+              }}>
+                Nenhuma refeição adicionada ainda.
+                <button
+                  className="btn"
+                  style={{ display: 'block', margin: '12px auto 0', fontSize: 12 }}
+                  onClick={addRefeicao}
+                >
+                  <i className="ti ti-plus" /> Adicionar primeira refeição
+                </button>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {refeicoes.map((r, ri) => (
+                <div key={r._id} style={{
+                  border: '1px solid var(--border)', borderRadius: 10,
+                  background: 'var(--white)', overflow: 'hidden',
+                }}>
+                  {/* Cabeçalho da refeição */}
+                  <div style={{
+                    display: 'flex', gap: 8, alignItems: 'center',
+                    padding: '10px 12px', background: 'var(--bg2)',
+                    borderBottom: '0.5px solid var(--border)',
+                  }}>
+                    <span style={{
+                      fontSize: 10, fontWeight: 700, color: 'var(--text3)',
+                      background: 'var(--bg3)', borderRadius: 4, padding: '2px 6px', flexShrink: 0,
+                    }}>{ri + 1}</span>
+
+                    <div style={{ flex: 1, display: 'flex', gap: 8 }}>
+                      <div style={{ flex: 2 }}>
+                        <label className="field-label" style={{ marginBottom: 2 }}>Nome da refeição</label>
+                        <input
+                          list={`ref-sugestoes-${r._id}`}
+                          value={r.nome}
+                          onChange={e => setRef(r._id, 'nome', e.target.value)}
+                          placeholder="ex: Café da manhã"
+                        />
+                        <datalist id={`ref-sugestoes-${r._id}`}>
+                          {REFEICAO_SUGESTOES.map(s => <option key={s} value={s} />)}
+                        </datalist>
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <label className="field-label" style={{ marginBottom: 2 }}>Horário</label>
+                        <input
+                          value={r.horario}
+                          onChange={e => setRef(r._id, 'horario', e.target.value)}
+                          placeholder="07:30"
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => removeRefeicao(r._id)}
+                      title="Remover refeição"
+                      style={{
+                        background: 'none', border: 'none', cursor: 'pointer',
+                        color: 'var(--red)', padding: 4, flexShrink: 0,
+                      }}
+                    >
+                      <i className="ti ti-trash" style={{ fontSize: 15 }} />
+                    </button>
+                  </div>
+
+                  {/* Alimentos */}
+                  <div style={{ padding: '10px 12px' }}>
+                    {r.alimentos.length > 0 && (
+                      <div style={{ marginBottom: 8 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 2fr auto', gap: 6, marginBottom: 4 }}>
+                          <span style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: .5 }}>Alimento</span>
+                          <span style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: .5 }}>Qtd.</span>
+                          <span style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: .5 }}>Substitutos (vírgula)</span>
+                          <span />
+                        </div>
+                        {r.alimentos.map(a => (
+                          <div key={a._id} style={{
+                            display: 'grid', gridTemplateColumns: '2fr 1fr 2fr auto',
+                            gap: 6, marginBottom: 5, alignItems: 'center',
+                          }}>
+                            <input
+                              value={a.nome}
+                              onChange={e => setAlim(r._id, a._id, 'nome', e.target.value)}
+                              placeholder="ex: Ovo mexido"
+                            />
+                            <input
+                              value={a.quantidade}
+                              onChange={e => setAlim(r._id, a._id, 'quantidade', e.target.value)}
+                              placeholder="2 un."
+                            />
+                            <input
+                              value={a.subs}
+                              onChange={e => setAlim(r._id, a._id, 'subs', e.target.value)}
+                              placeholder="Omelete, tofu mexido"
+                            />
+                            <button
+                              onClick={() => removeAlimento(r._id, a._id)}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 2 }}
+                            >
+                              <i className="ti ti-x" style={{ fontSize: 13 }} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <button
+                      className="btn-outline"
+                      style={{ fontSize: 11, padding: '3px 8px', gap: 4 }}
+                      onClick={() => addAlimento(r._id)}
+                    >
+                      <i className="ti ti-plus" style={{ fontSize: 12 }} />
+                      Adicionar alimento
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ── Observações ── */}
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--amber)', letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 8 }}>
+              Observações (opcional)
+            </div>
+            <textarea
+              value={obs}
+              onChange={e => setObs(e.target.value)}
+              rows={3}
+              placeholder="Orientações gerais, dicas, restrições específicas…"
+              style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical' }}
+            />
+          </div>
+
+          {/* ── Validade + publicar ── */}
+          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            <div>
+              <label className="field-label">Validade (opcional)</label>
+              <DateInput value={validade} onChange={e => setValidade(e.target.value)} style={{ maxWidth: 180 }} />
+            </div>
+            <button
+              className="btn"
+              style={{ gap: 6 }}
+              onClick={publicar}
+              disabled={busy || refeicoes.length === 0}
+            >
+              <i className="ti ti-send" aria-hidden="true" />
+              {busy ? 'Publicando...' : 'Publicar plano'}
+            </button>
           </div>
 
           {feedback && <FeedbackInline f={feedback} />}
@@ -1143,28 +1589,18 @@ function PublicarPlano({ pacienteId, nutriId }) {
         items={historico}
         onDelete={excluirPlano}
         renderItem={(p) => (
-          <>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 14, fontWeight: 500 }}>
-                {p.dados?.macros?.kcal ? `${p.dados.macros.kcal} kcal · ` : ''}
-                {p.dados?.refeicoes?.length ?? 0} refeições
-              </div>
-              <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>
-                Publicado em {dataBR(p.publicado_em)}
-                {p.validade && ` · válido até ${dataBR(p.validade)}`}
-              </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 500 }}>
+              {p.dados?.macros?.kcal ? `${p.dados.macros.kcal} kcal · ` : ''}
+              {p.dados?.refeicoes?.length ?? 0} refeição(ões)
             </div>
-            <button className="btn-outline" style={{ fontSize: 12, padding: '4px 10px' }}
-              onClick={() => setVerJson(p)}>
-              <i className="ti ti-code" aria-hidden="true"></i> JSON
-            </button>
-          </>
+            <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>
+              Publicado em {dataBR(p.publicado_em)}
+              {p.validade && ` · válido até ${dataBR(p.validade)}`}
+            </div>
+          </div>
         )}
       />
-
-      {verJson && (
-        <VerJsonModal item={verJson} dados={verJson.dados} onClose={() => setVerJson(null)} />
-      )}
     </>
   );
 }
