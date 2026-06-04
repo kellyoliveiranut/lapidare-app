@@ -17,6 +17,7 @@ import Habitos from './_Habitos.jsx';
 import Anamnese from './_Anamnese.jsx';
 import TratamentoOncologico from './_TratamentoOncologico.jsx';
 import RelatorioEvolucao from './_RelatorioEvolucao.jsx';
+import Emagrecimento from './_Emagrecimento.jsx';
 const AnalisarAvaliacao = lazy(() => import('./_AnalisarAvaliacao.jsx'));
 import DicaJSON from '../../components/DicaJSON.jsx';
 
@@ -317,7 +318,8 @@ export default function PacientePerfil() {
         {[
           { id: 'evolucao',      label: 'Evolução',      icon: 'chart-line' },
           { id: 'relatorio',     label: 'Relatório',     icon: 'report-analytics' },
-          { id: 'oncologia',     label: 'Oncologia',     icon: 'dna' },
+          { id: 'oncologia',      label: 'Oncologia',      icon: 'dna' },
+          { id: 'emagrecimento',  label: 'Emagrecimento',  icon: 'trending-down' },
           { id: 'anamnese',      label: 'Anamnese',      icon: 'clipboard-text' },
           { id: 'followup',      label: 'Follow-up',     icon: 'notebook' },
           { id: 'plano',         label: 'Plano',         icon: 'salad' },
@@ -351,7 +353,8 @@ export default function PacientePerfil() {
 
       {tab === 'evolucao'   && <Evolucao pacienteId={paciente.id} paciente={paciente} nutriId={user.id} />}
       {tab === 'relatorio'  && <RelatorioEvolucao pacienteId={paciente.id} paciente={paciente} nutriId={user.id} />}
-      {tab === 'oncologia' && <TratamentoOncologico pacienteId={paciente.id} nutriId={user.id} />}
+      {tab === 'oncologia'     && <TratamentoOncologico pacienteId={paciente.id} nutriId={user.id} />}
+      {tab === 'emagrecimento' && <Emagrecimento pacienteId={paciente.id} nutriId={user.id} />}
       {tab === 'anamnese' && <Anamnese pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
       {tab === 'followup' && <FollowUp pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
       {tab === 'suplementacao' && <Suplementacao pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
