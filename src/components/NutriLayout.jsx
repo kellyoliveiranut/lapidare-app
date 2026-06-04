@@ -101,7 +101,7 @@ export default function NutriLayout() {
           {tema.logo_url ? (
             <img src={tema.logo_url} alt={tema.marca_nome}
               className="sidebar-logo"
-              style={{ maxHeight: 36, maxWidth: '80%', objectFit: 'contain', marginBottom: 6 }} />
+              style={{ maxHeight: 28, maxWidth: '80%', objectFit: 'contain', marginBottom: 4 }} />
           ) : null}
           <div className="sidebar-brand">{tema.marca_nome}</div>
           <div className="sidebar-title">{tema.marca_subtitulo || 'Painel da Nutri'}</div>
