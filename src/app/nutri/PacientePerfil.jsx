@@ -326,10 +326,9 @@ export default function PacientePerfil() {
       )}
 
       {/* Tabs */}
-      <div style={{
-        display: 'flex', gap: 2, background: 'var(--bg2)',
+      <div className="tabs-scroll" style={{
+        gap: 2, background: 'var(--bg2)',
         borderRadius: 10, padding: 3, marginBottom: 16,
-        overflowX: 'auto', scrollbarWidth: 'none',
       }}>
         {[
           { id: 'evolucao',      label: 'Evolução',      icon: 'chart-line' },

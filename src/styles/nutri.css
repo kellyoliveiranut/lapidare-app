@@ -4,6 +4,17 @@
    Tudo escopado em .nutri-panel para não conflitar com o app da paciente.
    ============================================================= */
 
+/* Scroll horizontal sem scrollbar visível — cross-browser */
+.tabs-scroll {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.tabs-scroll::-webkit-scrollbar { display: none; }
+
 .nutri-panel {
   --bg: #faf8f5;
   --bg2: #f2ede6;
