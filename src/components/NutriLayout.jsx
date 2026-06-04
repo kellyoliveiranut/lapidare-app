@@ -16,7 +16,6 @@ const NAV_CONFIG = [
       { id: 'agenda',       path: '/nutri/agenda',       label: 'Agenda',              icon: 'calendar' },
       { id: 'chat',         path: '/nutri/chat',         label: 'Chat',                icon: 'message-circle' },
       { id: 'feed',         path: '/nutri/feed',         label: 'Feed de pratos',      icon: 'camera' },
-      { id: 'prescricoes',  path: '/nutri/prescricoes',  label: 'Prescrições',         icon: 'file-text' },
       { id: 'biblioteca',      path: '/nutri/biblioteca',      label: 'Biblioteca',              icon: 'book-2' },
       { id: 'monitoramento',   path: '/nutri/monitoramento-oncologico', label: 'Oncologia',         icon: 'atom-2' },
       { id: 'checkins',        path: '/nutri/checkins',        label: 'Check-ins',               icon: 'clipboard-check' },
