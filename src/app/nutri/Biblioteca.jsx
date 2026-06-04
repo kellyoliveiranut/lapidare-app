@@ -281,12 +281,14 @@ function ModalShell({ title, subtitle, onClose, children, width = 480 }) {
       <div onClick={e => e.stopPropagation()} style={{
         background: 'var(--white)', borderRadius: 12,
         maxWidth: width, width: '100%',
-        maxHeight: '85dvh',   /* dvh = viewport dinâmico, desconta teclado iOS */
-        overflow: 'auto',
-        padding: 20,
-        paddingBottom: 'max(20px, env(safe-area-inset-bottom, 0px))',
+        maxHeight: '85dvh',
+        display: 'flex', flexDirection: 'column',
+        overflow: 'hidden',
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 12 }}>
+        <div style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'start',
+          padding: '20px 20px 12px', flexShrink: 0,
+        }}>
           <div>
             <div style={{ fontSize: 16, fontWeight: 500, color: 'var(--dark)' }}>{title}</div>
             {subtitle && <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>{subtitle}</div>}
@@ -296,7 +298,9 @@ function ModalShell({ title, subtitle, onClose, children, width = 480 }) {
             fontSize: 18, color: 'var(--text3)', padding: 4,
           }}><i className="ti ti-x" aria-hidden="true"></i></button>
         </div>
-        {children}
+        <div style={{ overflow: 'auto', padding: '0 20px', flex: 1 }}>
+          {children}
+        </div>
       </div>
     </div>
   );
@@ -369,7 +373,13 @@ function ModalUpload({ nutriId, secaoDefault, onClose, onSaved }) {
         }}>{erro}</div>
       )}
 
-      <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+      <div style={{
+        position: 'sticky', bottom: 0,
+        background: 'var(--white)',
+        paddingTop: 8,
+        paddingBottom: 'max(20px, env(safe-area-inset-bottom, 0px))',
+        display: 'flex', gap: 8, marginTop: 16,
+      }}>
         <button className="btn-outline" style={{ flex: 1, justifyContent: 'center' }} onClick={onClose}>
           Cancelar
         </button>
@@ -459,7 +469,13 @@ function ModalAtribuir({ item, pacientes, atribuidos, onClose, onSaved }) {
         {selecionadas.size} de {pacientes.length} paciente{selecionadas.size !== 1 ? 's' : ''} com acesso
       </div>
 
-      <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+      <div style={{
+        position: 'sticky', bottom: 0,
+        background: 'var(--white)',
+        paddingTop: 8,
+        paddingBottom: 'max(20px, env(safe-area-inset-bottom, 0px))',
+        display: 'flex', gap: 8, marginTop: 14,
+      }}>
         <button className="btn-outline" style={{ flex: 1, justifyContent: 'center' }} onClick={onClose}>
           Cancelar
         </button>
