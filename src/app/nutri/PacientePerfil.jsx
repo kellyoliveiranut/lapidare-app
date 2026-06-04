@@ -16,6 +16,7 @@ import Suplementacao from './_Suplementacao.jsx';
 import Habitos from './_Habitos.jsx';
 import Anamnese from './_Anamnese.jsx';
 import TratamentoOncologico from './_TratamentoOncologico.jsx';
+import RelatorioEvolucao from './_RelatorioEvolucao.jsx';
 const AnalisarAvaliacao = lazy(() => import('./_AnalisarAvaliacao.jsx'));
 import DicaJSON from '../../components/DicaJSON.jsx';
 
@@ -315,6 +316,7 @@ export default function PacientePerfil() {
       }}>
         {[
           { id: 'evolucao',      label: 'Evolução',      icon: 'chart-line' },
+          { id: 'relatorio',     label: 'Relatório',     icon: 'report-analytics' },
           { id: 'oncologia',     label: 'Oncologia',     icon: 'dna' },
           { id: 'anamnese',      label: 'Anamnese',      icon: 'clipboard-text' },
           { id: 'followup',      label: 'Follow-up',     icon: 'notebook' },
@@ -347,7 +349,8 @@ export default function PacientePerfil() {
         ))}
       </div>
 
-      {tab === 'evolucao' && <Evolucao pacienteId={paciente.id} paciente={paciente} nutriId={user.id} />}
+      {tab === 'evolucao'   && <Evolucao pacienteId={paciente.id} paciente={paciente} nutriId={user.id} />}
+      {tab === 'relatorio'  && <RelatorioEvolucao pacienteId={paciente.id} paciente={paciente} nutriId={user.id} />}
       {tab === 'oncologia' && <TratamentoOncologico pacienteId={paciente.id} nutriId={user.id} />}
       {tab === 'anamnese' && <Anamnese pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
       {tab === 'followup' && <FollowUp pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
