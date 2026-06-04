@@ -334,8 +334,9 @@ export default function PacientePerfil() {
         {[
           { id: 'evolucao',      label: 'Evolução',      icon: 'chart-line' },
           { id: 'relatorio',     label: 'Relatório',     icon: 'report-analytics' },
-          { id: 'oncologia',      label: 'Oncologia',      icon: 'dna' },
-          { id: 'emagrecimento',  label: 'Emagrecimento',  icon: 'trending-down' },
+          { id: 'oncologia',     label: 'Oncologia',     icon: 'dna' },
+          { id: 'emagrecimento', label: 'Emagrecimento', icon: 'trending-down' },
+          { id: 'calculos',      label: 'Cálculos',      icon: 'calculator' },
           { id: 'anamnese',      label: 'Anamnese',      icon: 'clipboard-text' },
           { id: 'followup',      label: 'Follow-up',     icon: 'notebook' },
           { id: 'plano',         label: 'Plano',         icon: 'salad' },
@@ -346,7 +347,6 @@ export default function PacientePerfil() {
           { id: 'ebooks',        label: 'E-books',       icon: 'book-2' },
           { id: 'avaliacao',     label: 'Avaliação',     icon: 'ruler-measure' },
           { id: 'checkin',       label: 'Check-in',      icon: 'clipboard-check' },
-          { id: 'calculos',      label: 'Cálculos',      icon: 'calculator' },
         ].map(t => (
           <button
             key={t.id}
