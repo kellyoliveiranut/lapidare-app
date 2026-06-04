@@ -2,37 +2,33 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 
-// Limpa o nome do item: tira quantidade (após "—" ou "-") e parênteses.
-// Retorna null se for um item de substituição (deve ser filtrado).
-function limparItem(raw) {
+// Parseia um item string ("Frango — 800g" ou "Frango") num objeto { nome, quantidade }.
+// Retorna null se for substituto ou inválido.
+function parsearItem(raw) {
   if (!raw || typeof raw !== 'string') return null;
-  // Filtra substitutos: "(substituição de ...)", "(substitui ...)"
   if (/\(\s*substitui/i.test(raw)) return null;
-  // Quebra na primeira ocorrência de " — ", " – " ou " - "
-  let s = raw.split(/\s+[—–-]\s+/)[0];
-  // Remove qualquer texto entre parênteses
-  s = s.replace(/\s*\([^)]*\)/g, '');
-  s = s.trim();
-  return s || null;
+  const partes = raw.split(/\s+[—–]\s+/);
+  const nome = partes[0].replace(/\s*\([^)]*\)/g, '').trim();
+  const quantidade = partes[1]?.trim() || null;
+  return nome ? { nome, quantidade } : null;
 }
 
-// Aplica limparItem em toda a lista e remove itens vazios/substitutos.
-// Também dedupe dentro da mesma categoria (case-insensitive).
+// Normaliza a lista: parseia itens, deduplica por nome (case-insensitive).
 function limparLista(compras) {
   if (!compras?.lista) return compras;
   const novasCategorias = compras.lista
     .map(cat => {
       const vistos = new Set();
-      const itensLimpos = (cat.itens ?? [])
-        .map(limparItem)
+      const itens = (cat.itens ?? [])
+        .map(parsearItem)
         .filter(Boolean)
-        .filter(nome => {
+        .filter(({ nome }) => {
           const k = nome.toLowerCase();
           if (vistos.has(k)) return false;
           vistos.add(k);
           return true;
         });
-      return { ...cat, itens: itensLimpos };
+      return { ...cat, itens };
     })
     .filter(cat => cat.itens.length > 0);
   return { ...compras, lista: novasCategorias };
@@ -120,7 +116,12 @@ export default function Compras() {
                   aria-label={done ? 'Desmarcar' : 'Marcar'}>
                   <i className="ti ti-check"></i>
                 </button>
-                <span className="compra-nome">{item}</span>
+                <span className="compra-nome">{item.nome}</span>
+                {item.quantidade && (
+                  <span style={{ fontSize: 11, color: 'var(--muted)', marginLeft: 'auto', flexShrink: 0 }}>
+                    {item.quantidade}
+                  </span>
+                )}
               </div>
             );
           })}

@@ -1609,84 +1609,374 @@ DIRETRIZES:
    PUBLICAR LISTA DE COMPRAS
    ============================================================ */
 function PublicarLista({ pacienteId, nutriId }) {
+  const [preview, setPreview]     = useState(null);
+  const [marcados, setMarcados]   = useState({});
+  const [gerando, setGerando]     = useState(false);
+  const [erroIA, setErroIA]       = useState(null);
+  const [busy, setBusy]           = useState(false);
+  const [feedback, setFeedback]   = useState(null);
   const [historico, setHistorico] = useState([]);
-  const [json, setJson] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [feedback, setFeedback] = useState(null);
-  const [verJson, setVerJson] = useState(null);
+  const [copiado, setCopiado]     = useState(false);
+
+  useEffect(() => { carregar(); }, [pacienteId]);
 
   async function carregar() {
     const { data } = await supabase
-      .from('listas_compras')
-      .select('id, dados, publicado_em')
+      .from('listas_compras').select('id, dados, publicado_em')
       .eq('paciente_id', pacienteId)
-      .order('publicado_em', { ascending: false })
-      .limit(5);
+      .order('publicado_em', { ascending: false }).limit(5);
     setHistorico(data ?? []);
   }
-  useEffect(() => { carregar(); }, [pacienteId]);
+
+  async function gerarComIA() {
+    setGerando(true);
+    setErroIA(null);
+    setPreview(null);
+    setMarcados({});
+
+    try {
+      const { data: plano } = await supabase
+        .from('planos').select('dados')
+        .eq('paciente_id', pacienteId)
+        .order('publicado_em', { ascending: false }).limit(1).maybeSingle();
+
+      if (!plano?.dados?.refeicoes?.length)
+        throw new Error('Nenhum plano alimentar publicado. Publique um plano primeiro na aba Plano.');
+
+      const alimentos = [];
+      for (const ref of plano.dados.refeicoes) {
+        for (const alim of ref.alimentos ?? []) {
+          if (alim.nome) alimentos.push(`${alim.nome}${alim.quantidade ? ` (${alim.quantidade})` : ''}`);
+        }
+      }
+      if (!alimentos.length)
+        throw new Error('O plano alimentar não possui alimentos cadastrados.');
+
+      const prompt = `Você é uma nutricionista. Com base nos alimentos do plano abaixo, crie uma lista de compras organizada por categoria para 7 dias.
+
+ALIMENTOS DO PLANO:
+${alimentos.join('\n')}
+
+RETORNE APENAS JSON puro sem markdown, sem texto adicional:
+{
+  "lista": [
+    {
+      "categoria": "nome da categoria",
+      "emoji": "emoji único",
+      "itens": [
+        { "nome": "alimento", "quantidade": "qtd para 7 dias" }
+      ]
+    }
+  ]
+}
+
+Use APENAS as categorias que tiverem itens:
+🥩 Proteínas | 🥦 Vegetais e Legumes | 🍎 Frutas | 🌾 Cereais e Grãos | 🥛 Laticínios | 🫙 Temperos e Condimentos | 🧴 Outros
+
+Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (ex: "Frango"), formato de quantidade: "500g", "1 dúzia", "2 potes".`;
+
+      const resposta = await callAnthropic(
+        [{ role: 'user', content: prompt }],
+        { model: 'claude-sonnet-4-6', maxTokens: 2000 }
+      );
+
+      let listaIA;
+      try { listaIA = JSON.parse(resposta.replace(/```json\n?|\n?```/g, '').trim()); }
+      catch { throw new Error('A IA retornou um formato inesperado. Tente novamente.'); }
+
+      if (!listaIA?.lista?.length)
+        throw new Error('A IA não gerou categorias. Tente novamente.');
+
+      setPreview({
+        lista: listaIA.lista.map(cat => ({
+          ...cat,
+          itens: (cat.itens ?? []).map(item => ({
+            ...item,
+            _id: Math.random().toString(36).slice(2),
+          })),
+        })),
+      });
+    } catch (e) {
+      setErroIA(e.message || 'Erro ao gerar lista.');
+    }
+    setGerando(false);
+  }
 
   async function publicar() {
+    if (!preview) return;
     setFeedback(null);
-    let dados;
-    try { dados = JSON.parse(json); }
-    catch (e) { return setFeedback({ tipo: 'erro', msg: 'JSON inválido: ' + e.message }); }
+
+    const dados = {
+      lista: preview.lista.map(cat => ({
+        categoria: cat.categoria,
+        emoji: cat.emoji,
+        itens: cat.itens.map(item =>
+          item.quantidade ? `${item.nome} — ${item.quantidade}` : item.nome
+        ),
+      })),
+    };
 
     const v = validarLista(dados);
     if (!v.ok) return setFeedback({ tipo: 'erro', msg: v.erro });
 
     setBusy(true);
     const { error } = await supabase.from('listas_compras').insert({
-      paciente_id: pacienteId,
-      nutri_id: nutriId,
-      dados,
+      paciente_id: pacienteId, nutri_id: nutriId, dados,
     });
     setBusy(false);
     if (error) return setFeedback({ tipo: 'erro', msg: error.message });
-    setFeedback({ tipo: 'ok', msg: 'Lista publicada! A paciente verá agora.' });
-    setJson('');
+
+    setFeedback({ tipo: 'ok', msg: 'Lista publicada! A paciente já pode ver.' });
+    setPreview(null);
+    setMarcados({});
     carregar();
   }
 
+  async function copiarLista() {
+    if (!preview) return;
+    const linhas = [`LISTA DE COMPRAS — ${new Date().toLocaleDateString('pt-BR')}`, ''];
+    for (const cat of preview.lista) {
+      linhas.push(`${cat.emoji || ''} ${cat.categoria}`.trim());
+      for (const item of cat.itens) {
+        linhas.push(`  • ${item.nome}${item.quantidade ? ` — ${item.quantidade}` : ''}`);
+      }
+      linhas.push('');
+    }
+    await navigator.clipboard.writeText(linhas.join('\n'));
+    setCopiado(true);
+    setTimeout(() => setCopiado(false), 2500);
+  }
+
+  function limparMarcados() {
+    const remover = new Set(Object.entries(marcados).filter(([, v]) => v).map(([k]) => k));
+    if (!remover.size) return;
+    setPreview(prev => ({
+      lista: prev.lista
+        .map(cat => ({ ...cat, itens: cat.itens.filter(i => !remover.has(i._id)) }))
+        .filter(cat => cat.itens.length > 0),
+    }));
+    setMarcados({});
+  }
+
+  function exportarPDF() {
+    if (!preview) return;
+    const totalItens = preview.lista.reduce((a, c) => a + c.itens.length, 0);
+    const nMarcados = Object.values(marcados).filter(Boolean).length;
+
+    const catHtml = preview.lista.map(cat => `
+      <div class="cat">
+        <div class="cat-header">${cat.emoji || ''} ${cat.categoria} <span class="cat-count">${cat.itens.length} itens</span></div>
+        ${cat.itens.map(item => `
+          <div class="item">
+            <div class="check-box"></div>
+            <span class="item-nome">${item.nome}</span>
+            ${item.quantidade ? `<span class="item-qtd">${item.quantidade}</span>` : ''}
+          </div>`).join('')}
+      </div>`).join('');
+
+    const html = `<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Lista de Compras</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #F5F0EB; font-family: 'Inter', sans-serif; font-size: 13px; color: #1c1712; padding: 44px 52px; max-width: 780px; margin: 0 auto; }
+    .header { display: flex; align-items: flex-start; gap: 16px; padding-bottom: 20px; border-bottom: 2px solid #B8956A; margin-bottom: 32px; }
+    .monogram { width: 46px; height: 46px; border-radius: 50%; background: linear-gradient(135deg, #B8956A, #8c6a3f); color: #fff; font-family: Georgia, serif; font-size: 21px; font-weight: bold; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .brand { font-size: 9.5px; letter-spacing: 3px; text-transform: uppercase; color: #B8956A; font-weight: 600; margin-bottom: 5px; }
+    h1 { font-family: Georgia, serif; font-size: 24px; font-weight: normal; font-style: italic; }
+    h1 strong { font-style: normal; }
+    .meta { font-size: 10px; color: #9a8570; margin-top: 4px; }
+    .progress { font-size: 11px; color: #6b5c3e; text-align: right; padding-top: 4px; }
+    .cat { margin-bottom: 24px; page-break-inside: avoid; }
+    .cat-header { font-family: Georgia, serif; font-size: 13px; font-weight: 600; color: #B8956A; letter-spacing: 1.5px; text-transform: uppercase; padding-bottom: 8px; border-bottom: 0.5px solid #d4c4b0; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; }
+    .cat-count { font-size: 10px; color: #9a8570; font-family: 'Inter', sans-serif; font-weight: 400; letter-spacing: 0; text-transform: none; }
+    .item { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 0.5px solid #ede5d8; }
+    .item:last-child { border-bottom: none; }
+    .check-box { width: 16px; height: 16px; border: 1.5px solid #B8956A; border-radius: 4px; flex-shrink: 0; }
+    .item-nome { flex: 1; font-size: 13px; }
+    .item-qtd { font-size: 11px; color: #9a8570; text-align: right; }
+    footer { margin-top: 32px; padding-top: 14px; border-top: 1px solid #ddd5c8; display: flex; justify-content: space-between; font-size: 10px; color: #9a8570; }
+    footer strong { color: #6b5c3e; }
+    @media print { body { padding: 20px 28px; } @page { margin: 1cm; size: A4; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="monogram">E</div>
+    <div style="flex:1">
+      <div class="brand">Essentia · Nutrição em Oncologia</div>
+      <h1><strong>Lista de Compras</strong></h1>
+      <div class="meta">Gerada em ${new Date().toLocaleDateString('pt-BR')} · ${totalItens} itens</div>
+    </div>
+    <div class="progress">Nut. Kelly Oliveira<br>CRN 3801</div>
+  </div>
+  ${catHtml}
+  <footer>
+    <div><strong>Nut. Kelly Oliveira</strong> · Mestre em Oncologia · CRN 3801</div>
+    <div>🔒 Seus dados estão protegidos pela LGPD.</div>
+  </footer>
+</body>
+</html>`;
+
+    const win = window.open('', '_blank', 'width=820,height=640');
+    if (!win) { alert('Permita pop-ups para gerar o PDF.'); return; }
+    win.document.write(html);
+    win.document.close();
+    setTimeout(() => win.print(), 500);
+  }
+
   async function excluirLista(l) {
-    const data = dataBR(l.publicado_em);
-    if (!window.confirm(`Excluir lista de compras publicada em ${data}?\n\nA paciente não verá mais esta lista.`)) return;
+    if (!window.confirm(`Excluir lista publicada em ${dataBR(l.publicado_em)}?`)) return;
     const { error } = await supabase.from('listas_compras').delete().eq('id', l.id);
     if (error) return setFeedback({ tipo: 'erro', msg: error.message });
     setFeedback({ tipo: 'ok', msg: 'Lista excluída.' });
     carregar();
   }
 
+  const totalPreview   = preview?.lista.reduce((a, c) => a + c.itens.length, 0) ?? 0;
+  const nMarcadosPreview = Object.values(marcados).filter(Boolean).length;
+
   return (
     <>
       <div className="card">
         <div className="card-header">
           <div>
-            <div className="card-title">Publicar nova lista de compras</div>
-            <div className="card-sub">Cole o JSON gerado pela sua Skill 7 (categorias + itens)</div>
+            <div className="card-title">Lista de compras</div>
+            <div className="card-sub">Gerada automaticamente a partir do plano alimentar publicado</div>
           </div>
+          <button
+            onClick={gerarComIA}
+            disabled={gerando}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              padding: '7px 14px', borderRadius: 8,
+              border: 'none', cursor: gerando ? 'default' : 'pointer',
+              background: 'linear-gradient(135deg, #16a34a, #15803d)',
+              color: '#fff', fontSize: 13, fontWeight: 600,
+              fontFamily: 'var(--font-sans)', flexShrink: 0,
+              opacity: gerando ? 0.75 : 1,
+            }}
+          >
+            <i className={`ti ti-${gerando ? 'loader-2' : 'shopping-cart'}`}
+               style={gerando ? { animation: 'lapidare-spin .75s linear infinite' } : {}}
+               aria-hidden="true" />
+            {gerando ? 'Gerando lista...' : '🛒 Gerar com IA'}
+          </button>
         </div>
-        <div className="card-body">
-          <label className="field-label">JSON da lista</label>
-          <textarea
-            value={json}
-            onChange={e => setJson(e.target.value)}
-            rows={10}
-            placeholder='{"lista": [{"categoria": "Hortifruti", "itens": ["banana", "maçã"]}]}'
-            style={{ width: '100%', fontFamily: 'monospace', fontSize: 13, resize: 'vertical' }}
-          />
 
-          <DicaJSON
-            exemploPrompt='gera um JSON de lista de compras pra paciente, agrupando os itens por categoria (Hortifruti, Proteínas, Grãos e cereais, Laticínios, Mercearia, Outros). Inclui só os nomes dos itens (sem quantidade). Estrutura: { "lista": [{ "categoria": "Hortifruti", "emoji": "🥦", "itens": ["banana", "maçã", "alface", "tomate"] }, ...] }' />
-
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
-            <button className="btn" onClick={publicar} disabled={busy || !json.trim()}>
-              <i className="ti ti-send" aria-hidden="true"></i> {busy ? 'Publicando...' : 'Publicar lista'}
-            </button>
+        {erroIA && (
+          <div style={{ margin: '0 16px 12px', padding: '8px 12px', borderRadius: 6, background: 'var(--red-bg)', color: 'var(--red)', fontSize: 12, display: 'flex', gap: 8 }}>
+            <i className="ti ti-alert-triangle" /> {erroIA}
           </div>
+        )}
 
-          {feedback && <FeedbackInline f={feedback} />}
-        </div>
+        {gerando && (
+          <div style={{ margin: '0 16px 12px', padding: '10px 14px', borderRadius: 8, background: '#f0fdf4', border: '1px solid #bbf7d0', fontSize: 12, color: '#15803d', display: 'flex', gap: 8 }}>
+            <i className="ti ti-loader-2" style={{ animation: 'lapidare-spin .75s linear infinite' }} />
+            Analisando o plano alimentar e organizando por categorias...
+          </div>
+        )}
+
+        {!preview && !gerando && (
+          <div style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text3)' }}>
+            <i className="ti ti-shopping-cart" style={{ fontSize: 28, marginBottom: 8, display: 'block', opacity: .35 }} />
+            <div style={{ fontSize: 13, marginBottom: 6 }}>Clique em "🛒 Gerar com IA" para criar a lista automaticamente</div>
+            <div style={{ fontSize: 12 }}>A IA lê o plano publicado e organiza os alimentos por categoria com quantidades para 7 dias.</div>
+          </div>
+        )}
+
+        {preview && (
+          <div className="card-body">
+            {/* Barra de ações */}
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16, paddingBottom: 14, borderBottom: '0.5px solid var(--border)' }}>
+              <button className="btn-outline" style={{ fontSize: 12, gap: 4 }} onClick={copiarLista}>
+                <i className={`ti ti-${copiado ? 'check' : 'clipboard'}`} />
+                {copiado ? 'Copiado!' : 'Copiar lista'}
+              </button>
+              <button className="btn-outline" style={{ fontSize: 12, gap: 4 }} onClick={exportarPDF}>
+                <i className="ti ti-file-type-pdf" />
+                Exportar PDF
+              </button>
+              {nMarcadosPreview > 0 && (
+                <button className="btn-outline" style={{ fontSize: 12, gap: 4, color: 'var(--green)', borderColor: 'var(--green)' }} onClick={limparMarcados}>
+                  <i className="ti ti-trash" />
+                  Limpar {nMarcadosPreview} marcado{nMarcadosPreview > 1 ? 's' : ''}
+                </button>
+              )}
+              <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text3)', alignSelf: 'center' }}>
+                {totalPreview} itens · {preview.lista.length} categorias
+              </span>
+            </div>
+
+            {/* Lista com checkboxes */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 20 }}>
+              {preview.lista.map(cat => (
+                <div key={cat.categoria}>
+                  <div style={{
+                    fontSize: 11, fontWeight: 600, color: 'var(--amber)',
+                    letterSpacing: 1.2, textTransform: 'uppercase',
+                    marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6,
+                  }}>
+                    <span>{cat.emoji}</span>
+                    <span>{cat.categoria}</span>
+                    <span style={{ marginLeft: 'auto', fontWeight: 400, color: 'var(--text3)', letterSpacing: 0, textTransform: 'none' }}>
+                      {cat.itens.length} itens
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    {cat.itens.map(item => {
+                      const marcado = !!marcados[item._id];
+                      return (
+                        <label key={item._id} style={{
+                          display: 'flex', alignItems: 'center', gap: 10,
+                          padding: '7px 10px', borderRadius: 6, cursor: 'pointer',
+                          background: marcado ? 'var(--bg2)' : 'transparent',
+                          opacity: marcado ? 0.55 : 1,
+                          transition: 'opacity .15s',
+                        }}>
+                          <input
+                            type="checkbox"
+                            checked={marcado}
+                            onChange={() => setMarcados(m => ({ ...m, [item._id]: !m[item._id] }))}
+                            style={{ accentColor: 'var(--amber)', width: 14, height: 14, flexShrink: 0 }}
+                          />
+                          <span style={{ flex: 1, fontSize: 13, textDecoration: marcado ? 'line-through' : 'none' }}>
+                            {item.nome}
+                          </span>
+                          {item.quantidade && (
+                            <span style={{ fontSize: 11, color: 'var(--text3)', flexShrink: 0 }}>
+                              {item.quantidade}
+                            </span>
+                          )}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Publicar */}
+            <div style={{ paddingTop: 14, borderTop: '0.5px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <button className="btn" style={{ gap: 6 }} onClick={publicar} disabled={busy}>
+                <i className="ti ti-send" aria-hidden="true" />
+                {busy ? 'Publicando...' : `Publicar para a paciente (${totalPreview} itens)`}
+              </button>
+              <button className="btn-outline" style={{ fontSize: 12 }} onClick={() => { setPreview(null); setMarcados({}); }}>
+                Descartar
+              </button>
+            </div>
+
+            {feedback && <FeedbackInline f={feedback} />}
+          </div>
+        )}
+
+        {!preview && feedback && (
+          <div style={{ padding: '0 16px 16px' }}><FeedbackInline f={feedback} /></div>
+        )}
       </div>
 
       <HistoricoLista
@@ -1694,26 +1984,17 @@ function PublicarLista({ pacienteId, nutriId }) {
         items={historico}
         onDelete={excluirLista}
         renderItem={(l) => (
-          <>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 14, fontWeight: 500 }}>
-                {contarItensLista(l.dados)} itens em {l.dados?.lista?.length ?? 0} categorias
-              </div>
-              <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>
-                Publicada em {dataBR(l.publicado_em)}
-              </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 500 }}>
+              {contarItensLista(l.dados)} itens em {l.dados?.lista?.length ?? 0} categorias
             </div>
-            <button className="btn-outline" style={{ fontSize: 12, padding: '4px 10px' }}
-              onClick={() => setVerJson(l)}>
-              <i className="ti ti-code" aria-hidden="true"></i> JSON
-            </button>
-          </>
+            <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>
+              Publicada em {dataBR(l.publicado_em)}
+            </div>
+          </div>
         )}
       />
 
-      {verJson && (
-        <VerJsonModal item={verJson} dados={verJson.dados} onClose={() => setVerJson(null)} />
-      )}
     </>
   );
 }
