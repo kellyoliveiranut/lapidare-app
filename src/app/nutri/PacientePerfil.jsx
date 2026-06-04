@@ -18,6 +18,7 @@ import Anamnese from './_Anamnese.jsx';
 import TratamentoOncologico from './_TratamentoOncologico.jsx';
 import RelatorioEvolucao from './_RelatorioEvolucao.jsx';
 import Emagrecimento from './_Emagrecimento.jsx';
+import Calculos from './_Calculos.jsx';
 const AnalisarAvaliacao = lazy(() => import('./_AnalisarAvaliacao.jsx'));
 import DicaJSON from '../../components/DicaJSON.jsx';
 
@@ -330,6 +331,7 @@ export default function PacientePerfil() {
           { id: 'ebooks',        label: 'E-books',       icon: 'book-2' },
           { id: 'avaliacao',     label: 'Avaliação',     icon: 'ruler-measure' },
           { id: 'checkin',       label: 'Check-in',      icon: 'clipboard-check' },
+          { id: 'calculos',      label: 'Cálculos',      icon: 'calculator' },
         ].map(t => (
           <button
             key={t.id}
@@ -365,6 +367,7 @@ export default function PacientePerfil() {
       {tab === 'ebooks' && <EbooksDaPaciente pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
       {tab === 'avaliacao' && <RegistrarAvaliacao pacienteId={paciente.id} nutriId={user.id} paciente={paciente} />}
       {tab === 'checkin' && <CheckinPersonalizado pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
+      {tab === 'calculos' && <Calculos pacienteId={paciente.id} nutriId={user.id} paciente={paciente} />}
 
       {paciente.status_paciente === 'ativo' && (
         <div style={{ marginTop: 32, paddingTop: 16, borderTop: '0.5px solid var(--border)', textAlign: 'center' }}>
