@@ -162,13 +162,21 @@ export default function Biblioteca() {
               <div key={it.id} className="card" style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {/* Header */}
                 <div style={{ display: 'flex', alignItems: 'start', gap: 10 }}>
-                  <div style={{
-                    width: 42, height: 42, borderRadius: 8, flexShrink: 0,
-                    background: 'var(--bg2)', fontSize: 20,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>
-                    {secaoAtual?.emoji}
-                  </div>
+                  {/\.(jpg|jpeg|png)$/i.test(it.storage_path ?? '') ? (
+                    <img
+                      src={supabase.storage.from('ebooks').getPublicUrl(it.storage_path).data.publicUrl}
+                      alt={it.titulo}
+                      style={{ width: 42, height: 42, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }}
+                    />
+                  ) : (
+                    <div style={{
+                      width: 42, height: 42, borderRadius: 8, flexShrink: 0,
+                      background: 'var(--bg2)', fontSize: 20,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      {SECOES.find(s => s.id === secaoDoItem(it.tag))?.emoji}
+                    </div>
+                  )}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 500, fontSize: 14, lineHeight: 1.3 }}>{it.titulo}</div>
                     {it.descricao && (
@@ -269,22 +277,22 @@ export default function Biblioteca() {
 }
 
 
-function ModalShell({ title, subtitle, onClose, children, width = 480 }) {
+function ModalShell({ title, subtitle, onClose, children, footer, width = 480 }) {
   return (
     <div onClick={onClose} style={{
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      zIndex: 100,
+      zIndex: 300,
       padding: 16,
-      paddingBottom: 'max(16px, env(safe-area-inset-bottom, 0px))',
     }}>
       <div onClick={e => e.stopPropagation()} style={{
         background: 'var(--white)', borderRadius: 12,
         maxWidth: width, width: '100%',
-        maxHeight: '85dvh',
+        maxHeight: '80dvh',
         display: 'flex', flexDirection: 'column',
         overflow: 'hidden',
       }}>
+        {/* Cabeçalho fixo */}
         <div style={{
           display: 'flex', justifyContent: 'space-between', alignItems: 'start',
           padding: '20px 20px 12px', flexShrink: 0,
@@ -298,9 +306,22 @@ function ModalShell({ title, subtitle, onClose, children, width = 480 }) {
             fontSize: 18, color: 'var(--text3)', padding: 4,
           }}><i className="ti ti-x" aria-hidden="true"></i></button>
         </div>
+        {/* Corpo rolável */}
         <div style={{ overflow: 'auto', padding: '0 20px', flex: 1 }}>
           {children}
         </div>
+        {/* Rodapé fixo — fora do scroll, sempre visível */}
+        {footer && (
+          <div style={{
+            flexShrink: 0,
+            padding: '12px 20px',
+            paddingBottom: 'max(16px, env(safe-area-inset-bottom, 16px))',
+            background: 'var(--white)',
+            borderTop: '0.5px solid var(--border)',
+          }}>
+            {footer}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -317,7 +338,7 @@ function ModalUpload({ nutriId, secaoDefault, onClose, onSaved }) {
 
   async function enviar() {
     setErro(null);
-    if (!arquivo) return setErro('Selecione um arquivo PDF.');
+    if (!arquivo) return setErro('Selecione uma imagem JPG ou PNG.');
     if (!titulo.trim()) return setErro('Informe um título.');
     setBusy(true);
     const ext = (arquivo.name.split('.').pop() || 'pdf').toLowerCase();
@@ -339,15 +360,31 @@ function ModalUpload({ nutriId, secaoDefault, onClose, onSaved }) {
     onSaved();
   }
 
+  const botoesFooter = (
+    <div style={{ display: 'flex', gap: 8 }}>
+      <button className="btn-outline" style={{ flex: 1, justifyContent: 'center' }} onClick={onClose}>
+        Cancelar
+      </button>
+      <button className="btn" style={{ flex: 1, justifyContent: 'center' }} onClick={enviar} disabled={busy || !arquivo}>
+        <i className="ti ti-upload" aria-hidden="true"></i> {busy ? 'Enviando...' : 'Salvar'}
+      </button>
+    </div>
+  );
+
   return (
-    <ModalShell title="Adicionar item" subtitle="Sobe uma vez e atribui pra quantas pacientes quiser" onClose={onClose}>
-      <label className="form-lbl">Arquivo (PDF)</label>
-      <input type="file" accept="application/pdf" onChange={e => setArquivo(e.target.files?.[0] ?? null)}
+    <ModalShell
+      title="Adicionar item"
+      subtitle="Sobe uma vez e atribui pra quantas pacientes quiser"
+      onClose={onClose}
+      footer={botoesFooter}
+    >
+      <label className="form-lbl">Imagem (JPG ou PNG)</label>
+      <input type="file" accept="image/jpeg,image/png" onChange={e => setArquivo(e.target.files?.[0] ?? null)}
         style={{ padding: 6 }} />
       <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
         {arquivo
           ? `${arquivo.name} · ${(arquivo.size / 1024 / 1024).toFixed(1)} MB`
-          : 'Nenhum arquivo selecionado · Máximo: 20 MB'}
+          : 'Nenhum arquivo selecionado · Máximo: 5 MB'}
       </div>
 
       <label className="form-lbl" style={{ marginTop: 12 }}>Título</label>
@@ -372,21 +409,7 @@ function ModalUpload({ nutriId, secaoDefault, onClose, onSaved }) {
           padding: '6px 10px', borderRadius: 6, fontSize: 11, marginTop: 10,
         }}>{erro}</div>
       )}
-
-      <div style={{
-        position: 'sticky', bottom: 0,
-        background: 'var(--white)',
-        paddingTop: 8,
-        paddingBottom: 'max(20px, env(safe-area-inset-bottom, 0px))',
-        display: 'flex', gap: 8, marginTop: 16,
-      }}>
-        <button className="btn-outline" style={{ flex: 1, justifyContent: 'center' }} onClick={onClose}>
-          Cancelar
-        </button>
-        <button className="btn" style={{ flex: 1, justifyContent: 'center' }} onClick={enviar} disabled={busy || !arquivo}>
-          <i className="ti ti-upload" aria-hidden="true"></i> {busy ? 'Enviando...' : 'Salvar'}
-        </button>
-      </div>
+      <div style={{ height: 8 }} />
     </ModalShell>
   );
 }
@@ -429,16 +452,29 @@ function ModalAtribuir({ item, pacientes, atribuidos, onClose, onSaved }) {
     return (p.nome ?? '').toLowerCase().includes(q);
   });
 
+  const botoesFooter = (
+    <div style={{ display: 'flex', gap: 8 }}>
+      <button className="btn-outline" style={{ flex: 1, justifyContent: 'center' }} onClick={onClose}>
+        Cancelar
+      </button>
+      <button className="btn" style={{ flex: 1, justifyContent: 'center' }} onClick={salvar} disabled={busy}>
+        <i className="ti ti-check" aria-hidden="true"></i> {busy ? 'Salvando…' : 'Salvar'}
+      </button>
+    </div>
+  );
+
   return (
     <ModalShell
       title="Gerenciar acesso"
       subtitle={`Quem pode ver "${item.titulo}"`}
       onClose={onClose}
-      width={520}>
+      width={520}
+      footer={botoesFooter}
+    >
       <input value={busca} onChange={e => setBusca(e.target.value)}
         placeholder="Buscar paciente…" style={{ marginBottom: 10 }} />
 
-      <div style={{ maxHeight: 360, overflow: 'auto', border: '0.5px solid var(--border)', borderRadius: 8 }}>
+      <div style={{ maxHeight: 300, overflow: 'auto', border: '0.5px solid var(--border)', borderRadius: 8 }}>
         {filtradas.length === 0 ? (
           <div style={{ padding: 20, textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>
             Nenhuma paciente encontrada.
@@ -465,23 +501,8 @@ function ModalAtribuir({ item, pacientes, atribuidos, onClose, onSaved }) {
         })}
       </div>
 
-      <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 6 }}>
+      <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 6, marginBottom: 4 }}>
         {selecionadas.size} de {pacientes.length} paciente{selecionadas.size !== 1 ? 's' : ''} com acesso
-      </div>
-
-      <div style={{
-        position: 'sticky', bottom: 0,
-        background: 'var(--white)',
-        paddingTop: 8,
-        paddingBottom: 'max(20px, env(safe-area-inset-bottom, 0px))',
-        display: 'flex', gap: 8, marginTop: 14,
-      }}>
-        <button className="btn-outline" style={{ flex: 1, justifyContent: 'center' }} onClick={onClose}>
-          Cancelar
-        </button>
-        <button className="btn" style={{ flex: 1, justifyContent: 'center' }} onClick={salvar} disabled={busy}>
-          <i className="ti ti-check" aria-hidden="true"></i> {busy ? 'Salvando…' : 'Salvar'}
-        </button>
       </div>
     </ModalShell>
   );
