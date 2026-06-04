@@ -35,6 +35,7 @@ export default function PacientePerfil() {
   const [novoCampo, setNovoCampo] = useState('');
   const [salvandoCampo, setSalvandoCampo] = useState(false);
   const [arquivarOpen, setArquivarOpen] = useState(false);
+  const [editarDadosOpen, setEditarDadosOpen] = useState(false);
 
   async function carregar() {
     const { data } = await supabase
@@ -147,7 +148,21 @@ export default function PacientePerfil() {
           fontSize: 18, fontWeight: 600, color: 'var(--dark)',
         }}>{iniciais(paciente.nome)}</div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="page-title" style={{ marginBottom: 2 }}>{paciente.nome}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2, flexWrap: 'wrap' }}>
+            <div className="page-title" style={{ margin: 0 }}>{paciente.nome}</div>
+            <button
+              onClick={() => setEditarDadosOpen(true)}
+              style={{
+                background: 'none', border: '0.5px solid var(--border)',
+                borderRadius: 6, padding: '3px 9px', fontSize: 11,
+                color: 'var(--text3)', cursor: 'pointer',
+                fontFamily: 'var(--font-sans)',
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+              }}>
+              <i className="ti ti-pencil" style={{ fontSize: 12 }} aria-hidden="true" />
+              Editar dados
+            </button>
+          </div>
           <div className="page-sub" style={{ marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <span>{paciente.email} · cadastrada em {dataBR(paciente.created_at)}</span>
             <button onClick={enviarRedefinicaoSenha}
@@ -389,6 +404,14 @@ export default function PacientePerfil() {
           onArquivado={() => navigate('/nutri/pacientes')}
         />
       )}
+
+      {editarDadosOpen && (
+        <ModalEditarDados
+          paciente={paciente}
+          onClose={() => setEditarDadosOpen(false)}
+          onSaved={carregar}
+        />
+      )}
     </>
   );
 }
@@ -511,6 +534,150 @@ function ModalArquivar({ paciente, onClose, onArquivado }) {
             }}>
             <i className="ti ti-archive" aria-hidden="true" />
             {busy ? 'Arquivando…' : 'Confirmar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   MODAL EDITAR DADOS DA PACIENTE
+   ============================================================ */
+function ModalEditarDados({ paciente, onClose, onSaved }) {
+  const [form, setForm] = useState({
+    nome:       paciente.nome       ?? '',
+    email:      paciente.email      ?? '',
+    telefone:   paciente.telefone   ?? '',
+    nascimento: paciente.nascimento ?? '',
+    objetivo:   paciente.objetivo   ?? '',
+    tipo_plano: paciente.tipo_plano ?? '',
+    modalidade: paciente.modalidade ?? '',
+  });
+  const [busy, setBusy] = useState(false);
+  const [erro, setErro] = useState(null);
+
+  const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
+
+  async function salvar() {
+    if (!form.nome.trim()) return setErro('Nome é obrigatório.');
+    setBusy(true); setErro(null);
+    const { error } = await supabase.from('pacientes').update({
+      nome:       form.nome.trim()       || null,
+      email:      form.email.trim()      || null,
+      telefone:   form.telefone.trim()   || null,
+      nascimento: form.nascimento        || null,
+      objetivo:   form.objetivo          || null,
+      tipo_plano: form.tipo_plano        || null,
+      modalidade: form.modalidade        || null,
+    }).eq('id', paciente.id);
+    setBusy(false);
+    if (error) return setErro(error.message);
+    onSaved();
+    onClose();
+  }
+
+  const F = ({ label, k, type = 'text', children }) => (
+    <div>
+      <label className="field-label">{label}</label>
+      {children ?? <input type={type} value={form[k]} onChange={set(k)} />}
+    </div>
+  );
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, background: 'rgba(28,23,18,.55)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        zIndex: 100, padding: 16,
+      }}>
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: 'var(--white)', borderRadius: 12, padding: 24,
+          width: 520, maxWidth: '92vw', maxHeight: '90vh', overflowY: 'auto',
+          border: '0.5px solid var(--border)',
+        }}>
+        <div style={{ fontFamily: 'var(--font-serif)', fontSize: 18, marginBottom: 4 }}>
+          Editar dados da paciente
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 20 }}>
+          {paciente.nome}
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 20 }}>
+          <F label="Nome completo" k="nome" />
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <F label="E-mail" k="email" type="email" />
+            <F label="Telefone" k="telefone" type="tel" />
+          </div>
+
+          <F label="Data de nascimento" k="nascimento" type="date" />
+
+          <F label="Objetivo">
+            <select value={form.objetivo} onChange={set('objetivo')}>
+              <option value="">— sem objetivo definido —</option>
+              {['Emagrecimento', 'Hipertrofia', 'Reeducação alimentar', 'Saúde geral', 'Performance esportiva', 'Oncologia', 'Outro'].map(o => (
+                <option key={o} value={o}>{o}</option>
+              ))}
+            </select>
+          </F>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <F label="Tipo de plano">
+              <input
+                list="modal-tipos-plano"
+                value={form.tipo_plano}
+                onChange={set('tipo_plano')}
+                placeholder="ex: Avulsa, Essentia…"
+              />
+              <datalist id="modal-tipos-plano">
+                {['Avulsa', 'Essentia', 'Trimestral', 'Semestral', 'Consultoria', 'Acompanhamento'].map(o => (
+                  <option key={o} value={o} />
+                ))}
+              </datalist>
+            </F>
+
+            <F label="Modalidade">
+              <select value={form.modalidade} onChange={set('modalidade')}>
+                <option value="">— selecione —</option>
+                {['Online', 'Presencial', 'Híbrido'].map(o => (
+                  <option key={o} value={o}>{o}</option>
+                ))}
+              </select>
+            </F>
+          </div>
+        </div>
+
+        {erro && (
+          <div style={{
+            padding: '8px 12px', borderRadius: 6, marginBottom: 14,
+            background: 'var(--red-bg)', color: 'var(--red)', fontSize: 13,
+          }}>{erro}</div>
+        )}
+
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            className="btn-outline"
+            onClick={onClose}
+            style={{ flex: 1, justifyContent: 'center' }}>
+            Cancelar
+          </button>
+          <button
+            onClick={salvar}
+            disabled={busy}
+            style={{
+              flex: 1, padding: '10px 14px', borderRadius: 8, border: 'none',
+              cursor: 'pointer', fontSize: 13, fontWeight: 500,
+              fontFamily: 'var(--font-sans)',
+              background: 'var(--dark)', color: '#fff',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              opacity: busy ? 0.6 : 1,
+            }}>
+            <i className="ti ti-device-floppy" aria-hidden="true" />
+            {busy ? 'Salvando…' : 'Salvar alterações'}
           </button>
         </div>
       </div>
