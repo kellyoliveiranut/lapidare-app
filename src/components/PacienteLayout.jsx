@@ -25,6 +25,14 @@ const MAIS_ITEMS = [
   { path: '/paciente/chat',        icon: 'message-circle', label: 'Chat com a Dra.',     sub: 'Conversa direta' },
 ];
 
+// Paths acessíveis no plano Avulsa — todo o resto fica bloqueado
+const AVULSA_ALLOWED = new Set([
+  '/paciente/inicio',
+  '/paciente/plano',
+  '/paciente/prescricoes',
+  '/paciente/ebooks',
+]);
+
 const HEADERS = {
   '/paciente/inicio':       (nome) =>           ({ eyebrow: 'Essentia',          title: `Bom dia, ${nome}` }),
   '/paciente/plano':        () =>                ({ eyebrow: 'Plano alimentar',  title: 'Meu plano',         subtitle: '' }),
@@ -47,9 +55,21 @@ export default function PacienteLayout() {
   const [moreOpen, setMoreOpen] = useState(false);
   const [perfilOpen, setPerfilOpen] = useState(false);
   const [unreadChat, setUnreadChat] = useState(0);
+  const [lockToast, setLockToast] = useState(false);
 
   const isChat = location.pathname === '/paciente/chat';
   const primeiroNome = profile?.apelido || profile?.nome?.split(' ')[0] || '';
+
+  const isBlocked = (path) => {
+    if (!path) return false;
+    if (profile?.tipo_plano !== 'avulsa') return false;
+    return !AVULSA_ALLOWED.has(path);
+  };
+
+  function handleBlocked() {
+    setLockToast(true);
+    setTimeout(() => setLockToast(false), 3000);
+  }
 
   // Conta mensagens não lidas vindas da nutri
   useEffect(() => {
@@ -143,6 +163,7 @@ export default function PacienteLayout() {
             const active = t.path
               ? location.pathname === t.path
               : ['/paciente/progresso', '/paciente/compras', '/paciente/suplementos', '/paciente/habitos', '/paciente/prescricoes', '/paciente/ebooks', '/paciente/chat'].includes(location.pathname);
+            const blocked = isBlocked(t.path);
 
             if (!t.path) {
               return (
@@ -170,6 +191,27 @@ export default function PacienteLayout() {
               );
             }
 
+            if (blocked) {
+              return (
+                <button
+                  key={t.id}
+                  className="tab"
+                  onClick={handleBlocked}
+                  role="tab"
+                  style={{ position: 'relative', opacity: 0.75 }}
+                >
+                  <span style={{ position: 'relative', display: 'inline-flex' }}>
+                    <i className={`ti ti-${t.icon}`} aria-hidden="true"></i>
+                    <i className="ti ti-lock" aria-hidden="true" style={{
+                      position: 'absolute', top: -4, right: -7,
+                      fontSize: 9, color: 'var(--muted)', opacity: 0.6,
+                    }} />
+                  </span>
+                  <span>{t.label}</span>
+                </button>
+              );
+            }
+
             return (
               <NavLink
                 key={t.id}
@@ -192,16 +234,29 @@ export default function PacienteLayout() {
             <div className="serif" style={{ fontSize: 22, marginBottom: 14 }}>Mais</div>
             {MAIS_ITEMS.map(item => {
               const isChatItem = item.path === '/paciente/chat';
+              const blocked = isBlocked(item.path);
               return (
                 <button key={item.path}
                   className="sheet-item"
-                  onClick={() => { setMoreOpen(false); navigate(item.path); }}>
-                  <div className="icon-wrap"><i className={`ti ti-${item.icon}`} aria-hidden="true"></i></div>
+                  style={blocked ? { opacity: 0.7 } : {}}
+                  onClick={() => {
+                    if (blocked) { setMoreOpen(false); handleBlocked(); return; }
+                    setMoreOpen(false); navigate(item.path);
+                  }}>
+                  <div className="icon-wrap" style={{ position: 'relative' }}>
+                    <i className={`ti ti-${item.icon}`} aria-hidden="true"></i>
+                    {blocked && (
+                      <i className="ti ti-lock" aria-hidden="true" style={{
+                        position: 'absolute', top: -3, right: -4,
+                        fontSize: 10, opacity: 0.6,
+                      }} />
+                    )}
+                  </div>
                   <div style={{ flex: 1 }}>
                     <div className="label">{item.label}</div>
                     <div className="sub">{item.sub}</div>
                   </div>
-                  {isChatItem && unreadChat > 0 && (
+                  {isChatItem && unreadChat > 0 && !blocked && (
                     <span style={{
                       background: 'var(--red)', color: 'var(--paper)',
                       fontSize: 10, fontWeight: 600,
@@ -243,6 +298,23 @@ export default function PacienteLayout() {
           onClose={() => setPerfilOpen(false)}
           refreshProfile={refreshProfile}
         />
+      )}
+
+      {lockToast && (
+        <div style={{
+          position: 'fixed', bottom: 90, left: '50%', transform: 'translateX(-50%)',
+          background: 'var(--ink)', color: 'var(--paper)',
+          padding: '10px 18px', borderRadius: 12,
+          fontSize: 13, fontWeight: 500, zIndex: 600,
+          maxWidth: '85vw', textAlign: 'center',
+          boxShadow: '0 4px 16px rgba(0,0,0,.25)',
+          display: 'flex', alignItems: 'center', gap: 8,
+          whiteSpace: 'nowrap',
+          animation: 'fadeInUp .2s ease',
+        }}>
+          <i className="ti ti-lock" aria-hidden="true" />
+          Esta área está disponível no plano Essentia.
+        </div>
       )}
     </div>
   );
