@@ -188,8 +188,6 @@ ${checkinsStr}`;
       `── IDENTIFICAÇÃO ──────────────────────`,
       `Nome: ${paciente.nome}`,
       `Idade: ${calcIdade() ?? '—'} anos`,
-      `Objetivo: ${paciente.objetivo || '—'}`,
-      `Plano: ${paciente.tipo_plano || '—'}`,
       '',
       `── EVOLUÇÃO ANTROPOMÉTRICA ──────────`,
     ];
@@ -267,80 +265,169 @@ ${checkinsStr}`;
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Relatório de Evolução — ${paciente.nome}</title>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <title>Relatório de Evolução — ${escapeHtml(paciente.nome)}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      background: #faf8f5;
+      background: #F5F0EB;
       color: #1c1712;
       font-family: 'Inter', sans-serif;
       font-size: 13px;
-      line-height: 1.6;
-      padding: 48px 52px;
-      max-width: 820px;
+      line-height: 1.65;
+      padding: 52px 60px 40px;
+      max-width: 840px;
       margin: 0 auto;
     }
-    .header { border-bottom: 1.5px solid #a08456; padding-bottom: 20px; margin-bottom: 28px; }
-    .header-top { display: flex; justify-content: space-between; align-items: flex-end; }
-    .brand { font-family: 'Cormorant Garamond', serif; font-size: 11px; letter-spacing: 3px;
-             text-transform: uppercase; color: #a08456; font-weight: 600; margin-bottom: 6px; }
-    h1 { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 600;
-         color: #1c1712; line-height: 1.2; }
-    .header-meta { font-size: 11px; color: #6b5c3e; text-align: right; }
-    section { margin-bottom: 24px; padding-bottom: 20px; border-bottom: 0.5px solid #e5ddd0; }
-    section:last-child { border-bottom: none; }
-    h2 { font-family: 'Cormorant Garamond', serif; font-size: 16px; font-weight: 600;
-         color: #a08456; letter-spacing: 1px; text-transform: uppercase;
-         margin-bottom: 12px; }
-    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px; margin-bottom: 8px; }
-    .field { }
-    .field-label { font-size: 10px; color: #8c7355; letter-spacing: 1px;
-                   text-transform: uppercase; font-weight: 600; margin-bottom: 2px; }
-    .field-value { font-size: 13px; color: #1c1712; }
+
+    /* ── Cabeçalho ── */
+    .header {
+      display: flex; align-items: flex-start; gap: 18px;
+      padding-bottom: 24px;
+      border-bottom: 2px solid #B8956A;
+      margin-bottom: 36px;
+    }
+    .monogram {
+      width: 52px; height: 52px; border-radius: 50%; flex-shrink: 0;
+      background: linear-gradient(135deg, #B8956A 0%, #8c6a3f 100%);
+      color: #fff; font-family: Georgia, serif;
+      font-size: 24px; font-weight: bold; letter-spacing: -1px;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 2px 8px rgba(184,149,106,.35);
+    }
+    .header-center { flex: 1; }
+    .brand {
+      font-family: 'Inter', sans-serif; font-size: 10px; letter-spacing: 3px;
+      text-transform: uppercase; color: #B8956A; font-weight: 600; margin-bottom: 6px;
+    }
+    h1 {
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 26px; font-weight: normal; font-style: italic;
+      color: #1c1712; line-height: 1.25;
+    }
+    h1 strong { font-style: normal; font-weight: 600; }
+    .header-meta {
+      font-size: 11px; color: #6b5c3e; text-align: right; line-height: 1.7;
+      flex-shrink: 0; padding-top: 4px;
+    }
+    .header-date { font-size: 10px; color: #9a8570; margin-top: 4px; }
+
+    /* ── Seções ── */
+    section {
+      margin-bottom: 32px;
+      padding-bottom: 28px;
+      border-bottom: 1px solid #ddd5c8;
+      page-break-inside: avoid;
+    }
+    section:last-of-type { border-bottom: none; }
+    h2 {
+      font-family: Georgia, serif; font-size: 13px; font-weight: 600;
+      color: #B8956A; letter-spacing: 2px; text-transform: uppercase;
+      margin-bottom: 16px;
+      padding-bottom: 6px;
+      border-bottom: 0.5px solid #e0d4c4;
+      display: flex; align-items: center; gap: 8px;
+    }
+    h2::before {
+      content: ''; display: inline-block;
+      width: 3px; height: 14px; border-radius: 2px;
+      background: linear-gradient(to bottom, #B8956A, #d4a96a);
+    }
+
+    /* ── Grid de campos ── */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 32px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px 24px; }
+    .field-label {
+      font-size: 9px; color: #9a8570; letter-spacing: 1.5px;
+      text-transform: uppercase; font-weight: 600; margin-bottom: 3px;
+    }
+    .field-value { font-size: 13px; color: #1c1712; font-weight: 500; }
+
+    /* ── Tabelas ── */
     table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    th { text-align: left; font-size: 10px; color: #8c7355; letter-spacing: 1px;
-         text-transform: uppercase; padding: 4px 8px; border-bottom: 1px solid #e5ddd0; }
-    td { padding: 6px 8px; border-bottom: 0.5px solid #f0ebe3; color: #1c1712; }
+    thead tr { background: #ede5d8; }
+    th {
+      text-align: left; font-size: 9.5px; color: #7a6248; letter-spacing: 1px;
+      text-transform: uppercase; font-weight: 600;
+      padding: 7px 10px; border-bottom: 1px solid #d4c4b0;
+    }
+    td { padding: 8px 10px; border-bottom: 0.5px solid #ede5d8; color: #1c1712; }
     tr:last-child td { border-bottom: none; }
-    .badge { display: inline-block; padding: 1px 8px; border-radius: 20px;
-             font-size: 11px; font-weight: 600; }
-    .badge-ok { background: #e8f5e9; color: #2e7d32; }
-    .badge-med { background: #fff8e1; color: #f57f17; }
-    .badge-low { background: #fce4ec; color: #c62828; }
-    .analise { background: #f5f0e8; border-left: 3px solid #a08456;
-               padding: 16px 18px; border-radius: 0 8px 8px 0; white-space: pre-line;
-               font-size: 13px; line-height: 1.7; }
-    .analise strong { color: #a08456; }
-    svg { display: block; margin: 12px 0; }
-    .note { font-size: 11px; color: #8c7355; font-style: italic; margin-top: 6px; }
+    tbody tr:hover { background: #faf5ef; }
+
+    /* ── Badges ── */
+    .badge { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+    .badge-ok  { background: #e6f4ea; color: #2e7d32; }
+    .badge-med { background: #fff8e1; color: #e65100; }
+    .badge-low { background: #fce8e8; color: #b71c1c; }
+
+    /* ── Análise IA ── */
+    .analise {
+      background: #fff9f3;
+      border-left: 3px solid #B8956A;
+      padding: 18px 20px; border-radius: 0 10px 10px 0;
+      font-size: 13px; line-height: 1.8; color: #2a1f14;
+      white-space: pre-line;
+    }
+    .analise strong { color: #8c6a3f; font-weight: 600; }
+
+    /* ── Notas e SVG ── */
+    svg { display: block; margin: 14px 0; }
+    .note { font-size: 11px; color: #9a8570; font-style: italic; margin-top: 8px; }
+
+    /* ── Anotações clínicas ── */
+    .followup-item {
+      padding: 10px 14px; border-radius: 6px;
+      background: #fff; border: 0.5px solid #ddd5c8;
+      margin-bottom: 10px;
+    }
+    .followup-date { font-size: 10px; color: #9a8570; margin-bottom: 4px; font-weight: 500; }
+    .followup-text { font-size: 13px; color: #1c1712; white-space: pre-line; line-height: 1.6; }
+
+    /* ── Rodapé ── */
+    footer {
+      margin-top: 40px;
+      padding-top: 16px;
+      border-top: 1px solid #ddd5c8;
+      display: flex; justify-content: space-between; align-items: flex-end;
+      font-size: 10px; color: #9a8570; line-height: 1.6;
+    }
+    footer .nutri { font-weight: 600; color: #6b5c3e; font-size: 11px; }
+    footer .lgpd { font-style: italic; }
+
+    /* ── Print ── */
     @media print {
-      body { padding: 28px 32px; }
-      @page { margin: 1.5cm; size: A4; }
+      body { padding: 24px 32px 20px; background: #F5F0EB; }
+      @page { margin: 1.2cm; size: A4; background: #F5F0EB; }
+      section { page-break-inside: avoid; }
+      footer { position: running(footer); }
     }
   </style>
 </head>
 <body>
+
+  <!-- Cabeçalho -->
   <div class="header">
-    <div class="brand">Essentia · Nutrição em Oncologia</div>
-    <div class="header-top">
-      <h1>Relatório de Evolução<br>${escapeHtml(paciente.nome)}</h1>
-      <div class="header-meta">
-        Gerado em ${new Date().toLocaleDateString('pt-BR')}<br>
-        ${calcIdade() ? `${calcIdade()} anos · ` : ''}${escapeHtml(paciente.objetivo || '')}
-      </div>
+    <div class="monogram">E</div>
+    <div class="header-center">
+      <div class="brand">Essentia · Nutrição em Oncologia</div>
+      <h1><strong>Relatório de Evolução</strong><br>${escapeHtml(paciente.nome)}</h1>
+      <div class="header-date">Gerado em ${new Date().toLocaleDateString('pt-BR')}</div>
+    </div>
+    <div class="header-meta">
+      Nut. Kelly Oliveira<br>
+      Mestre em Oncologia<br>
+      CRN 3801
     </div>
   </div>
 
   ${secao('1. Identificação', `
-    <div class="grid-2">
-      <div class="field"><div class="field-label">Nome</div><div class="field-value">${escapeHtml(paciente.nome)}</div></div>
-      <div class="field"><div class="field-label">Idade</div><div class="field-value">${calcIdade() ?? '—'} anos</div></div>
-      <div class="field"><div class="field-label">Objetivo</div><div class="field-value">${escapeHtml(paciente.objetivo || '—')}</div></div>
-      <div class="field"><div class="field-label">Plano</div><div class="field-value">${escapeHtml(paciente.tipo_plano || '—')}</div></div>
-      ${macros ? `<div class="field"><div class="field-label">Calorias alvo</div><div class="field-value">${macros.kcal || '—'} kcal</div></div>` : ''}
-      ${macros?.proteina ? `<div class="field"><div class="field-label">Proteína alvo</div><div class="field-value">${macros.proteina}g</div></div>` : ''}
-      <div class="field"><div class="field-label">Consultas realizadas</div><div class="field-value">${consultas.length}</div></div>
+    <div class="grid-3">
+      <div><div class="field-label">Nome</div><div class="field-value">${escapeHtml(paciente.nome)}</div></div>
+      <div><div class="field-label">Idade</div><div class="field-value">${calcIdade() != null ? calcIdade() + ' anos' : '—'}</div></div>
+      <div><div class="field-label">Consultas realizadas</div><div class="field-value">${consultas.length}</div></div>
+      ${macros?.kcal     ? `<div><div class="field-label">Calorias alvo</div><div class="field-value">${macros.kcal} kcal</div></div>` : ''}
+      ${macros?.proteinas_g ? `<div><div class="field-label">Proteína alvo</div><div class="field-value">${macros.proteinas_g} g</div></div>` : ''}
     </div>
   `)}
 
@@ -348,13 +435,12 @@ ${checkinsStr}`;
     ${chartSvg}
     <table>
       <thead><tr>
-        <th>Data</th><th>Peso</th><th>%Gordura</th><th>M. Magra</th>
-        <th>Cintura</th><th>Quadril</th>
+        <th>Data</th><th>Peso</th><th>% Gordura</th><th>M. Magra</th><th>Cintura</th><th>Quadril</th>
       </tr></thead>
       <tbody>
         ${pesos.map(p => `<tr>
           <td>${dataBR(p.data)}</td>
-          <td>${p.kg ? p.kg + ' kg' : '—'}</td>
+          <td>${p.kg != null ? p.kg + ' kg' : '—'}</td>
           <td>${p.pgc != null ? p.pgc + '%' : '—'}</td>
           <td>${p.mm_kg != null ? p.mm_kg + ' kg' : '—'}</td>
           <td>${p.cintura_cm != null ? p.cintura_cm + ' cm' : '—'}</td>
@@ -363,8 +449,8 @@ ${checkinsStr}`;
       </tbody>
     </table>
     ${pesoI && pesoA && pesos.length >= 2 ? `
-      <p class="note">Variação de peso: ${Number((pesoA.kg - pesoI.kg).toFixed(1)) > 0 ? '+' : ''}${(pesoA.kg - pesoI.kg).toFixed(1)} kg
-      no período de ${dataBR(pesoI.data)} a ${dataBR(pesoA.data)}</p>` : ''}
+      <p class="note">Variação total: ${Number((pesoA.kg - pesoI.kg).toFixed(1)) > 0 ? '+' : ''}${(pesoA.kg - pesoI.kg).toFixed(1)} kg
+      (${dataBR(pesoI.data)} → ${dataBR(pesoA.data)})</p>` : ''}
   ` : '<p class="note">Sem registros antropométricos.</p>')}
 
   ${secao('3. Suplementação', suplementos.length ? `
@@ -373,16 +459,15 @@ ${checkinsStr}`;
       <tbody>
         ${suplementos.map(s => {
           const ad = aderenciaSup(s.id);
-          const badge = ad === null ? '' : ad >= 80
+          const badge = ad === null ? '—' : ad >= 80
             ? `<span class="badge badge-ok">${ad}%</span>`
-            : ad >= 50
-              ? `<span class="badge badge-med">${ad}%</span>`
-              : `<span class="badge badge-low">${ad}%</span>`;
+            : ad >= 50 ? `<span class="badge badge-med">${ad}%</span>`
+                       : `<span class="badge badge-low">${ad}%</span>`;
           return `<tr>
             <td>${escapeHtml(s.nome)}</td>
             <td>${escapeHtml(s.dose || '—')}</td>
             <td>${escapeHtml(s.horario || '—')}</td>
-            <td>${badge || '—'}</td>
+            <td>${badge}</td>
           </tr>`;
         }).join('')}
       </tbody>
@@ -395,15 +480,14 @@ ${checkinsStr}`;
       <tbody>
         ${habitos.map(h => {
           const ad = aderenciaHabito(h.id);
-          const badge = ad === null ? '' : ad >= 80
+          const badge = ad === null ? '—' : ad >= 80
             ? `<span class="badge badge-ok">${ad}%</span>`
-            : ad >= 50
-              ? `<span class="badge badge-med">${ad}%</span>`
-              : `<span class="badge badge-low">${ad}%</span>`;
+            : ad >= 50 ? `<span class="badge badge-med">${ad}%</span>`
+                       : `<span class="badge badge-low">${ad}%</span>`;
           return `<tr>
             <td>${h.emoji ? escapeHtml(h.emoji) + ' ' : ''}${escapeHtml(h.nome)}</td>
             <td>${h.meta != null ? h.meta + (h.unidade || '') : '—'}</td>
-            <td>${badge || '—'}</td>
+            <td>${badge}</td>
           </tr>`;
         }).join('')}
       </tbody>
@@ -412,19 +496,27 @@ ${checkinsStr}`;
 
   ${followups.length ? secao('5. Anotações Clínicas', `
     ${followups.slice(0, 6).map(f => `
-      <div style="margin-bottom:12px">
-        <div style="font-size:11px;color:#8c7355;margin-bottom:3px">
-          ${dataBR(f.data)}${f.titulo ? ' · ' + escapeHtml(f.titulo) : ''}
-        </div>
-        <div style="font-size:13px;color:#1c1712;white-space:pre-line">${escapeHtml((f.conteudo || '').slice(0, 600))}</div>
+      <div class="followup-item">
+        <div class="followup-date">${dataBR(f.data)}${f.titulo ? ' · ' + escapeHtml(f.titulo) : ''}</div>
+        <div class="followup-text">${escapeHtml((f.conteudo || '').slice(0, 600))}</div>
       </div>
     `).join('')}
   `) : ''}
 
   ${analise ? secao('6. Análise e Conclusão', `
     <div class="analise">${escapeHtml(analise).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>')}</div>
-    <p class="note">Análise gerada por IA com base nos dados clínicos registrados.</p>
+    <p class="note">Análise gerada por IA (Claude) com base nos dados clínicos registrados.</p>
   `) : ''}
+
+  <!-- Rodapé -->
+  <footer>
+    <div>
+      <div class="nutri">Nut. Kelly Oliveira · Mestre em Oncologia · CRN 3801</div>
+      <div>Essentia · Nutrição em Oncologia</div>
+    </div>
+    <div class="lgpd">🔒 Seus dados estão protegidos pela LGPD.</div>
+  </footer>
+
 </body>
 </html>`;
 
@@ -490,13 +582,11 @@ ${checkinsStr}`;
         {/* 1. Identificação */}
         <Secao titulo="1. Identificação">
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '8px 20px' }}>
-            <Campo label="Nome"     value={paciente.nome} />
-            <Campo label="Idade"    value={calcIdade() != null ? `${calcIdade()} anos` : '—'} />
-            <Campo label="Objetivo" value={paciente.objetivo || '—'} />
-            <Campo label="Plano"    value={paciente.tipo_plano || '—'} />
-            {macros?.kcal     && <Campo label="Cal. alvo"     value={`${macros.kcal} kcal`} />}
-            {macros?.proteina && <Campo label="Proteína alvo" value={`${macros.proteina}g`} />}
+            <Campo label="Nome"               value={paciente.nome} />
+            <Campo label="Idade"              value={calcIdade() != null ? `${calcIdade()} anos` : '—'} />
             <Campo label="Consultas realizadas" value={String(dados.consultas.length)} />
+            {macros?.kcal        && <Campo label="Cal. alvo"      value={`${macros.kcal} kcal`} />}
+            {macros?.proteinas_g && <Campo label="Proteína alvo"  value={`${macros.proteinas_g}g`} />}
           </div>
         </Secao>
 
