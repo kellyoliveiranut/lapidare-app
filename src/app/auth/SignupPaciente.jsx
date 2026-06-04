@@ -20,7 +20,7 @@ export default function SignupPaciente() {
   const [senha, setSenha] = useState('');
   const [confirmaSenha, setConfirmaSenha] = useState('');
   const [objetivo, setObjetivo] = useState('Emagrecimento');
-  const [tipoPlano, setTipoPlano] = useState('trimestral');
+  const [tipoPlano, setTipoPlano] = useState('avulsa');
   const [modalidade, setModalidade] = useState('Online');
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState(null);
@@ -256,10 +256,8 @@ export default function SignupPaciente() {
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                 <SelectField label="Tipo de plano" value={tipoPlano} onChange={setTipoPlano} options={[
-                  { v: 'trimestral',     l: 'Trimestral' },
-                  { v: 'semestral',      l: 'Semestral' },
-                  { v: 'consultoria',    l: 'Consultoria' },
-                  { v: 'acompanhamento', l: 'Acompanhamento' },
+                  { v: 'avulsa',   l: 'Avulsa' },
+                  { v: 'essentia', l: 'Essentia' },
                 ]} />
                 <SelectField label="Modalidade" value={modalidade} onChange={setModalidade} options={[
                   'Presencial', 'Online', 'Híbrido',
