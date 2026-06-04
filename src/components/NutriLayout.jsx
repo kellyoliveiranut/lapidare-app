@@ -21,7 +21,6 @@ const NAV_CONFIG = [
       { id: 'monitoramento',   path: '/nutri/monitoramento-oncologico', label: 'Oncologia',         icon: 'atom-2' },
       { id: 'checkins',        path: '/nutri/checkins',        label: 'Check-ins',               icon: 'clipboard-check' },
       { id: 'questionarios', path: '/nutri/questionarios', label: 'Pré-consulta',       icon: 'clipboard-list' },
-      { id: 'cadastrar',    path: '/nutri/cadastrar',    label: 'Cadastrar paciente',  icon: 'user-plus' },
     ],
   },
   {
