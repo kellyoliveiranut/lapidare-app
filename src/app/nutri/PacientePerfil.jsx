@@ -1558,11 +1558,25 @@ const EBOOK_TAGS = [
   { id: 'outro',         label: 'Outro'          },
 ];
 
+const ACERVOS = [
+  { id: 'todas',       emoji: '📚', label: 'Todas'         },
+  { id: 'receitas',    emoji: '📖', label: 'Receitas'      },
+  { id: 'manipulados', emoji: '💊', label: 'Suplementação' },
+  { id: 'formulacoes', emoji: '🧪', label: 'Formulações'   },
+  { id: 'materiais',   emoji: '📄', label: 'Materiais'     },
+];
+
+function secaoEbook(tag) {
+  const proprias = new Set(['receitas', 'manipulados', 'formulacoes', 'materiais']);
+  return proprias.has(tag) ? tag : 'materiais';
+}
+
 function EbooksDaPaciente({ pacienteId, nutriId, pacienteNome }) {
-  const [todos, setTodos] = useState([]);          // todos os ebooks da nutri
+  const [todos, setTodos] = useState([]);
   const [atribuidosIds, setAtribuidosIds] = useState(new Set());
   const [uploadOpen, setUploadOpen] = useState(false);
   const [busca, setBusca] = useState('');
+  const [acervo, setAcervo] = useState('todas');
 
   async function carregar() {
     const [ebRes, atRes] = await Promise.all([
@@ -1594,6 +1608,7 @@ function EbooksDaPaciente({ pacienteId, nutriId, pacienteNome }) {
   const atribuidos = todos.filter(e => atribuidosIds.has(e.id));
   const disponiveis = todos.filter(e => !atribuidosIds.has(e.id))
     .filter(e => {
+      if (acervo !== 'todas' && secaoEbook(e.tag) !== acervo) return false;
       if (!busca.trim()) return true;
       const q = busca.trim().toLowerCase();
       return (e.titulo ?? '').toLowerCase().includes(q)
@@ -1659,18 +1674,49 @@ function EbooksDaPaciente({ pacienteId, nutriId, pacienteNome }) {
             </div>
           )}
 
-          {/* Disponíveis na biblioteca */}
-          <div style={{
-            fontSize: 10, letterSpacing: 1, color: 'var(--text3)',
-            textTransform: 'uppercase', fontWeight: 500, marginBottom: 8,
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          }}>
-            <span>Disponíveis na biblioteca ({todos.length - atribuidos.length})</span>
+          {/* Disponíveis na biblioteca — filtro por acervo */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 6 }}>
+            <div style={{
+              fontSize: 10, letterSpacing: 1, color: 'var(--text3)',
+              textTransform: 'uppercase', fontWeight: 500,
+            }}>
+              Disponíveis na biblioteca ({todos.length - atribuidos.length})
+            </div>
             <input
               value={busca} onChange={e => setBusca(e.target.value)}
               placeholder="Buscar..."
-              style={{ width: 180, padding: '4px 8px', fontSize: 11, margin: 0 }}
+              style={{ width: 160, padding: '4px 8px', fontSize: 11, margin: 0 }}
             />
+          </div>
+
+          {/* Tabs de acervo */}
+          <div style={{
+            display: 'flex', gap: 2, background: 'var(--bg2)',
+            borderRadius: 8, padding: 3, marginBottom: 10,
+            overflowX: 'auto', scrollbarWidth: 'none',
+          }}>
+            {ACERVOS.map(a => {
+              const count = a.id === 'todas'
+                ? todos.length - atribuidos.length
+                : todos.filter(e => !atribuidosIds.has(e.id) && secaoEbook(e.tag) === a.id).length;
+              return (
+                <button key={a.id} onClick={() => { setAcervo(a.id); setBusca(''); }}
+                  style={{
+                    flex: '0 0 auto', padding: '4px 10px', fontSize: 11, fontWeight: 500,
+                    borderRadius: 6, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
+                    background: acervo === a.id ? 'var(--white)' : 'transparent',
+                    color: acervo === a.id ? 'var(--dark)' : 'var(--text3)',
+                    boxShadow: acervo === a.id ? '0 1px 2px rgba(0,0,0,.06)' : 'none',
+                    fontFamily: 'var(--font-sans)',
+                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                  }}>
+                  {a.emoji} {a.label}
+                  {count > 0 && (
+                    <span style={{ fontSize: 9, color: 'var(--text3)' }}>{count}</span>
+                  )}
+                </button>
+              );
+            })}
           </div>
           {todos.length === 0 ? (
             <div style={{

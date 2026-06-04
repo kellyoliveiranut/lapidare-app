@@ -5,7 +5,7 @@ import { dataBR, iniciais } from '../../lib/utils.js';
 
 const SECOES = [
   { id: 'receitas',    emoji: '📖', label: 'Receitas'    },
-  { id: 'manipulados', emoji: '💊', label: 'Manipulados' },
+  { id: 'manipulados', emoji: '💊', label: 'Suplementação' },
   { id: 'formulacoes', emoji: '🧪', label: 'Formulações' },
   { id: 'materiais',   emoji: '📄', label: 'Materiais'   },
 ];
@@ -81,7 +81,7 @@ export default function Biblioteca() {
   return (
     <>
       <div className="page-title">Biblioteca</div>
-      <div className="page-sub">Receitas, manipulados, formulações e materiais para compartilhar com suas pacientes</div>
+      <div className="page-sub">Receitas, suplementação, formulações e materiais para compartilhar com suas pacientes</div>
 
       {/* Tabs de seções */}
       <div style={{
@@ -274,12 +274,17 @@ function ModalShell({ title, subtitle, onClose, children, width = 480 }) {
     <div onClick={onClose} style={{
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      zIndex: 100, padding: 16,
+      zIndex: 100,
+      padding: 16,
+      paddingBottom: 'max(16px, env(safe-area-inset-bottom, 0px))',
     }}>
       <div onClick={e => e.stopPropagation()} style={{
         background: 'var(--white)', borderRadius: 12,
-        maxWidth: width, width: '100%', maxHeight: '90vh',
-        overflow: 'auto', padding: 20,
+        maxWidth: width, width: '100%',
+        maxHeight: '85dvh',   /* dvh = viewport dinâmico, desconta teclado iOS */
+        overflow: 'auto',
+        padding: 20,
+        paddingBottom: 'max(20px, env(safe-area-inset-bottom, 0px))',
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 12 }}>
           <div>
