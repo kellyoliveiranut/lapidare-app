@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { dataBR } from '../../lib/utils.js';
 import { formatarResposta } from '../../lib/checkinDefault.js';
@@ -12,29 +12,16 @@ const TIPOS_FOTO = [
   { id: 'livre',           label: 'Livre' },
 ];
 
-// Cache de signed URLs (5 min)
-const urlCache = new Map();
-async function signedUrl(path) {
-  const cached = urlCache.get(path);
-  if (cached && cached.exp > Date.now()) return cached.url;
-  const { data } = await supabase.storage.from('fotos_evolucao').createSignedUrl(path, 300);
-  if (!data) return null;
-  urlCache.set(path, { url: data.signedUrl, exp: Date.now() + 280_000 });
-  return data.signedUrl;
-}
-
 export default function Evolucao({ pacienteId, paciente, nutriId }) {
   const [carregando, setCarregando] = useState(true);
   const [avaliacoes, setAvaliacoes] = useState([]);
   const [fotos, setFotos] = useState([]);
-  const [urls, setUrls] = useState({});
   const [checkins, setCheckins] = useState([]);
   const [planos, setPlanos] = useState([]);
   const [prescricoes, setPrescricoes] = useState([]);
   const [consultas, setConsultas] = useState([]);
   const [apresentacao, setApresentacao] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
-  const [comparar, setComparar] = useState({ a: null, b: null });
   const [verCheckin, setVerCheckin] = useState(null);
 
   async function carregar() {
@@ -52,25 +39,6 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
     setPlanos(plRes.data ?? []);
     setPrescricoes(prRes.data ?? []);
     setConsultas(csRes.data ?? []);
-
-    // pré-fetch signed URLs
-    const novasUrls = {};
-    for (const f of ftRes.data ?? []) {
-      const u = await signedUrl(f.storage_path);
-      if (u) novasUrls[f.id] = u;
-    }
-    setUrls(novasUrls);
-
-    // por padrão, comparativo = primeira foto vs última (frente)
-    const frentes = (ftRes.data ?? []).filter(f => f.tipo === 'frente');
-    const todas = ftRes.data ?? [];
-    const ordem = frentes.length >= 2 ? frentes : todas;
-    if (ordem.length >= 2) {
-      setComparar({ a: ordem[0].id, b: ordem[ordem.length - 1].id });
-    } else if (ordem.length === 1) {
-      setComparar({ a: ordem[0].id, b: null });
-    }
-
     setCarregando(false);
   }
   useEffect(() => { carregar(); }, [pacienteId]);
@@ -79,11 +47,6 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
     if (!window.confirm(`Excluir foto de ${dataBR(foto.data_foto)}? Esta ação não pode ser desfeita.`)) return;
     await supabase.storage.from('fotos_evolucao').remove([foto.storage_path]);
     await supabase.from('fotos_evolucao').delete().eq('id', foto.id);
-    // se a foto excluída estava no comparativo, limpa
-    setComparar(c => ({
-      a: c.a === foto.id ? null : c.a,
-      b: c.b === foto.id ? null : c.b,
-    }));
     carregar();
   }
 
@@ -223,9 +186,6 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
     );
   }
 
-  const fotoA = fotos.find(f => f.id === comparar.a);
-  const fotoB = fotos.find(f => f.id === comparar.b);
-
   // ─── Modo apresentação ───
   if (apresentacao) {
     return (
@@ -236,8 +196,6 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
         deltaCintura={deltaCintura}
         deltaPgc={deltaPgc}
         totalDias={totalDias}
-        fotoA={fotoA} fotoB={fotoB}
-        urls={urls}
         onClose={() => setApresentacao(false)}
       />
     );
@@ -271,136 +229,6 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
           <div className="stat-sub">respondidos no total</div>
         </div>
       </div>
-
-      {/* Comparativo de fotos */}
-      <div className="section-header" style={{ marginTop: 18 }}>
-        <div className="section-title">Comparativo · antes e depois</div>
-        {fotos.length >= 2 && (
-          <span style={{ fontSize: 11, color: 'var(--text3)' }}>
-            Escolha quais comparar nos seletores
-          </span>
-        )}
-      </div>
-      {fotos.length === 0 ? (
-        <div className="card empty-card">
-          <i className="ti ti-camera empty-icon" aria-hidden="true"></i>
-          <div className="empty-title">Sem fotos ainda</div>
-          <div className="empty-sub">Adicione a primeira foto pra começar o histórico visual.</div>
-          <button className="btn" onClick={() => setUploadOpen(true)}>
-            <i className="ti ti-camera-plus" aria-hidden="true"></i> Adicionar foto
-          </button>
-        </div>
-      ) : (
-        <div className="card" style={{ padding: 16 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            {[
-              { key: 'a', foto: fotoA, label: 'Antes' },
-              { key: 'b', foto: fotoB, label: 'Depois' },
-            ].map(({ key, foto, label }) => (
-              <div key={key}>
-                <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6, fontWeight: 500, letterSpacing: '.5px', textTransform: 'uppercase' }}>
-                  {label}
-                </div>
-                <select value={comparar[key] ?? ''} onChange={e => setComparar(c => ({ ...c, [key]: e.target.value || null }))}
-                  style={{ marginBottom: 8 }}>
-                  <option value="">— Selecionar —</option>
-                  {fotos.map(f => (
-                    <option key={f.id} value={f.id}>
-                      {dataBR(f.data_foto)} · {TIPOS_FOTO.find(t => t.id === f.tipo)?.label ?? f.tipo}
-                    </option>
-                  ))}
-                </select>
-                <div style={{
-                  background: 'var(--bg2)', borderRadius: 8,
-                  aspectRatio: '3/4', display: 'flex',
-                  alignItems: 'center', justifyContent: 'center',
-                  overflow: 'hidden', position: 'relative',
-                }}>
-                  {foto && urls[foto.id] ? (
-                    <img src={urls[foto.id]} alt={label}
-                      loading="lazy" decoding="async"
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  ) : (
-                    <i className="ti ti-photo" style={{ fontSize: 36, color: 'var(--text3)' }} aria-hidden="true"></i>
-                  )}
-                  {foto && (
-                    <button
-                      onClick={() => excluirFoto(foto)}
-                      title="Excluir foto"
-                      style={{
-                        position: 'absolute', top: 8, right: 8,
-                        width: 30, height: 30, borderRadius: '50%',
-                        background: 'rgba(0,0,0,.7)', color: 'white',
-                        border: 'none', cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 14, padding: 0,
-                      }}>
-                      <i className="ti ti-trash" aria-hidden="true"></i>
-                    </button>
-                  )}
-                </div>
-                {foto && (
-                  <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 6, textAlign: 'center' }}>
-                    {dataBR(foto.data_foto)}
-                    {foto.obs && <> · <em>"{foto.obs}"</em></>}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* Mini galeria de todas as fotos */}
-          {fotos.length > 0 && (
-            <>
-              <div style={{ fontSize: 10, letterSpacing: 1, color: 'var(--text3)', textTransform: 'uppercase', marginTop: 16, marginBottom: 8, fontWeight: 500 }}>
-                Todas as fotos ({fotos.length})
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: 6 }}>
-                {fotos.map(f => (
-                  <div key={f.id}
-                    onClick={() => {
-                      // se já é A ou B, ignora; senão substitui o B (mais recente)
-                      if (comparar.a === f.id || comparar.b === f.id) return;
-                      setComparar(c => ({ ...c, b: f.id }));
-                    }}
-                    style={{
-                      aspectRatio: '1', borderRadius: 6, overflow: 'hidden',
-                      background: 'var(--bg2)', cursor: 'pointer',
-                      position: 'relative',
-                      outline: (comparar.a === f.id || comparar.b === f.id) ? '2px solid var(--amber)' : 'none',
-                    }}>
-                    {urls[f.id] && (
-                      <img src={urls[f.id]} alt=""
-                        loading="lazy" decoding="async"
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    )}
-                    <button
-                      onClick={(e) => { e.stopPropagation(); excluirFoto(f); }}
-                      title="Excluir foto"
-                      style={{
-                        position: 'absolute', top: 3, right: 3,
-                        width: 22, height: 22, borderRadius: '50%',
-                        background: 'rgba(0,0,0,.65)', color: 'white',
-                        border: 'none', cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 12, padding: 0,
-                      }}>
-                      <i className="ti ti-trash" aria-hidden="true"></i>
-                    </button>
-                    <div style={{
-                      position: 'absolute', bottom: 0, left: 0, right: 0,
-                      background: 'rgba(0,0,0,.55)', color: 'white',
-                      fontSize: 8, padding: '2px 4px', textAlign: 'center',
-                    }}>
-                      {dataBR(f.data_foto)}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-      )}
 
       {/* Timeline */}
       <div className="section-header" style={{ marginTop: 18 }}>
@@ -649,7 +477,7 @@ function UploadFoto({ pacienteId, nutriId, onClose, onSaved }) {
 /* ============================================================
    MODO APRESENTAÇÃO (fullscreen pra consulta)
    ============================================================ */
-function ModoApresentacao({ paciente, avaliacoes, deltaPeso, deltaCintura, deltaPgc, totalDias, fotoA, fotoB, urls, onClose }) {
+function ModoApresentacao({ paciente, avaliacoes, deltaPeso, deltaCintura, deltaPgc, totalDias, onClose }) {
   const primeira = avaliacoes[0];
   const ultima   = avaliacoes[avaliacoes.length - 1];
   return (
@@ -736,45 +564,6 @@ function ModoApresentacao({ paciente, avaliacoes, deltaPeso, deltaCintura, delta
             );
           })}
         </div>
-
-        {/* Fotos antes/depois grandes */}
-        {(fotoA || fotoB) && (
-          <>
-            <h2 style={{
-              fontFamily: 'var(--font-serif)', fontSize: 28, fontWeight: 500,
-              color: 'var(--dark)', marginBottom: 18,
-            }}>
-              Antes e depois
-            </h2>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 32 }}>
-              {[{ foto: fotoA, label: 'Antes' }, { foto: fotoB, label: 'Depois' }].map((x, i) => (
-                <div key={i}>
-                  <div style={{
-                    fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase',
-                    color: 'var(--text3)', marginBottom: 10, fontWeight: 500,
-                  }}>{x.label}</div>
-                  <div style={{
-                    background: 'var(--bg2)', borderRadius: 14,
-                    aspectRatio: '3/4', overflow: 'hidden',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>
-                    {x.foto && urls[x.foto.id] ? (
-                      <img src={urls[x.foto.id]} alt={x.label}
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    ) : (
-                      <span style={{ color: 'var(--text3)', fontSize: 14 }}>Sem foto</span>
-                    )}
-                  </div>
-                  {x.foto && (
-                    <div style={{ fontSize: 14, color: 'var(--text2)', marginTop: 10, textAlign: 'center' }}>
-                      {dataBR(x.foto.data_foto)}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </>
-        )}
 
         {avaliacoes.length === 0 && (
           <div style={{ textAlign: 'center', padding: 40, color: 'var(--text3)' }}>
