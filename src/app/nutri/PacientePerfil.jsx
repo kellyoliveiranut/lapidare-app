@@ -1260,6 +1260,8 @@ function PublicarPlano({ pacienteId, nutriId, calculosImportados, onLimparImport
   const [promptCopiado, setPromptCopiado] = useState(false);
   const [jsonInput, setJsonInput]         = useState('');
   const [erroJson, setErroJson]           = useState(null);
+  const [jsonOpen, setJsonOpen]           = useState(false);
+  const [substituicoes, setSubstituicoes] = useState([]);
 
   useEffect(() => { carregar(); }, [pacienteId]);
 
@@ -1311,6 +1313,10 @@ function PublicarPlano({ pacienteId, nutriId, calculosImportados, onLimparImport
         : r
     ));
 
+  const addSubstituicao = () => setSubstituicoes(p => [...p, { _id: Math.random().toString(36).slice(2), original: '', subs: '' }]);
+  const removeSubstituicao = id => setSubstituicoes(p => p.filter(s => s._id !== id));
+  const setSubst = (id, k, v) => setSubstituicoes(p => p.map(s => s._id === id ? { ...s, [k]: v } : s));
+
   /* ── build dados ── */
   function buildDados() {
     const m = {};
@@ -1338,6 +1344,8 @@ function PublicarPlano({ pacienteId, nutriId, calculosImportados, onLimparImport
 
     const dados = { macros: m, refeicoes: refs };
     if (obs.trim()) dados.obs = obs.trim();
+    const subsValidas = substituicoes.filter(s => s.original.trim());
+    if (subsValidas.length) dados.substituicoes = subsValidas.map(s => ({ original: s.original.trim(), subs: s.subs.trim() }));
     return dados;
   }
 
@@ -1456,6 +1464,13 @@ Estrutura JSON obrigatória:
     }));
     setRefeicoes(refs);
     if (plano.obs) setObs(plano.obs);
+    if (plano.substituicoes?.length) {
+      setSubstituicoes(plano.substituicoes.map(s => ({
+        _id: Math.random().toString(36).slice(2),
+        original: s.original ?? '',
+        subs: s.subs ?? '',
+      })));
+    }
     setJsonInput('');
     setFeedback({ tipo: 'ok', msg: 'JSON aplicado com sucesso! Revise e clique em Publicar.' });
   }
@@ -1484,6 +1499,7 @@ Estrutura JSON obrigatória:
     setRefeicoes([]);
     setObs('');
     setValidade('');
+    setSubstituicoes([]);
     carregar();
   }
 
@@ -1654,6 +1670,20 @@ DIRETRIZES:
             <div className="card-sub">Preencha manualmente, gere com IA ou via prompt para Claude/ChatGPT</div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <button
+              onClick={() => setJsonOpen(o => !o)}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '7px 12px', borderRadius: 8, cursor: 'pointer',
+                border: '1px solid var(--border)',
+                background: jsonOpen ? 'var(--bg3)' : 'var(--bg2)',
+                color: 'var(--dark)', fontSize: 12, fontWeight: 600,
+                fontFamily: 'var(--font-sans)',
+              }}
+            >
+              <i className="ti ti-code" aria-hidden="true" />
+              {'{ }'} Colar JSON
+            </button>
             <button
               onClick={gerarPrompt}
               disabled={gerandoPrompt}
@@ -1973,30 +2003,71 @@ DIRETRIZES:
             />
           </div>
 
-          {/* ── Colar JSON (do Claude/ChatGPT) ── */}
+          {/* ── Lista de Substituições ── */}
           <div style={{ borderTop: '1px dashed var(--border)', paddingTop: 16 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 8 }}>
-              Colar JSON do Claude / ChatGPT
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--amber)', letterSpacing: 1.2, textTransform: 'uppercase' }}>
+                Lista de Substituições
+              </div>
+              <button className="btn-outline" style={{ fontSize: 11, padding: '3px 8px', gap: 4 }} onClick={addSubstituicao}>
+                <i className="ti ti-plus" style={{ fontSize: 12 }} aria-hidden="true" />
+                Adicionar
+              </button>
             </div>
-            <textarea
-              value={jsonInput}
-              onChange={e => { setJsonInput(e.target.value); setErroJson(null); }}
-              rows={4}
-              placeholder='Cole aqui o JSON gerado pelo Claude ou ChatGPT e clique em "Aplicar"…'
-              style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical', fontSize: 12, fontFamily: 'monospace' }}
-            />
-            {erroJson && (
-              <div style={{ fontSize: 11, color: 'var(--red)', marginTop: 4 }}>{erroJson}</div>
+            {substituicoes.length === 0 ? (
+              <div style={{ fontSize: 12, color: 'var(--text3)', lineHeight: 1.5 }}>
+                Adicione substituições por grupo alimentar. Ex: "No lugar de Arroz branco → Arroz integral, batata doce, mandioca"
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                {substituicoes.map(s => (
+                  <div key={s._id} style={{ display: 'grid', gridTemplateColumns: '2fr 3fr auto', gap: 6, alignItems: 'center' }}>
+                    <input
+                      value={s.original}
+                      onChange={e => setSubst(s._id, 'original', e.target.value)}
+                      placeholder="ex: Arroz branco"
+                    />
+                    <input
+                      value={s.subs}
+                      onChange={e => setSubst(s._id, 'subs', e.target.value)}
+                      placeholder="ex: Arroz integral, batata doce, mandioca"
+                    />
+                    <button onClick={() => removeSubstituicao(s._id)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 2 }}>
+                      <i className="ti ti-x" style={{ fontSize: 13 }} aria-hidden="true" />
+                    </button>
+                  </div>
+                ))}
+              </div>
             )}
-            <button
-              onClick={aplicarJson}
-              disabled={!jsonInput.trim()}
-              className="btn-outline"
-              style={{ marginTop: 6, fontSize: 12, gap: 5 }}
-            >
-              <i className="ti ti-file-import" /> Aplicar JSON no formulário
-            </button>
           </div>
+
+          {/* ── Colar JSON (do Claude/ChatGPT) ── */}
+          {jsonOpen && (
+            <div style={{ borderTop: '1px dashed var(--border)', paddingTop: 16 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 8 }}>
+                Colar JSON do Claude / ChatGPT
+              </div>
+              <textarea
+                value={jsonInput}
+                onChange={e => { setJsonInput(e.target.value); setErroJson(null); }}
+                rows={4}
+                placeholder='Cole aqui o JSON gerado pelo Claude ou ChatGPT e clique em "Aplicar"…'
+                style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical', fontSize: 12, fontFamily: 'monospace' }}
+              />
+              {erroJson && (
+                <div style={{ fontSize: 11, color: 'var(--red)', marginTop: 4 }}>{erroJson}</div>
+              )}
+              <button
+                onClick={aplicarJson}
+                disabled={!jsonInput.trim()}
+                className="btn-outline"
+                style={{ marginTop: 6, fontSize: 12, gap: 5 }}
+              >
+                <i className="ti ti-file-import" aria-hidden="true" /> Aplicar JSON no formulário
+              </button>
+            </div>
+          )}
 
           {/* ── Validade + publicar ── */}
           <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>

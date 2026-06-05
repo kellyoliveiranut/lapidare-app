@@ -134,6 +134,26 @@ export default function Plano() {
         </div>
       ))}
 
+      {plano.substituicoes?.length > 0 && (
+        <div className="card" style={{ margin: '8px 16px' }}>
+          <div style={{ fontSize: 10, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--muted)', fontWeight: 500, marginBottom: 12 }}>
+            Substituições por grupo
+          </div>
+          {plano.substituicoes.map((s, i) => (
+            <div key={i} style={{
+              display: 'flex', alignItems: 'flex-start', gap: 8,
+              padding: '8px 0',
+              borderBottom: i < plano.substituicoes.length - 1 ? '0.5px solid var(--hair)' : 'none',
+              fontSize: 13,
+            }}>
+              <span style={{ fontWeight: 500, minWidth: 0, flexShrink: 1 }}>{s.original}</span>
+              <span style={{ color: 'var(--muted)', flexShrink: 0 }}>→</span>
+              <span style={{ color: 'var(--text)', flex: 1 }}>{s.subs}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
       {validade && (
         <div style={{ padding: '8px 16px', fontSize: 10, color: 'var(--muted)', textAlign: 'center' }}>
           Válido até {dataBR(validade)}

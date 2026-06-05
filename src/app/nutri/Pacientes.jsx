@@ -47,6 +47,12 @@ export default function Pacientes() {
     carregar();
   }
 
+  async function reativar(id) {
+    if (!window.confirm('Deseja reativar esta paciente?')) return;
+    await supabase.from('pacientes').update({ status_paciente: 'ativo' }).eq('id', id);
+    carregar();
+  }
+
   const contagemPorStatus = useMemo(() => {
     if (!pacientes) return {};
     const m = {};
@@ -234,7 +240,7 @@ export default function Pacientes() {
           gap: 14,
         }}>
           {filtradas.map(p => (
-            <PacienteCard key={p.id} paciente={p} onNavigate={navigate} />
+            <PacienteCard key={p.id} paciente={p} onNavigate={navigate} onReativar={reativar} />
           ))}
         </div>
       )}
@@ -242,7 +248,7 @@ export default function Pacientes() {
   );
 }
 
-const PacienteCard = memo(function PacienteCard({ paciente: p, onNavigate }) {
+const PacienteCard = memo(function PacienteCard({ paciente: p, onNavigate, onReativar }) {
   return (
     <div
       className="card"
@@ -271,12 +277,14 @@ const PacienteCard = memo(function PacienteCard({ paciente: p, onNavigate }) {
       </div>
 
       {p.status_paciente === 'finalizado' && (
-        <div style={{
-          display: 'inline-block', fontSize: 10, fontWeight: 500,
-          padding: '2px 7px', borderRadius: 999,
-          background: '#ebebeb', color: '#666', marginBottom: 4,
-        }}>
-          Finalizado
+        <div style={{ marginBottom: 4 }}>
+          <div style={{
+            display: 'inline-block', fontSize: 10, fontWeight: 500,
+            padding: '2px 7px', borderRadius: 999,
+            background: '#ebebeb', color: '#666',
+          }}>
+            Finalizado
+          </div>
         </div>
       )}
       {p.status_paciente === 'obito' && (
@@ -304,6 +312,20 @@ const PacienteCard = memo(function PacienteCard({ paciente: p, onNavigate }) {
         </div>
       )}
 
+      {p.status_paciente === 'finalizado' && (
+        <button
+          onClick={e => { e.stopPropagation(); onReativar?.(p.id); }}
+          style={{
+            marginBottom: 8, padding: '4px 12px', borderRadius: 999,
+            background: 'var(--green-bg)', border: '0.5px solid var(--green)',
+            color: 'var(--green)', fontSize: 10, fontWeight: 500,
+            cursor: 'pointer', fontFamily: 'var(--font-sans)',
+            display: 'inline-flex', alignItems: 'center', gap: 4,
+          }}>
+          <i className="ti ti-refresh" style={{ fontSize: 11 }} aria-hidden="true" />
+          Desarquivar
+        </button>
+      )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: p.objetivo ? 0 : 10 }}>
         {p.tipo_plano && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, fontSize: 11, color: 'var(--text3)' }}>
