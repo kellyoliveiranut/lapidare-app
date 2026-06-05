@@ -1558,7 +1558,9 @@ Estrutura JSON obrigatória:
       })));
     }
     setJsonInput('');
-    setFeedback({ tipo: 'ok', msg: 'JSON aplicado com sucesso! Revise e clique em Publicar.' });
+    setErroJson(null);
+    setJsonOpen(false);
+    setFeedback({ tipo: 'importado', msg: 'JSON importado! Revise o plano e clique em Publicar.' });
   }
 
   async function publicar() {
@@ -1749,6 +1751,106 @@ DIRETRIZES:
 
   return (
     <>
+      {/* Modal: Colar JSON */}
+      {jsonOpen && (
+        <div
+          onClick={() => { setJsonOpen(false); setErroJson(null); setJsonInput(''); }}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 400, padding: 16,
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: 'var(--white)', borderRadius: 14,
+              width: '100%', maxWidth: 560,
+              maxHeight: '90dvh', display: 'flex', flexDirection: 'column',
+              overflow: 'hidden',
+              boxShadow: '0 8px 32px rgba(0,0,0,.18)',
+            }}
+          >
+            {/* cabeçalho */}
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '18px 20px 12px', borderBottom: '0.5px solid var(--border)',
+              flexShrink: 0,
+            }}>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--dark)' }}>
+                  <i className="ti ti-code" style={{ marginRight: 6 }} aria-hidden="true" />
+                  Colar JSON
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>
+                  Cole o JSON gerado pelo Claude ou ChatGPT
+                </div>
+              </div>
+              <button
+                onClick={() => { setJsonOpen(false); setErroJson(null); setJsonInput(''); }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'var(--text3)', padding: 4 }}
+              >
+                <i className="ti ti-x" aria-hidden="true" />
+              </button>
+            </div>
+
+            {/* corpo */}
+            <div style={{ padding: '16px 20px', overflowY: 'auto', flex: 1 }}>
+              <textarea
+                autoFocus
+                value={jsonInput}
+                onChange={e => { setJsonInput(e.target.value); setErroJson(null); }}
+                rows={14}
+                placeholder={'{\n  "macros": { "kcal": 1800, "proteinas_g": 90, "carbo_g": 200, "gorduras_g": 60, "agua_l": 2.5 },\n  "refeicoes": [\n    {\n      "nome": "Café da manhã",\n      "horario": "07:00",\n      "alimentos": [\n        { "nome": "Pão integral", "quantidade": "2 fatias", "subs": ["pão de forma"] }\n      ]\n    }\n  ]\n}'}
+                style={{
+                  width: '100%', boxSizing: 'border-box',
+                  resize: 'vertical', minHeight: 260,
+                  fontSize: 12, fontFamily: 'monospace', lineHeight: 1.55,
+                  padding: 10, borderRadius: 8,
+                  border: erroJson ? '1.5px solid var(--red)' : '1px solid var(--border)',
+                  background: 'var(--bg2)',
+                  color: 'var(--dark)',
+                }}
+              />
+              {erroJson && (
+                <div style={{
+                  marginTop: 8, padding: '8px 12px', borderRadius: 6,
+                  background: 'var(--red-bg)', color: 'var(--red)', fontSize: 12,
+                  display: 'flex', alignItems: 'center', gap: 6,
+                }}>
+                  <i className="ti ti-alert-triangle" style={{ flexShrink: 0 }} aria-hidden="true" />
+                  {erroJson}
+                </div>
+              )}
+            </div>
+
+            {/* rodapé */}
+            <div style={{
+              padding: '12px 20px',
+              borderTop: '0.5px solid var(--border)',
+              display: 'flex', gap: 8, flexShrink: 0,
+            }}>
+              <button
+                className="btn-outline"
+                style={{ flex: 1, justifyContent: 'center', fontSize: 13 }}
+                onClick={() => { setJsonOpen(false); setErroJson(null); setJsonInput(''); }}
+              >
+                Cancelar
+              </button>
+              <button
+                className="btn"
+                style={{ flex: 2, justifyContent: 'center', fontSize: 13 }}
+                onClick={aplicarJson}
+                disabled={!jsonInput.trim()}
+              >
+                <i className="ti ti-file-import" aria-hidden="true" />
+                Importar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="card">
         <div className="card-header">
           <div>
@@ -2127,33 +2229,6 @@ DIRETRIZES:
               </div>
             )}
           </div>
-
-          {/* ── Colar JSON (do Claude/ChatGPT) ── */}
-          {jsonOpen && (
-            <div style={{ borderTop: '1px dashed var(--border)', paddingTop: 16 }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 8 }}>
-                Colar JSON do Claude / ChatGPT
-              </div>
-              <textarea
-                value={jsonInput}
-                onChange={e => { setJsonInput(e.target.value); setErroJson(null); }}
-                rows={4}
-                placeholder='Cole aqui o JSON gerado pelo Claude ou ChatGPT e clique em "Aplicar"…'
-                style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical', fontSize: 12, fontFamily: 'monospace' }}
-              />
-              {erroJson && (
-                <div style={{ fontSize: 11, color: 'var(--red)', marginTop: 4 }}>{erroJson}</div>
-              )}
-              <button
-                onClick={aplicarJson}
-                disabled={!jsonInput.trim()}
-                className="btn-outline"
-                style={{ marginTop: 6, fontSize: 12, gap: 5 }}
-              >
-                <i className="ti ti-file-import" aria-hidden="true" /> Aplicar JSON no formulário
-              </button>
-            </div>
-          )}
 
           {/* ── Validade + publicar ── */}
           <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
