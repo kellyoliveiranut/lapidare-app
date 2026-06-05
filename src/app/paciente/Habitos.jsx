@@ -2,6 +2,27 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 
+function cumpriu(h, valor) {
+  if (valor === undefined || valor === null) return false;
+  if (h.tipo === 'boolean') return valor >= 1;
+  if (h.tipo === 'numero') return h.meta ? valor >= h.meta : valor > 0;
+  if (h.tipo === 'escala') return valor >= 4;
+  return false;
+}
+
+const DIAS_7 = (() => {
+  const arr = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 86_400_000);
+    arr.push({
+      iso: d.toISOString().slice(0, 10),
+      dia: d.toLocaleDateString('pt-BR', { weekday: 'short' }).slice(0, 1).toUpperCase(),
+      num: d.getDate(),
+    });
+  }
+  return arr;
+})();
+
 const HOJE = () => new Date().toISOString().slice(0, 10);
 
 export default function Habitos() {
@@ -56,15 +77,7 @@ export default function Habitos() {
         data: hoje, valor,
       }, { onConflict: 'habito_id,data' });
     }
-    carregar();
-  }
-
-  function cumpriu(h, valor) {
-    if (valor === undefined || valor === null) return false;
-    if (h.tipo === 'boolean') return valor >= 1;
-    if (h.tipo === 'numero') return h.meta ? valor >= h.meta : valor > 0;
-    if (h.tipo === 'escala') return valor >= 4;
-    return false;
+    carregar({ cancelled: false });
   }
 
   const hoje = HOJE();
@@ -83,19 +96,7 @@ export default function Habitos() {
     return c;
   }, [habitos, logMap]);
 
-  // Últimos 7 dias
-  const dias7 = useMemo(() => {
-    const arr = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(Date.now() - i * 86_400_000);
-      arr.push({
-        iso: d.toISOString().slice(0, 10),
-        dia: d.toLocaleDateString('pt-BR', { weekday: 'short' }).slice(0, 1).toUpperCase(),
-        num: d.getDate(),
-      });
-    }
-    return arr;
-  }, []);
+  const dias7 = DIAS_7;
 
   if (habitos === null) {
     return <div style={{ padding: 24, textAlign: 'center', color: 'var(--muted)' }}>Carregando…</div>;

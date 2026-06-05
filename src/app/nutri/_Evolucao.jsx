@@ -13,7 +13,7 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
   const [apresentacao, setApresentacao] = useState(false);
   const [verCheckin, setVerCheckin] = useState(null);
 
-  async function carregar() {
+  async function carregar(signal = { cancelled: false }) {
     const [avRes, ckRes, plRes, prRes, csRes] = await Promise.all([
       supabase.from('peso_registros').select('id,data,kg,altura_cm,pgc,mm_kg,mm_pct,gordura_kg,cintura_cm,quadril_cm,abdome_cm,braco_cm,braco_dir_cm,braco_esq_cm,coxa_cm,coxa_dir_cm,coxa_esq_cm,panturrilha_cm,hidratacao_pct,geb_kcal,get_kcal,obs').eq('paciente_id', pacienteId).order('data'),
       supabase.from('checkin_envios').select('id, perguntas, respostas, respondido_em, enviado_em').eq('paciente_id', pacienteId).not('respondido_em', 'is', null).order('respondido_em'),
@@ -21,6 +21,7 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
       supabase.from('prescricoes').select('id, tipo, titulo, created_at').eq('paciente_id', pacienteId).order('created_at'),
       supabase.from('consultas').select('id, tipo, data_hora, status').eq('paciente_id', pacienteId).order('data_hora'),
     ]);
+    if (signal.cancelled) return;
     setAvaliacoes(avRes.data ?? []);
     setCheckins(ckRes.data ?? []);
     setPlanos(plRes.data ?? []);
@@ -28,7 +29,11 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
     setConsultas(csRes.data ?? []);
     setCarregando(false);
   }
-  useEffect(() => { carregar(); }, [pacienteId]);
+  useEffect(() => {
+    const signal = { cancelled: false };
+    carregar(signal);
+    return () => { signal.cancelled = true; };
+  }, [pacienteId]);
 
   // ESC pra sair do modo apresentação
   useEffect(() => {

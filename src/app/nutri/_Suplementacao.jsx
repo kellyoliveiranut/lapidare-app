@@ -14,7 +14,7 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
   const [pdfFile, setPdfFile] = useState(null);
   const [busy, setBusy] = useState(false);
 
-  async function carregar() {
+  async function carregar(signal = { cancelled: false }) {
     const [supRes, logRes, pdfRes] = await Promise.all([
       supabase.from('suplementos').select('*').eq('paciente_id', pacienteId).order('ordem'),
       supabase.from('suplementos_logs').select('*')
@@ -25,6 +25,7 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
         .eq('paciente_id', pacienteId).eq('tipo', 'suplementacao')
         .order('created_at', { ascending: false }),
     ]);
+    if (signal.cancelled) return;
     setSuplementos(supRes.data ?? []);
     setLogs(logRes.data ?? []);
     setPdfs(pdfRes.data ?? []);
@@ -39,8 +40,10 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
   }
 
   useEffect(() => {
-    carregar();
+    const signal = { cancelled: false };
+    carregar(signal);
     carregarFavoritos();
+    return () => { signal.cancelled = true; };
   }, [pacienteId]);
 
   async function uploadFotoSuplemento(file) {

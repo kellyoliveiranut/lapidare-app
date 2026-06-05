@@ -2,6 +2,19 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 
+const DIAS_7 = (() => {
+  const arr = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 86_400_000);
+    arr.push({
+      iso: d.toISOString().slice(0, 10),
+      dia: d.toLocaleDateString('pt-BR', { weekday: 'short' }).slice(0, 1).toUpperCase(),
+      num: d.getDate(),
+    });
+  }
+  return arr;
+})();
+
 const HOJE = () => new Date().toISOString().slice(0, 10);
 
 export default function Suplementos() {
@@ -41,7 +54,7 @@ export default function Suplementos() {
         suplemento_id: s.id, paciente_id: user.id, data: hoje, tomado: true,
       });
     }
-    carregar();
+    carregar({ cancelled: false });
   }
 
   // Mapa { suplemento_id: { data: log } } pra render rápido
@@ -66,19 +79,7 @@ export default function Suplementos() {
     return count;
   }, [suplementos, logMap]);
 
-  // Últimos 7 dias pro mini-histórico
-  const dias7 = useMemo(() => {
-    const arr = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(Date.now() - i * 86_400_000);
-      arr.push({
-        iso: d.toISOString().slice(0, 10),
-        dia: d.toLocaleDateString('pt-BR', { weekday: 'short' }).slice(0, 1).toUpperCase(),
-        num: d.getDate(),
-      });
-    }
-    return arr;
-  }, []);
+  const dias7 = DIAS_7;
 
   const hoje = HOJE();
   const tomadosHoje = (suplementos ?? []).filter(s => logMap[s.id]?.[hoje]?.tomado).length;

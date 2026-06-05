@@ -490,7 +490,7 @@ const PROT_EMAG = {
 };
 
 /* ── main component ──────────────────────────────── */
-export default function Calculos({ pacienteId, paciente }) {
+export default function Calculos({ pacienteId, paciente, onUsarNaDieta }) {
   const [secao, setSecao] = useState('oncologia');
   const [subOnco, setSubOnco] = useState('energia');
   const [subEmag, setSubEmag] = useState('energia');
@@ -582,6 +582,14 @@ export default function Calculos({ pacienteId, paciente }) {
   const pisoSeguro  = sexo === 'M' ? 1500 : 1200;
   const deficit500  = msGET_emag ? Math.max(msGET_emag - 500, pisoSeguro) : null;
   const deficit1000 = msGET_emag ? Math.max(msGET_emag - 1000, pisoSeguro) : null;
+
+  function handleUsarNaDieta(kcal, proteinas_g) {
+    if (!onUsarNaDieta || !kcal) return;
+    const rem = kcal - proteinas_g * 4;
+    const carbo_g   = rem > 0 ? r0(rem * 0.60 / 4) : 0;
+    const gorduras_g = rem > 0 ? r0(rem * 0.30 / 9) : 0;
+    onUsarNaDieta({ kcal, proteinas_g, carbo_g, gorduras_g });
+  }
 
   /* render ─────────────────────────────────────── */
   return (
@@ -700,40 +708,61 @@ export default function Calculos({ pacienteId, paciente }) {
               </div>
 
               {ok ? (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
-                  <ResultCard
-                    label="Harris-Benedict GEB"
-                    value={r0(hbGEB)}
-                    unit="kcal"
-                    sub={`GET: ${hbGET_onco} kcal (×${fatorAtvd} ×${fatorInj})`}
-                    destaque
-                  />
-                  <ResultCard
-                    label="Mifflin-St Jeor GEB"
-                    value={r0(msGEB)}
-                    unit="kcal"
-                    sub={`GET: ${msGET_onco} kcal (×${fatorAtvd} ×${fatorInj})`}
-                    destaque
-                  />
-                  <ResultCard
-                    label="ASPEN (25–30 kcal/kg)"
-                    value={`${aspenMin}–${aspenMax}`}
-                    unit="kcal"
-                    sub={`Peso: ${r1(pesoCalc)} kg${pa != null ? ' (ajustado)' : ''}`}
-                  />
-                  <ResultCard
-                    label="Ireton-Jones (espontâneo)"
-                    value={r0(ijGEB)}
-                    unit="kcal"
-                    sub="GEB · sem fator de atividade"
-                  />
-                  <ResultCard
-                    label="Bolso (25–30 kcal/kg × injúria)"
-                    value={`${r0(25 * pesoCalc * fi)}–${r0(30 * pesoCalc * fi)}`}
-                    unit="kcal"
-                    sub={`Fator injúria ${fatorInj}`}
-                  />
-                </div>
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
+                    <ResultCard
+                      label="Harris-Benedict GEB"
+                      value={r0(hbGEB)}
+                      unit="kcal"
+                      sub={`GET: ${hbGET_onco} kcal (×${fatorAtvd} ×${fatorInj})`}
+                      destaque
+                    />
+                    <ResultCard
+                      label="Mifflin-St Jeor GEB"
+                      value={r0(msGEB)}
+                      unit="kcal"
+                      sub={`GET: ${msGET_onco} kcal (×${fatorAtvd} ×${fatorInj})`}
+                      destaque
+                    />
+                    <ResultCard
+                      label="ASPEN (25–30 kcal/kg)"
+                      value={`${aspenMin}–${aspenMax}`}
+                      unit="kcal"
+                      sub={`Peso: ${r1(pesoCalc)} kg${pa != null ? ' (ajustado)' : ''}`}
+                    />
+                    <ResultCard
+                      label="Ireton-Jones (espontâneo)"
+                      value={r0(ijGEB)}
+                      unit="kcal"
+                      sub="GEB · sem fator de atividade"
+                    />
+                    <ResultCard
+                      label="Bolso (25–30 kcal/kg × injúria)"
+                      value={`${r0(25 * pesoCalc * fi)}–${r0(30 * pesoCalc * fi)}`}
+                      unit="kcal"
+                      sub={`Fator injúria ${fatorInj}`}
+                    />
+                  </div>
+                  {onUsarNaDieta && msGET_onco && (
+                    <button
+                      onClick={() => handleUsarNaDieta(msGET_onco, r0(pOnco.min * pesoCalc))}
+                      style={{
+                        marginTop: 12, width: '100%',
+                        padding: '10px 16px', borderRadius: 8, cursor: 'pointer',
+                        background: 'linear-gradient(135deg, var(--amber, #c9a96e), var(--gold-deep, #a08456))',
+                        color: '#fff', border: 'none',
+                        fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-sans)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                      }}
+                    >
+                      <i className="ti ti-arrow-right" />
+                      Usar esses valores para gerar a dieta
+                      <span style={{ opacity: 0.85, fontWeight: 400, fontSize: 12 }}>
+                        ({msGET_onco} kcal · {r0(pOnco.min * pesoCalc)}g prot)
+                      </span>
+                    </button>
+                  )}
+                </>
               ) : <EmptyMsg />}
             </>
           )}
@@ -924,6 +953,26 @@ export default function Calculos({ pacienteId, paciente }) {
                       </div>
                     </div>
                   </div>
+
+                  {onUsarNaDieta && msGET_emag && (
+                    <button
+                      onClick={() => handleUsarNaDieta(msGET_emag, r0(pEmag.min * p))}
+                      style={{
+                        marginTop: 12, width: '100%',
+                        padding: '10px 16px', borderRadius: 8, cursor: 'pointer',
+                        background: 'linear-gradient(135deg, var(--amber, #c9a96e), var(--gold-deep, #a08456))',
+                        color: '#fff', border: 'none',
+                        fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-sans)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                      }}
+                    >
+                      <i className="ti ti-arrow-right" />
+                      Usar esses valores para gerar a dieta
+                      <span style={{ opacity: 0.85, fontWeight: 400, fontSize: 12 }}>
+                        ({msGET_emag} kcal · {r0(pEmag.min * p)}g prot)
+                      </span>
+                    </button>
+                  )}
                 </>
               ) : <EmptyMsg />}
             </>

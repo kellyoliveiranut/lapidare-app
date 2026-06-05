@@ -14,11 +14,13 @@ const TIPOS_FOTO = [
 // Cache de signed URLs (5 min)
 const _urlCache = new Map();
 async function _signedUrl(path) {
+  const now = Date.now();
   const c = _urlCache.get(path);
-  if (c && c.exp > Date.now()) return c.url;
+  if (c && c.exp > now) return c.url;
+  for (const [k, v] of _urlCache) { if (v.exp <= now) _urlCache.delete(k); }
   const { data } = await supabase.storage.from('fotos_evolucao').createSignedUrl(path, 300);
   if (!data) return null;
-  _urlCache.set(path, { url: data.signedUrl, exp: Date.now() + 280_000 });
+  _urlCache.set(path, { url: data.signedUrl, exp: now + 280_000 });
   return data.signedUrl;
 }
 
@@ -64,6 +66,8 @@ export default function Progresso() {
       .map(r => ({ ...r, valor: Number(r[metrica]) }));
   }, [registros, metrica]);
 
+  const registrosRev = useMemo(() => [...(registros ?? [])].reverse(), [registros]);
+
   if (registros === undefined) {
     return <div className="empty-state"><div className="empty-sub">Carregando…</div></div>;
   }
@@ -85,20 +89,20 @@ export default function Progresso() {
   const inicial = dadosMetrica[0];
   const dif = atual && inicial ? (atual.valor - inicial.valor) : 0;
 
-  // Chart
-  let points = [], path = '', area = '';
-  if (dadosMetrica.length > 1) {
+  const chart = useMemo(() => {
+    if (dadosMetrica.length <= 1) return { points: [], path: '', area: '' };
     const min = Math.min(...dadosMetrica.map(p => p.valor)) - 0.5;
     const max = Math.max(...dadosMetrica.map(p => p.valor)) + 0.5;
     const range = max - min || 1;
-    points = dadosMetrica.map((p, i) => ({
+    const points = dadosMetrica.map((p, i) => ({
       x: (i / (dadosMetrica.length - 1)) * 100,
       y: 100 - ((p.valor - min) / range) * 100,
       ...p,
     }));
-    path = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-    area = path + ' L 100 100 L 0 100 Z';
-  }
+    const path = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+    return { points, path, area: path + ' L 100 100 L 0 100 Z' };
+  }, [dadosMetrica]);
+  const { points, path, area } = chart;
 
   return (
     <>
@@ -113,7 +117,7 @@ export default function Progresso() {
             <button key={m.key} onClick={() => setMetrica(m.key)}
               style={{
                 flexShrink: 0, padding: '6px 12px', fontSize: 12,
-                borderRadius: 20, border: 'none', cursor: 'pointer',
+                borderRadius: 20, cursor: 'pointer',
                 background: ativo ? 'var(--ink)' : 'var(--paper)',
                 color: ativo ? 'var(--bg-soft)' : 'var(--ink)',
                 fontWeight: 500, fontFamily: 'var(--font-sans)',
@@ -193,7 +197,7 @@ export default function Progresso() {
         Histórico de avaliações
       </div>
       <div className="card" style={{ padding: 0 }}>
-        {[...registros].reverse().map((r, i, arr) => (
+        {registrosRev.map((r, i, arr) => (
           <div key={r.id} style={{
             padding: '12px 16px',
             borderBottom: i === arr.length - 1 ? 'none' : '0.5px solid var(--hair-soft)',
@@ -242,22 +246,28 @@ function FotosEvolucao() {
   const [erro, setErro] = useState(null);
   const fileRef = useRef(null);
 
-  async function carregar() {
+  async function carregar(signal = { cancelled: false }) {
     if (!user) return;
     const { data } = await supabase
       .from('fotos_evolucao')
       .select('id, storage_path, tipo, data_foto, obs, created_at')
       .eq('paciente_id', user.id)
       .order('data_foto', { ascending: false });
+    if (signal.cancelled) return;
     setFotos(data ?? []);
     const novas = {};
     for (const f of data ?? []) {
+      if (signal.cancelled) return;
       const u = await _signedUrl(f.storage_path);
       if (u) novas[f.id] = u;
     }
-    setUrls(novas);
+    if (!signal.cancelled) setUrls(novas);
   }
-  useEffect(() => { carregar(); }, [user]);
+  useEffect(() => {
+    const signal = { cancelled: false };
+    carregar(signal);
+    return () => { signal.cancelled = true; };
+  }, [user]);
 
   function escolher(e) {
     const f = e.target.files?.[0];
@@ -299,10 +309,12 @@ function FotosEvolucao() {
         ctx.rotate((rot * Math.PI) / 180);
         if (flip) ctx.scale(-1, 1);
         ctx.drawImage(img, -img.width / 2, -img.height / 2);
-        canvas.toBlob(b => b ? resolve(b) : reject(new Error('Canvas falhou')),
-          arquivo.type || 'image/jpeg', 0.92);
+        canvas.toBlob(b => {
+          URL.revokeObjectURL(img.src);
+          b ? resolve(b) : reject(new Error('Canvas falhou'));
+        }, arquivo.type || 'image/jpeg', 0.92);
       };
-      img.onerror = () => reject(new Error('Falha ao carregar imagem'));
+      img.onerror = () => { URL.revokeObjectURL(img.src); reject(new Error('Falha ao carregar imagem')); };
       img.src = URL.createObjectURL(arquivo);
     });
   }

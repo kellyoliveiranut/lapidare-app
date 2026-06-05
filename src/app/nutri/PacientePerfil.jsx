@@ -28,6 +28,7 @@ export default function PacientePerfil() {
   const { user } = useSession();
   const [paciente, setPaciente] = useState(null);
   const [tab, setTab] = useState('plano');
+  const [calculosImportados, setCalculosImportados] = useState(null);
   const [editandoNasc, setEditandoNasc] = useState(false);
   const [novoNasc, setNovoNasc] = useState('');
   const [salvandoNasc, setSalvandoNasc] = useState(false);
@@ -376,13 +377,13 @@ export default function PacientePerfil() {
         {tab === 'followup'      && <FollowUp pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
         {tab === 'suplementacao' && <Suplementacao pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
         {tab === 'habitos'       && <Habitos pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
-        {tab === 'plano'         && <PublicarPlano pacienteId={paciente.id} nutriId={user.id} />}
+        {tab === 'plano'         && <PublicarPlano pacienteId={paciente.id} nutriId={user.id} calculosImportados={calculosImportados} onLimparImportados={() => setCalculosImportados(null)} />}
         {tab === 'compras'       && <PublicarLista pacienteId={paciente.id} nutriId={user.id} />}
         {tab === 'prescricoes'   && <EnviarPrescricao pacienteId={paciente.id} nutriId={user.id} />}
         {tab === 'ebooks'        && <EbooksDaPaciente pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
         {tab === 'avaliacao'     && <RegistrarAvaliacao pacienteId={paciente.id} nutriId={user.id} paciente={paciente} />}
         {tab === 'checkin'       && <CheckinPersonalizado pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
-        {tab === 'calculos'      && <Calculos pacienteId={paciente.id} nutriId={user.id} paciente={paciente} />}
+        {tab === 'calculos'      && <Calculos pacienteId={paciente.id} nutriId={user.id} paciente={paciente} onUsarNaDieta={(vals) => { setCalculosImportados(vals); setTab('plano'); }} />}
       </Suspense>
 
       {paciente.status_paciente === 'ativo' && (
@@ -1240,7 +1241,7 @@ function novoAlimento() {
   return { _id: Math.random().toString(36).slice(2), nome: '', quantidade: '', subs: '' };
 }
 
-function PublicarPlano({ pacienteId, nutriId }) {
+function PublicarPlano({ pacienteId, nutriId, calculosImportados, onLimparImportados }) {
   const [macros, setMacros]       = useState({ kcal: '', proteinas_g: '', carbo_g: '', gorduras_g: '', agua_l: '' });
   const [refeicoes, setRefeicoes] = useState([]);
   const [obs, setObs]             = useState('');
@@ -1250,8 +1251,28 @@ function PublicarPlano({ pacienteId, nutriId }) {
   const [feedback, setFeedback]   = useState(null);
   const [gerando, setGerando]     = useState(false);
   const [erroIA, setErroIA]       = useState(null);
+  const [promptVisivel, setPromptVisivel] = useState(false);
+  const [promptTexto, setPromptTexto]     = useState('');
+  const [gerandoPrompt, setGerandoPrompt] = useState(false);
+  const [promptCopiado, setPromptCopiado] = useState(false);
+  const [jsonInput, setJsonInput]         = useState('');
+  const [erroJson, setErroJson]           = useState(null);
 
   useEffect(() => { carregar(); }, [pacienteId]);
+
+  // Preenche macros quando vêm dos Cálculos
+  useEffect(() => {
+    if (!calculosImportados) return;
+    setMacros(prev => ({
+      ...prev,
+      kcal:        calculosImportados.kcal        != null ? String(calculosImportados.kcal)        : prev.kcal,
+      proteinas_g: calculosImportados.proteinas_g != null ? String(calculosImportados.proteinas_g) : prev.proteinas_g,
+      carbo_g:     calculosImportados.carbo_g     != null ? String(calculosImportados.carbo_g)     : prev.carbo_g,
+      gorduras_g:  calculosImportados.gorduras_g  != null ? String(calculosImportados.gorduras_g)  : prev.gorduras_g,
+    }));
+    setFeedback({ tipo: 'importado', msg: 'Valores importados dos cálculos nutricionais ✓' });
+    onLimparImportados?.();
+  }, [calculosImportados]);
 
   async function carregar() {
     const { data } = await supabase
@@ -1315,6 +1336,125 @@ function PublicarPlano({ pacienteId, nutriId }) {
     const dados = { macros: m, refeicoes: refs };
     if (obs.trim()) dados.obs = obs.trim();
     return dados;
+  }
+
+  async function gerarPrompt() {
+    setGerandoPrompt(true);
+    setPromptVisivel(true);
+    try {
+      const [pacRes, pesoRes, anamRes] = await Promise.all([
+        supabase.from('pacientes').select('nome, nascimento, objetivo').eq('id', pacienteId).maybeSingle(),
+        supabase.from('peso_registros').select('kg, altura_cm').eq('paciente_id', pacienteId).order('data', { ascending: false }).limit(1).maybeSingle(),
+        supabase.from('anamneses').select('estrutura, respostas').eq('paciente_id', pacienteId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+      ]);
+      const pac  = pacRes.data;
+      const peso = pesoRes.data;
+      const anam = anamRes.data;
+
+      let idade = null;
+      if (pac?.nascimento) {
+        const hoje = new Date();
+        const nasc = new Date(pac.nascimento + 'T00:00:00');
+        idade = hoje.getFullYear() - nasc.getFullYear();
+        if (hoje.getMonth() < nasc.getMonth() || (hoje.getMonth() === nasc.getMonth() && hoje.getDate() < nasc.getDate())) idade--;
+      }
+
+      let restricoes = '';
+      if (anam?.estrutura && anam?.respostas) {
+        const perguntas = Array.isArray(anam.estrutura)
+          ? anam.estrutura
+          : (anam.estrutura?.secoes ?? []).flatMap(s => s.perguntas ?? []);
+        restricoes = perguntas
+          .filter(p => {
+            const texto = (p.texto || p.label || '').toLowerCase();
+            return texto.includes('alerg') || texto.includes('intol') || texto.includes('restri') || texto.includes('avers') || texto.includes('prefer');
+          })
+          .map(p => {
+            const r = anam.respostas[p.id];
+            return r ? `${p.texto || p.label}: ${r}` : null;
+          })
+          .filter(Boolean)
+          .slice(0, 5)
+          .join('; ') || 'Não informadas';
+      }
+
+      const kcal  = macros.kcal        || '—';
+      const prot  = macros.proteinas_g || '—';
+      const carbo = macros.carbo_g     || '—';
+      const gord  = macros.gorduras_g  || '—';
+
+      const texto = `Gere um plano alimentar para paciente com as seguintes características:
+- Nome: ${pac?.nome ?? '—'}
+- Idade: ${idade != null ? idade + ' anos' : '—'}
+- Peso: ${peso?.kg ?? '—'} kg / Altura: ${peso?.altura_cm ?? '—'} cm
+- Objetivo: ${pac?.objetivo ?? '—'}
+- Calorias calculadas: ${kcal} kcal/dia
+- Proteínas: ${prot}g | Carboidratos: ${carbo}g | Gorduras: ${gord}g
+- Restrições alimentares: ${restricoes}
+- Número de refeições: 6
+- Formato de resposta: APENAS JSON puro, sem texto adicional, sem markdown.
+
+Estrutura JSON obrigatória:
+{
+  "macros": {
+    "kcal": número,
+    "proteinas_g": número,
+    "carbo_g": número,
+    "gorduras_g": número,
+    "agua_l": número com uma casa decimal
+  },
+  "refeicoes": [
+    {
+      "nome": "nome da refeição",
+      "horario": "HH:MM",
+      "alimentos": [
+        { "nome": "alimento", "quantidade": "ex: 100g", "subs": "substituto1, substituto2" }
+      ]
+    }
+  ],
+  "obs": "orientações clínicas em 2-3 parágrafos"
+}`;
+
+      setPromptTexto(texto);
+    } catch {
+      setPromptTexto('Erro ao buscar dados da paciente. Tente novamente.');
+    }
+    setGerandoPrompt(false);
+  }
+
+  function copiarPrompt() {
+    navigator.clipboard.writeText(promptTexto).then(() => {
+      setPromptCopiado(true);
+      setTimeout(() => setPromptCopiado(false), 2000);
+    });
+  }
+
+  function aplicarJson() {
+    setErroJson(null);
+    const raw = jsonInput.replace(/```json\n?|\n?```/g, '').trim();
+    let plano;
+    try { plano = JSON.parse(raw); } catch { return setErroJson('JSON inválido — verifique a formatação.'); }
+    const m = plano.macros ?? {};
+    setMacros({
+      kcal:        m.kcal        != null ? String(m.kcal)        : '',
+      proteinas_g: m.proteinas_g != null ? String(m.proteinas_g) : '',
+      carbo_g:     m.carbo_g     != null ? String(m.carbo_g)     : '',
+      gorduras_g:  m.gorduras_g  != null ? String(m.gorduras_g)  : '',
+      agua_l:      m.agua_l      != null ? String(m.agua_l)      : '',
+    });
+    const refs = (plano.refeicoes ?? []).map(r => ({
+      _id: Math.random().toString(36).slice(2),
+      nome: r.nome ?? '', horario: r.horario ?? '',
+      alimentos: (r.alimentos ?? []).map(a => ({
+        _id: Math.random().toString(36).slice(2),
+        nome: a.nome ?? '', quantidade: a.quantidade ?? '',
+        subs: Array.isArray(a.subs) ? a.subs.map(s => (typeof s === 'object' ? s.nome : s)).join(', ') : (a.subs ?? ''),
+      })),
+    }));
+    setRefeicoes(refs);
+    if (plano.obs) setObs(plano.obs);
+    setJsonInput('');
+    setFeedback({ tipo: 'ok', msg: 'JSON aplicado com sucesso! Revise e clique em Publicar.' });
   }
 
   async function publicar() {
@@ -1508,31 +1648,61 @@ DIRETRIZES:
         <div className="card-header">
           <div>
             <div className="card-title">Novo plano alimentar</div>
-            <div className="card-sub">Preencha manualmente ou gere com IA a partir dos dados da paciente</div>
+            <div className="card-sub">Preencha manualmente, gere com IA ou via prompt para Claude/ChatGPT</div>
           </div>
-          <button
-            onClick={gerarComIA}
-            disabled={gerando}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              padding: '7px 14px', borderRadius: 8, cursor: gerando ? 'default' : 'pointer',
-              border: 'none',
-              background: 'linear-gradient(135deg, #7c3aed, #a08456)',
-              color: '#fff', fontSize: 13, fontWeight: 600,
-              fontFamily: 'var(--font-sans)',
-              opacity: gerando ? 0.75 : 1,
-              boxShadow: '0 2px 8px rgba(124,58,237,.25)',
-              flexShrink: 0,
-            }}
-          >
-            <i
-              className={`ti ti-${gerando ? 'loader-2' : 'sparkles'}`}
-              style={gerando ? { animation: 'lapidare-spin .75s linear infinite' } : {}}
-              aria-hidden="true"
-            />
-            {gerando ? 'Gerando plano...' : '✨ Gerar com IA'}
-          </button>
+          <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <button
+              onClick={gerarPrompt}
+              disabled={gerandoPrompt}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '7px 12px', borderRadius: 8, cursor: 'pointer',
+                border: '1px solid var(--border)',
+                background: 'var(--bg2)',
+                color: 'var(--dark)', fontSize: 12, fontWeight: 600,
+                fontFamily: 'var(--font-sans)',
+              }}
+            >
+              <i className="ti ti-clipboard-text" aria-hidden="true" />
+              {promptVisivel ? 'Atualizar prompt' : '📋 Gerar via prompt'}
+            </button>
+            <button
+              onClick={gerarComIA}
+              disabled={gerando}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '7px 14px', borderRadius: 8, cursor: gerando ? 'default' : 'pointer',
+                border: 'none',
+                background: 'linear-gradient(135deg, #7c3aed, #a08456)',
+                color: '#fff', fontSize: 13, fontWeight: 600,
+                fontFamily: 'var(--font-sans)',
+                opacity: gerando ? 0.75 : 1,
+                boxShadow: '0 2px 8px rgba(124,58,237,.25)',
+              }}
+            >
+              <i
+                className={`ti ti-${gerando ? 'loader-2' : 'sparkles'}`}
+                style={gerando ? { animation: 'lapidare-spin .75s linear infinite' } : {}}
+                aria-hidden="true"
+              />
+              {gerando ? 'Gerando...' : '✨ Gerar com IA'}
+            </button>
+          </div>
         </div>
+
+        {/* Banner: valores importados dos Cálculos */}
+        {feedback?.tipo === 'importado' && (
+          <div style={{
+            margin: '0 16px 4px', padding: '8px 12px', borderRadius: 6,
+            background: '#f0fdf4', border: '1px solid #86efac',
+            color: '#15803d', fontSize: 12,
+            display: 'flex', alignItems: 'center', gap: 8,
+          }}>
+            <i className="ti ti-circle-check-filled" />
+            {feedback.msg}
+            <button onClick={() => setFeedback(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#15803d', fontSize: 14 }}>×</button>
+          </div>
+        )}
 
         {erroIA && (
           <div style={{
@@ -1554,6 +1724,60 @@ DIRETRIZES:
           }}>
             <i className="ti ti-loader-2" style={{ animation: 'lapidare-spin .75s linear infinite' }} />
             A IA está analisando os dados clínicos e gerando o plano personalizado...
+          </div>
+        )}
+
+        {/* Painel: Gerar via prompt */}
+        {promptVisivel && (
+          <div style={{
+            margin: '0 16px 4px', padding: '14px', borderRadius: 8,
+            background: '#fdf8ee', border: '1px solid var(--amber, #c9a96e)',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--dark)' }}>
+                📋 Prompt para Claude / ChatGPT
+              </div>
+              <button onClick={() => setPromptVisivel(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', fontSize: 16 }}>×</button>
+            </div>
+
+            {gerandoPrompt ? (
+              <div style={{ fontSize: 12, color: 'var(--text3)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <i className="ti ti-loader-2" style={{ animation: 'lapidare-spin .75s linear infinite' }} /> Buscando dados da paciente...
+              </div>
+            ) : (
+              <>
+                <textarea
+                  readOnly
+                  value={promptTexto}
+                  rows={10}
+                  style={{
+                    width: '100%', boxSizing: 'border-box',
+                    padding: '10px', fontSize: 12, lineHeight: 1.5,
+                    borderRadius: 6, border: '1px solid var(--border)',
+                    background: 'var(--white)', fontFamily: 'var(--font-sans)',
+                    resize: 'vertical', color: 'var(--dark)',
+                  }}
+                />
+                <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <button
+                    onClick={copiarPrompt}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                      padding: '7px 14px', borderRadius: 8, cursor: 'pointer',
+                      border: 'none', background: promptCopiado ? '#16a34a' : 'var(--dark)',
+                      color: '#fff', fontSize: 12, fontWeight: 600,
+                      fontFamily: 'var(--font-sans)', transition: 'background .2s',
+                    }}
+                  >
+                    <i className={`ti ti-${promptCopiado ? 'check' : 'copy'}`} />
+                    {promptCopiado ? 'Copiado!' : 'Copiar prompt'}
+                  </button>
+                  <div style={{ fontSize: 11, color: 'var(--text3)', lineHeight: 1.4, flex: 1 }}>
+                    Cole no Claude ou ChatGPT, copie o JSON gerado e cole no campo "Colar JSON" abaixo para publicar.
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         )}
 
@@ -1746,6 +1970,31 @@ DIRETRIZES:
             />
           </div>
 
+          {/* ── Colar JSON (do Claude/ChatGPT) ── */}
+          <div style={{ borderTop: '1px dashed var(--border)', paddingTop: 16 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 8 }}>
+              Colar JSON do Claude / ChatGPT
+            </div>
+            <textarea
+              value={jsonInput}
+              onChange={e => { setJsonInput(e.target.value); setErroJson(null); }}
+              rows={4}
+              placeholder='Cole aqui o JSON gerado pelo Claude ou ChatGPT e clique em "Aplicar"…'
+              style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical', fontSize: 12, fontFamily: 'monospace' }}
+            />
+            {erroJson && (
+              <div style={{ fontSize: 11, color: 'var(--red)', marginTop: 4 }}>{erroJson}</div>
+            )}
+            <button
+              onClick={aplicarJson}
+              disabled={!jsonInput.trim()}
+              className="btn-outline"
+              style={{ marginTop: 6, fontSize: 12, gap: 5 }}
+            >
+              <i className="ti ti-file-import" /> Aplicar JSON no formulário
+            </button>
+          </div>
+
           {/* ── Validade + publicar ── */}
           <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
             <div>
@@ -1763,7 +2012,7 @@ DIRETRIZES:
             </button>
           </div>
 
-          {feedback && <FeedbackInline f={feedback} />}
+          {feedback && feedback.tipo !== 'importado' && <FeedbackInline f={feedback} />}
         </div>
       </div>
 

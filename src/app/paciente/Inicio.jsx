@@ -1,9 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { useTheme } from '../../lib/theme.jsx';
 import { textoDias, dataConsultaBR, diasAte, linkCall, consultaEmBreve, gerarGoogleCalendarUrl } from '../../lib/utils.js';
+
+function cumpriuHabito(h, valor) {
+  if (valor === undefined || valor === null) return false;
+  if (h.tipo === 'boolean') return valor >= 1;
+  if (h.tipo === 'numero')  return h.meta ? valor >= h.meta : valor > 0;
+  if (h.tipo === 'escala')  return valor >= 4;
+  return false;
+}
 
 export default function Inicio() {
   const tema = useTheme();
@@ -16,8 +24,8 @@ export default function Inicio() {
   const [checkinPendente, setCheckinPendente] = useState(null);
   const [ebooksNovos, setEbooksNovos] = useState(0);
   const [habitos, setHabitos] = useState([]);
-  const [habitosLogs, setHabitosLogs] = useState({});  // { habito_id: valor }
-  const [habitosStreak, setHabitosStreak] = useState(0);
+  const [habitosLogs, setHabitosLogs] = useState({});  // { habito_id: valor } — hoje
+  const [todosLogs, setTodosLogs] = useState([]);      // 30 dias — pra streak
 
   useEffect(() => {
     let active = true;
@@ -58,24 +66,7 @@ export default function Inicio() {
       }
       setHabitos(habitosLista);
       setHabitosLogs(logsHoje);
-
-      // Calcula streak (dias seguidos com todos cumpridos)
-      const todosLogs = logsHojeRes.data ?? [];
-      let streakCount = 0;
-      for (let i = 0; i < 30; i++) {
-        const dia = new Date(Date.now() - i * 86_400_000).toISOString().slice(0, 10);
-        const todos = habitosLista.every(h => {
-          const log = todosLogs.find(l => l.habito_id === h.id && l.data === dia);
-          if (!log) return false;
-          const v = Number(log.valor);
-          if (h.tipo === 'boolean') return v >= 1;
-          if (h.tipo === 'numero')  return h.meta ? v >= h.meta : v > 0;
-          if (h.tipo === 'escala')  return v >= 4;
-          return false;
-        });
-        if (todos && habitosLista.length > 0) streakCount++; else break;
-      }
-      setHabitosStreak(streakCount);
+      setTodosLogs(logsHojeRes.data ?? []);
     }
     load();
     return () => { active = false; };
@@ -107,20 +98,15 @@ export default function Inicio() {
     navigate('/paciente/ebooks');
   }
 
-  function cumpriuHabito(h, valor) {
-    if (valor === undefined || valor === null) return false;
-    if (h.tipo === 'boolean') return valor >= 1;
-    if (h.tipo === 'numero')  return h.meta ? valor >= h.meta : valor > 0;
-    if (h.tipo === 'escala')  return valor >= 4;
-    return false;
-  }
-
   async function setValorHabito(habito, valor) {
     const hoje = new Date().toISOString().slice(0, 10);
-    // Update otimista
+    // Update otimista — habitosLogs (hoje) e todosLogs (streak)
     setHabitosLogs(prev => ({ ...prev, [habito.id]: valor }));
+    setTodosLogs(prev => {
+      const sem = prev.filter(l => !(l.habito_id === habito.id && l.data === hoje));
+      return valor > 0 ? [...sem, { habito_id: habito.id, valor, data: hoje }] : sem;
+    });
     if (valor === 0 && habito.tipo === 'boolean') {
-      // Toggle off pra boolean: remove o log
       const { data: existente } = await supabase.from('habitos_logs')
         .select('id').eq('habito_id', habito.id).eq('data', hoje).maybeSingle();
       if (existente) await supabase.from('habitos_logs').delete().eq('id', existente.id);
@@ -136,6 +122,27 @@ export default function Inicio() {
       }, { onConflict: 'habito_id,data' });
     }
   }
+
+  const habitosStreak = useMemo(() => {
+    if (!habitos.length) return 0;
+    // Map { `habito_id|data`: valor } para lookup O(1)
+    const m = new Map();
+    for (const l of todosLogs) m.set(`${l.habito_id}|${l.data}`, Number(l.valor));
+    let count = 0;
+    for (let i = 0; i < 30; i++) {
+      const dia = new Date(Date.now() - i * 86_400_000).toISOString().slice(0, 10);
+      const todos = habitos.every(h => {
+        const v = m.get(`${h.id}|${dia}`);
+        if (v === undefined) return false;
+        if (h.tipo === 'boolean') return v >= 1;
+        if (h.tipo === 'numero')  return h.meta ? v >= h.meta : v > 0;
+        if (h.tipo === 'escala')  return v >= 4;
+        return false;
+      });
+      if (todos) count++; else break;
+    }
+    return count;
+  }, [habitos, todosLogs]);
 
   const habitosCumpridos = habitos.filter(h => cumpriuHabito(h, habitosLogs[h.id])).length;
 

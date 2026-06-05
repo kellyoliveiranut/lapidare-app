@@ -10,11 +10,14 @@ const REFEICOES = ['Café da manhã', 'Lanche da manhã', 'Almoço', 'Lanche da 
 const urlCache = new Map();
 
 async function getSignedUrl(path) {
+  const now = Date.now();
   const cached = urlCache.get(path);
-  if (cached && cached.exp > Date.now()) return cached.url;
+  if (cached && cached.exp > now) return cached.url;
+  // evict expired entries to prevent unbounded growth
+  for (const [k, v] of urlCache) { if (v.exp <= now) urlCache.delete(k); }
   const { data, error } = await supabase.storage.from('fotos_pratos').createSignedUrl(path, 300);
   if (error) return null;
-  urlCache.set(path, { url: data.signedUrl, exp: Date.now() + 280_000 });
+  urlCache.set(path, { url: data.signedUrl, exp: now + 280_000 });
   return data.signedUrl;
 }
 
@@ -105,7 +108,7 @@ export default function FeedPaciente() {
       return setErro('Erro: ' + insErr.message);
     }
     cancelar();
-    carregar();
+    carregar({ cancelled: false });
   }
 
   return (

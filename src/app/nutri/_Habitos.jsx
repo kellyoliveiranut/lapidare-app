@@ -20,7 +20,7 @@ export default function Habitos({ pacienteId, nutriId, pacienteNome }) {
   const [editar, setEditar] = useState(null);
   const [busy, setBusy] = useState(false);
 
-  async function carregar() {
+  async function carregar(signal = { cancelled: false }) {
     const [hRes, lRes] = await Promise.all([
       supabase.from('habitos').select('*')
         .eq('paciente_id', pacienteId).order('ordem'),
@@ -29,10 +29,15 @@ export default function Habitos({ pacienteId, nutriId, pacienteNome }) {
         .gte('data', new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10))
         .order('data', { ascending: false }),
     ]);
+    if (signal.cancelled) return;
     setHabitos(hRes.data ?? []);
     setLogs(lRes.data ?? []);
   }
-  useEffect(() => { carregar(); }, [pacienteId]);
+  useEffect(() => {
+    const signal = { cancelled: false };
+    carregar(signal);
+    return () => { signal.cancelled = true; };
+  }, [pacienteId]);
 
   async function salvar(h) {
     if (!h.nome?.trim()) { alert('Informe o nome do hábito.'); return; }

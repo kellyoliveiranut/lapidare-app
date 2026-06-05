@@ -28,7 +28,7 @@ export default function Biblioteca() {
   const [atribuirItem, setAtribuirItem] = useState(null);
   const [editarItem, setEditarItem] = useState(null);
 
-  async function carregar() {
+  async function carregar(signal = { cancelled: false }) {
     if (!user) return;
     const [ebRes, pacRes, atRes] = await Promise.all([
       supabase.from('ebooks').select('*').eq('nutri_id', user.id).order('created_at', { ascending: false }),
@@ -36,6 +36,7 @@ export default function Biblioteca() {
         .eq('nutri_id', user.id).eq('status_paciente', 'ativo').order('nome'),
       supabase.from('ebooks_pacientes').select('ebook_id, paciente_id'),
     ]);
+    if (signal.cancelled) return;
     setItems(ebRes.data ?? []);
     setPacientes(pacRes.data ?? []);
     const mapa = {};
@@ -44,7 +45,11 @@ export default function Biblioteca() {
     }
     setAtribuicoes(mapa);
   }
-  useEffect(() => { carregar(); }, [user]);
+  useEffect(() => {
+    const signal = { cancelled: false };
+    carregar(signal);
+    return () => { signal.cancelled = true; };
+  }, [user]);
 
   function abrirItem(it) {
     const { data } = supabase.storage.from('ebooks').getPublicUrl(it.storage_path);
@@ -75,9 +80,14 @@ export default function Biblioteca() {
     });
   }, [items, secaoAtiva, busca]);
 
-  function countSecao(sid) {
-    return (items ?? []).filter(it => secaoDoItem(it.tag) === sid).length;
-  }
+  const contagensSecao = useMemo(() => {
+    const counts = {};
+    for (const s of SECOES) counts[s.id] = 0;
+    for (const it of items ?? []) counts[secaoDoItem(it.tag)] = (counts[secaoDoItem(it.tag)] ?? 0) + 1;
+    return counts;
+  }, [items]);
+
+  function countSecao(sid) { return contagensSecao[sid] ?? 0; }
 
   return (
     <>

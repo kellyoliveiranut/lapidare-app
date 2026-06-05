@@ -32,7 +32,7 @@ export default function Checkins() {
     setTimeout(() => setToast(null), 2500);
   }
 
-  async function carregar() {
+  async function carregar(signal = { cancelled: false }) {
     if (!user) return;
     const [pacRes, envRes, tplRes, agRes] = await Promise.all([
       supabase.from('pacientes').select('id, nome').eq('nutri_id', user.id).order('nome'),
@@ -48,12 +48,17 @@ export default function Checkins() {
         .eq('nutri_id', user.id)
         .order('proximo_envio'),
     ]);
+    if (signal.cancelled) return;
     setPacientes(pacRes.data ?? []);
     setEnvios(envRes.data ?? []);
     setTemplates(tplRes.data ?? []);
     setAgendamentos(agRes.data ?? []);
   }
-  useEffect(() => { carregar(); }, [user]);
+  useEffect(() => {
+    const signal = { cancelled: false };
+    carregar(signal);
+    return () => { signal.cancelled = true; };
+  }, [user]);
 
   // Nota: a primeira nutri cria o template padrão explicitamente pelo botão
   // "Começar com o Lapidare" na aba Templates (empty state).
