@@ -1535,60 +1535,105 @@ Estrutura JSON obrigatória:
     // remove blocos ```json``` em qualquer capitalização
     const raw = jsonInput.replace(/```[\w]*\n?/gi, '').replace(/\n?```/g, '').trim();
     if (!raw) return setErroJson('Cole o JSON antes de clicar em Importar.');
-    let plano;
-    try { plano = JSON.parse(raw); }
+
+    let parsed;
+    try { parsed = JSON.parse(raw); }
     catch (e) { return setErroJson(`JSON inválido: ${e.message}`); }
-    if (!plano || typeof plano !== 'object') return setErroJson('O JSON precisa ser um objeto { }.');
 
-    // macros: aceita "macros" ou "macro"
-    const m = plano.macros ?? plano.macro ?? {};
+    console.log('[Lapidare] JSON parseado:', parsed);
+    console.log('[Lapidare] Chaves encontradas:', Array.isArray(parsed) ? '(array raiz)' : Object.keys(parsed));
+
+    // Se a raiz for um array, trata como lista de refeições direto
+    let plano = parsed;
+    if (Array.isArray(parsed)) {
+      plano = { refeicoes: parsed };
+      console.log('[Lapidare] JSON era array na raiz — tratando como lista de refeições');
+    }
+
+    // Se não for objeto após normalização, erro
+    if (!plano || typeof plano !== 'object') return setErroJson('O JSON precisa ser um objeto { } ou array [ ].');
+
+    // Procurar refeições em qualquer chave, incluindo um nível aninhado
+    function buscarRefeicoes(obj) {
+      // tentativas diretas (com/sem acento, inglês)
+      const CHAVES = ['refeicoes','refeições','refeicao','refeição','meals','meal','refeicoes_do_dia','diet','dieta','plano'];
+      for (const k of CHAVES) {
+        if (Array.isArray(obj[k])) return obj[k];
+      }
+      // busca em qualquer valor que seja array não-vazio de objetos
+      for (const v of Object.values(obj)) {
+        if (Array.isArray(v) && v.length > 0 && typeof v[0] === 'object') return v;
+      }
+      // busca um nível mais fundo (ex: { plano_alimentar: { refeicoes: [...] } })
+      for (const v of Object.values(obj)) {
+        if (v && typeof v === 'object' && !Array.isArray(v)) {
+          const found = buscarRefeicoes(v);
+          if (found.length > 0) return found;
+        }
+      }
+      return [];
+    }
+
+    const refeicoesBruto = buscarRefeicoes(plano);
+    console.log('[Lapidare] Refeições encontradas:', refeicoesBruto.length, refeicoesBruto);
+
+    // Verificar ANTES de atualizar qualquer estado — mantém modal aberto com erro
+    if (refeicoesBruto.length === 0) {
+      const chaves = Object.keys(plano).join(', ');
+      console.warn('[Lapidare] Refeições não encontradas. Chaves disponíveis:', chaves);
+      return setErroJson(
+        `Refeições não encontradas. Chaves presentes no JSON: "${chaves || '(nenhuma)'}". ` +
+        `Verifique se existe um campo "refeicoes", "refeições" ou "meals" no JSON.`
+      );
+    }
+
+    // macros: aceita "macros", "macro", ou busca em qualquer chave que tenha "kcal"
+    let macrosBruto = plano.macros ?? plano.macro ?? plano.macronutrientes ?? plano.metas ?? {};
+    if (!macrosBruto || typeof macrosBruto !== 'object') macrosBruto = {};
+    console.log('[Lapidare] Macros encontradas:', macrosBruto);
+
+    const m = macrosBruto;
     setMacros({
-      kcal:        String(m.kcal        ?? m.calorias    ?? ''),
-      proteinas_g: String(m.proteinas_g ?? m.prot_g      ?? m.proteina  ?? m.protein    ?? ''),
-      carbo_g:     String(m.carbo_g     ?? m.cho_g       ?? m.carboidratos ?? m.carbs   ?? ''),
-      gorduras_g:  String(m.gorduras_g  ?? m.lip_g       ?? m.gordura   ?? m.fats       ?? ''),
-      agua_l:      String(m.agua_l      ?? m.agua        ?? m.water      ?? ''),
+      kcal:        String(m.kcal        ?? m.calorias       ?? m.calories    ?? ''),
+      proteinas_g: String(m.proteinas_g ?? m.prot_g         ?? m.proteina    ?? m.proteinas ?? m.protein  ?? ''),
+      carbo_g:     String(m.carbo_g     ?? m.cho_g          ?? m.carboidrato ?? m.carboidratos ?? m.carbs ?? m.cho ?? ''),
+      gorduras_g:  String(m.gorduras_g  ?? m.lip_g          ?? m.gordura     ?? m.gorduras  ?? m.fats  ?? m.lip  ?? ''),
+      agua_l:      String(m.agua_l      ?? m.agua           ?? m.water       ?? ''),
     });
-
-    // refeições: aceita com/sem acento, inglês, singular
-    const refeicoesBruto =
-      plano.refeicoes     ??
-      plano['refeições']  ??
-      plano.refeicao      ??
-      plano['refeição']   ??
-      plano.meals         ??
-      plano.meal          ??
-      plano.refeicoes_do_dia ??
-      [];
 
     const refs = refeicoesBruto.map(r => {
       // alimentos: aceita "alimentos", "foods", "itens", "items"
       const alimentosBruto =
-        r.alimentos ?? r.foods ?? r.itens ?? r.items ?? r.food ?? [];
+        r.alimentos ?? r.foods ?? r.itens ?? r.items ?? r.food ?? r.alimento ?? [];
 
       return {
         _id: Math.random().toString(36).slice(2),
-        nome:    r.nome    ?? r.name    ?? r.refeicao ?? r['refeição'] ?? '',
-        horario: r.horario ?? r.hora    ?? r.time     ?? r.horário    ?? '',
-        alimentos: alimentosBruto.map(a => ({
+        nome:    r.nome    ?? r.name    ?? r.refeicao ?? r['refeição'] ?? r.title ?? '',
+        horario: r.horario ?? r.hora    ?? r.time     ?? r['horário'] ?? r.horario_sugerido ?? '',
+        alimentos: (Array.isArray(alimentosBruto) ? alimentosBruto : []).map(a => ({
           _id: Math.random().toString(36).slice(2),
-          nome:      a.nome      ?? a.name        ?? a.alimento   ?? a.item      ?? '',
-          quantidade: a.quantidade ?? a.qty        ?? a.quantity   ?? a.qtd       ?? a.amount ?? '',
+          nome:      a.nome      ?? a.name      ?? a.alimento ?? a.item    ?? a.descricao ?? '',
+          quantidade: a.quantidade ?? a.qty      ?? a.quantity ?? a.qtd    ?? a.amount    ?? a.porcao ?? '',
           subs: Array.isArray(a.subs)
             ? a.subs.map(s => (typeof s === 'object' ? (s.nome ?? s.name ?? '') : String(s))).join(', ')
             : String(a.subs ?? a.substitutos ?? a.substitutions ?? a.substituicoes ?? ''),
         })).filter(a => a.nome.trim()),
       };
     });
+
     setRefeicoes(refs);
-    if (plano.obs) setObs(plano.obs);
-    if (plano.substituicoes?.length) {
-      setSubstituicoes(plano.substituicoes.map(s => ({
+    if (plano.obs ?? plano.observacoes ?? plano.observações ?? plano.orientacoes) {
+      setObs(plano.obs ?? plano.observacoes ?? plano.observações ?? plano.orientacoes ?? '');
+    }
+    const subsRaw = plano.substituicoes ?? plano.substituições ?? plano.substitutions ?? [];
+    if (subsRaw.length) {
+      setSubstituicoes(subsRaw.map(s => ({
         _id: Math.random().toString(36).slice(2),
-        original: s.original ?? '',
-        subs: Array.isArray(s.subs) ? s.subs.join(', ') : (s.subs ?? ''),
+        original: s.original ?? s.de ?? s.from ?? '',
+        subs: Array.isArray(s.subs) ? s.subs.join(', ') : (s.subs ?? s.por ?? s.to ?? ''),
       })));
     }
+
     setJsonInput('');
     setErroJson(null);
     setJsonOpen(false);
