@@ -4,7 +4,7 @@ import { useSession } from '../../lib/session.jsx';
 import { dataBR } from '../../lib/utils.js';
 
 export default function Plano() {
-  const { user } = useSession();
+  const { user, profile } = useSession();
   const [plano, setPlano] = useState(undefined); // undefined=loading, null=vazio
   const [validade, setValidade] = useState(null);
   const [openSubs, setOpenSubs] = useState({});
@@ -13,10 +13,12 @@ export default function Plano() {
     let active = true;
     async function load() {
       if (!user) return;
+      const pacienteId = profile?.id ?? user.id;
+      if (!pacienteId) return;
       const { data } = await supabase
         .from('planos')
         .select('dados, validade, publicado_em')
-        .eq('paciente_id', user.id)
+        .eq('paciente_id', pacienteId)
         .order('publicado_em', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -26,7 +28,7 @@ export default function Plano() {
     }
     load();
     return () => { active = false; };
-  }, [user]);
+  }, [user, profile]);
 
   const toggleSubs = (key) => setOpenSubs(s => ({ ...s, [key]: !s[key] }));
 
@@ -60,12 +62,12 @@ export default function Plano() {
           <span className="pill ghost" style={{ fontSize: 10 }}>{plano.macros?.kcal} kcal</span>
         </div>
         {[
-          { label: 'Proteína',    v: plano.macros?.prot_g, color: 'var(--red)' },
-          { label: 'Carboidrato', v: plano.macros?.cho_g,  color: 'var(--gold)' },
-          { label: 'Gordura',     v: plano.macros?.lip_g,  color: 'var(--green)' },
+          { label: 'Proteína',    v: plano.macros?.prot_g    ?? plano.macros?.proteinas_g, color: 'var(--red)' },
+          { label: 'Carboidrato', v: plano.macros?.cho_g     ?? plano.macros?.carbo_g,     color: 'var(--gold)' },
+          { label: 'Gordura',     v: plano.macros?.lip_g     ?? plano.macros?.gorduras_g,  color: 'var(--green)' },
         ].map((m, i) => (
           <div key={i} className="macro-row">
-            <div className="macro-label"><span>{m.label}</span><span>{m.v}g</span></div>
+            <div className="macro-label"><span>{m.label}</span><span>{m.v ?? '—'}g</span></div>
             <div className="bar"><i style={{ width: '70%', background: m.color }}></i></div>
           </div>
         ))}
@@ -104,7 +106,7 @@ export default function Plano() {
               <div className="alimento-row" style={{ background: ai % 2 === 0 ? 'var(--paper)' : 'var(--bg-soft)' }}>
                 <div>
                   <div className="alimento-nome">{al.nome}</div>
-                  {al.qty && <div className="alimento-qty">{al.qty}{al.prot_g ? ` · ${al.prot_g}g prot` : ''}</div>}
+                  {(al.qty || al.quantidade) && <div className="alimento-qty">{al.qty ?? al.quantidade}{al.prot_g ? ` · ${al.prot_g}g prot` : ''}</div>}
                 </div>
                 {al.kcal && <span className="alimento-kcal">{al.kcal} kcal</span>}
               </div>
@@ -117,7 +119,7 @@ export default function Plano() {
                   </button>
                   {openSubs[`${ri}-${ai}`] && (
                     <div className="subs-list">
-                      {al.subs.map((s, si) => <div key={si} className="sub-item">→ {s}</div>)}
+                      {al.subs.map((s, si) => <div key={si} className="sub-item">→ {typeof s === 'object' ? (s.nome ?? '') : s}</div>)}
                     </div>
                   )}
                 </>

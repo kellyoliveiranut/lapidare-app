@@ -1348,6 +1348,8 @@ function PublicarPlano({ pacienteId, nutriId, calculosImportados, onLimparImport
   const [erroJson, setErroJson]           = useState(null);
   const [jsonOpen, setJsonOpen]           = useState(false);
   const [substituicoes, setSubstituicoes] = useState([]);
+  const [previewOpen, setPreviewOpen]     = useState(false);
+  const [dadosPreview, setDadosPreview]   = useState(null);
 
   useEffect(() => { carregar(); }, [pacienteId]);
 
@@ -1406,11 +1408,12 @@ function PublicarPlano({ pacienteId, nutriId, calculosImportados, onLimparImport
   /* ── build dados ── */
   function buildDados() {
     const m = {};
-    if (macros.kcal)        m.kcal        = Number(macros.kcal);
-    if (macros.proteinas_g) m.proteinas_g = Number(macros.proteinas_g);
-    if (macros.carbo_g)     m.carbo_g     = Number(macros.carbo_g);
-    if (macros.gorduras_g)  m.gorduras_g  = Number(macros.gorduras_g);
-    if (macros.agua_l)      m.agua_l      = Number(macros.agua_l);
+    if (macros.kcal)        m.kcal   = Number(macros.kcal);
+    // Nomes no padrão do Plano.jsx (paciente): prot_g / cho_g / lip_g
+    if (macros.proteinas_g) m.prot_g = Number(macros.proteinas_g);
+    if (macros.carbo_g)     m.cho_g  = Number(macros.carbo_g);
+    if (macros.gorduras_g)  m.lip_g  = Number(macros.gorduras_g);
+    if (macros.agua_l)      m.agua_l = Number(macros.agua_l);
 
     const refs = refeicoes.map(r => {
       const obj = { nome: r.nome };
@@ -1419,9 +1422,10 @@ function PublicarPlano({ pacienteId, nutriId, calculosImportados, onLimparImport
         .filter(a => a.nome.trim())
         .map(a => {
           const o = { nome: a.nome.trim() };
-          if (a.quantidade.trim()) o.quantidade = a.quantidade.trim();
+          if (a.quantidade.trim()) o.qty = a.quantidade.trim();
+          // subs como array de strings simples (como Plano.jsx espera)
           const subsArr = a.subs.split(',').map(s => s.trim()).filter(Boolean);
-          if (subsArr.length) o.subs = subsArr.map(s => ({ nome: s }));
+          if (subsArr.length) o.subs = subsArr;
           return o;
         });
       if (alims.length) obj.alimentos = alims;
@@ -1528,24 +1532,35 @@ Estrutura JSON obrigatória:
 
   function aplicarJson() {
     setErroJson(null);
-    const raw = jsonInput.replace(/```json\n?|\n?```/g, '').trim();
+    // remove blocos ```json``` em qualquer capitalização
+    const raw = jsonInput.replace(/```[\w]*\n?/gi, '').replace(/\n?```/g, '').trim();
+    if (!raw) return setErroJson('Cole o JSON antes de clicar em Importar.');
     let plano;
-    try { plano = JSON.parse(raw); } catch { return setErroJson('JSON inválido — verifique a formatação.'); }
+    try { plano = JSON.parse(raw); }
+    catch (e) { return setErroJson(`JSON inválido: ${e.message}`); }
+    if (!plano || typeof plano !== 'object') return setErroJson('O JSON precisa ser um objeto { }.');
+
     const m = plano.macros ?? {};
     setMacros({
-      kcal:        m.kcal        != null ? String(m.kcal)        : '',
-      proteinas_g: m.proteinas_g != null ? String(m.proteinas_g) : '',
-      carbo_g:     m.carbo_g     != null ? String(m.carbo_g)     : '',
-      gorduras_g:  m.gorduras_g  != null ? String(m.gorduras_g)  : '',
-      agua_l:      m.agua_l      != null ? String(m.agua_l)      : '',
+      kcal:        String(m.kcal        ?? ''),
+      // aceita proteinas_g (formato Lapidare) OU prot_g (legado/IA)
+      proteinas_g: String(m.proteinas_g ?? m.prot_g ?? ''),
+      carbo_g:     String(m.carbo_g     ?? m.cho_g  ?? ''),
+      gorduras_g:  String(m.gorduras_g  ?? m.lip_g  ?? ''),
+      agua_l:      String(m.agua_l      ?? ''),
     });
+
     const refs = (plano.refeicoes ?? []).map(r => ({
       _id: Math.random().toString(36).slice(2),
-      nome: r.nome ?? '', horario: r.horario ?? '',
+      nome: r.nome ?? '',
+      horario: r.horario ?? '',
       alimentos: (r.alimentos ?? []).map(a => ({
         _id: Math.random().toString(36).slice(2),
-        nome: a.nome ?? '', quantidade: a.quantidade ?? '',
-        subs: Array.isArray(a.subs) ? a.subs.map(s => (typeof s === 'object' ? s.nome : s)).join(', ') : (a.subs ?? ''),
+        nome: a.nome ?? '',
+        quantidade: a.quantidade ?? a.qty ?? '',
+        subs: Array.isArray(a.subs)
+          ? a.subs.map(s => (typeof s === 'object' ? (s.nome ?? '') : String(s))).join(', ')
+          : String(a.subs ?? ''),
       })),
     }));
     setRefeicoes(refs);
@@ -1554,13 +1569,13 @@ Estrutura JSON obrigatória:
       setSubstituicoes(plano.substituicoes.map(s => ({
         _id: Math.random().toString(36).slice(2),
         original: s.original ?? '',
-        subs: s.subs ?? '',
+        subs: Array.isArray(s.subs) ? s.subs.join(', ') : (s.subs ?? ''),
       })));
     }
     setJsonInput('');
     setErroJson(null);
     setJsonOpen(false);
-    setFeedback({ tipo: 'importado', msg: 'JSON importado! Revise o plano e clique em Publicar.' });
+    setFeedback({ tipo: 'importado', msg: `JSON importado! ${refs.length} refeições carregadas. Revise e clique em Publicar.` });
   }
 
   async function publicar() {
@@ -1749,8 +1764,112 @@ DIRETRIZES:
     setGerando(false);
   }
 
+  function abrirPreview() {
+    const dados = buildDados();
+    const v = validarPlano(dados);
+    if (!v.ok) return setFeedback({ tipo: 'erro', msg: v.erro });
+    setDadosPreview(dados);
+    setPreviewOpen(true);
+  }
+
   return (
     <>
+      {/* Modal: Pré-visualização do plano */}
+      {previewOpen && dadosPreview && (
+        <div onClick={() => setPreviewOpen(false)} style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)',
+          display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+          zIndex: 400, padding: '24px 16px', overflowY: 'auto',
+        }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background: 'var(--white)', borderRadius: 14,
+            width: '100%', maxWidth: 480,
+            boxShadow: '0 8px 32px rgba(0,0,0,.18)',
+            overflow: 'hidden',
+          }}>
+            {/* cabeçalho */}
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '16px 20px', borderBottom: '0.5px solid var(--border)',
+            }}>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 600 }}>👁️ Como a paciente vai ver</div>
+                <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 1 }}>Pré-visualização fiel do app da paciente</div>
+              </div>
+              <button onClick={() => setPreviewOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'var(--text3)' }}>
+                <i className="ti ti-x" aria-hidden="true" />
+              </button>
+            </div>
+
+            {/* corpo */}
+            <div style={{ padding: '16px 20px', maxHeight: '70dvh', overflowY: 'auto' }}>
+              {/* Macros */}
+              {dadosPreview.macros && Object.keys(dadosPreview.macros).length > 0 && (
+                <div style={{
+                  background: 'var(--bg2)', borderRadius: 10, padding: '12px 14px', marginBottom: 16,
+                }}>
+                  <div style={{ fontSize: 10, letterSpacing: '.15em', textTransform: 'uppercase', color: 'var(--muted)', fontWeight: 500, marginBottom: 8 }}>
+                    Macros do dia
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {dadosPreview.macros.kcal   && <Pill label="Calorias"  v={dadosPreview.macros.kcal}   u="kcal" />}
+                    {dadosPreview.macros.prot_g && <Pill label="Proteína"  v={dadosPreview.macros.prot_g} u="g" />}
+                    {dadosPreview.macros.cho_g  && <Pill label="Carboidrato" v={dadosPreview.macros.cho_g} u="g" />}
+                    {dadosPreview.macros.lip_g  && <Pill label="Gordura"   v={dadosPreview.macros.lip_g}  u="g" />}
+                    {dadosPreview.macros.agua_l && <Pill label="Água"      v={dadosPreview.macros.agua_l} u="L" />}
+                  </div>
+                </div>
+              )}
+
+              {/* Refeições */}
+              {(dadosPreview.refeicoes ?? []).map((ref, ri) => (
+                <div key={ri} style={{
+                  border: '0.5px solid var(--border)', borderRadius: 10,
+                  marginBottom: 10, overflow: 'hidden',
+                }}>
+                  <div style={{
+                    background: 'var(--bg2)', padding: '8px 12px',
+                    display: 'flex', alignItems: 'center', gap: 8,
+                  }}>
+                    <span style={{ fontWeight: 600, fontSize: 13 }}>{ref.nome}</span>
+                    {ref.horario && <span style={{ fontSize: 11, color: 'var(--muted)', marginLeft: 'auto' }}>{ref.horario}</span>}
+                  </div>
+                  {(ref.alimentos ?? []).map((al, ai) => (
+                    <div key={ai} style={{
+                      padding: '7px 12px',
+                      borderTop: '0.5px solid var(--border)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    }}>
+                      <div style={{ fontSize: 13 }}>{al.nome}</div>
+                      {al.qty && <div style={{ fontSize: 11, color: 'var(--muted)' }}>{al.qty}</div>}
+                    </div>
+                  ))}
+                  {(ref.alimentos ?? []).length === 0 && (
+                    <div style={{ padding: '7px 12px', fontSize: 12, color: 'var(--muted)' }}>Sem alimentos cadastrados</div>
+                  )}
+                </div>
+              ))}
+
+              {dadosPreview.obs && (
+                <div style={{ padding: '10px 14px', background: 'var(--bg2)', borderRadius: 8, fontSize: 12, color: 'var(--text2)', lineHeight: 1.5 }}>
+                  <strong>Orientações:</strong> {dadosPreview.obs}
+                </div>
+              )}
+            </div>
+
+            {/* rodapé */}
+            <div style={{ padding: '12px 20px', borderTop: '0.5px solid var(--border)', display: 'flex', gap: 8 }}>
+              <button className="btn-outline" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setPreviewOpen(false)}>
+                Fechar
+              </button>
+              <button className="btn" style={{ flex: 2, justifyContent: 'center' }} onClick={() => { setPreviewOpen(false); publicar(); }}>
+                <i className="ti ti-send" aria-hidden="true" /> Publicar agora
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal: Colar JSON */}
       {jsonOpen && (
         <div
@@ -2237,6 +2356,15 @@ DIRETRIZES:
               <DateInput value={validade} onChange={e => setValidade(e.target.value)} style={{ maxWidth: 180 }} />
             </div>
             <button
+              className="btn-outline"
+              style={{ gap: 6 }}
+              onClick={abrirPreview}
+              disabled={refeicoes.length === 0}
+            >
+              <i className="ti ti-eye" aria-hidden="true" />
+              Pré-visualizar
+            </button>
+            <button
               className="btn"
               style={{ gap: 6 }}
               onClick={publicar}
@@ -2276,14 +2404,17 @@ DIRETRIZES:
    PUBLICAR LISTA DE COMPRAS
    ============================================================ */
 function PublicarLista({ pacienteId, nutriId }) {
-  const [preview, setPreview]     = useState(null);
-  const [marcados, setMarcados]   = useState({});
-  const [gerando, setGerando]     = useState(false);
-  const [erroIA, setErroIA]       = useState(null);
-  const [busy, setBusy]           = useState(false);
-  const [feedback, setFeedback]   = useState(null);
-  const [historico, setHistorico] = useState([]);
-  const [copiado, setCopiado]     = useState(false);
+  const [preview, setPreview]         = useState(null);
+  const [marcados, setMarcados]       = useState({});
+  const [gerando, setGerando]         = useState(false);
+  const [erroIA, setErroIA]           = useState(null);
+  const [busy, setBusy]               = useState(false);
+  const [feedback, setFeedback]       = useState(null);
+  const [historico, setHistorico]     = useState([]);
+  const [copiado, setCopiado]         = useState(false);
+  const [jsonListaOpen, setJsonListaOpen]   = useState(false);
+  const [jsonListaInput, setJsonListaInput] = useState('');
+  const [erroJsonLista, setErroJsonLista]   = useState(null);
 
   useEffect(() => { carregar(); }, [pacienteId]);
 
@@ -2495,6 +2626,35 @@ Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (e
     setTimeout(() => win.print(), 500);
   }
 
+  function aplicarJsonLista() {
+    setErroJsonLista(null);
+    const raw = jsonListaInput.replace(/```[\w]*\n?/gi, '').replace(/\n?```/g, '').trim();
+    if (!raw) return setErroJsonLista('Cole o JSON antes de clicar em Importar.');
+    let obj;
+    try { obj = JSON.parse(raw); }
+    catch (e) { return setErroJsonLista(`JSON inválido: ${e.message}`); }
+    // aceita { categorias: [...] } (formato Lapidare) ou { lista: [...] } (legado)
+    const cats = obj.categorias ?? obj.lista ?? [];
+    if (!Array.isArray(cats) || cats.length === 0)
+      return setErroJsonLista('Nenhuma categoria encontrada. Verifique a estrutura do JSON.');
+    const listaFormatada = cats.map(cat => ({
+      categoria: cat.nome ?? cat.categoria ?? '',
+      emoji:     cat.icone ?? cat.emoji ?? '',
+      itens: (cat.itens ?? []).map(item => ({
+        _id: Math.random().toString(36).slice(2),
+        nome:      typeof item === 'string' ? item : (item.nome ?? ''),
+        quantidade: typeof item === 'object' ? (item.quantidade ?? '') : '',
+      })).filter(i => i.nome),
+    })).filter(c => c.categoria && c.itens.length > 0);
+    if (!listaFormatada.length)
+      return setErroJsonLista('Nenhum item válido encontrado no JSON.');
+    setPreview({ lista: listaFormatada });
+    setMarcados({});
+    setJsonListaInput('');
+    setErroJsonLista(null);
+    setJsonListaOpen(false);
+  }
+
   async function excluirLista(l) {
     if (!window.confirm(`Excluir lista publicada em ${dataBR(l.publicado_em)}?`)) return;
     const { error } = await supabase.from('listas_compras').delete().eq('id', l.id);
@@ -2508,12 +2668,82 @@ Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (e
 
   return (
     <>
+      {/* Modal: Colar JSON da lista */}
+      {jsonListaOpen && (
+        <div onClick={() => { setJsonListaOpen(false); setErroJsonLista(null); setJsonListaInput(''); }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400, padding: 16 }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background: 'var(--white)', borderRadius: 14,
+            width: '100%', maxWidth: 540, maxHeight: '90dvh',
+            display: 'flex', flexDirection: 'column', overflow: 'hidden',
+            boxShadow: '0 8px 32px rgba(0,0,0,.18)',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 20px 12px', borderBottom: '0.5px solid var(--border)', flexShrink: 0 }}>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 600 }}><i className="ti ti-code" style={{ marginRight: 6 }} /> Colar JSON da lista</div>
+                <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>Cole o JSON gerado pelo Claude ou ChatGPT</div>
+              </div>
+              <button onClick={() => { setJsonListaOpen(false); setErroJsonLista(null); setJsonListaInput(''); }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'var(--text3)' }}>
+                <i className="ti ti-x" aria-hidden="true" />
+              </button>
+            </div>
+            <div style={{ padding: '16px 20px', overflowY: 'auto', flex: 1 }}>
+              <textarea
+                autoFocus
+                value={jsonListaInput}
+                onChange={e => { setJsonListaInput(e.target.value); setErroJsonLista(null); }}
+                rows={12}
+                placeholder={'{\n  "categorias": [\n    {\n      "nome": "Proteínas",\n      "icone": "🥩",\n      "itens": [\n        {"nome": "Frango", "quantidade": "1kg"},\n        {"nome": "Ovos", "quantidade": "12 unidades"}\n      ]\n    }\n  ]\n}'}
+                style={{
+                  width: '100%', boxSizing: 'border-box', resize: 'vertical', minHeight: 220,
+                  fontSize: 12, fontFamily: 'monospace', lineHeight: 1.55,
+                  padding: 10, borderRadius: 8,
+                  border: erroJsonLista ? '1.5px solid var(--red)' : '1px solid var(--border)',
+                  background: 'var(--bg2)', color: 'var(--dark)',
+                }}
+              />
+              {erroJsonLista && (
+                <div style={{ marginTop: 8, padding: '8px 12px', borderRadius: 6, background: 'var(--red-bg)', color: 'var(--red)', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <i className="ti ti-alert-triangle" style={{ flexShrink: 0 }} /> {erroJsonLista}
+                </div>
+              )}
+            </div>
+            <div style={{ padding: '12px 20px', borderTop: '0.5px solid var(--border)', display: 'flex', gap: 8, flexShrink: 0 }}>
+              <button className="btn-outline" style={{ flex: 1, justifyContent: 'center' }}
+                onClick={() => { setJsonListaOpen(false); setErroJsonLista(null); setJsonListaInput(''); }}>
+                Cancelar
+              </button>
+              <button className="btn" style={{ flex: 2, justifyContent: 'center' }}
+                onClick={aplicarJsonLista} disabled={!jsonListaInput.trim()}>
+                <i className="ti ti-file-import" aria-hidden="true" /> Importar lista
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="card">
         <div className="card-header">
           <div>
             <div className="card-title">Lista de compras</div>
             <div className="card-sub">Gerada automaticamente a partir do plano alimentar publicado</div>
           </div>
+          <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <button
+            onClick={() => setJsonListaOpen(true)}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              padding: '7px 12px', borderRadius: 8, cursor: 'pointer',
+              border: '1px solid var(--border)',
+              background: 'var(--bg2)',
+              color: 'var(--dark)', fontSize: 12, fontWeight: 600,
+              fontFamily: 'var(--font-sans)',
+            }}
+          >
+            <i className="ti ti-code" aria-hidden="true" />
+            {'{ }'} Colar JSON
+          </button>
           <button
             onClick={gerarComIA}
             disabled={gerando}
@@ -2532,6 +2762,7 @@ Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (e
                aria-hidden="true" />
             {gerando ? 'Gerando lista...' : '🛒 Gerar com IA'}
           </button>
+          </div>
         </div>
 
         {erroIA && (
@@ -2847,6 +3078,19 @@ function EnviarPrescricao({ pacienteId, nutriId }) {
 /* ============================================================
    COMPONENTES AUXILIARES
    ============================================================ */
+function Pill({ label, v, u }) {
+  return (
+    <div style={{
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      background: 'var(--white)', borderRadius: 8, padding: '6px 10px',
+      border: '0.5px solid var(--border)', minWidth: 64,
+    }}>
+      <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>{v}{u}</span>
+      <span style={{ fontSize: 10, color: 'var(--muted)', marginTop: 1 }}>{label}</span>
+    </div>
+  );
+}
+
 function FeedbackInline({ f }) {
   const ok = f.tipo === 'ok';
   return (
