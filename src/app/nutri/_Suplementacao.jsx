@@ -2,15 +2,17 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { dataBR } from '../../lib/utils.js';
 
+const HOJE_ISO = () => new Date().toISOString().slice(0, 10);
+
 export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
   const [suplementos, setSuplementos] = useState(null);
   const [logs, setLogs] = useState([]);
   const [pdfs, setPdfs] = useState([]);
   const [favoritos, setFavoritos] = useState([]);
   const [editar, setEditar] = useState(null);
+  const [adicionarOpen, setAdicionarOpen] = useState(false);
   const [pdfFile, setPdfFile] = useState(null);
   const [busy, setBusy] = useState(false);
-  const [favoritosOpen, setFavoritosOpen] = useState(false);
 
   async function carregar() {
     const [supRes, logRes, pdfRes] = await Promise.all([
@@ -31,10 +33,8 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
   async function carregarFavoritos() {
     if (!nutriId) return;
     const { data } = await supabase
-      .from('suplementos_favoritos')
-      .select('*')
-      .eq('nutri_id', nutriId)
-      .order('nome');
+      .from('suplementos_favoritos').select('*')
+      .eq('nutri_id', nutriId).order('nome');
     setFavoritos(data ?? []);
   }
 
@@ -57,33 +57,50 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
     setBusy(true);
     let foto_url = s.foto_url ?? null;
     if (fotoFile) {
-      try {
-        foto_url = await uploadFotoSuplemento(fotoFile);
-      } catch (e) {
-        setBusy(false);
-        alert('Erro ao enviar foto: ' + e.message);
-        return;
-      }
+      try { foto_url = await uploadFotoSuplemento(fotoFile); }
+      catch (e) { setBusy(false); alert('Erro ao enviar foto: ' + e.message); return; }
     }
     if (s.novo) {
-      const ordem = (suplementos?.length ?? 0);
       await supabase.from('suplementos').insert({
         paciente_id: pacienteId, nutri_id: nutriId,
         nome: s.nome.trim(), dose: s.dose?.trim() || null,
         horario: s.horario?.trim() || null, obs: s.obs?.trim() || null,
-        foto_url,
-        ativo: true, ordem,
+        foto_url, ativo: true, ordem: suplementos?.length ?? 0,
+        data_inicio: s.data_inicio || HOJE_ISO(),
+        favorito_id: s.favorito_id || null,
       });
     } else {
       await supabase.from('suplementos').update({
         nome: s.nome.trim(), dose: s.dose?.trim() || null,
         horario: s.horario?.trim() || null, obs: s.obs?.trim() || null,
-        foto_url,
-        ativo: s.ativo, updated_at: new Date().toISOString(),
+        foto_url, ativo: s.ativo,
+        data_inicio: s.data_inicio || null,
+        updated_at: new Date().toISOString(),
       }).eq('id', s.id);
     }
     setBusy(false);
     setEditar(null);
+    setAdicionarOpen(false);
+    carregar();
+  }
+
+  async function salvarVarios(items) {
+    setBusy(true);
+    const base = suplementos?.length ?? 0;
+    const rows = items.map((item, i) => ({
+      paciente_id: pacienteId, nutri_id: nutriId,
+      nome: item.nome,
+      dose: item.dose?.trim() || null,
+      horario: item.horario?.trim() || null,
+      obs: item.obs?.trim() || null,
+      foto_url: item.foto_url || null,
+      ativo: true, ordem: base + i,
+      data_inicio: item.data_inicio || HOJE_ISO(),
+      favorito_id: item.favorito_id || null,
+    }));
+    await supabase.from('suplementos').insert(rows);
+    setBusy(false);
+    setAdicionarOpen(false);
     carregar();
   }
 
@@ -93,23 +110,17 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
     carregar();
   }
 
-  async function salvarFavorito(s) {
-    const payload = {
+  async function salvarNaBiblioteca(s) {
+    const { error } = await supabase.from('suplementos_favoritos').insert({
       nutri_id: nutriId,
       nome: s.nome.trim(),
       dose: s.dose?.trim() || null,
       horario: s.horario?.trim() || null,
       obs: s.obs?.trim() || null,
       foto_url: s.foto_url ?? null,
-    };
-    const { error } = await supabase.from('suplementos_favoritos').insert(payload);
-    if (error) { alert('Erro ao salvar favorito: ' + error.message); return; }
-    alert('Salvo nos favoritos!');
-    carregarFavoritos();
-  }
-
-  async function excluirFavorito(favId) {
-    await supabase.from('suplementos_favoritos').delete().eq('id', favId);
+    });
+    if (error) { alert('Erro ao salvar: ' + error.message); return; }
+    alert('Salvo na Biblioteca!');
     carregarFavoritos();
   }
 
@@ -124,8 +135,7 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
     if (upErr) { setBusy(false); alert('Erro: ' + upErr.message); return; }
     await supabase.from('prescricoes').insert({
       paciente_id: pacienteId, nutri_id: nutriId,
-      tipo: 'suplementacao', titulo,
-      storage_path: path,
+      tipo: 'suplementacao', titulo, storage_path: path,
     });
     setBusy(false);
     setPdfFile(null);
@@ -151,9 +161,8 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
     const ativos = (suplementos ?? []).filter(s => s.ativo);
     if (ativos.length === 0) return null;
     const dias7 = [];
-    for (let i = 6; i >= 0; i--) {
+    for (let i = 6; i >= 0; i--)
       dias7.push(new Date(Date.now() - i * 86_400_000).toISOString().slice(0, 10));
-    }
     const esperado = ativos.length * dias7.length;
     const cumprido = logs.filter(l =>
       l.tomado && dias7.includes(l.data) && ativos.some(s => s.id === l.suplemento_id)
@@ -169,24 +178,18 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
             <div className="card-title">Suplementação de {pacienteNome?.split(' ')[0] ?? 'paciente'}</div>
             <div className="card-sub">Lista pra ela checar todo dia + PDF da prescrição</div>
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn-outline" onClick={() => setFavoritosOpen(true)}>
-              <i className="ti ti-star" aria-hidden="true"></i> Favoritos
-            </button>
-            <button className="btn" onClick={() => setEditar({ novo: true, nome: '', dose: '', horario: '', obs: '', foto_url: null, ativo: true })}>
-              <i className="ti ti-plus" aria-hidden="true"></i> Novo suplemento
-            </button>
-          </div>
+          <button className="btn" onClick={() => setAdicionarOpen(true)}>
+            <i className="ti ti-plus" aria-hidden="true"></i> Adicionar suplemento
+          </button>
         </div>
 
         <div className="card-body">
           {aderencia !== null && (
             <div style={{
               display: 'flex', gap: 12, alignItems: 'center',
-              padding: 12, borderRadius: 10,
+              padding: 12, borderRadius: 10, marginBottom: 14,
               background: aderencia >= 70 ? 'var(--green-bg)' : aderencia >= 40 ? 'var(--orange-bg)' : 'var(--red-bg)',
               border: `0.5px solid var(--${aderencia >= 70 ? 'green' : aderencia >= 40 ? 'orange' : 'red'})`,
-              marginBottom: 14,
             }}>
               <div style={{
                 fontSize: 24, fontWeight: 600,
@@ -212,10 +215,15 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
             <div style={{ padding: 16, color: 'var(--text3)', fontSize: 13 }}>Carregando…</div>
           ) : suplementos.length === 0 ? (
             <div style={{
-              padding: '14px 16px', borderRadius: 8, background: 'var(--bg2)',
-              fontSize: 12, color: 'var(--text3)',
+              padding: '20px 16px', borderRadius: 8, background: 'var(--bg2)',
+              fontSize: 12, color: 'var(--text3)', textAlign: 'center',
             }}>
-              Nenhum suplemento adicionado. Clica em "Novo suplemento" pra começar.
+              <i className="ti ti-pill" style={{ fontSize: 28, display: 'block', marginBottom: 8 }} aria-hidden="true"></i>
+              Nenhum suplemento prescrito ainda.
+              <br />
+              <button className="btn" style={{ marginTop: 12 }} onClick={() => setAdicionarOpen(true)}>
+                <i className="ti ti-plus" aria-hidden="true"></i> Adicionar suplemento
+              </button>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -228,24 +236,28 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
                   opacity: s.ativo ? 1 : 0.6,
                 }}>
                   {s.foto_url ? (
-                    <img src={s.foto_url} alt={s.nome}
-                      loading="lazy" decoding="async"
+                    <img src={s.foto_url} alt={s.nome} loading="lazy" decoding="async"
                       style={{ width: 36, height: 36, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />
                   ) : (
-                    <i className="ti ti-pill" style={{ fontSize: 18, color: 'var(--gold-deep, var(--dark))', flexShrink: 0 }} aria-hidden="true"></i>
+                    <i className="ti ti-pill"
+                      style={{ fontSize: 18, color: 'var(--gold-deep, var(--dark))', flexShrink: 0 }}
+                      aria-hidden="true"></i>
                   )}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 14, fontWeight: 500 }}>
                       {s.nome}
                       {!s.ativo && <span style={{ fontSize: 10, color: 'var(--text3)', marginLeft: 6 }}>(pausado)</span>}
                     </div>
-                    <div style={{ fontSize: 11, color: 'var(--text3)', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <div style={{ fontSize: 11, color: 'var(--text3)', display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 2 }}>
                       {s.dose && <span><i className="ti ti-droplet" aria-hidden="true"></i> {s.dose}</span>}
                       {s.horario && <span><i className="ti ti-clock" aria-hidden="true"></i> {s.horario}</span>}
+                      {s.data_inicio && (
+                        <span><i className="ti ti-calendar" aria-hidden="true"></i> desde {dataBR(s.data_inicio)}</span>
+                      )}
                       {s.obs && <span style={{ fontStyle: 'italic' }}>"{s.obs}"</span>}
                     </div>
                   </div>
-                  <button onClick={() => salvarFavorito(s)} title="Salvar como favorito"
+                  <button onClick={() => salvarNaBiblioteca(s)} title="Salvar na Biblioteca"
                     style={{
                       background: 'none', border: '0.5px solid var(--border)',
                       borderRadius: 6, padding: '3px 8px', cursor: 'pointer',
@@ -253,7 +265,8 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
                     }}>
                     <i className="ti ti-star" aria-hidden="true"></i>
                   </button>
-                  <button onClick={() => setEditar({ ...s, novo: false })} className="btn-outline" style={{ fontSize: 11, padding: '3px 8px' }}>
+                  <button onClick={() => setEditar({ ...s, novo: false })}
+                    className="btn-outline" style={{ fontSize: 11, padding: '3px 8px' }}>
                     <i className="ti ti-edit" aria-hidden="true"></i>
                   </button>
                   <button onClick={() => excluir(s)}
@@ -318,25 +331,22 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
         </div>
       </div>
 
+      {adicionarOpen && (
+        <ModalAdicionarSuplemento
+          favoritos={favoritos}
+          onClose={() => setAdicionarOpen(false)}
+          onSalvarBiblioteca={salvarVarios}
+          onSalvarManual={(s, fotoFile) => salvar({ ...s, novo: true }, fotoFile)}
+          busy={busy}
+        />
+      )}
+
       {editar && (
         <ModalSuplemento
           s={editar}
           onClose={() => setEditar(null)}
           onSave={salvar}
-          onSalvarFavorito={salvarFavorito}
           busy={busy}
-        />
-      )}
-
-      {favoritosOpen && (
-        <ModalFavoritos
-          favoritos={favoritos}
-          onUsar={fav => {
-            setEditar({ novo: true, nome: fav.nome, dose: fav.dose ?? '', horario: fav.horario ?? '', obs: fav.obs ?? '', foto_url: fav.foto_url ?? null, ativo: true });
-            setFavoritosOpen(false);
-          }}
-          onExcluir={excluirFavorito}
-          onClose={() => setFavoritosOpen(false)}
         />
       )}
     </>
@@ -344,7 +354,61 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
 }
 
 
-function ModalFavoritos({ favoritos, onUsar, onExcluir, onClose }) {
+/* ============================================================
+   MODAL ADICIONAR SUPLEMENTO — escolher da biblioteca ou manual
+   ============================================================ */
+function ModalAdicionarSuplemento({ favoritos, onClose, onSalvarBiblioteca, onSalvarManual, busy }) {
+  const [modo, setModo] = useState(null); // null | 'biblioteca' | 'manual'
+
+  // estado biblioteca: { [favId]: { nome, dose, horario, obs, foto_url, data_inicio, favorito_id } }
+  const [selecionados, setSelecionados] = useState({});
+
+  // estado manual
+  const [form, setForm] = useState({
+    nome: '', dose: '', horario: '', obs: '', foto_url: null,
+    data_inicio: new Date().toISOString().slice(0, 10),
+  });
+  const [fotoFile, setFotoFile] = useState(null);
+  const [fotoPreview, setFotoPreview] = useState(null);
+
+  function toggleFav(fav) {
+    setSelecionados(prev => {
+      if (prev[fav.id]) {
+        const next = { ...prev };
+        delete next[fav.id];
+        return next;
+      }
+      return {
+        ...prev,
+        [fav.id]: {
+          nome: fav.nome,
+          dose: fav.dose ?? '',
+          horario: fav.horario ?? '',
+          obs: fav.obs ?? '',
+          foto_url: fav.foto_url ?? null,
+          data_inicio: new Date().toISOString().slice(0, 10),
+          favorito_id: fav.id,
+        },
+      };
+    });
+  }
+
+  function updateSel(favId, field, value) {
+    setSelecionados(prev => ({ ...prev, [favId]: { ...prev[favId], [field]: value } }));
+  }
+
+  function handleFotoChange(e) {
+    const file = e.target.files?.[0] ?? null;
+    setFotoFile(file);
+    if (file) setFotoPreview(URL.createObjectURL(file));
+  }
+
+  const qtd = Object.keys(selecionados).length;
+
+  const titulo = modo === null
+    ? 'Adicionar suplemento'
+    : modo === 'biblioteca' ? 'Escolher da Biblioteca' : 'Adicionar manualmente';
+
   return (
     <div onClick={onClose} style={{
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)',
@@ -353,56 +417,281 @@ function ModalFavoritos({ favoritos, onUsar, onExcluir, onClose }) {
     }}>
       <div onClick={e => e.stopPropagation()} style={{
         background: 'var(--white)', borderRadius: 12,
-        maxWidth: 480, width: '100%', maxHeight: '80vh',
-        display: 'flex', flexDirection: 'column', padding: 20,
+        maxWidth: 500, width: '100%',
+        maxHeight: '90vh', display: 'flex', flexDirection: 'column',
+        padding: 20,
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 12 }}>
-          <div style={{ fontSize: 16, fontWeight: 500 }}>Suplementos favoritos</div>
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {modo && (
+              <button onClick={() => setModo(null)} style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: 'var(--text3)', padding: '2px 4px', fontSize: 16,
+              }}>
+                <i className="ti ti-arrow-left" aria-hidden="true"></i>
+              </button>
+            )}
+            <div style={{ fontSize: 16, fontWeight: 500 }}>{titulo}</div>
+          </div>
           <button onClick={onClose} style={{
             background: 'none', border: 'none', cursor: 'pointer',
             fontSize: 18, color: 'var(--text3)', padding: 4,
-          }}><i className="ti ti-x" aria-hidden="true"></i></button>
+          }}>
+            <i className="ti ti-x" aria-hidden="true"></i>
+          </button>
         </div>
 
-        {favoritos.length === 0 ? (
-          <div style={{ fontSize: 13, color: 'var(--text3)', padding: '20px 0', textAlign: 'center' }}>
-            Nenhum favorito salvo ainda. Clique em ⭐ em um suplemento para salvar.
-          </div>
-        ) : (
-          <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {favoritos.map(fav => (
-              <div key={fav.id} style={{
-                display: 'flex', gap: 10, alignItems: 'center',
-                padding: 10, borderRadius: 8, background: 'var(--bg2)',
-                border: '0.5px solid var(--border)',
+        {/* ── Chooser ── */}
+        {modo === null && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <button
+              onClick={() => setModo('biblioteca')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 14,
+                padding: '14px 16px', borderRadius: 10, cursor: 'pointer',
+                background: 'var(--bg2)', border: '0.5px solid var(--border)',
+                textAlign: 'left', fontFamily: 'var(--font-sans)',
               }}>
-                {fav.foto_url ? (
-                  <img src={fav.foto_url} alt={fav.nome}
-                    loading="lazy" decoding="async"
-                    style={{ width: 36, height: 36, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />
-                ) : (
-                  <i className="ti ti-pill" style={{ fontSize: 18, color: 'var(--text3)', flexShrink: 0 }} aria-hidden="true"></i>
-                )}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 500 }}>{fav.nome}</div>
-                  <div style={{ fontSize: 11, color: 'var(--text3)', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    {fav.dose && <span>{fav.dose}</span>}
-                    {fav.horario && <span>{fav.horario}</span>}
-                  </div>
+              <i className="ti ti-books"
+                style={{ fontSize: 24, color: 'var(--gold-deep, #a08456)', flexShrink: 0 }}
+                aria-hidden="true"></i>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--dark)' }}>
+                  Escolher da Biblioteca
                 </div>
-                <button className="btn-outline" onClick={() => onUsar(fav)} style={{ fontSize: 11, padding: '3px 10px' }}>
-                  Usar
-                </button>
-                <button onClick={() => onExcluir(fav.id)}
-                  style={{
-                    background: 'none', border: '0.5px solid var(--red)',
-                    borderRadius: 6, padding: '3px 8px', color: 'var(--red)', cursor: 'pointer',
-                  }}>
-                  <i className="ti ti-trash" aria-hidden="true"></i>
-                </button>
+                <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>
+                  {favoritos.length === 0
+                    ? 'Nenhum suplemento salvo ainda'
+                    : `${favoritos.length} suplemento${favoritos.length !== 1 ? 's' : ''} salvos — posologia editável`}
+                </div>
               </div>
-            ))}
+              <i className="ti ti-chevron-right" style={{ color: 'var(--text3)' }} aria-hidden="true"></i>
+            </button>
+
+            <button
+              onClick={() => setModo('manual')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 14,
+                padding: '14px 16px', borderRadius: 10, cursor: 'pointer',
+                background: 'var(--bg2)', border: '0.5px solid var(--border)',
+                textAlign: 'left', fontFamily: 'var(--font-sans)',
+              }}>
+              <i className="ti ti-edit"
+                style={{ fontSize: 24, color: 'var(--blue, #1a5a8c)', flexShrink: 0 }}
+                aria-hidden="true"></i>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--dark)' }}>
+                  Adicionar manualmente
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>
+                  Preencher nome, posologia e data de início
+                </div>
+              </div>
+              <i className="ti ti-chevron-right" style={{ color: 'var(--text3)' }} aria-hidden="true"></i>
+            </button>
           </div>
+        )}
+
+        {/* ── Biblioteca ── */}
+        {modo === 'biblioteca' && (
+          <>
+            {favoritos.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--text3)', fontSize: 13 }}>
+                <i className="ti ti-books" style={{ fontSize: 32, display: 'block', marginBottom: 8 }} aria-hidden="true"></i>
+                Nenhum suplemento na Biblioteca ainda.
+                <br />
+                <span style={{ fontSize: 11, marginTop: 6, display: 'block' }}>
+                  Adicione manualmente e clique em ⭐ para salvar na Biblioteca.
+                </span>
+              </div>
+            ) : (
+              <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {favoritos.map(fav => {
+                  const sel = selecionados[fav.id];
+                  return (
+                    <div key={fav.id} style={{
+                      borderRadius: 10,
+                      border: `1px solid ${sel ? 'var(--amber, #c9a96e)' : 'var(--border)'}`,
+                      background: sel ? 'var(--amber-bg, #fdf8ee)' : 'var(--bg2)',
+                      overflow: 'hidden',
+                      transition: 'border-color .15s',
+                    }}>
+                      {/* Linha clicável */}
+                      <div
+                        onClick={() => toggleFav(fav)}
+                        style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', cursor: 'pointer' }}>
+                        {/* Checkbox visual */}
+                        <div style={{
+                          width: 20, height: 20, borderRadius: 6, flexShrink: 0,
+                          background: sel ? 'var(--amber, #c9a96e)' : 'var(--white)',
+                          border: `1.5px solid ${sel ? 'var(--amber, #c9a96e)' : 'var(--border)'}`,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          color: 'var(--white)', fontSize: 12,
+                        }}>
+                          {sel && <i className="ti ti-check" aria-hidden="true"></i>}
+                        </div>
+                        {fav.foto_url ? (
+                          <img src={fav.foto_url} alt={fav.nome} loading="lazy" decoding="async"
+                            style={{ width: 32, height: 32, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />
+                        ) : (
+                          <i className="ti ti-pill"
+                            style={{ fontSize: 16, color: 'var(--text3)', flexShrink: 0 }}
+                            aria-hidden="true"></i>
+                        )}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 500 }}>{fav.nome}</div>
+                          {(fav.dose || fav.horario) && (
+                            <div style={{ fontSize: 11, color: 'var(--text3)' }}>
+                              {[fav.dose, fav.horario].filter(Boolean).join(' · ')}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Posologia editável quando selecionado */}
+                      {sel && (
+                        <div style={{
+                          padding: '10px 12px 12px',
+                          borderTop: '0.5px solid var(--border)',
+                          background: 'var(--white)',
+                          display: 'flex', flexDirection: 'column', gap: 8,
+                        }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                            <div>
+                              <label className="form-lbl">Posologia</label>
+                              <input
+                                value={sel.dose}
+                                onChange={e => updateSel(fav.id, 'dose', e.target.value)}
+                                placeholder="1 cápsula, 5g…"
+                              />
+                            </div>
+                            <div>
+                              <label className="form-lbl">Horário</label>
+                              <input
+                                value={sel.horario}
+                                onChange={e => updateSel(fav.id, 'horario', e.target.value)}
+                                placeholder="Café da manhã…"
+                              />
+                            </div>
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                            <div>
+                              <label className="form-lbl">Data de início</label>
+                              <input
+                                type="date"
+                                value={sel.data_inicio}
+                                onChange={e => updateSel(fav.id, 'data_inicio', e.target.value)}
+                              />
+                            </div>
+                            <div>
+                              <label className="form-lbl">Observação</label>
+                              <input
+                                value={sel.obs}
+                                onChange={e => updateSel(fav.id, 'obs', e.target.value)}
+                                placeholder="Tomar em jejum…"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+              <button className="btn-outline" style={{ flex: 1, justifyContent: 'center' }} onClick={onClose}>
+                Cancelar
+              </button>
+              {qtd > 0 && (
+                <button
+                  className="btn" style={{ flex: 2, justifyContent: 'center' }}
+                  onClick={() => onSalvarBiblioteca(Object.values(selecionados))}
+                  disabled={busy}>
+                  <i className="ti ti-check" aria-hidden="true"></i>
+                  {busy ? 'Salvando…' : `Adicionar ${qtd} suplemento${qtd > 1 ? 's' : ''}`}
+                </button>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* ── Manual ── */}
+        {modo === 'manual' && (
+          <>
+            <div style={{ overflowY: 'auto', flex: 1 }}>
+              <label className="form-lbl">Nome</label>
+              <input
+                value={form.nome}
+                onChange={e => setForm({ ...form, nome: e.target.value })}
+                placeholder="Ex: Vitamina D3 2000UI"
+                autoFocus
+              />
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 10 }}>
+                <div>
+                  <label className="form-lbl">Posologia</label>
+                  <input
+                    value={form.dose}
+                    onChange={e => setForm({ ...form, dose: e.target.value })}
+                    placeholder="1 cápsula, 5g…"
+                  />
+                </div>
+                <div>
+                  <label className="form-lbl">Horário</label>
+                  <input
+                    value={form.horario}
+                    onChange={e => setForm({ ...form, horario: e.target.value })}
+                    placeholder="Café da manhã, 08:00…"
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 10 }}>
+                <div>
+                  <label className="form-lbl">Data de início</label>
+                  <input
+                    type="date"
+                    value={form.data_inicio}
+                    onChange={e => setForm({ ...form, data_inicio: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="form-lbl">Observação (opcional)</label>
+                  <input
+                    value={form.obs}
+                    onChange={e => setForm({ ...form, obs: e.target.value })}
+                    placeholder="Tomar em jejum, com gordura…"
+                  />
+                </div>
+              </div>
+
+              <label className="form-lbl" style={{ marginTop: 10 }}>Foto do suplemento (opcional)</label>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 4 }}>
+                {fotoPreview && (
+                  <img src={fotoPreview} alt="preview" loading="lazy" decoding="async"
+                    style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
+                )}
+                <input type="file" accept="image/*" onChange={handleFotoChange}
+                  style={{ flex: 1, fontSize: 12 }} />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+              <button className="btn-outline" style={{ flex: 1, justifyContent: 'center' }} onClick={onClose}>
+                Cancelar
+              </button>
+              <button
+                className="btn" style={{ flex: 1, justifyContent: 'center' }}
+                onClick={() => onSalvarManual(form, fotoFile)}
+                disabled={busy || !form.nome.trim()}>
+                <i className="ti ti-check" aria-hidden="true"></i>
+                {busy ? 'Salvando…' : 'Salvar'}
+              </button>
+            </div>
+          </>
         )}
       </div>
     </div>
@@ -410,18 +699,21 @@ function ModalFavoritos({ favoritos, onUsar, onExcluir, onClose }) {
 }
 
 
-function ModalSuplemento({ s, onClose, onSave, onSalvarFavorito, busy }) {
-  const [form, setForm] = useState(s);
+/* ============================================================
+   MODAL EDITAR SUPLEMENTO
+   ============================================================ */
+function ModalSuplemento({ s, onClose, onSave, busy }) {
+  const [form, setForm] = useState({
+    ...s,
+    data_inicio: s.data_inicio ?? new Date().toISOString().slice(0, 10),
+  });
   const [fotoFile, setFotoFile] = useState(null);
   const [fotoPreview, setFotoPreview] = useState(s.foto_url ?? null);
 
   function handleFotoChange(e) {
     const file = e.target.files?.[0] ?? null;
     setFotoFile(file);
-    if (file) {
-      const url = URL.createObjectURL(file);
-      setFotoPreview(url);
-    }
+    if (file) setFotoPreview(URL.createObjectURL(file));
   }
 
   return (
@@ -436,11 +728,13 @@ function ModalSuplemento({ s, onClose, onSave, onSalvarFavorito, busy }) {
         maxHeight: '90vh', overflowY: 'auto',
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 12 }}>
-          <div style={{ fontSize: 16, fontWeight: 500 }}>{s.novo ? 'Novo suplemento' : 'Editar suplemento'}</div>
+          <div style={{ fontSize: 16, fontWeight: 500 }}>Editar suplemento</div>
           <button onClick={onClose} style={{
             background: 'none', border: 'none', cursor: 'pointer',
             fontSize: 18, color: 'var(--text3)', padding: 4,
-          }}><i className="ti ti-x" aria-hidden="true"></i></button>
+          }}>
+            <i className="ti ti-x" aria-hidden="true"></i>
+          </button>
         </div>
 
         <label className="form-lbl">Nome</label>
@@ -449,51 +743,51 @@ function ModalSuplemento({ s, onClose, onSave, onSalvarFavorito, busy }) {
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 10 }}>
           <div>
-            <label className="form-lbl">Dose</label>
+            <label className="form-lbl">Posologia</label>
             <input value={form.dose ?? ''} onChange={e => setForm({ ...form, dose: e.target.value })}
-              placeholder="1 cápsula, 5g..." />
+              placeholder="1 cápsula, 5g…" />
           </div>
           <div>
             <label className="form-lbl">Horário</label>
             <input value={form.horario ?? ''} onChange={e => setForm({ ...form, horario: e.target.value })}
-              placeholder="Café da manhã, 08:00..." />
+              placeholder="Café da manhã, 08:00…" />
           </div>
         </div>
 
-        <label className="form-lbl" style={{ marginTop: 10 }}>Observação (opcional)</label>
-        <input value={form.obs ?? ''} onChange={e => setForm({ ...form, obs: e.target.value })}
-          placeholder="Tomar em jejum, com gordura..." />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 10 }}>
+          <div>
+            <label className="form-lbl">Data de início</label>
+            <input type="date" value={form.data_inicio ?? ''} onChange={e => setForm({ ...form, data_inicio: e.target.value })} />
+          </div>
+          <div>
+            <label className="form-lbl">Observação (opcional)</label>
+            <input value={form.obs ?? ''} onChange={e => setForm({ ...form, obs: e.target.value })}
+              placeholder="Tomar em jejum, com gordura…" />
+          </div>
+        </div>
 
         <label className="form-lbl" style={{ marginTop: 10 }}>Foto do suplemento (opcional)</label>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 4 }}>
           {fotoPreview && (
-            <img src={fotoPreview} alt="preview"
-              loading="lazy" decoding="async"
+            <img src={fotoPreview} alt="preview" loading="lazy" decoding="async"
               style={{ width: 52, height: 52, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
           )}
           <input type="file" accept="image/*" onChange={handleFotoChange}
             style={{ flex: 1, fontSize: 12 }} />
         </div>
 
-        {!s.novo && (
-          <label style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            marginTop: 14, fontSize: 13, cursor: 'pointer',
-          }}>
-            <input type="checkbox" checked={!form.ativo}
-              onChange={e => setForm({ ...form, ativo: !e.target.checked })} />
-            Pausar (paciente não vê na lista do dia)
-          </label>
-        )}
+        <label style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          marginTop: 14, fontSize: 13, cursor: 'pointer',
+        }}>
+          <input type="checkbox" checked={!form.ativo}
+            onChange={e => setForm({ ...form, ativo: !e.target.checked })} />
+          Pausar (paciente não vê na lista do dia)
+        </label>
 
         <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
           <button className="btn-outline" style={{ flex: 1, justifyContent: 'center' }} onClick={onClose}>
             Cancelar
-          </button>
-          <button className="btn-outline" style={{ justifyContent: 'center', padding: '0 12px' }}
-            onClick={() => onSalvarFavorito({ ...form })}
-            title="Salvar como favorito">
-            <i className="ti ti-star" aria-hidden="true"></i>
           </button>
           <button className="btn" style={{ flex: 1, justifyContent: 'center' }}
             onClick={() => onSave(form, fotoFile)} disabled={busy}>
