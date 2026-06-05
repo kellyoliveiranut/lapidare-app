@@ -578,13 +578,6 @@ function ModalEditarDados({ paciente, onClose, onSaved }) {
     onClose();
   }
 
-  const F = ({ label, k, type = 'text', children }) => (
-    <div>
-      <label className="field-label">{label}</label>
-      {children ?? <input type={type} value={form[k]} onChange={set(k)} />}
-    </div>
-  );
-
   return (
     <div
       onClick={onClose}
@@ -608,26 +601,45 @@ function ModalEditarDados({ paciente, onClose, onSaved }) {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 20 }}>
-          <F label="Nome completo" k="nome" />
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <F label="E-mail" k="email" type="email" />
-            <F label="Telefone" k="telefone" type="tel" />
+          <div>
+            <label className="field-label">Nome completo</label>
+            <input type="text" value={form.nome} onChange={set('nome')} />
           </div>
 
-          <F label="Data de nascimento" k="nascimento" type="date" />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label className="field-label">E-mail</label>
+              <input type="email" value={form.email} onChange={set('email')} />
+            </div>
+            <div>
+              <label className="field-label">Telefone</label>
+              <input
+                type="tel"
+                inputMode="tel"
+                value={form.telefone}
+                onChange={set('telefone')}
+              />
+            </div>
+          </div>
 
-          <F label="Objetivo">
+          <div>
+            <label className="field-label">Data de nascimento</label>
+            <input type="date" value={form.nascimento} onChange={set('nascimento')} />
+          </div>
+
+          <div>
+            <label className="field-label">Objetivo</label>
             <select value={form.objetivo} onChange={set('objetivo')}>
               <option value="">— sem objetivo definido —</option>
               {['Emagrecimento', 'Hipertrofia', 'Reeducação alimentar', 'Saúde geral', 'Performance esportiva', 'Oncologia', 'Outro'].map(o => (
                 <option key={o} value={o}>{o}</option>
               ))}
             </select>
-          </F>
+          </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <F label="Tipo de plano">
+            <div>
+              <label className="field-label">Tipo de plano</label>
               <input
                 list="modal-tipos-plano"
                 value={form.tipo_plano}
@@ -639,16 +651,17 @@ function ModalEditarDados({ paciente, onClose, onSaved }) {
                   <option key={o} value={o} />
                 ))}
               </datalist>
-            </F>
+            </div>
 
-            <F label="Modalidade">
+            <div>
+              <label className="field-label">Modalidade</label>
               <select value={form.modalidade} onChange={set('modalidade')}>
                 <option value="">— selecione —</option>
                 {['Online', 'Presencial', 'Híbrido'].map(o => (
                   <option key={o} value={o}>{o}</option>
                 ))}
               </select>
-            </F>
+            </div>
           </div>
         </div>
 
