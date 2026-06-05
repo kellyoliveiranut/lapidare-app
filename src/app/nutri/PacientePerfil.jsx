@@ -2703,11 +2703,26 @@ Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (e
       if (Array.isArray(obj)) {
         arr = obj;
       } else if (obj && typeof obj === 'object') {
-        arr = obj.categorias ?? obj.lista ?? obj.items ?? obj.compras ?? obj.shopping_list ?? null;
+        arr = obj.categorias ?? obj.lista ?? obj.lista_compras ?? obj.items ?? obj.compras ?? obj.shopping_list ?? null;
         // fallback: qualquer valor que seja array não-vazio
         if (!Array.isArray(arr) || arr.length === 0) {
           for (const v of Object.values(obj)) {
             if (Array.isArray(v) && v.length > 0) { arr = v; break; }
+          }
+        }
+        // caso especial: dicionário { "Proteínas": ["Frango 1kg", ...], "Vegetais": [...] }
+        if (!Array.isArray(arr) && arr && typeof arr === 'object') {
+          const entradas = Object.entries(arr);
+          if (entradas.length > 0 && entradas.every(([, v]) => Array.isArray(v))) {
+            return entradas.map(([cat, itens]) => ({
+              categoria: cat,
+              emoji: '',
+              itens: itens.map(item => ({
+                _id:        Math.random().toString(36).slice(2),
+                nome:       typeof item === 'string' ? item : (item.nome ?? item.name ?? item.item ?? ''),
+                quantidade: typeof item === 'object' ? (item.quantidade ?? item.qty ?? item.quantity ?? '') : '',
+              })).filter(i => i.nome),
+            })).filter(c => c.itens.length > 0);
           }
         }
       }
