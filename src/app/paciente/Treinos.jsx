@@ -92,9 +92,27 @@ export default function TreinosPaciente() {
 
   const embedUrl = youtubeEmbedUrl(treino.video_url);
   const metaAtingida = semanaCount >= treino.frequencia_semanal;
+  const pct = treino.frequencia_semanal > 0
+    ? Math.min(100, Math.round((semanaCount / treino.frequencia_semanal) * 100))
+    : 0;
 
   return (
     <>
+      {/* Aviso de segurança fixo */}
+      <div style={{
+        display: 'flex', alignItems: 'flex-start', gap: 10,
+        padding: '12px 14px', borderRadius: 10, marginBottom: 12,
+        background: 'var(--orange-bg)', border: '0.5px solid var(--orange)',
+        fontSize: 12, color: 'var(--dark)', lineHeight: 1.5,
+      }}>
+        <i className="ti ti-alert-triangle" style={{ fontSize: 16, color: 'var(--orange)', flexShrink: 0, marginTop: 1 }} aria-hidden="true" />
+        <span>
+          <strong>Importante:</strong> inicie os exercícios apenas após liberação médica.
+          Respeite os limites do seu corpo. Em caso de dor, tontura ou falta de ar,
+          pare imediatamente e comunique sua nutricionista.
+        </span>
+      </div>
+
       {/* Card do treino prescrito */}
       <div className="card" style={{ marginBottom: 12 }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
@@ -111,12 +129,47 @@ export default function TreinosPaciente() {
               {treino.intensidade} · {treino.frequencia_semanal}×/semana · {treino.duracao_minutos} min/sessão
             </div>
             <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>{treino.fase_tratamento}</div>
+            {treino.dias_semana?.length > 0 && (
+              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 6 }}>
+                {treino.dias_semana.map(d => (
+                  <span key={d} style={{
+                    padding: '2px 7px', borderRadius: 5, fontSize: 11, fontWeight: 500,
+                    background: 'var(--green-bg)', color: 'var(--green)',
+                  }}>{d}</span>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
+        {treino.objetivo_treino && (
+          <div style={{
+            marginTop: 12, padding: '8px 12px', borderRadius: 8,
+            background: 'var(--bg2)', fontSize: 13, color: 'var(--text2)',
+          }}>
+            <span style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 500, display: 'block', marginBottom: 2 }}>
+              🎯 Objetivo
+            </span>
+            {treino.objetivo_treino}
+          </div>
+        )}
+
+        {treino.precaucoes && (
+          <div style={{
+            marginTop: 8, padding: '8px 12px', borderRadius: 8,
+            background: 'var(--orange-bg)', border: '0.5px solid var(--orange)',
+            fontSize: 13, color: 'var(--dark)', lineHeight: 1.5,
+          }}>
+            <span style={{ fontSize: 11, color: 'var(--orange)', fontWeight: 500, display: 'block', marginBottom: 2 }}>
+              ⚠️ Precauções
+            </span>
+            {treino.precaucoes}
+          </div>
+        )}
+
         {treino.observacoes && (
           <div style={{
-            marginTop: 14, padding: '10px 12px', borderRadius: 8,
+            marginTop: 8, padding: '10px 12px', borderRadius: 8,
             background: 'var(--bg2)', fontSize: 13, color: 'var(--text2)', lineHeight: 1.5,
           }}>
             <span style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 500, display: 'block', marginBottom: 3 }}>
@@ -126,21 +179,42 @@ export default function TreinosPaciente() {
           </div>
         )}
 
-        {/* Contador semanal */}
+        {treino.progressao && (
+          <div style={{
+            marginTop: 8, padding: '8px 12px', borderRadius: 8,
+            background: 'var(--bg2)', fontSize: 13, color: 'var(--text2)', lineHeight: 1.5,
+          }}>
+            <span style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 500, display: 'block', marginBottom: 2 }}>
+              📈 Como evoluir
+            </span>
+            {treino.progressao}
+          </div>
+        )}
+
+        {/* Contador de adesão */}
         <div style={{
-          marginTop: 14, padding: '10px 14px', borderRadius: 8,
+          marginTop: 12, padding: '10px 14px', borderRadius: 8,
           background: metaAtingida ? 'var(--green-bg)' : 'var(--bg2)',
-          display: 'flex', alignItems: 'center', gap: 8,
         }}>
-          <i
-            className={`ti ti-${metaAtingida ? 'circle-check' : 'calendar-week'}`}
-            style={{ color: metaAtingida ? 'var(--green)' : 'var(--text3)', fontSize: 18 }}
-            aria-hidden="true"
-          />
-          <span style={{ fontSize: 13, fontWeight: 500 }}>
-            {semanaCount} de {treino.frequencia_semanal} sessões esta semana
-            {metaAtingida && ' — meta atingida!'}
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+            <span style={{ fontSize: 13, fontWeight: 500 }}>
+              {semanaCount} de {treino.frequencia_semanal} sessões esta semana
+            </span>
+            <span style={{
+              fontSize: 13, fontWeight: 700,
+              color: metaAtingida ? 'var(--green)' : 'var(--text2)',
+            }}>
+              {pct}%{metaAtingida ? ' ✓' : ''}
+            </span>
+          </div>
+          <div style={{ height: 5, borderRadius: 3, background: 'var(--hair)', overflow: 'hidden' }}>
+            <div style={{
+              height: '100%', borderRadius: 3,
+              width: `${pct}%`,
+              background: metaAtingida ? 'var(--green)' : 'var(--amber)',
+              transition: 'width .3s ease',
+            }} />
+          </div>
         </div>
       </div>
 

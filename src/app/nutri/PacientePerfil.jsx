@@ -38,6 +38,7 @@ export default function PacientePerfil() {
   const [salvandoCampo, setSalvandoCampo] = useState(false);
   const [arquivarOpen, setArquivarOpen] = useState(false);
   const [editarDadosOpen, setEditarDadosOpen] = useState(false);
+  const [excluirOpen, setExcluirOpen] = useState(false);
 
   async function carregar() {
     const { data } = await supabase
@@ -389,8 +390,8 @@ export default function PacientePerfil() {
         {tab === 'treinos'       && <Treinos pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
       </Suspense>
 
-      {paciente.status_paciente === 'ativo' && (
-        <div style={{ marginTop: 32, paddingTop: 16, borderTop: '0.5px solid var(--border)', textAlign: 'center' }}>
+      <div style={{ marginTop: 32, paddingTop: 16, borderTop: '0.5px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20 }}>
+        {paciente.status_paciente === 'ativo' && (
           <button onClick={() => setArquivarOpen(true)} style={{
             background: 'none', border: 'none', cursor: 'pointer',
             fontSize: 12, color: 'var(--text3)', fontFamily: 'var(--font-sans)',
@@ -399,8 +400,17 @@ export default function PacientePerfil() {
             <i className="ti ti-archive" style={{ fontSize: 13 }} aria-hidden="true" />
             Arquivar paciente
           </button>
-        </div>
-      )}
+        )}
+        <button onClick={() => setExcluirOpen(true)} style={{
+          background: 'none', border: 'none', cursor: 'pointer',
+          fontSize: 12, color: 'var(--red)', fontFamily: 'var(--font-sans)',
+          display: 'inline-flex', alignItems: 'center', gap: 5,
+          opacity: 0.7,
+        }}>
+          <i className="ti ti-trash" style={{ fontSize: 13 }} aria-hidden="true" />
+          Excluir paciente
+        </button>
+      </div>
 
       {arquivarOpen && (
         <ModalArquivar
@@ -417,7 +427,83 @@ export default function PacientePerfil() {
           onSaved={carregar}
         />
       )}
+
+      {excluirOpen && (
+        <ModalExcluir
+          paciente={paciente}
+          onClose={() => setExcluirOpen(false)}
+          onExcluido={() => navigate('/nutri/pacientes')}
+        />
+      )}
     </>
+  );
+}
+
+/* ============================================================
+   MODAL EXCLUIR PACIENTE
+   ============================================================ */
+function ModalExcluir({ paciente, onClose, onExcluido }) {
+  const [busy, setBusy] = useState(false);
+
+  async function confirmar() {
+    setBusy(true);
+    const { error } = await supabase.from('pacientes').delete().eq('id', paciente.id);
+    setBusy(false);
+    if (error) { alert('Erro ao excluir: ' + error.message); return; }
+    onExcluido();
+  }
+
+  return (
+    <div onClick={onClose} style={{
+      position: 'fixed', inset: 0, background: 'rgba(28,23,18,.55)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      zIndex: 100, padding: 16,
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: 'var(--white)', borderRadius: 12, padding: 24,
+        width: 420, maxWidth: '92vw',
+        border: '0.5px solid var(--border)',
+      }}>
+        <div style={{
+          width: 44, height: 44, borderRadius: 11,
+          background: 'var(--red-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          marginBottom: 16,
+        }}>
+          <i className="ti ti-trash" style={{ fontSize: 22, color: 'var(--red)' }} aria-hidden="true" />
+        </div>
+        <div style={{ fontFamily: 'var(--font-serif)', fontSize: 18, marginBottom: 8 }}>
+          Excluir paciente
+        </div>
+        <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 6, lineHeight: 1.5 }}>
+          Tem certeza que deseja excluir <strong>{paciente.nome}</strong>?
+        </div>
+        <div style={{
+          fontSize: 12, color: 'var(--red)', marginBottom: 20,
+          padding: '8px 12px', borderRadius: 6, background: 'var(--red-bg)',
+        }}>
+          Esta ação é permanente e não pode ser desfeita.
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn-outline" style={{ flex: 1, justifyContent: 'center' }} onClick={onClose}>
+            Cancelar
+          </button>
+          <button
+            onClick={confirmar}
+            disabled={busy}
+            style={{
+              flex: 1, padding: '10px 14px', borderRadius: 8, border: 'none',
+              cursor: 'pointer', fontSize: 13, fontWeight: 500,
+              fontFamily: 'var(--font-sans)',
+              background: 'var(--red)', color: '#fff',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              opacity: busy ? 0.6 : 1,
+            }}>
+            <i className="ti ti-trash" aria-hidden="true" />
+            {busy ? 'Excluindo…' : 'Excluir permanentemente'}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

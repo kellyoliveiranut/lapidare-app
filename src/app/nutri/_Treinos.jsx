@@ -11,8 +11,8 @@ const TIPOS = [
   'Combinado (aeróbico + força)',
 ];
 const INTENSIDADES = ['Leve', 'Moderada', 'Moderada-alta'];
-const FREQUENCIAS = [1, 2, 3, 4, 5];
-const DURACOES = [10, 15, 20, 30, 45, 60];
+const FREQUENCIAS  = [1, 2, 3, 4, 5];
+const DURACOES     = [10, 15, 20, 30, 45, 60];
 const FASES = [
   'Durante quimioterapia',
   'Durante radioterapia',
@@ -20,6 +20,7 @@ const FASES = [
   'Pós-cirúrgico',
   'Pós-tratamento / Sobrevivente',
 ];
+const DIAS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
 const VIDEOS_SUGERIDOS = [
   { label: 'Alongamento oncologia',      url: 'https://www.youtube.com/results?search_query=alongamento+pacientes+cancer+oncologia+portugues' },
   { label: 'Caminhada e exercício leve', url: 'https://www.youtube.com/results?search_query=exercicio+leve+pacientes+oncologicos+portugues' },
@@ -40,6 +41,10 @@ const form0 = () => ({
   frequencia_semanal: 3,
   duracao_minutos: 30,
   fase_tratamento: FASES[0],
+  dias_semana: [],
+  objetivo_treino: '',
+  precaucoes: '',
+  progressao: '',
   observacoes: '',
   video_url: '',
 });
@@ -65,19 +70,30 @@ export default function Treinos({ pacienteId, nutriId, pacienteNome }) {
   const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
   const setVal = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
+  const toggleDia = dia => setForm(f => ({
+    ...f,
+    dias_semana: f.dias_semana.includes(dia)
+      ? f.dias_semana.filter(d => d !== dia)
+      : [...f.dias_semana, dia],
+  }));
+
   async function publicar() {
     setFeedback(null);
     setBusy(true);
     const { error } = await supabase.from('treinos_prescritos').insert({
-      paciente_id: pacienteId,
-      nutri_id: nutriId,
-      tipo: form.tipo,
-      intensidade: form.intensidade,
+      paciente_id:      pacienteId,
+      nutri_id:         nutriId,
+      tipo:             form.tipo,
+      intensidade:      form.intensidade,
       frequencia_semanal: form.frequencia_semanal,
-      duracao_minutos: form.duracao_minutos,
-      fase_tratamento: form.fase_tratamento,
-      observacoes: form.observacoes.trim() || null,
-      video_url: form.video_url.trim() || null,
+      duracao_minutos:  form.duracao_minutos,
+      fase_tratamento:  form.fase_tratamento,
+      dias_semana:      form.dias_semana.length ? form.dias_semana : null,
+      objetivo_treino:  form.objetivo_treino.trim() || null,
+      precaucoes:       form.precaucoes.trim() || null,
+      progressao:       form.progressao.trim() || null,
+      observacoes:      form.observacoes.trim() || null,
+      video_url:        form.video_url.trim() || null,
       ativo: true,
     });
     setBusy(false);
@@ -148,11 +164,14 @@ export default function Treinos({ pacienteId, nutriId, pacienteNome }) {
           </div>
         </div>
         <div className="card-body">
+
+          {/* Tipo */}
           <label className="field-label">Tipo de treino</label>
           <select value={form.tipo} onChange={set('tipo')}>
             {TIPOS.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
 
+          {/* Intensidade / Frequência / Duração */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginTop: 10 }}>
             <div>
               <label className="field-label">Intensidade</label>
@@ -174,6 +193,7 @@ export default function Treinos({ pacienteId, nutriId, pacienteNome }) {
             </div>
           </div>
 
+          {/* Fase do tratamento */}
           <div style={{ marginTop: 10 }}>
             <label className="field-label">Fase do tratamento</label>
             <select value={form.fase_tratamento} onChange={set('fase_tratamento')}>
@@ -181,6 +201,80 @@ export default function Treinos({ pacienteId, nutriId, pacienteNome }) {
             </select>
           </div>
 
+          {/* Dias da semana */}
+          <div style={{ marginTop: 12 }}>
+            <label className="field-label">Dias da semana (opcional)</label>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
+              {DIAS.map(dia => {
+                const ativo = form.dias_semana.includes(dia);
+                return (
+                  <button
+                    key={dia}
+                    type="button"
+                    onClick={() => toggleDia(dia)}
+                    style={{
+                      padding: '5px 10px', borderRadius: 6, fontSize: 12,
+                      fontFamily: 'var(--font-sans)', cursor: 'pointer',
+                      border: ativo ? 'none' : '0.5px solid var(--border)',
+                      background: ativo ? 'var(--dark)' : 'var(--bg2)',
+                      color: ativo ? 'var(--white)' : 'var(--text2)',
+                      fontWeight: ativo ? 600 : 400,
+                    }}>
+                    {dia}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Objetivo do treino */}
+          <div style={{ marginTop: 10 }}>
+            <label className="field-label">Objetivo do treino (opcional)</label>
+            <input
+              type="text"
+              placeholder="ex: Reduzir fadiga, preservar massa muscular"
+              value={form.objetivo_treino}
+              onChange={set('objetivo_treino')}
+            />
+          </div>
+
+          {/* Precauções */}
+          <div style={{ marginTop: 10 }}>
+            <label className="field-label" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <i className="ti ti-alert-triangle" style={{ fontSize: 13, color: 'var(--orange)' }} aria-hidden="true" />
+              Precauções clínicas (opcional)
+            </label>
+            <textarea
+              rows={2}
+              placeholder="ex: Evitar exercícios com braço operado. Não fazer se plaquetas < 50.000."
+              value={form.precaucoes}
+              onChange={set('precaucoes')}
+            />
+          </div>
+
+          {/* Progressão */}
+          <div style={{ marginTop: 10 }}>
+            <label className="field-label">Progressão (opcional)</label>
+            <textarea
+              rows={2}
+              placeholder="ex: Semana 1-2: 10 min. Semana 3-4: 15 min. Aumentar 5 min a cada 2 semanas."
+              value={form.progressao}
+              onChange={set('progressao')}
+            />
+          </div>
+
+          {/* Observações */}
+          <div style={{ marginTop: 10 }}>
+            <label className="field-label">Observações clínicas (opcional)</label>
+            <textarea
+              rows={2}
+              placeholder="ex: Iniciar com 10 min e progredir conforme tolerância. Evitar durante nadir."
+              value={form.observacoes}
+              onChange={set('observacoes')}
+            />
+          </div>
+
+          {/* Vídeo */}
           <div style={{ marginTop: 10 }}>
             <label className="field-label">Vídeo do YouTube (opcional)</label>
             <input
@@ -202,7 +296,7 @@ export default function Treinos({ pacienteId, nutriId, pacienteNome }) {
             )}
           </div>
 
-          {/* Buscar vídeos sugeridos */}
+          {/* Vídeos sugeridos */}
           <div style={{ marginTop: 12 }}>
             <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 7, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
               Buscar vídeos sugeridos
@@ -227,19 +321,9 @@ export default function Treinos({ pacienteId, nutriId, pacienteNome }) {
             </div>
           </div>
 
-          <div style={{ marginTop: 10 }}>
-            <label className="field-label">Observações clínicas (opcional)</label>
-            <textarea
-              rows={3}
-              placeholder="Ex: Iniciar com 10 min e progredir conforme tolerância. Evitar durante nadir."
-              value={form.observacoes}
-              onChange={set('observacoes')}
-            />
-          </div>
-
           {feedback && (
             <div style={{
-              marginTop: 10, padding: '8px 12px', borderRadius: 6, fontSize: 13,
+              marginTop: 12, padding: '8px 12px', borderRadius: 6, fontSize: 13,
               background: feedback.tipo === 'ok' ? 'var(--green-bg)' : 'var(--red-bg)',
               color: feedback.tipo === 'ok' ? 'var(--green)' : 'var(--red)',
             }}>{feedback.msg}</div>
@@ -282,10 +366,21 @@ export default function Treinos({ pacienteId, nutriId, pacienteNome }) {
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--text3)' }}>
                     {t.intensidade} · {t.frequencia_semanal}×/semana · {t.duracao_minutos} min
+                    {t.dias_semana?.length ? ` · ${t.dias_semana.join(', ')}` : ''}
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{t.fase_tratamento}</div>
+                  {t.objetivo_treino && (
+                    <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 4 }}>
+                      🎯 {t.objetivo_treino}
+                    </div>
+                  )}
+                  {t.precaucoes && (
+                    <div style={{ fontSize: 12, color: 'var(--orange)', marginTop: 3 }}>
+                      ⚠️ {t.precaucoes}
+                    </div>
+                  )}
                   {t.observacoes && (
-                    <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 4, lineHeight: 1.4 }}>{t.observacoes}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 3, lineHeight: 1.4 }}>{t.observacoes}</div>
                   )}
                   <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 5 }}>
                     Publicado em {dataBR(t.created_at)}

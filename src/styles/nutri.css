@@ -16,6 +16,29 @@
 }
 .tabs-scroll::-webkit-scrollbar { display: none; }
 
+/* Scrollbar visível apenas no desktop */
+@media (min-width: 768px) {
+  .tabs-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: #C4A882 transparent;
+    padding-bottom: 4px;
+  }
+  .tabs-scroll::-webkit-scrollbar {
+    display: block;
+    height: 5px;
+  }
+  .tabs-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .tabs-scroll::-webkit-scrollbar-thumb {
+    background: #C4A882;
+    border-radius: 3px;
+  }
+  .tabs-scroll::-webkit-scrollbar-thumb:hover {
+    background: #a08456;
+  }
+}
+
 .nutri-panel {
   --bg: #faf8f5;
   --bg2: #f2ede6;
