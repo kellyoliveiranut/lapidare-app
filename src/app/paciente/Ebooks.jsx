@@ -4,25 +4,26 @@ import { useSession } from '../../lib/session.jsx';
 import { dataBR } from '../../lib/utils.js';
 
 const TAG_LABEL = {
-  receitas: 'Receitas',
-  guia: 'Guia',
-  protocolo: 'Protocolo',
-  suplementacao: 'Suplementação',
-  outro: 'Outro',
+  receitas:    'Receitas',
+  guia:        'Guia',
+  protocolo:   'Protocolo',
+  formulacoes: 'Formulações',
+  materiais:   'Materiais',
+  outro:       'Outro',
 };
 
 export default function Ebooks() {
-  const { user } = useSession();
+  const { user, profile } = useSession();
   const [ebooks, setEbooks] = useState(null);
 
   useEffect(() => {
     if (!user) return;
+    const pacienteId = profile?.id ?? user.id;
     (async () => {
-      // Pega só os ebooks atribuídos a essa paciente (via RLS)
       const { data: links } = await supabase
         .from('ebooks_pacientes')
         .select('ebook_id')
-        .eq('paciente_id', user.id);
+        .eq('paciente_id', pacienteId);
       const ids = (links ?? []).map(l => l.ebook_id);
       if (ids.length === 0) {
         setEbooks([]);
@@ -32,14 +33,16 @@ export default function Ebooks() {
         .from('ebooks')
         .select('*')
         .in('id', ids)
+        .neq('tag', 'manipulados') // manipulados aparecem na aba Suplementação
         .order('created_at', { ascending: false });
       setEbooks(data ?? []);
     })();
-  }, [user]);
+  }, [user, profile]);
 
-  function abrir(eb) {
-    const { data } = supabase.storage.from('ebooks').getPublicUrl(eb.storage_path);
-    window.open(data.publicUrl, '_blank', 'noopener');
+  async function abrir(eb) {
+    const { data } = await supabase.storage.from('ebooks')
+      .createSignedUrl(eb.storage_path, 3600);
+    if (data?.signedUrl) window.open(data.signedUrl, '_blank', 'noopener');
   }
 
   return (
@@ -51,7 +54,7 @@ export default function Ebooks() {
       ) : ebooks.length === 0 ? (
         <div style={{ padding: '40px 16px', textAlign: 'center' }}>
           <i className="ti ti-book-2" style={{ fontSize: 40, color: 'var(--muted-2)' }} aria-hidden="true"></i>
-          <div style={{ fontSize: 14, fontWeight: 500, margin: '8px 0 4px' }}>Nenhum e-book ainda</div>
+          <div style={{ fontSize: 14, fontWeight: 500, margin: '8px 0 4px' }}>Nenhum material ainda</div>
           <div style={{ fontSize: 12, color: 'var(--muted)' }}>
             A Dra. ainda não compartilhou materiais com você.
           </div>
@@ -87,7 +90,7 @@ export default function Ebooks() {
                   </div>
                 )}
                 <div style={{ fontSize: 10, color: 'var(--muted)', display: 'flex', gap: 6, alignItems: 'center' }}>
-                  <span>{TAG_LABEL[eb.tag] ?? 'Outro'}</span>
+                  <span>{TAG_LABEL[eb.tag] ?? 'Material'}</span>
                   <span>·</span>
                   <span>{dataBR(eb.created_at)}</span>
                 </div>
