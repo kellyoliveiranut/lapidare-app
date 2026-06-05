@@ -241,7 +241,7 @@ export default function PacientePerfil() {
             label: 'Tipo de plano',
             valor: paciente.tipo_plano,
             tipo: 'text',
-            opcoes: ['trimestral', 'semestral', 'consultoria', 'acompanhamento'],
+            opcoes: ['avulsa', 'essentia'],
           },
           {
             campo: 'modalidade',
@@ -651,7 +651,7 @@ function ModalEditarDados({ paciente, onClose, onSaved }) {
                 placeholder="ex: Avulsa, Essentia…"
               />
               <datalist id="modal-tipos-plano">
-                {['Avulsa', 'Essentia', 'Trimestral', 'Semestral', 'Consultoria', 'Acompanhamento'].map(o => (
+                {['Avulsa', 'Essentia'].map(o => (
                   <option key={o} value={o} />
                 ))}
               </datalist>
