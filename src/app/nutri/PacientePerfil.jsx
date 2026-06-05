@@ -1540,29 +1540,46 @@ Estrutura JSON obrigatória:
     catch (e) { return setErroJson(`JSON inválido: ${e.message}`); }
     if (!plano || typeof plano !== 'object') return setErroJson('O JSON precisa ser um objeto { }.');
 
-    const m = plano.macros ?? {};
+    // macros: aceita "macros" ou "macro"
+    const m = plano.macros ?? plano.macro ?? {};
     setMacros({
-      kcal:        String(m.kcal        ?? ''),
-      // aceita proteinas_g (formato Lapidare) OU prot_g (legado/IA)
-      proteinas_g: String(m.proteinas_g ?? m.prot_g ?? ''),
-      carbo_g:     String(m.carbo_g     ?? m.cho_g  ?? ''),
-      gorduras_g:  String(m.gorduras_g  ?? m.lip_g  ?? ''),
-      agua_l:      String(m.agua_l      ?? ''),
+      kcal:        String(m.kcal        ?? m.calorias    ?? ''),
+      proteinas_g: String(m.proteinas_g ?? m.prot_g      ?? m.proteina  ?? m.protein    ?? ''),
+      carbo_g:     String(m.carbo_g     ?? m.cho_g       ?? m.carboidratos ?? m.carbs   ?? ''),
+      gorduras_g:  String(m.gorduras_g  ?? m.lip_g       ?? m.gordura   ?? m.fats       ?? ''),
+      agua_l:      String(m.agua_l      ?? m.agua        ?? m.water      ?? ''),
     });
 
-    const refs = (plano.refeicoes ?? []).map(r => ({
-      _id: Math.random().toString(36).slice(2),
-      nome: r.nome ?? '',
-      horario: r.horario ?? '',
-      alimentos: (r.alimentos ?? []).map(a => ({
+    // refeições: aceita com/sem acento, inglês, singular
+    const refeicoesBruto =
+      plano.refeicoes     ??
+      plano['refeições']  ??
+      plano.refeicao      ??
+      plano['refeição']   ??
+      plano.meals         ??
+      plano.meal          ??
+      plano.refeicoes_do_dia ??
+      [];
+
+    const refs = refeicoesBruto.map(r => {
+      // alimentos: aceita "alimentos", "foods", "itens", "items"
+      const alimentosBruto =
+        r.alimentos ?? r.foods ?? r.itens ?? r.items ?? r.food ?? [];
+
+      return {
         _id: Math.random().toString(36).slice(2),
-        nome: a.nome ?? '',
-        quantidade: a.quantidade ?? a.qty ?? '',
-        subs: Array.isArray(a.subs)
-          ? a.subs.map(s => (typeof s === 'object' ? (s.nome ?? '') : String(s))).join(', ')
-          : String(a.subs ?? ''),
-      })),
-    }));
+        nome:    r.nome    ?? r.name    ?? r.refeicao ?? r['refeição'] ?? '',
+        horario: r.horario ?? r.hora    ?? r.time     ?? r.horário    ?? '',
+        alimentos: alimentosBruto.map(a => ({
+          _id: Math.random().toString(36).slice(2),
+          nome:      a.nome      ?? a.name        ?? a.alimento   ?? a.item      ?? '',
+          quantidade: a.quantidade ?? a.qty        ?? a.quantity   ?? a.qtd       ?? a.amount ?? '',
+          subs: Array.isArray(a.subs)
+            ? a.subs.map(s => (typeof s === 'object' ? (s.nome ?? s.name ?? '') : String(s))).join(', ')
+            : String(a.subs ?? a.substitutos ?? a.substitutions ?? a.substituicoes ?? ''),
+        })).filter(a => a.nome.trim()),
+      };
+    });
     setRefeicoes(refs);
     if (plano.obs) setObs(plano.obs);
     if (plano.substituicoes?.length) {
