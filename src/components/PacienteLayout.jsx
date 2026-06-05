@@ -23,6 +23,7 @@ const MAIS_ITEMS = [
   { path: '/paciente/prescricoes', icon: 'file-text',      label: 'Prescrições',         sub: 'Documentos da Dra.' },
   { path: '/paciente/ebooks',      icon: 'book-2',         label: 'E-books',             sub: 'Materiais da Dra.' },
   { path: '/paciente/chat',        icon: 'message-circle', label: 'Chat com a Dra.',     sub: 'Conversa direta' },
+  { path: '/paciente/treinos',     icon: 'run',            label: 'Treinos',             sub: 'Plano de exercícios' },
 ];
 
 // Paths acessíveis no plano Avulsa — todo o resto fica bloqueado
@@ -43,6 +44,7 @@ const HEADERS = {
   '/paciente/ebooks':       () =>                ({ eyebrow: 'Materiais',        title: 'E-books',           subtitle: 'Compartilhados pela sua nutri' }),
   '/paciente/suplementos':  () =>                ({ eyebrow: 'Habit tracker',    title: 'Meus suplementos',  subtitle: 'Marque diariamente' }),
   '/paciente/habitos':      () =>                ({ eyebrow: 'Hábitos do dia',   title: 'Meus hábitos',      subtitle: 'Acompanhe sua rotina' }),
+  '/paciente/treinos':                  ()                => ({ eyebrow: 'Plano de exercícios',    title: 'Meus treinos' }),
   '/paciente/chat':                     (_nome, nutriNome) => ({ eyebrow: 'Conversa',              title: nutriNome || 'Sua nutri',      subtitle: 'Online' }),
   '/paciente/monitoramento-oncologico': ()                => ({ eyebrow: 'Check-in diário',      title: 'Como você está hoje?',        subtitle: 'Leva menos de 2 minutos' }),
 };
@@ -162,7 +164,7 @@ export default function PacienteLayout() {
           {TABS.map(t => {
             const active = t.path
               ? location.pathname === t.path
-              : ['/paciente/progresso', '/paciente/compras', '/paciente/suplementos', '/paciente/habitos', '/paciente/prescricoes', '/paciente/ebooks', '/paciente/chat'].includes(location.pathname);
+              : ['/paciente/progresso', '/paciente/compras', '/paciente/suplementos', '/paciente/habitos', '/paciente/prescricoes', '/paciente/ebooks', '/paciente/chat', '/paciente/treinos'].includes(location.pathname);
             const blocked = isBlocked(t.path);
 
             if (!t.path) {

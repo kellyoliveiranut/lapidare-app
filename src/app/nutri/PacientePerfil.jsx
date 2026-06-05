@@ -20,6 +20,7 @@ const RelatorioEvolucao    = lazy(() => import('./_RelatorioEvolucao.jsx'));
 const Emagrecimento        = lazy(() => import('./_Emagrecimento.jsx'));
 const Calculos             = lazy(() => import('./_Calculos.jsx'));
 const AnalisarAvaliacao    = lazy(() => import('./_AnalisarAvaliacao.jsx'));
+const Treinos              = lazy(() => import('./_Treinos.jsx'));
 import DicaJSON from '../../components/DicaJSON.jsx';
 
 export default function PacientePerfil() {
@@ -347,6 +348,7 @@ export default function PacientePerfil() {
           { id: 'ebooks',        label: 'E-books',       icon: 'book-2' },
           { id: 'avaliacao',     label: 'Avaliação',     icon: 'ruler-measure' },
           { id: 'checkin',       label: 'Check-in',      icon: 'clipboard-check' },
+          { id: 'treinos',       label: 'Treinos',       icon: 'run' },
         ].map(t => (
           <button
             key={t.id}
@@ -384,6 +386,7 @@ export default function PacientePerfil() {
         {tab === 'avaliacao'     && <RegistrarAvaliacao pacienteId={paciente.id} nutriId={user.id} paciente={paciente} />}
         {tab === 'checkin'       && <CheckinPersonalizado pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
         {tab === 'calculos'      && <Calculos pacienteId={paciente.id} nutriId={user.id} paciente={paciente} onUsarNaDieta={(vals) => { setCalculosImportados(vals); setTab('plano'); }} />}
+        {tab === 'treinos'       && <Treinos pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
       </Suspense>
 
       {paciente.status_paciente === 'ativo' && (
