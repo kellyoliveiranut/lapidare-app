@@ -2692,24 +2692,75 @@ Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (e
     setErroJsonLista(null);
     const raw = jsonListaInput.replace(/```[\w]*\n?/gi, '').replace(/\n?```/g, '').trim();
     if (!raw) return setErroJsonLista('Cole o JSON antes de clicar em Importar.');
-    let obj;
-    try { obj = JSON.parse(raw); }
+    let parsed;
+    try { parsed = JSON.parse(raw); }
     catch (e) { return setErroJsonLista(`JSON inválido: ${e.message}`); }
-    // aceita { categorias: [...] } (formato Lapidare) ou { lista: [...] } (legado)
-    const cats = obj.categorias ?? obj.lista ?? [];
-    if (!Array.isArray(cats) || cats.length === 0)
-      return setErroJsonLista('Nenhuma categoria encontrada. Verifique a estrutura do JSON.');
-    const listaFormatada = cats.map(cat => ({
-      categoria: cat.nome ?? cat.categoria ?? '',
-      emoji:     cat.icone ?? cat.emoji ?? '',
-      itens: (cat.itens ?? []).map(item => ({
-        _id: Math.random().toString(36).slice(2),
-        nome:      typeof item === 'string' ? item : (item.nome ?? ''),
-        quantidade: typeof item === 'object' ? (item.quantidade ?? '') : '',
-      })).filter(i => i.nome),
-    })).filter(c => c.categoria && c.itens.length > 0);
-    if (!listaFormatada.length)
-      return setErroJsonLista('Nenhum item válido encontrado no JSON.');
+
+    // Normaliza qualquer formato para [{ categoria, emoji, itens: [{ _id, nome, quantidade }] }]
+    function normalizarLista(obj) {
+      // Passo 1: achar o array de entrada
+      let arr;
+      if (Array.isArray(obj)) {
+        arr = obj;
+      } else if (obj && typeof obj === 'object') {
+        arr = obj.categorias ?? obj.lista ?? obj.items ?? obj.compras ?? obj.shopping_list ?? null;
+        // fallback: qualquer valor que seja array não-vazio
+        if (!Array.isArray(arr) || arr.length === 0) {
+          for (const v of Object.values(obj)) {
+            if (Array.isArray(v) && v.length > 0) { arr = v; break; }
+          }
+        }
+      }
+      if (!Array.isArray(arr) || arr.length === 0) return null;
+
+      // Passo 2: categoria-based (tem itens/items aninhados) ou item-based (plano)?
+      const primeiro = arr[0];
+      const ehCategoria = primeiro && typeof primeiro === 'object' && (
+        Array.isArray(primeiro.itens) || Array.isArray(primeiro.items) || Array.isArray(primeiro.alimentos)
+      );
+
+      if (ehCategoria) {
+        // Cada elemento é uma categoria com lista de itens aninhada
+        return arr.map(cat => ({
+          categoria: cat.nome ?? cat.categoria ?? cat.category ?? cat.name ?? '',
+          emoji:     cat.icone ?? cat.emoji ?? cat.icon ?? '',
+          itens: (cat.itens ?? cat.items ?? cat.alimentos ?? []).map(item => ({
+            _id:        Math.random().toString(36).slice(2),
+            nome:       typeof item === 'string' ? item : (item.nome ?? item.name ?? item.item ?? ''),
+            quantidade: typeof item === 'object' ? (item.quantidade ?? item.qty ?? item.quantity ?? item.qtd ?? '') : '',
+          })).filter(i => i.nome),
+        })).filter(c => c.categoria && c.itens.length > 0);
+      } else {
+        // Cada elemento é um item plano — agrupar por categoria
+        const grupos = {};
+        const ordem = [];
+        for (const item of arr) {
+          if (!item || typeof item !== 'object') continue;
+          const cat = item.categoria ?? item.category ?? item.grupo ?? item.group ?? 'Geral';
+          const emoji = item.icone ?? item.emoji ?? item.icon ?? '';
+          const nome  = item.nome ?? item.name ?? item.item ?? item.descricao ?? item.alimento ?? '';
+          const qtd   = item.quantidade ?? item.qty ?? item.quantity ?? item.qtd ?? '';
+          if (!nome) continue;
+          if (!grupos[cat]) { grupos[cat] = { emoji, itens: [] }; ordem.push(cat); }
+          grupos[cat].itens.push({ _id: Math.random().toString(36).slice(2), nome, quantidade: qtd });
+        }
+        return ordem.map(cat => ({ categoria: cat, emoji: grupos[cat].emoji, itens: grupos[cat].itens }))
+                    .filter(c => c.itens.length > 0);
+      }
+    }
+
+    const listaFormatada = normalizarLista(parsed);
+
+    if (!listaFormatada || listaFormatada.length === 0) {
+      const chaves = Array.isArray(parsed)
+        ? '(array raiz)'
+        : Object.keys(parsed ?? {}).join(', ');
+      return setErroJsonLista(
+        `Formato não reconhecido. Chaves encontradas: ${chaves || '(nenhuma)'}. ` +
+        `Use "categorias", "lista", "items", ou um array direto de itens com campo "categoria".`
+      );
+    }
+
     setPreview({ lista: listaFormatada });
     setMarcados({});
     setJsonListaInput('');
