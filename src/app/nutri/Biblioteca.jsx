@@ -26,6 +26,7 @@ export default function Biblioteca() {
   const [busca, setBusca] = useState('');
   const [uploadOpen, setUploadOpen] = useState(false);
   const [atribuirItem, setAtribuirItem] = useState(null);
+  const [editarItem, setEditarItem] = useState(null);
 
   async function carregar() {
     if (!user) return;
@@ -241,6 +242,13 @@ export default function Biblioteca() {
                   <button className="btn" style={{ flex: 1, justifyContent: 'center', fontSize: 12 }} onClick={() => setAtribuirItem(it)}>
                     <i className="ti ti-users" aria-hidden="true"></i> Pacientes
                   </button>
+                  <button onClick={() => setEditarItem(it)} title="Editar" style={{
+                    background: 'none', border: '0.5px solid var(--border)',
+                    borderRadius: 6, padding: '4px 8px',
+                    color: 'var(--text3)', cursor: 'pointer',
+                  }}>
+                    <i className="ti ti-pencil" aria-hidden="true"></i>
+                  </button>
                   <button onClick={() => excluirItem(it)} title="Excluir" style={{
                     background: 'none', border: '0.5px solid var(--red)',
                     borderRadius: 6, padding: '4px 8px',
@@ -271,6 +279,14 @@ export default function Biblioteca() {
           atribuidos={atribuicoes[atribuirItem.id] ?? []}
           onClose={() => setAtribuirItem(null)}
           onSaved={() => { setAtribuirItem(null); carregar(); }}
+        />
+      )}
+
+      {editarItem && (
+        <ModalEditar
+          item={editarItem}
+          onClose={() => setEditarItem(null)}
+          onSaved={() => { setEditarItem(null); carregar(); }}
         />
       )}
     </>
@@ -402,6 +418,99 @@ function ModalUpload({ nutriId, secaoDefault, onClose, onSaved }) {
       <label className="form-lbl" style={{ marginTop: 12 }}>Descrição (opcional)</label>
       <textarea value={descricao} onChange={e => setDescricao(e.target.value)}
         rows={3} placeholder="Resumo do conteúdo, indicação, público-alvo…"
+        style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical', minHeight: 64 }} />
+
+      {erro && (
+        <div style={{
+          background: 'var(--red-bg)', color: 'var(--red)',
+          padding: '6px 10px', borderRadius: 6, fontSize: 11, marginTop: 10,
+        }}>{erro}</div>
+      )}
+      <div style={{ height: 8 }} />
+    </ModalShell>
+  );
+}
+
+
+function ModalEditar({ item, onClose, onSaved }) {
+  const [titulo, setTitulo] = useState(item.titulo ?? '');
+  const [descricao, setDescricao] = useState(item.descricao ?? '');
+  const [tag, setTag] = useState(item.tag ?? 'materiais');
+  const [arquivo, setArquivo] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [erro, setErro] = useState(null);
+
+  const urlAtual = /\.(jpg|jpeg|png)$/i.test(item.storage_path ?? '')
+    ? supabase.storage.from('ebooks').getPublicUrl(item.storage_path).data.publicUrl
+    : null;
+
+  async function salvar() {
+    setErro(null);
+    if (!titulo.trim()) return setErro('Informe um título.');
+    setBusy(true);
+    let storage_path = item.storage_path;
+    if (arquivo) {
+      const ext = (arquivo.name.split('.').pop() || 'jpg').toLowerCase();
+      const path = `${item.nutri_id}/${Date.now()}-${titulo.trim().replace(/[^a-z0-9]/gi, '_')}.${ext}`;
+      const { error: upErr } = await supabase.storage.from('ebooks')
+        .upload(path, arquivo, { contentType: arquivo.type });
+      if (upErr) { setBusy(false); return setErro('Upload falhou: ' + upErr.message); }
+      await supabase.storage.from('ebooks').remove([item.storage_path]);
+      storage_path = path;
+    }
+    const { error } = await supabase.from('ebooks').update({
+      titulo: titulo.trim(),
+      descricao: descricao.trim() || null,
+      tag,
+      storage_path,
+    }).eq('id', item.id);
+    setBusy(false);
+    if (error) return setErro('Erro: ' + error.message);
+    onSaved();
+  }
+
+  const footer = (
+    <div style={{ display: 'flex', gap: 8 }}>
+      <button className="btn-outline" style={{ flex: 1, justifyContent: 'center' }} onClick={onClose}>
+        Cancelar
+      </button>
+      <button className="btn" style={{ flex: 1, justifyContent: 'center' }} onClick={salvar} disabled={busy}>
+        <i className="ti ti-check" aria-hidden="true"></i> {busy ? 'Salvando…' : 'Salvar alterações'}
+      </button>
+    </div>
+  );
+
+  return (
+    <ModalShell title="Editar item" onClose={onClose} footer={footer}>
+      {urlAtual && !arquivo && (
+        <img src={urlAtual} alt={titulo} loading="lazy" decoding="async"
+          style={{ width: '100%', maxHeight: 160, objectFit: 'cover', borderRadius: 8, marginBottom: 12 }} />
+      )}
+
+      <label className="form-lbl">Imagem (opcional — substitui a atual)</label>
+      <input type="file" accept="image/jpeg,image/png"
+        onChange={e => setArquivo(e.target.files?.[0] ?? null)}
+        style={{ padding: 6 }} />
+      {arquivo && (
+        <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
+          {arquivo.name} · {(arquivo.size / 1024 / 1024).toFixed(1)} MB
+        </div>
+      )}
+
+      <label className="form-lbl" style={{ marginTop: 12 }}>Título</label>
+      <input value={titulo} onChange={e => setTitulo(e.target.value)}
+        placeholder="Ex: Cardápio detox 7 dias" />
+
+      <label className="form-lbl" style={{ marginTop: 12 }}>Seção</label>
+      <select value={tag} onChange={e => setTag(e.target.value)}>
+        {SECOES.map(s => (
+          <option key={s.id} value={s.id}>{s.emoji} {s.label}</option>
+        ))}
+      </select>
+
+      <label className="form-lbl" style={{ marginTop: 12 }}>Descrição / Posologia (opcional)</label>
+      <textarea value={descricao} onChange={e => setDescricao(e.target.value)}
+        rows={3} placeholder="Resumo do conteúdo, posologia, indicação…"
         style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical', minHeight: 64 }} />
 
       {erro && (
