@@ -1054,7 +1054,6 @@ Retorne SOMENTE o JSON.`;
         <Suspense fallback={null}>
           <AnalisarAvaliacao
             historico={historico}
-            fotos={{}}
             paciente={paciente}
             onClose={() => setAnalisarOpen(false)}
           />

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { dataBR } from '../../lib/utils.js';
-import { callAnthropic, urlToBase64 } from '../../lib/anthropic.js';
+import { callAnthropic } from '../../lib/anthropic.js';
 
 function fmt(v, decimals = 1) {
   if (v == null) return '—';
@@ -81,21 +81,14 @@ function parseSecoes(texto) {
   return secoes.length ? secoes : [{ titulo: null, linhas: texto.split('\n').filter(Boolean) }];
 }
 
-export default function AnalisarAvaliacao({ historico, fotos, paciente, onClose }) {
+export default function AnalisarAvaliacao({ historico, paciente, onClose }) {
   const [analise, setAnalise] = useState(null);
   const [analisando, setAnalisando] = useState(false);
   const [erroAnalise, setErroAnalise] = useState(null);
-  const [analiseFotos, setAnaliseFotos] = useState(null);
-  const [analisandoFotos, setAnalisandoFotos] = useState(false);
-  const [erroFotos, setErroFotos] = useState(null);
   const [copiado, setCopiado] = useState(false);
-  const [copiadoFotos, setCopiadoFotos] = useState(false);
 
   const dados = buildDadosGrafico(historico);
   const temDados = dados.length > 0;
-  const avaliacaoAtual = historico[0];
-  const fotosAtuais = avaliacaoAtual ? (fotos[avaliacaoAtual.id] ?? []) : [];
-  const fotosDisp = fotosAtuais.filter(f => f.tipo === 'frente' || f.tipo === 'lado');
 
   async function analisarDados() {
     setErroAnalise(null);
@@ -108,53 +101,6 @@ export default function AnalisarAvaliacao({ historico, fotos, paciente, onClose 
       setErroAnalise(e.message);
     } finally {
       setAnalisando(false);
-    }
-  }
-
-  async function analisarFotos() {
-    if (!fotosDisp.length) return;
-    setErroFotos(null);
-    setAnalisandoFotos(true);
-    try {
-      const atual = historico[0];
-      const imc = atual?.kg && atual?.altura_cm
-        ? (atual.kg / Math.pow(atual.altura_cm / 100, 2)).toFixed(1) : '—';
-
-      const conteudo = [
-        {
-          type: 'text',
-          text: `Você é uma nutricionista clínica. Analise as fotos de avaliação física abaixo (frente e lado) junto com as medidas informadas. Gere um relatório em português com:
-
-1) Observações visuais sobre postura, distribuição de gordura corporal e tônus muscular aparente
-2) Correlação entre o que as fotos mostram e os dados de composição corporal
-3) Pontos de atenção visual
-4) Evolução visual comparada à avaliação anterior se disponível
-
-Use linguagem clínica profissional.
-
-Dados da paciente: peso ${fmt(atual?.kg)} kg | altura ${fmt(atual?.altura_cm)} cm | IMC ${imc} | gordura ${fmt(atual?.pgc)}% | massa magra ${fmt(atual?.mm_kg)} kg`,
-        },
-      ];
-
-      for (const f of fotosDisp) {
-        try {
-          const b64 = await urlToBase64(f.url.split('?')[0]);
-          conteudo.push({
-            type: 'image',
-            source: { type: 'base64', media_type: 'image/jpeg', data: b64 },
-          });
-          conteudo.push({ type: 'text', text: `(foto: ${f.tipo})` });
-        } catch {
-          // foto inacessível, pula
-        }
-      }
-
-      const texto = await callAnthropic([{ role: 'user', content: conteudo }], { maxTokens: 1500 });
-      setAnaliseFotos(texto);
-    } catch (e) {
-      setErroFotos(e.message);
-    } finally {
-      setAnalisandoFotos(false);
     }
   }
 
@@ -314,55 +260,6 @@ Dados da paciente: peso ${fmt(atual?.kg)} kg | altura ${fmt(atual?.altura_cm)} c
             )}
           </div>
 
-          {/* ── ANÁLISE DE FOTOS COM IA ── */}
-          {fotosDisp.length > 0 && (
-            <div style={{ marginTop: 24, paddingTop: 20, borderTop: '0.5px solid var(--border)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--dark)' }}>
-                  <i className="ti ti-camera" style={{ color: 'var(--amber, #c9a96e)', marginRight: 6 }} />
-                  Análise visual das fotos por IA
-                  <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--text3)', marginLeft: 8 }}>
-                    ({fotosDisp.length} foto{fotosDisp.length > 1 ? 's' : ''} disponível{fotosDisp.length > 1 ? 'eis' : ''})
-                  </span>
-                </div>
-                {!analiseFotos && (
-                  <button
-                    onClick={analisarFotos}
-                    disabled={analisandoFotos}
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 6,
-                      padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer',
-                      background: analisandoFotos ? 'var(--bg2)' : 'var(--dark)',
-                      color: analisandoFotos ? 'var(--text3)' : '#fff',
-                      fontSize: 13, fontWeight: 500, fontFamily: 'var(--font-sans)',
-                    }}>
-                    <i className="ti ti-camera-spark" style={{ fontSize: 14 }} />
-                    {analisandoFotos ? 'Analisando fotos...' : 'Analisar fotos com IA'}
-                  </button>
-                )}
-              </div>
-
-              {analisandoFotos && <Spinner texto="Processando imagens e gerando análise visual..." />}
-
-              {erroFotos && (
-                <div style={{
-                  padding: '10px 14px', borderRadius: 8, fontSize: 13,
-                  background: 'var(--red-bg)', color: 'var(--red)', marginBottom: 12,
-                }}>
-                  {erroFotos}
-                </div>
-              )}
-
-              {analiseFotos && (
-                <ResultadoAnalise
-                  texto={analiseFotos}
-                  copiado={copiadoFotos}
-                  onCopiar={() => copiar(analiseFotos, setCopiadoFotos)}
-                  onLimpar={() => setAnaliseFotos(null)}
-                />
-              )}
-            </div>
-          )}
         </div>
       </div>
     </div>

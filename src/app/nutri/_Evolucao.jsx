@@ -2,39 +2,26 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { dataBR } from '../../lib/utils.js';
 import { formatarResposta } from '../../lib/checkinDefault.js';
-import DateInput from '../../components/DateInput.jsx';
-
-const TIPOS_FOTO = [
-  { id: 'frente',          label: 'Frente' },
-  { id: 'perfil_direito',  label: 'Perfil direito' },
-  { id: 'perfil_esquerdo', label: 'Perfil esquerdo' },
-  { id: 'costas',          label: 'Costas' },
-  { id: 'livre',           label: 'Livre' },
-];
 
 export default function Evolucao({ pacienteId, paciente, nutriId }) {
   const [carregando, setCarregando] = useState(true);
   const [avaliacoes, setAvaliacoes] = useState([]);
-  const [fotos, setFotos] = useState([]);
   const [checkins, setCheckins] = useState([]);
   const [planos, setPlanos] = useState([]);
   const [prescricoes, setPrescricoes] = useState([]);
   const [consultas, setConsultas] = useState([]);
   const [apresentacao, setApresentacao] = useState(false);
-  const [uploadOpen, setUploadOpen] = useState(false);
   const [verCheckin, setVerCheckin] = useState(null);
 
   async function carregar() {
-    const [avRes, ftRes, ckRes, plRes, prRes, csRes] = await Promise.all([
+    const [avRes, ckRes, plRes, prRes, csRes] = await Promise.all([
       supabase.from('peso_registros').select('id,data,kg,altura_cm,pgc,mm_kg,mm_pct,gordura_kg,cintura_cm,quadril_cm,abdome_cm,braco_cm,braco_dir_cm,braco_esq_cm,coxa_cm,coxa_dir_cm,coxa_esq_cm,panturrilha_cm,hidratacao_pct,geb_kcal,get_kcal,obs').eq('paciente_id', pacienteId).order('data'),
-      supabase.from('fotos_evolucao').select('id,storage_path,data_foto,tipo').eq('paciente_id', pacienteId).order('data_foto'),
       supabase.from('checkin_envios').select('id, perguntas, respostas, respondido_em, enviado_em').eq('paciente_id', pacienteId).not('respondido_em', 'is', null).order('respondido_em'),
       supabase.from('planos').select('id, dados, publicado_em').eq('paciente_id', pacienteId).order('publicado_em'),
       supabase.from('prescricoes').select('id, tipo, titulo, created_at').eq('paciente_id', pacienteId).order('created_at'),
       supabase.from('consultas').select('id, tipo, data_hora, status').eq('paciente_id', pacienteId).order('data_hora'),
     ]);
     setAvaliacoes(avRes.data ?? []);
-    setFotos(ftRes.data ?? []);
     setCheckins(ckRes.data ?? []);
     setPlanos(plRes.data ?? []);
     setPrescricoes(prRes.data ?? []);
@@ -42,13 +29,6 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
     setCarregando(false);
   }
   useEffect(() => { carregar(); }, [pacienteId]);
-
-  async function excluirFoto(foto) {
-    if (!window.confirm(`Excluir foto de ${dataBR(foto.data_foto)}? Esta ação não pode ser desfeita.`)) return;
-    await supabase.storage.from('fotos_evolucao').remove([foto.storage_path]);
-    await supabase.from('fotos_evolucao').delete().eq('id', foto.id);
-    carregar();
-  }
 
   // ESC pra sair do modo apresentação
   useEffect(() => {
@@ -92,15 +72,6 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
         ].filter(Boolean).join(' · ') || 'Registrada',
       });
     }
-    for (const f of fotos) {
-      lst.push({
-        data: new Date(f.data_foto + 'T12:00:00').toISOString(),
-        tipo: 'foto', icon: 'camera', cor: 'var(--gold-deep, #a08456)',
-        titulo: `Foto · ${TIPOS_FOTO.find(t => t.id === f.tipo)?.label ?? f.tipo}`,
-        desc: f.obs ?? 'Foto de evolução enviada',
-        fotoId: f.id,
-      });
-    }
     for (const c of checkins) {
       lst.push({
         data: c.respondido_em,
@@ -136,7 +107,7 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
       });
     }
     return lst.sort((a, b) => b.data.localeCompare(a.data));  // mais recente primeiro
-  }, [avaliacoes, fotos, checkins, planos, prescricoes, consultas]);
+  }, [avaliacoes, checkins, planos, prescricoes, consultas]);
 
   // ─── Renders auxiliares ───
   function HighlightCard({ titulo, atual, delta, unidade, melhorMenor = true }) {
@@ -179,7 +150,7 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
         <i className="ti ti-history empty-icon" aria-hidden="true"></i>
         <div className="empty-title">Sem registros de evolução ainda</div>
         <div className="empty-sub">
-          Conforme você registrar avaliações antropométricas, enviar fotos e a paciente responder check-ins,
+          Conforme você registrar avaliações antropométricas e a paciente responder check-ins,
           tudo vai aparecer aqui em ordem cronológica.
         </div>
       </div>
@@ -209,9 +180,6 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
           {eventos.length} evento{eventos.length === 1 ? '' : 's'} no histórico
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn-outline" onClick={() => setUploadOpen(true)}>
-            <i className="ti ti-camera-plus" aria-hidden="true"></i> Adicionar foto
-          </button>
           <button className="btn" onClick={() => setApresentacao(true)}>
             <i className="ti ti-presentation" aria-hidden="true"></i> Modo apresentação
           </button>
@@ -282,195 +250,10 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
         ))}
       </div>
 
-      {uploadOpen && (
-        <UploadFoto
-          pacienteId={pacienteId}
-          nutriId={nutriId}
-          onClose={() => setUploadOpen(false)}
-          onSaved={async () => { setUploadOpen(false); await carregar(); }}
-        />
-      )}
-
       {verCheckin && (
         <VerCheckinModal envio={verCheckin} onClose={() => setVerCheckin(null)} />
       )}
     </>
-  );
-}
-
-/* ============================================================
-   UPLOAD DE FOTO
-   ============================================================ */
-function UploadFoto({ pacienteId, nutriId, onClose, onSaved }) {
-  const [tipo, setTipo] = useState('frente');
-  const [data, setData] = useState(new Date().toISOString().slice(0, 10));
-  const [obs, setObs] = useState('');
-  const [arquivo, setArquivo] = useState(null);
-  const [preview, setPreview] = useState(null);
-  const [rot, setRot] = useState(0);        // 0/90/180/270
-  const [flip, setFlip] = useState(false);  // espelhamento horizontal
-  const [busy, setBusy] = useState(false);
-  const [erro, setErro] = useState(null);
-
-  function escolherArquivo(e) {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    setArquivo(f);
-    setPreview(URL.createObjectURL(f));
-    setRot(0);
-    setFlip(false);
-  }
-
-  // Aplica rotação + flip no arquivo via canvas. Retorna um Blob.
-  async function transformarArquivo() {
-    if (rot === 0 && !flip) return arquivo;
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => {
-        const swap = rot === 90 || rot === 270;
-        const w = swap ? img.height : img.width;
-        const h = swap ? img.width  : img.height;
-        const canvas = document.createElement('canvas');
-        canvas.width  = w;
-        canvas.height = h;
-        const ctx = canvas.getContext('2d');
-        ctx.translate(w / 2, h / 2);
-        ctx.rotate((rot * Math.PI) / 180);
-        if (flip) ctx.scale(-1, 1);
-        ctx.drawImage(img, -img.width / 2, -img.height / 2);
-        canvas.toBlob(b => b ? resolve(b) : reject(new Error('Canvas falhou')),
-          arquivo.type || 'image/jpeg', 0.92);
-      };
-      img.onerror = () => reject(new Error('Falha ao carregar imagem'));
-      img.src = URL.createObjectURL(arquivo);
-    });
-  }
-
-  async function enviar() {
-    setErro(null);
-    if (!arquivo) return setErro('Selecione uma foto.');
-    setBusy(true);
-    let blob;
-    try {
-      blob = await transformarArquivo();
-    } catch (e) {
-      setBusy(false);
-      return setErro('Erro ao processar: ' + e.message);
-    }
-    const ext = (arquivo.name.split('.').pop() || 'jpg').toLowerCase();
-    const path = `${pacienteId}/${Date.now()}-${tipo}.${ext}`;
-    const { error: upErr } = await supabase.storage
-      .from('fotos_evolucao').upload(path, blob, { contentType: arquivo.type });
-    if (upErr) {
-      setBusy(false);
-      return setErro('Upload falhou: ' + upErr.message);
-    }
-    const { error: insErr } = await supabase.from('fotos_evolucao').insert({
-      paciente_id: pacienteId,
-      nutri_id: nutriId,
-      storage_path: path,
-      tipo, data_foto: data,
-      obs: obs.trim() || null,
-    });
-    setBusy(false);
-    if (insErr) {
-      await supabase.storage.from('fotos_evolucao').remove([path]);
-      return setErro('Erro: ' + insErr.message);
-    }
-    onSaved();
-  }
-
-  const swap = rot === 90 || rot === 270;
-  const transform = `${flip ? 'scaleX(-1) ' : ''}rotate(${rot}deg)`;
-
-  return (
-    <ModalShell title="Adicionar foto de evolução"
-      subtitle="A foto fica privada — só você e a paciente veem"
-      onClose={onClose}>
-      <label className="form-lbl">Foto</label>
-      <input type="file" accept="image/*" capture="environment" onChange={escolherArquivo}
-        style={{ padding: 6 }} />
-      {preview && (
-        <>
-          <div style={{
-            marginTop: 8, borderRadius: 8, overflow: 'hidden',
-            background: '#000',
-            height: 320,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <img src={preview} alt="prévia"
-              loading="lazy" decoding="async"
-              style={{
-                maxWidth: swap ? '320px' : '100%',
-                maxHeight: swap ? '100%' : '320px',
-                objectFit: 'contain',
-                transform,
-                transition: 'transform .18s ease',
-              }} />
-          </div>
-          <div style={{
-            display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap',
-            justifyContent: 'center',
-          }}>
-            <button type="button" className="btn-outline"
-              style={{ fontSize: 11, padding: '4px 10px' }}
-              onClick={() => setRot(r => (r + 270) % 360)}>
-              <i className="ti ti-rotate-2" aria-hidden="true"></i> Girar esquerda
-            </button>
-            <button type="button" className="btn-outline"
-              style={{ fontSize: 11, padding: '4px 10px' }}
-              onClick={() => setRot(r => (r + 90) % 360)}>
-              <i className="ti ti-rotate-clockwise-2" aria-hidden="true"></i> Girar direita
-            </button>
-            <button type="button" className="btn-outline"
-              style={{ fontSize: 11, padding: '4px 10px' }}
-              onClick={() => setFlip(f => !f)}>
-              <i className="ti ti-flip-horizontal" aria-hidden="true"></i> Espelhar
-            </button>
-            {(rot !== 0 || flip) && (
-              <button type="button" className="btn-outline"
-                style={{ fontSize: 11, padding: '4px 10px', color: 'var(--text3)' }}
-                onClick={() => { setRot(0); setFlip(false); }}>
-                <i className="ti ti-refresh" aria-hidden="true"></i> Resetar
-              </button>
-            )}
-          </div>
-        </>
-      )}
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-        <div>
-          <label className="form-lbl">Tipo</label>
-          <select value={tipo} onChange={e => setTipo(e.target.value)}>
-            {TIPOS_FOTO.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="form-lbl">Data da foto</label>
-          <DateInput value={data} onChange={e => setData(e.target.value)} />
-        </div>
-      </div>
-
-      <label className="form-lbl">Observação (opcional)</label>
-      <input value={obs} onChange={e => setObs(e.target.value)}
-        placeholder="Ex: 30 dias de acompanhamento" />
-
-      {erro && (
-        <div style={{
-          background: 'var(--red-bg)', color: 'var(--red)',
-          padding: '6px 10px', borderRadius: 6, fontSize: 11, marginTop: 10,
-        }}>{erro}</div>
-      )}
-
-      <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-        <button className="btn-outline" style={{ flex: 1, justifyContent: 'center' }} onClick={onClose}>
-          Cancelar
-        </button>
-        <button className="btn" style={{ flex: 1, justifyContent: 'center' }} onClick={enviar} disabled={busy || !arquivo}>
-          <i className="ti ti-check" aria-hidden="true"></i> {busy ? 'Enviando...' : 'Salvar foto'}
-        </button>
-      </div>
-    </ModalShell>
   );
 }
 
