@@ -2819,45 +2819,8 @@ Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (e
     setErroJson(null);
     const raw = jsonInput.replace(/```[\w]*\n?/gi, '').replace(/\n?```/g, '').trim();
     if (!raw) return setErroJson('Cole o JSON antes de importar.');
-    let data;
-    try { data = JSON.parse(raw); }
-    catch (e) { return setErroJson(`JSON inválido: ${e.message}`); }
 
-    // Extrai alimentos de um objeto de plano alimentar (tem refeicoes com alimentos aninhados)
-    function processarPlanoAlimentar(planoObj) {
-      const obj = Array.isArray(planoObj) ? { refeicoes: planoObj } : planoObj;
-      if (!obj || typeof obj !== 'object') return null;
-      const CHAVES_REF = ['refeicoes','refeições','refeicao','refeição','meals','meal','dieta','cardapio','cardápio'];
-      let refeicoes = null;
-      for (const k of CHAVES_REF) { if (Array.isArray(obj[k])) { refeicoes = obj[k]; break; } }
-      if (!refeicoes) { for (const v of Object.values(obj)) { if (Array.isArray(v) && v.length > 0) { refeicoes = v; break; } } }
-      if (!refeicoes || refeicoes.length === 0) return null;
-
-      const vistos = new Map();
-      for (const ref of refeicoes) {
-        const alims = ref.alimentos ?? ref.foods ?? ref.itens ?? ref.items ?? ref.food ?? [];
-        for (const alim of (Array.isArray(alims) ? alims : [])) {
-          const nomeRaw = typeof alim === 'string' ? alim : (alim?.nome ?? alim?.name ?? alim?.item ?? alim?.descricao ?? '');
-          const nomeLimpo = limparNomeAlimento(nomeRaw.trim());
-          if (!nomeLimpo) continue;
-          const chave = nomeLimpo.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
-          if (!vistos.has(chave)) vistos.set(chave, nomeLimpo);
-        }
-      }
-      if (vistos.size === 0) return null;
-
-      const grupos = {};
-      for (const [, nome] of vistos) {
-        const { categoria, emoji } = categorizarAlimento(nome);
-        if (!grupos[categoria]) grupos[categoria] = { emoji, itens: [] };
-        grupos[categoria].itens.push({ _id: Math.random().toString(36).slice(2), nome, quantidade: '' });
-      }
-      return [
-        ...ORDEM_CATEGORIAS.filter(c => grupos[c]).map(c => ({ categoria: c, emoji: grupos[c].emoji, itens: grupos[c].itens })),
-        ...Object.keys(grupos).filter(c => !ORDEM_CATEGORIAS.includes(c)).map(c => ({ categoria: c, emoji: grupos[c].emoji, itens: grupos[c].itens })),
-      ];
-    }
-
+    // Normaliza array bruto para o formato interno { categoria, emoji, itens:[{_id,nome,quantidade}] }
     function processarArray(arr) {
       if (!Array.isArray(arr) || arr.length === 0) return null;
       const primeiro = arr[0];
@@ -2889,48 +2852,101 @@ Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (e
       }
     }
 
-    let lista = null;
-    if (!Array.isArray(data) && data && typeof data === 'object') {
-      if      (data.lista_compras)   lista = processarArray(data.lista_compras);
-      else if (data.categorias)      lista = processarArray(data.categorias);
-      else if (data.lista)           lista = processarArray(data.lista);
-      else if (data.items)           lista = processarArray(data.items);
-      else if (data.plano_alimentar) lista = processarPlanoAlimentar(data.plano_alimentar);
-      else if (data.plano)           lista = processarPlanoAlimentar(data.plano);
-      else if (data.dieta)           lista = processarPlanoAlimentar(data.dieta);
-      else if (data.cardapio ?? data['cardápio'])
-                                     lista = processarPlanoAlimentar(data.cardapio ?? data['cardápio']);
-      else if (data.refeicoes || data['refeições'])
-                                     lista = processarPlanoAlimentar(data);
-      else {
-        // Formato 6: { "Proteínas": ["Frango", ...], "Vegetais": [...] }
-        const chaves = Object.keys(data).filter(k => Array.isArray(data[k]));
-        if (chaves.length > 0) {
-          lista = chaves.map(k => ({
-            categoria: k,
-            emoji: categorizarAlimento(k).emoji,
-            itens: data[k].map(item => ({
-              _id: Math.random().toString(36).slice(2),
-              nome: limparNomeAlimento(typeof item === 'string' ? item : (item.nome ?? item.name ?? '')),
-              quantidade: typeof item === 'object' ? (item.quantidade ?? item.qty ?? '') : '',
-            })).filter(i => i.nome),
-          })).filter(c => c.itens.length > 0);
-        } else {
-          for (const v of Object.values(data)) {
-            if (Array.isArray(v) && v.length > 0) { lista = processarArray(v); if (lista) break; }
-          }
+    // Extrai alimentos de formato de plano alimentar, categoriza automaticamente
+    function processarPlanoAlimentar(planoObj) {
+      const obj = Array.isArray(planoObj) ? { refeicoes: planoObj } : planoObj;
+      if (!obj || typeof obj !== 'object') return null;
+      const CHAVES_REF = ['refeicoes','refeições','refeicao','refeição','meals','meal','dieta','cardapio','cardápio'];
+      let refeicoes = null;
+      for (const k of CHAVES_REF) { if (Array.isArray(obj[k])) { refeicoes = obj[k]; break; } }
+      if (!refeicoes) { for (const v of Object.values(obj)) { if (Array.isArray(v) && v.length > 0) { refeicoes = v; break; } } }
+      if (!refeicoes || refeicoes.length === 0) return null;
+      const vistos = new Map();
+      for (const ref of refeicoes) {
+        const alims = ref.alimentos ?? ref.foods ?? ref.itens ?? ref.items ?? ref.food ?? [];
+        for (const alim of (Array.isArray(alims) ? alims : [])) {
+          const nomeRaw = typeof alim === 'string' ? alim : (alim?.nome ?? alim?.name ?? alim?.item ?? alim?.descricao ?? '');
+          const nomeLimpo = limparNomeAlimento(nomeRaw.trim());
+          if (!nomeLimpo) continue;
+          const chave = nomeLimpo.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+          if (!vistos.has(chave)) vistos.set(chave, nomeLimpo);
         }
       }
-    } else if (Array.isArray(data)) {
-      lista = processarArray(data);
+      if (vistos.size === 0) return null;
+      const grupos = {};
+      for (const [, nome] of vistos) {
+        const { categoria, emoji } = categorizarAlimento(nome);
+        if (!grupos[categoria]) grupos[categoria] = { emoji, itens: [] };
+        grupos[categoria].itens.push({ _id: Math.random().toString(36).slice(2), nome, quantidade: '' });
+      }
+      return [
+        ...ORDEM_CATEGORIAS.filter(c => grupos[c]).map(c => ({ categoria: c, emoji: grupos[c].emoji, itens: grupos[c].itens })),
+        ...Object.keys(grupos).filter(c => !ORDEM_CATEGORIAS.includes(c)).map(c => ({ categoria: c, emoji: grupos[c].emoji, itens: grupos[c].itens })),
+      ];
     }
 
-    if (!lista || lista.length === 0) {
-      const chaves = Array.isArray(data) ? '(array raiz)' : Object.keys(data ?? {}).join(', ');
+    // Detecção de formato — retorna array bruto para processarArray, ou lista já normalizada
+    const parsearJSON = (texto) => {
+      try {
+        const data = JSON.parse(texto);
+        const chaves = Object.keys(Array.isArray(data) ? {} : data);
+        console.log('[Lapidare] Compras chaves:', chaves);
+        console.log('[Lapidare] Compras data:', data);
+
+        // Chave lista_compras
+        if (data.lista_compras) {
+          const lc = data.lista_compras;
+          if (Array.isArray(lc)) return { tipo: 'array', valor: lc };
+          if (typeof lc === 'object') {
+            return { tipo: 'array', valor: Object.keys(lc).map(cat => ({
+              categoria: cat,
+              itens: Array.isArray(lc[cat]) ? lc[cat] : [lc[cat]],
+            })) };
+          }
+        }
+
+        if (data.categorias)  return { tipo: 'array', valor: data.categorias };
+        if (data.lista)       return { tipo: 'array', valor: data.lista };
+        if (data.items)       return { tipo: 'array', valor: data.items };
+
+        // Plano alimentar — extrai e categoriza automaticamente
+        const planoObj = data.plano_alimentar ?? data.plano ?? data.dieta
+          ?? data.cardapio ?? data['cardápio'] ?? null;
+        if (planoObj) return { tipo: 'plano', valor: planoObj };
+        if (data.refeicoes || data['refeições']) return { tipo: 'plano', valor: data };
+
+        // Array direto
+        if (Array.isArray(data)) return { tipo: 'array', valor: data };
+
+        // Objeto com chaves sendo categorias: { "Proteínas": ["Frango", ...] }
+        const primeiraChave = data[chaves[0]];
+        if (Array.isArray(primeiraChave)) {
+          return { tipo: 'array', valor: chaves.map(cat => ({ categoria: cat, itens: data[cat] })) };
+        }
+
+        return null;
+      } catch(e) {
+        console.error('[Lapidare] Erro parse JSON:', e);
+        return null;
+      }
+    };
+
+    const resultado = parsearJSON(raw);
+    if (!resultado) {
+      let chaves = '(nenhuma)';
+      try { const d = JSON.parse(raw); chaves = Array.isArray(d) ? '(array raiz)' : Object.keys(d).join(', '); } catch {}
       return setErroJson(
-        `Formato não reconhecido. Chaves encontradas: ${chaves || '(nenhuma)'}. ` +
-        `Aceitos: "lista_compras", "categorias", "lista", "items", "plano_alimentar", "plano", "dieta", "cardapio", objeto com chaves de categorias, ou array direto.`
+        `Formato não reconhecido. Chaves: ${chaves}. ` +
+        `Aceitos: lista_compras · categorias · lista · items · plano_alimentar · plano · dieta · cardapio · array direto · objeto de categorias.`
       );
+    }
+
+    const lista = resultado.tipo === 'plano'
+      ? processarPlanoAlimentar(resultado.valor)
+      : processarArray(resultado.valor);
+
+    if (!lista || lista.length === 0) {
+      return setErroJson('JSON reconhecido mas sem itens válidos. Verifique se os campos "nome" e "categoria" estão presentes.');
     }
 
     setPreview({ lista });
