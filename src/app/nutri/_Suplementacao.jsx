@@ -527,14 +527,14 @@ function ModalAdicionarSuplemento({ favoritos, onClose, onSalvarBiblioteca, onSa
                 {favoritos.map(fav => {
                   const sel = selecionados[fav.id];
                   return (
-                    <div key={fav.id} style={{
-                      borderRadius: 10,
-                      border: `2px solid ${sel ? 'var(--amber, #c9a96e)' : 'var(--border)'}`,
-                      background: sel ? 'var(--amber-bg, #fdf8ee)' : 'var(--bg2)',
-                      overflow: 'hidden',
-                      transition: 'border-color .15s',
-                      ...(sel ? { gridColumn: '1 / -1' } : {}),
-                    }}>
+                    <div key={fav.id}
+                      className={`suplemento-card${sel ? ' selecionado' : ''}`}
+                      style={{
+                        background: sel ? 'var(--amber-bg, #fdf8ee)' : 'var(--bg2)',
+                        transition: 'border-color .15s',
+                        ...(sel ? { gridColumn: '1 / -1' } : {}),
+                      }}
+                    >
                       {sel ? (
                         /* Card expandido (full-width) quando selecionado */
                         <>
@@ -613,26 +613,24 @@ function ModalAdicionarSuplemento({ favoritos, onClose, onSalvarBiblioteca, onSa
                         /* Card no grid (não selecionado): imagem no topo */
                         <div onClick={() => toggleFav(fav)} style={{ cursor: 'pointer' }}>
                           <div style={{
-                            width: '100%', aspectRatio: '1 / 1',
-                            background: 'var(--bg3, #f0ece4)',
+                            width: '100%', height: 120,
+                            background: 'white',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            overflow: 'hidden',
+                            borderRadius: 8, marginBottom: 8,
                           }}>
                             {fav.foto_url ? (
                               <img src={fav.foto_url} alt={fav.titulo} loading="lazy" decoding="async"
-                                style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: 8 }} />
                             ) : (
                               <i className="ti ti-pill" style={{ fontSize: 28, color: 'var(--text3)' }} aria-hidden="true"></i>
                             )}
                           </div>
-                          <div style={{ padding: '8px 10px 10px' }}>
-                            <div style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.3 }}>{fav.titulo}</div>
-                            {fav.descricao && (
-                              <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 3 }}>
-                                {fav.descricao}
-                              </div>
-                            )}
-                          </div>
+                          <div style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.3 }}>{fav.titulo}</div>
+                          {fav.descricao && (
+                            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 3 }}>
+                              {fav.descricao}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
