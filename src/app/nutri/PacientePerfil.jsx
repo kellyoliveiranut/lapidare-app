@@ -2950,9 +2950,10 @@ Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (e
         console.log('[Lapidare] Compras chaves:', chaves);
         console.log('[Lapidare] Compras data:', data);
 
-        // Chave lista_compras
-        if (data.lista_compras) {
-          const lc = data.lista_compras;
+        // Todas as variantes de "lista de compras"
+        const lc = data.lista_de_compras ?? data.lista_compras ?? data.listadecompras
+                ?? data.shopping_list ?? data.compras ?? null;
+        if (lc) {
           if (Array.isArray(lc)) return { tipo: 'array', valor: lc };
           if (typeof lc === 'object') {
             return { tipo: 'array', valor: Object.keys(lc).map(cat => ({
@@ -2994,7 +2995,7 @@ Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (e
       try { const d = JSON.parse(raw); chaves = Array.isArray(d) ? '(array raiz)' : Object.keys(d).join(', '); } catch {}
       return setErroJson(
         `Formato não reconhecido. Chaves: ${chaves}. ` +
-        `Aceitos: lista_compras · categorias · lista · items · plano_alimentar · plano · dieta · cardapio · array direto · objeto de categorias.`
+        `Aceitos: lista_de_compras · lista_compras · listadecompras · shopping_list · compras · categorias · lista · items · plano_alimentar · plano · dieta · cardapio · array direto · objeto de categorias.`
       );
     }
 
@@ -3040,7 +3041,7 @@ Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (e
               <div>
                 <div style={{ fontSize: 15, fontWeight: 600 }}>{'{ }'} Importar JSON</div>
                 <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>
-                  Aceita: lista_compras · categorias · lista · items · objeto de categorias · array direto
+                  Aceita: lista_de_compras · lista_compras · listadecompras · shopping_list · compras · categorias · lista · items · array direto
                 </div>
               </div>
               <button onClick={() => { setJsonOpen(false); setErroJson(null); setJsonInput(''); }}
