@@ -2574,7 +2574,7 @@ const ORDEM_CATEGORIAS = [
   'Cereais e Grãos','Laticínios','Temperos e Condimentos','Outros',
 ];
 
-const REGEX_PREPARO = /\b(cozidos?|cozidas?|amassados?|amassadas?|grelhados?|grelhadas?|assados?|assadas?|refogados?|refogadas?|picados?|picadas?|fatiados?|fatiadas?|batidos?|batidas?|triturados?|trituradas?|mexidos?|mexidas?|escaldados?|escaldadas?|temperados?|temperadas?|misturados?|misturadas?)\b/gi;
+const REGEX_PREPARO = /\b(bem\s+passados?|bem\s+passadas?|cozidos?|cozidas?|amassados?|amassadas?|grelhados?|grelhadas?|assados?|assadas?|refogados?|refogadas?|picados?|picadas?|fatiados?|fatiadas?|batidos?|batidas?|triturados?|trituradas?|mexidos?|mexidas?|escaldados?|escaldadas?|temperados?|temperadas?|misturados?|misturadas?|passados?|passadas?|crus?|cruas?)\b/gi;
 
 function limparNomeAlimento(nome) {
   return nome.replace(REGEX_PREPARO, '').replace(/\s+/g, ' ').trim();
@@ -2956,10 +2956,9 @@ Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (e
         if (lc) {
           if (Array.isArray(lc)) return { tipo: 'array', valor: lc };
           if (typeof lc === 'object') {
-            return { tipo: 'array', valor: Object.keys(lc).map(cat => ({
-              categoria: cat,
-              itens: Array.isArray(lc[cat]) ? lc[cat] : [lc[cat]],
-            })) };
+            const cats = Object.keys(lc).filter(c => Array.isArray(lc[c]));
+            if (cats.length > 0)
+              return { tipo: 'array', valor: cats.map(cat => ({ categoria: cat, itens: lc[cat] })) };
           }
         }
 
@@ -2977,9 +2976,10 @@ Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (e
         if (Array.isArray(data)) return { tipo: 'array', valor: data };
 
         // Objeto com chaves sendo categorias: { "Proteínas": ["Frango", ...] }
-        const primeiraChave = data[chaves[0]];
-        if (Array.isArray(primeiraChave)) {
-          return { tipo: 'array', valor: chaves.map(cat => ({ categoria: cat, itens: data[cat] })) };
+        // Ignora chaves cujo valor não é array (metadados como PACIENTE, DATA_GERACAO, etc.)
+        const chavesComArray = chaves.filter(c => Array.isArray(data[c]));
+        if (chavesComArray.length > 0) {
+          return { tipo: 'array', valor: chavesComArray.map(cat => ({ categoria: cat, itens: data[cat] })) };
         }
 
         return null;
