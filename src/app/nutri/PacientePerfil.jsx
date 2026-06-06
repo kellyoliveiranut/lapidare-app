@@ -2823,6 +2823,41 @@ Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (e
     try { data = JSON.parse(raw); }
     catch (e) { return setErroJson(`JSON inválido: ${e.message}`); }
 
+    // Extrai alimentos de um objeto de plano alimentar (tem refeicoes com alimentos aninhados)
+    function processarPlanoAlimentar(planoObj) {
+      const obj = Array.isArray(planoObj) ? { refeicoes: planoObj } : planoObj;
+      if (!obj || typeof obj !== 'object') return null;
+      const CHAVES_REF = ['refeicoes','refeições','refeicao','refeição','meals','meal','dieta','cardapio','cardápio'];
+      let refeicoes = null;
+      for (const k of CHAVES_REF) { if (Array.isArray(obj[k])) { refeicoes = obj[k]; break; } }
+      if (!refeicoes) { for (const v of Object.values(obj)) { if (Array.isArray(v) && v.length > 0) { refeicoes = v; break; } } }
+      if (!refeicoes || refeicoes.length === 0) return null;
+
+      const vistos = new Map();
+      for (const ref of refeicoes) {
+        const alims = ref.alimentos ?? ref.foods ?? ref.itens ?? ref.items ?? ref.food ?? [];
+        for (const alim of (Array.isArray(alims) ? alims : [])) {
+          const nomeRaw = typeof alim === 'string' ? alim : (alim?.nome ?? alim?.name ?? alim?.item ?? alim?.descricao ?? '');
+          const nomeLimpo = limparNomeAlimento(nomeRaw.trim());
+          if (!nomeLimpo) continue;
+          const chave = nomeLimpo.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+          if (!vistos.has(chave)) vistos.set(chave, nomeLimpo);
+        }
+      }
+      if (vistos.size === 0) return null;
+
+      const grupos = {};
+      for (const [, nome] of vistos) {
+        const { categoria, emoji } = categorizarAlimento(nome);
+        if (!grupos[categoria]) grupos[categoria] = { emoji, itens: [] };
+        grupos[categoria].itens.push({ _id: Math.random().toString(36).slice(2), nome, quantidade: '' });
+      }
+      return [
+        ...ORDEM_CATEGORIAS.filter(c => grupos[c]).map(c => ({ categoria: c, emoji: grupos[c].emoji, itens: grupos[c].itens })),
+        ...Object.keys(grupos).filter(c => !ORDEM_CATEGORIAS.includes(c)).map(c => ({ categoria: c, emoji: grupos[c].emoji, itens: grupos[c].itens })),
+      ];
+    }
+
     function processarArray(arr) {
       if (!Array.isArray(arr) || arr.length === 0) return null;
       const primeiro = arr[0];
@@ -2856,10 +2891,17 @@ Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (e
 
     let lista = null;
     if (!Array.isArray(data) && data && typeof data === 'object') {
-      if (data.lista_compras)     lista = processarArray(data.lista_compras);
-      else if (data.categorias)   lista = processarArray(data.categorias);
-      else if (data.lista)        lista = processarArray(data.lista);
-      else if (data.items)        lista = processarArray(data.items);
+      if      (data.lista_compras)   lista = processarArray(data.lista_compras);
+      else if (data.categorias)      lista = processarArray(data.categorias);
+      else if (data.lista)           lista = processarArray(data.lista);
+      else if (data.items)           lista = processarArray(data.items);
+      else if (data.plano_alimentar) lista = processarPlanoAlimentar(data.plano_alimentar);
+      else if (data.plano)           lista = processarPlanoAlimentar(data.plano);
+      else if (data.dieta)           lista = processarPlanoAlimentar(data.dieta);
+      else if (data.cardapio ?? data['cardápio'])
+                                     lista = processarPlanoAlimentar(data.cardapio ?? data['cardápio']);
+      else if (data.refeicoes || data['refeições'])
+                                     lista = processarPlanoAlimentar(data);
       else {
         // Formato 6: { "Proteínas": ["Frango", ...], "Vegetais": [...] }
         const chaves = Object.keys(data).filter(k => Array.isArray(data[k]));
@@ -2887,7 +2929,7 @@ Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (e
       const chaves = Array.isArray(data) ? '(array raiz)' : Object.keys(data ?? {}).join(', ');
       return setErroJson(
         `Formato não reconhecido. Chaves encontradas: ${chaves || '(nenhuma)'}. ` +
-        `Aceitos: "lista_compras", "categorias", "lista", "items", objeto com chaves de categorias, ou array direto.`
+        `Aceitos: "lista_compras", "categorias", "lista", "items", "plano_alimentar", "plano", "dieta", "cardapio", objeto com chaves de categorias, ou array direto.`
       );
     }
 
