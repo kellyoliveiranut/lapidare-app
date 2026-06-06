@@ -13,6 +13,13 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
   const [adicionarOpen, setAdicionarOpen] = useState(false);
   const [pdfFile, setPdfFile] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [feedback, setFeedback] = useState(null);
+
+  useEffect(() => {
+    if (!feedback) return;
+    const t = setTimeout(() => setFeedback(null), 3500);
+    return () => clearTimeout(t);
+  }, [feedback]);
 
   async function carregar(signal = { cancelled: false }) {
     const [supRes, logRes, pdfRes] = await Promise.all([
@@ -66,53 +73,66 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
   async function salvar(s, fotoFile) {
     if (!s.nome?.trim()) { alert('Informe o nome do suplemento.'); return; }
     setBusy(true);
-    let foto_url = s.foto_url ?? null;
-    if (fotoFile) {
-      try { foto_url = await uploadFotoSuplemento(fotoFile); }
-      catch (e) { setBusy(false); alert('Erro ao enviar foto: ' + e.message); return; }
+    try {
+      let foto_url = s.foto_url ?? null;
+      if (fotoFile) {
+        try { foto_url = await uploadFotoSuplemento(fotoFile); }
+        catch (e) { alert('Erro ao enviar foto: ' + e.message); return; }
+      }
+      if (s.novo) {
+        const { error } = await supabase.from('suplementos').insert({
+          paciente_id: pacienteId, nutri_id: nutriId,
+          nome: s.nome.trim(), dose: s.dose?.trim() || null,
+          horario: s.horario?.trim() || null, obs: s.obs?.trim() || null,
+          foto_url, ativo: true, ordem: suplementos?.length ?? 0,
+          data_inicio: s.data_inicio || HOJE_ISO(),
+        });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('suplementos').update({
+          nome: s.nome.trim(), dose: s.dose?.trim() || null,
+          horario: s.horario?.trim() || null, obs: s.obs?.trim() || null,
+          foto_url, ativo: s.ativo,
+          data_inicio: s.data_inicio || null,
+          updated_at: new Date().toISOString(),
+        }).eq('id', s.id);
+        if (error) throw error;
+      }
+      setEditar(null);
+      setAdicionarOpen(false);
+      carregar();
+      setFeedback('Suplemento salvo com sucesso!');
+    } catch (e) {
+      alert('Erro ao salvar suplemento: ' + (e?.message ?? 'tente novamente'));
+    } finally {
+      setBusy(false);
     }
-    if (s.novo) {
-      await supabase.from('suplementos').insert({
-        paciente_id: pacienteId, nutri_id: nutriId,
-        nome: s.nome.trim(), dose: s.dose?.trim() || null,
-        horario: s.horario?.trim() || null, obs: s.obs?.trim() || null,
-        foto_url, ativo: true, ordem: suplementos?.length ?? 0,
-        data_inicio: s.data_inicio || HOJE_ISO(),
-        favorito_id: s.favorito_id || null,
-      });
-    } else {
-      await supabase.from('suplementos').update({
-        nome: s.nome.trim(), dose: s.dose?.trim() || null,
-        horario: s.horario?.trim() || null, obs: s.obs?.trim() || null,
-        foto_url, ativo: s.ativo,
-        data_inicio: s.data_inicio || null,
-        updated_at: new Date().toISOString(),
-      }).eq('id', s.id);
-    }
-    setBusy(false);
-    setEditar(null);
-    setAdicionarOpen(false);
-    carregar();
   }
 
   async function salvarVarios(items) {
     setBusy(true);
-    const base = suplementos?.length ?? 0;
-    const rows = items.map((item, i) => ({
-      paciente_id: pacienteId, nutri_id: nutriId,
-      nome: item.nome,
-      dose: item.dose?.trim() || null,
-      horario: item.horario?.trim() || null,
-      obs: item.obs?.trim() || null,
-      foto_url: item.foto_url || null,
-      ativo: true, ordem: base + i,
-      data_inicio: item.data_inicio || HOJE_ISO(),
-      favorito_id: item.favorito_id || null,
-    }));
-    await supabase.from('suplementos').insert(rows);
-    setBusy(false);
-    setAdicionarOpen(false);
-    carregar();
+    try {
+      const base = suplementos?.length ?? 0;
+      const rows = items.map((item, i) => ({
+        paciente_id: pacienteId, nutri_id: nutriId,
+        nome: item.nome,
+        dose: item.dose?.trim() || null,
+        horario: item.horario?.trim() || null,
+        obs: item.obs?.trim() || null,
+        foto_url: item.foto_url || null,
+        ativo: true, ordem: base + i,
+        data_inicio: item.data_inicio || HOJE_ISO(),
+      }));
+      const { error } = await supabase.from('suplementos').insert(rows);
+      if (error) throw error;
+      setAdicionarOpen(false);
+      carregar();
+      setFeedback(`${items.length} suplemento${items.length > 1 ? 's adicionados' : ' adicionado'} com sucesso!`);
+    } catch (e) {
+      alert('Erro ao salvar suplementos: ' + (e?.message ?? 'tente novamente'));
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function excluir(s) {
@@ -195,6 +215,18 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
         </div>
 
         <div className="card-body">
+          {feedback && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '10px 14px', borderRadius: 8, marginBottom: 12,
+              background: 'var(--green-bg)', border: '0.5px solid var(--green)',
+              color: 'var(--green)', fontSize: 13, fontWeight: 500,
+            }}>
+              <i className="ti ti-check" aria-hidden="true" />
+              {feedback}
+            </div>
+          )}
+
           {aderencia !== null && (
             <div style={{
               display: 'flex', gap: 12, alignItems: 'center',
