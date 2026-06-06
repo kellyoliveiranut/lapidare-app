@@ -2772,7 +2772,7 @@ Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (e
         : Object.keys(parsed ?? {}).join(', ');
       return setErroJsonLista(
         `Formato não reconhecido. Chaves encontradas: ${chaves || '(nenhuma)'}. ` +
-        `Use "categorias", "lista", "items", ou um array direto de itens com campo "categoria".`
+        `Formatos aceitos: "lista_compras", "categorias", "lista", "items", "compras" — ou um array direto de objetos com campo "categoria".`
       );
     }
 
