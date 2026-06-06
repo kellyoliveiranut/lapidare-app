@@ -34,9 +34,17 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
   async function carregarFavoritos() {
     if (!nutriId) return;
     const { data } = await supabase
-      .from('suplementos_favoritos').select('*')
-      .eq('nutri_id', nutriId).order('nome');
-    setFavoritos(data ?? []);
+      .from('ebooks').select('*')
+      .eq('nutri_id', nutriId)
+      .eq('tag', 'manipulados')
+      .order('titulo');
+    const items = (data ?? []).map(it => ({
+      ...it,
+      foto_url: it.storage_path
+        ? supabase.storage.from('ebooks').getPublicUrl(it.storage_path).data.publicUrl
+        : null,
+    }));
+    setFavoritos(items);
   }
 
   useEffect(() => {
@@ -384,10 +392,10 @@ function ModalAdicionarSuplemento({ favoritos, onClose, onSalvarBiblioteca, onSa
       return {
         ...prev,
         [fav.id]: {
-          nome: fav.nome,
-          dose: fav.dose ?? '',
-          horario: fav.horario ?? '',
-          obs: fav.obs ?? '',
+          nome: fav.titulo,
+          dose: '',
+          horario: '',
+          obs: fav.descricao ?? '',
           foto_url: fav.foto_url ?? null,
           data_inicio: new Date().toISOString().slice(0, 10),
           favorito_id: fav.id,
@@ -465,8 +473,8 @@ function ModalAdicionarSuplemento({ favoritos, onClose, onSalvarBiblioteca, onSa
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>
                   {favoritos.length === 0
-                    ? 'Nenhum suplemento salvo ainda'
-                    : `${favoritos.length} suplemento${favoritos.length !== 1 ? 's' : ''} salvos — posologia editável`}
+                    ? 'Nenhum item na Biblioteca ainda'
+                    : `${favoritos.length} item${favoritos.length !== 1 ? 'ns' : ''} na Biblioteca — posologia editável`}
                 </div>
               </div>
               <i className="ti ti-chevron-right" style={{ color: 'var(--text3)' }} aria-hidden="true"></i>
@@ -502,10 +510,10 @@ function ModalAdicionarSuplemento({ favoritos, onClose, onSalvarBiblioteca, onSa
             {favoritos.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--text3)', fontSize: 13 }}>
                 <i className="ti ti-books" style={{ fontSize: 32, display: 'block', marginBottom: 8 }} aria-hidden="true"></i>
-                Nenhum suplemento na Biblioteca ainda.
+                Nenhum item em Suplementação na Biblioteca.
                 <br />
                 <span style={{ fontSize: 11, marginTop: 6, display: 'block' }}>
-                  Adicione manualmente e clique em ⭐ para salvar na Biblioteca.
+                  Adicione itens na seção Suplementação da página Biblioteca.
                 </span>
               </div>
             ) : (
@@ -543,16 +551,16 @@ function ModalAdicionarSuplemento({ favoritos, onClose, onSalvarBiblioteca, onSa
                               <i className="ti ti-check" aria-hidden="true"></i>
                             </div>
                             {fav.foto_url ? (
-                              <img src={fav.foto_url} alt={fav.nome} loading="lazy" decoding="async"
+                              <img src={fav.foto_url} alt={fav.titulo} loading="lazy" decoding="async"
                                 style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
                             ) : (
                               <i className="ti ti-pill" style={{ fontSize: 20, color: 'var(--text3)', flexShrink: 0 }} aria-hidden="true"></i>
                             )}
                             <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontSize: 13, fontWeight: 500 }}>{fav.nome}</div>
-                              {(fav.dose || fav.horario) && (
+                              <div style={{ fontSize: 13, fontWeight: 500 }}>{fav.titulo}</div>
+                              {fav.descricao && (
                                 <div style={{ fontSize: 11, color: 'var(--text3)' }}>
-                                  {[fav.dose, fav.horario].filter(Boolean).join(' · ')}
+                                  {fav.descricao}
                                 </div>
                               )}
                             </div>
@@ -611,17 +619,17 @@ function ModalAdicionarSuplemento({ favoritos, onClose, onSalvarBiblioteca, onSa
                             overflow: 'hidden',
                           }}>
                             {fav.foto_url ? (
-                              <img src={fav.foto_url} alt={fav.nome} loading="lazy" decoding="async"
+                              <img src={fav.foto_url} alt={fav.titulo} loading="lazy" decoding="async"
                                 style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             ) : (
                               <i className="ti ti-pill" style={{ fontSize: 28, color: 'var(--text3)' }} aria-hidden="true"></i>
                             )}
                           </div>
                           <div style={{ padding: '8px 10px 10px' }}>
-                            <div style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.3 }}>{fav.nome}</div>
-                            {(fav.dose || fav.horario) && (
+                            <div style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.3 }}>{fav.titulo}</div>
+                            {fav.descricao && (
                               <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 3 }}>
-                                {[fav.dose, fav.horario].filter(Boolean).join(' · ')}
+                                {fav.descricao}
                               </div>
                             )}
                           </div>
