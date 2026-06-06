@@ -1851,6 +1851,10 @@ DIRETRIZES:
   }
 
   function abrirPreview() {
+    if (!refeicoes.length)
+      return setFeedback({ tipo: 'erro', msg: 'Adicione pelo menos uma refeição antes de pré-visualizar.' });
+    if (refeicoes.some(r => !r.nome.trim()))
+      return setFeedback({ tipo: 'erro', msg: 'Todas as refeições precisam de um nome.' });
     const dados = buildDados();
     const v = validarPlano(dados);
     if (!v.ok) return setFeedback({ tipo: 'erro', msg: v.erro });
@@ -1937,8 +1941,33 @@ DIRETRIZES:
               ))}
 
               {dadosPreview.obs && (
-                <div style={{ padding: '10px 14px', background: 'var(--bg2)', borderRadius: 8, fontSize: 12, color: 'var(--text2)', lineHeight: 1.5 }}>
+                <div style={{ padding: '10px 14px', background: 'var(--bg2)', borderRadius: 8, fontSize: 12, color: 'var(--text2)', lineHeight: 1.5, marginBottom: 10 }}>
                   <strong>Orientações:</strong> {dadosPreview.obs}
+                </div>
+              )}
+
+              {dadosPreview.substituicoes?.length > 0 && (
+                <div style={{ padding: '10px 14px', background: 'var(--bg2)', borderRadius: 8 }}>
+                  <div style={{ fontSize: 10, letterSpacing: '.15em', textTransform: 'uppercase', color: 'var(--muted)', fontWeight: 500, marginBottom: 8 }}>
+                    Substituições
+                  </div>
+                  {dadosPreview.substituicoes.map((s, i) => (
+                    <div key={i} style={{ fontSize: 12, color: 'var(--dark)', marginBottom: 5, display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+                      <span style={{ fontWeight: 600, minWidth: 0 }}>{s.original}</span>
+                      {s.subs && (
+                        <>
+                          <span style={{ color: 'var(--text3)', flexShrink: 0 }}>→</span>
+                          <span style={{ color: 'var(--text2)', minWidth: 0 }}>{s.subs}</span>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {validade && (
+                <div style={{ marginTop: 10, fontSize: 11, color: 'var(--text3)', textAlign: 'right' }}>
+                  Válido até {dataBR(validade)}
                 </div>
               )}
             </div>
