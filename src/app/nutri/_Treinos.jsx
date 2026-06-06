@@ -113,7 +113,7 @@ export default function Treinos({ pacienteId, nutriId, pacienteNome }) {
 
   return (
     <>
-      {/* Diretrizes ASCO 2022 */}
+      {/* Diretrizes ASCO 2022 | Atualização 2026 */}
       <div className="card" style={{ marginBottom: 16 }}>
         <button
           onClick={() => setAscoOpen(o => !o)}
@@ -131,8 +131,8 @@ export default function Treinos({ pacienteId, nutriId, pacienteNome }) {
               <i className="ti ti-clipboard-list" style={{ fontSize: 18, color: 'var(--green)' }} aria-hidden="true" />
             </div>
             <div style={{ textAlign: 'left' }}>
-              <div style={{ fontSize: 14, fontWeight: 500 }}>Diretrizes ASCO 2022</div>
-              <div style={{ fontSize: 12, color: 'var(--text3)' }}>Exercício durante o tratamento oncológico</div>
+              <div style={{ fontSize: 14, fontWeight: 500 }}>Diretrizes ASCO 2022 | Atualização 2026</div>
+              <div style={{ fontSize: 12, color: 'var(--text3)' }}>Exercício durante e após o tratamento oncológico</div>
             </div>
           </div>
           <i className={`ti ti-chevron-${ascoOpen ? 'up' : 'down'}`} style={{ color: 'var(--text3)', fontSize: 16 }} aria-hidden="true" />
@@ -146,11 +146,18 @@ export default function Treinos({ pacienteId, nutriId, pacienteNome }) {
             <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 5 }}>
               <li>150–300 min/semana de exercício aeróbico moderado</li>
               <li>Treino de resistência muscular 2×/semana</li>
-              <li>Reduz fadiga, ansiedade e depressão</li>
+              <li>Exercício é seguro durante tratamento ativo com intenção curativa</li>
+              <li>Reduz fadiga, ansiedade, depressão e risco de recidiva</li>
               <li>Preserva capacidade cardiorrespiratória e força muscular</li>
               <li>Baixo risco de eventos adversos quando supervisionado</li>
-              <li>Recomendado durante tratamento ativo com intenção curativa</li>
+              <li>Recomendado antes, durante e após o tratamento oncológico</li>
+              <li>Início gradual: começar com 10–15 min e progredir semanalmente</li>
+              <li>Priorizar exercício supervisionado por profissional capacitado</li>
+              <li>Adaptar intensidade conforme hemograma, fadiga e fase do tratamento</li>
             </ul>
+            <div style={{ marginTop: 10, fontSize: 11, color: 'var(--text3)', fontStyle: 'italic' }}>
+              Fonte: Ligibel et al. ASCO Guideline 2022. J Clin Oncol 40:2491-2507
+            </div>
           </div>
         )}
       </div>
