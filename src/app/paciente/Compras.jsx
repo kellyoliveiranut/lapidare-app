@@ -138,11 +138,6 @@ export default function Compras() {
                   <i className="ti ti-check"></i>
                 </button>
                 <span className="compra-nome">{item.nome}</span>
-                {item.quantidade && (
-                  <span style={{ fontSize: 11, color: 'var(--muted)', marginLeft: 'auto', flexShrink: 0 }}>
-                    {item.quantidade}
-                  </span>
-                )}
               </div>
             );
           })}

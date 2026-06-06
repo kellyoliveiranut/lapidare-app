@@ -3220,11 +3220,6 @@ Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (e
                           <span style={{ flex: 1, fontSize: 13, textDecoration: marcado ? 'line-through' : 'none' }}>
                             {item.nome}
                           </span>
-                          {item.quantidade && (
-                            <span style={{ fontSize: 11, color: 'var(--text3)', flexShrink: 0 }}>
-                              {item.quantidade}
-                            </span>
-                          )}
                         </label>
                       );
                     })}
