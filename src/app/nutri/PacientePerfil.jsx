@@ -2521,6 +2521,12 @@ const ORDEM_CATEGORIAS = [
   'Cereais e Grãos','Laticínios','Temperos e Condimentos','Outros',
 ];
 
+const REGEX_PREPARO = /\b(cozido|cozida|amassado|amassada|grelhado|grelhada|assado|assada|refogado|refogada|picado|picada|fatiado|fatiada|batido|batida|triturado|triturada)\b/gi;
+
+function limparNomeAlimento(nome) {
+  return nome.replace(REGEX_PREPARO, '').replace(/\s+/g, ' ').trim();
+}
+
 function categorizarAlimento(nome) {
   const n = ' ' + nome.toLowerCase()
     .normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -2770,14 +2776,16 @@ Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (e
       if (!plano?.dados?.refeicoes?.length)
         throw new Error('Nenhum plano alimentar publicado. Publique um plano primeiro na aba Plano.');
 
-      // Extrai todos os alimentos, deduplica pelo nome normalizado
+      // Extrai todos os alimentos, remove palavras de preparo, deduplica pelo nome limpo
       const vistos = new Map();
       for (const ref of plano.dados.refeicoes) {
         for (const alim of ref.alimentos ?? []) {
           if (!alim.nome?.trim()) continue;
-          const chave = alim.nome.toLowerCase()
+          const nomeLimpo = limparNomeAlimento(alim.nome.trim());
+          if (!nomeLimpo) continue;
+          const chave = nomeLimpo.toLowerCase()
             .normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
-          if (!vistos.has(chave)) vistos.set(chave, alim.nome.trim());
+          if (!vistos.has(chave)) vistos.set(chave, nomeLimpo);
         }
       }
 
@@ -2853,7 +2861,7 @@ Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (e
               <i className={`ti ti-${gerando ? 'loader-2' : 'sparkles'}`}
                  style={gerando ? { animation: 'lapidare-spin .75s linear infinite' } : {}}
                  aria-hidden="true" />
-              {gerando ? 'Gerando...' : '🛒 Gerar com IA'}
+              {gerando ? 'Gerando...' : 'Gerar'}
             </button>
           </div>
         </div>
@@ -2879,7 +2887,7 @@ Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (e
               <strong>📋 Gerar lista do plano</strong> — extrai automaticamente os alimentos do plano publicado e organiza por categoria, sem usar IA.
             </div>
             <div style={{ fontSize: 12, textAlign: 'left', maxWidth: 340, margin: '0 auto' }}>
-              <strong>🛒 Gerar com IA</strong> — a IA analisa o plano, agrupa por categoria e sugere quantidades para 7 dias.
+              <strong>Gerar (IA)</strong> — a IA analisa o plano, agrupa por categoria e sugere quantidades para 7 dias.
             </div>
           </div>
         )}
