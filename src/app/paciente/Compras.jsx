@@ -37,18 +37,18 @@ function limparLista(compras) {
 }
 
 export default function Compras() {
-  const { user } = useSession();
+  const { profile } = useSession();
   const [compras, setCompras] = useState(undefined);
   const [marcados, setMarcados] = useState({});
 
   useEffect(() => {
     let active = true;
     async function load() {
-      if (!user) return;
+      if (!profile?.id) return;
       const { data } = await supabase
         .from('listas_compras')
         .select('dados, publicado_em')
-        .eq('paciente_id', user.id)
+        .eq('paciente_id', profile.id)
         .order('publicado_em', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -57,7 +57,7 @@ export default function Compras() {
     }
     load();
     return () => { active = false; };
-  }, [user]);
+  }, [profile]);
 
   // Lista limpa: sem quantidades, sem substitutos, sem duplicados.
   const comprasLimpas = useMemo(() => compras ? limparLista(compras) : compras, [compras]);
