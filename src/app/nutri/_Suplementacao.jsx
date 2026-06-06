@@ -509,92 +509,121 @@ function ModalAdicionarSuplemento({ favoritos, onClose, onSalvarBiblioteca, onSa
                 </span>
               </div>
             ) : (
-              <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{
+                overflowY: 'auto', flex: 1,
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
+                gap: 10,
+                alignContent: 'start',
+              }}>
                 {favoritos.map(fav => {
                   const sel = selecionados[fav.id];
                   return (
                     <div key={fav.id} style={{
                       borderRadius: 10,
-                      border: `1px solid ${sel ? 'var(--amber, #c9a96e)' : 'var(--border)'}`,
+                      border: `2px solid ${sel ? 'var(--amber, #c9a96e)' : 'var(--border)'}`,
                       background: sel ? 'var(--amber-bg, #fdf8ee)' : 'var(--bg2)',
                       overflow: 'hidden',
                       transition: 'border-color .15s',
+                      ...(sel ? { gridColumn: '1 / -1' } : {}),
                     }}>
-                      {/* Linha clicável */}
-                      <div
-                        onClick={() => toggleFav(fav)}
-                        style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', cursor: 'pointer' }}>
-                        {/* Checkbox visual */}
-                        <div style={{
-                          width: 20, height: 20, borderRadius: 6, flexShrink: 0,
-                          background: sel ? 'var(--amber, #c9a96e)' : 'var(--white)',
-                          border: `1.5px solid ${sel ? 'var(--amber, #c9a96e)' : 'var(--border)'}`,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          color: 'var(--white)', fontSize: 12,
-                        }}>
-                          {sel && <i className="ti ti-check" aria-hidden="true"></i>}
-                        </div>
-                        {fav.foto_url ? (
-                          <img src={fav.foto_url} alt={fav.nome} loading="lazy" decoding="async"
-                            style={{ width: 32, height: 32, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />
-                        ) : (
-                          <i className="ti ti-pill"
-                            style={{ fontSize: 16, color: 'var(--text3)', flexShrink: 0 }}
-                            aria-hidden="true"></i>
-                        )}
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 13, fontWeight: 500 }}>{fav.nome}</div>
-                          {(fav.dose || fav.horario) && (
-                            <div style={{ fontSize: 11, color: 'var(--text3)' }}>
-                              {[fav.dose, fav.horario].filter(Boolean).join(' · ')}
+                      {sel ? (
+                        /* Card expandido (full-width) quando selecionado */
+                        <>
+                          <div
+                            onClick={() => toggleFav(fav)}
+                            style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', cursor: 'pointer' }}>
+                            <div style={{
+                              width: 20, height: 20, borderRadius: 6, flexShrink: 0,
+                              background: 'var(--amber, #c9a96e)',
+                              border: '1.5px solid var(--amber, #c9a96e)',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              color: 'var(--white)', fontSize: 12,
+                            }}>
+                              <i className="ti ti-check" aria-hidden="true"></i>
                             </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Posologia editável quando selecionado */}
-                      {sel && (
-                        <div style={{
-                          padding: '10px 12px 12px',
-                          borderTop: '0.5px solid var(--border)',
-                          background: 'var(--white)',
-                          display: 'flex', flexDirection: 'column', gap: 8,
-                        }}>
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                            <div>
-                              <label className="form-lbl">Posologia</label>
-                              <input
-                                value={sel.dose}
-                                onChange={e => updateSel(fav.id, 'dose', e.target.value)}
-                                placeholder="1 cápsula, 5g…"
-                              />
-                            </div>
-                            <div>
-                              <label className="form-lbl">Horário</label>
-                              <input
-                                value={sel.horario}
-                                onChange={e => updateSel(fav.id, 'horario', e.target.value)}
-                                placeholder="Café da manhã…"
-                              />
+                            {fav.foto_url ? (
+                              <img src={fav.foto_url} alt={fav.nome} loading="lazy" decoding="async"
+                                style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
+                            ) : (
+                              <i className="ti ti-pill" style={{ fontSize: 20, color: 'var(--text3)', flexShrink: 0 }} aria-hidden="true"></i>
+                            )}
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 13, fontWeight: 500 }}>{fav.nome}</div>
+                              {(fav.dose || fav.horario) && (
+                                <div style={{ fontSize: 11, color: 'var(--text3)' }}>
+                                  {[fav.dose, fav.horario].filter(Boolean).join(' · ')}
+                                </div>
+                              )}
                             </div>
                           </div>
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                            <div>
-                              <label className="form-lbl">Data de início</label>
-                              <input
-                                type="date"
-                                value={sel.data_inicio}
-                                onChange={e => updateSel(fav.id, 'data_inicio', e.target.value)}
-                              />
+                          <div style={{
+                            padding: '10px 12px 12px',
+                            borderTop: '0.5px solid var(--border)',
+                            background: 'var(--white)',
+                            display: 'flex', flexDirection: 'column', gap: 8,
+                          }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                              <div>
+                                <label className="form-lbl">Posologia</label>
+                                <input
+                                  value={sel.dose}
+                                  onChange={e => updateSel(fav.id, 'dose', e.target.value)}
+                                  placeholder="1 cápsula, 5g…"
+                                />
+                              </div>
+                              <div>
+                                <label className="form-lbl">Horário</label>
+                                <input
+                                  value={sel.horario}
+                                  onChange={e => updateSel(fav.id, 'horario', e.target.value)}
+                                  placeholder="Café da manhã…"
+                                />
+                              </div>
                             </div>
-                            <div>
-                              <label className="form-lbl">Observação</label>
-                              <input
-                                value={sel.obs}
-                                onChange={e => updateSel(fav.id, 'obs', e.target.value)}
-                                placeholder="Tomar em jejum…"
-                              />
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                              <div>
+                                <label className="form-lbl">Data de início</label>
+                                <input
+                                  type="date"
+                                  value={sel.data_inicio}
+                                  onChange={e => updateSel(fav.id, 'data_inicio', e.target.value)}
+                                />
+                              </div>
+                              <div>
+                                <label className="form-lbl">Observação</label>
+                                <input
+                                  value={sel.obs}
+                                  onChange={e => updateSel(fav.id, 'obs', e.target.value)}
+                                  placeholder="Tomar em jejum…"
+                                />
+                              </div>
                             </div>
+                          </div>
+                        </>
+                      ) : (
+                        /* Card no grid (não selecionado): imagem no topo */
+                        <div onClick={() => toggleFav(fav)} style={{ cursor: 'pointer' }}>
+                          <div style={{
+                            width: '100%', aspectRatio: '1 / 1',
+                            background: 'var(--bg3, #f0ece4)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            overflow: 'hidden',
+                          }}>
+                            {fav.foto_url ? (
+                              <img src={fav.foto_url} alt={fav.nome} loading="lazy" decoding="async"
+                                style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            ) : (
+                              <i className="ti ti-pill" style={{ fontSize: 28, color: 'var(--text3)' }} aria-hidden="true"></i>
+                            )}
+                          </div>
+                          <div style={{ padding: '8px 10px 10px' }}>
+                            <div style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.3 }}>{fav.nome}</div>
+                            {(fav.dose || fav.horario) && (
+                              <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 3 }}>
+                                {[fav.dose, fav.horario].filter(Boolean).join(' · ')}
+                              </div>
+                            )}
                           </div>
                         </div>
                       )}
