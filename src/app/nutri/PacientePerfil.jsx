@@ -3085,12 +3085,12 @@ Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (e
       )}
 
       <div className="card">
-        <div className="card-header">
+        <div className="card-header compras-card-header">
           <div>
             <div className="card-title">Lista de compras</div>
             <div className="card-sub">Gerada a partir do plano alimentar publicado</div>
           </div>
-          <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <div className="compras-btns" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
             <button
               onClick={() => setJsonOpen(true)}
               style={{
@@ -3111,7 +3111,7 @@ Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (e
                 border: 'none', cursor: gerando ? 'default' : 'pointer',
                 background: 'var(--dark, #2b2b2b)',
                 color: '#fff', fontSize: 13, fontWeight: 600,
-                fontFamily: 'var(--font-sans)', flexShrink: 0,
+                fontFamily: 'var(--font-sans)',
                 opacity: gerando ? 0.75 : 1,
               }}>
               📋 Gerar lista do plano
@@ -3125,7 +3125,7 @@ Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (e
                 border: 'none', cursor: gerando ? 'default' : 'pointer',
                 background: 'linear-gradient(135deg, #16a34a, #15803d)',
                 color: '#fff', fontSize: 13, fontWeight: 600,
-                fontFamily: 'var(--font-sans)', flexShrink: 0,
+                fontFamily: 'var(--font-sans)',
                 opacity: gerando ? 0.75 : 1,
               }}>
               <i className={`ti ti-${gerando ? 'loader-2' : 'sparkles'}`}

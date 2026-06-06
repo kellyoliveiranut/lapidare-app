@@ -568,6 +568,23 @@
   .nutri-panel .empty-card { padding: 24px 16px; }
 }
 
+/* ── ABA COMPRAS — botões empilhados no mobile ── */
+@media (max-width: 768px) {
+  .nutri-panel .compras-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .nutri-panel .compras-btns {
+    width: 100%;
+    flex-direction: column;
+  }
+  .nutri-panel .compras-btns > button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
 /* Layout específico do Chat (lista + conversa) */
 .nutri-panel .chat-layout {
   display: grid;
