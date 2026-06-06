@@ -29,6 +29,7 @@ export default function Habitos() {
   const { user } = useSession();
   const [habitos, setHabitos] = useState(null);
   const [logs, setLogs] = useState([]);
+  const [erroSalvar, setErroSalvar] = useState(null);
 
   async function carregar(signal) {
     if (!user) return;
@@ -61,23 +62,30 @@ export default function Habitos() {
   }, [logs]);
 
   async function setValor(habito, valor) {
-    const hoje = HOJE();
-    const atual = logMap[habito.id]?.[hoje];
-    if (atual !== undefined && atual === valor) {
-      // mesmo valor → toggle off pra boolean
-      if (habito.tipo === 'boolean') {
-        const { data: existente } = await supabase.from('habitos_logs')
-          .select('id').eq('habito_id', habito.id).eq('data', hoje).maybeSingle();
-        if (existente) await supabase.from('habitos_logs').delete().eq('id', existente.id);
+    setErroSalvar(null);
+    try {
+      const hoje = HOJE();
+      const atual = logMap[habito.id]?.[hoje];
+      if (atual !== undefined && atual === valor) {
+        if (habito.tipo === 'boolean') {
+          const { data: existente } = await supabase.from('habitos_logs')
+            .select('id').eq('habito_id', habito.id).eq('data', hoje).maybeSingle();
+          if (existente) {
+            const { error } = await supabase.from('habitos_logs').delete().eq('id', existente.id);
+            if (error) throw error;
+          }
+        }
+      } else {
+        const { error } = await supabase.from('habitos_logs').upsert({
+          habito_id: habito.id, paciente_id: user.id,
+          data: hoje, valor,
+        }, { onConflict: 'habito_id,data' });
+        if (error) throw error;
       }
-    } else {
-      // upsert
-      await supabase.from('habitos_logs').upsert({
-        habito_id: habito.id, paciente_id: user.id,
-        data: hoje, valor,
-      }, { onConflict: 'habito_id,data' });
+      carregar({ cancelled: false });
+    } catch (err) {
+      setErroSalvar('Não foi possível salvar. Verifique sua conexão e tente novamente.');
     }
-    carregar({ cancelled: false });
   }
 
   const hoje = HOJE();
@@ -147,6 +155,16 @@ export default function Habitos() {
       </div>
 
       {/* Lista de hábitos */}
+      {erroSalvar && (
+        <div style={{
+          background: '#fee2e2', border: '1px solid #fca5a5',
+          borderRadius: 10, padding: '10px 14px', marginBottom: 10,
+          fontSize: 13, color: '#991b1b',
+        }}>
+          {erroSalvar}
+        </div>
+      )}
+
       <div style={{
         fontSize: 10, letterSpacing: '.18em', textTransform: 'uppercase',
         color: 'var(--muted)', fontWeight: 500, margin: '4px 4px 8px',

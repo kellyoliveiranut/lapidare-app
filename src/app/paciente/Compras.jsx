@@ -39,6 +39,7 @@ function limparLista(compras) {
 export default function Compras() {
   const { profile } = useSession();
   const [compras, setCompras] = useState(undefined);
+  const [publicadoEm, setPublicadoEm] = useState(null);
   const [marcados, setMarcados] = useState({});
 
   useEffect(() => {
@@ -54,10 +55,20 @@ export default function Compras() {
         .maybeSingle();
       if (!active) return;
       setCompras(data?.dados ?? null);
+      setPublicadoEm(data?.publicado_em ?? null);
     }
     load();
     return () => { active = false; };
   }, [profile]);
+
+  // Carrega progresso salvo localmente para esta lista específica
+  useEffect(() => {
+    if (!profile?.id || !publicadoEm) return;
+    try {
+      const saved = localStorage.getItem(`compras_${profile.id}_${publicadoEm}`);
+      if (saved) setMarcados(JSON.parse(saved));
+    } catch {}
+  }, [profile?.id, publicadoEm]);
 
   // Lista limpa: sem quantidades, sem substitutos, sem duplicados.
   const comprasLimpas = useMemo(() => compras ? limparLista(compras) : compras, [compras]);
@@ -81,7 +92,15 @@ export default function Compras() {
   const totalItens = comprasLimpas.lista?.reduce((a, c) => a + (c.itens?.length ?? 0), 0) ?? 0;
   const totalMarcados = Object.values(marcados).filter(Boolean).length;
 
-  const toggle = (key) => setMarcados(m => ({ ...m, [key]: !m[key] }));
+  const toggle = (key) => setMarcados(m => {
+    const next = { ...m, [key]: !m[key] };
+    if (profile?.id && publicadoEm) {
+      try {
+        localStorage.setItem(`compras_${profile.id}_${publicadoEm}`, JSON.stringify(next));
+      } catch {}
+    }
+    return next;
+  });
 
   return (
     <>

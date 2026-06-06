@@ -574,31 +574,33 @@ function ConsultaModal({ consulta, pacientes, nutriId, onClose, onSaved }) {
       return;
     }
     setBusy(true);
-    const dataHora = new Date(`${data}T${hora}:00`).toISOString();
-    const linksValidos = linksExtras
-      .map(l => ({ label: (l.label ?? '').trim(), url: (l.url ?? '').trim() }))
-      .filter(l => l.url);
-    const payload = {
-      paciente_id: pacienteId,
-      nutri_id: nutriId,
-      data_hora: dataHora,
-      duracao_min: Number(duracao),
-      tipo,
-      status,
-      obs: obs.trim() || null,
-      meet_link: meetLink.trim() || null,
-      links_extras: linksValidos.length > 0 ? linksValidos : null,
-      lembrete_ativo: lembreteAtivo,
-    };
-    const { error } = isEdit
-      ? await supabase.from('consultas').update(payload).eq('id', consulta.id)
-      : await supabase.from('consultas').insert(payload);
-    setBusy(false);
-    if (error) {
-      setErro(error.message);
-      return;
+    try {
+      const dataHora = new Date(`${data}T${hora}:00`).toISOString();
+      const linksValidos = linksExtras
+        .map(l => ({ label: (l.label ?? '').trim(), url: (l.url ?? '').trim() }))
+        .filter(l => l.url);
+      const payload = {
+        paciente_id: pacienteId,
+        nutri_id: nutriId,
+        data_hora: dataHora,
+        duracao_min: Number(duracao),
+        tipo,
+        status,
+        obs: obs.trim() || null,
+        meet_link: meetLink.trim() || null,
+        links_extras: linksValidos.length > 0 ? linksValidos : null,
+        lembrete_ativo: lembreteAtivo,
+      };
+      const { error } = isEdit
+        ? await supabase.from('consultas').update(payload).eq('id', consulta.id)
+        : await supabase.from('consultas').insert(payload);
+      if (error) throw error;
+      onSaved();
+    } catch (err) {
+      setErro(err?.message || 'Erro ao salvar consulta');
+    } finally {
+      setBusy(false);
     }
-    onSaved();
   }
 
   async function cancelarConsulta() {

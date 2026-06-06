@@ -86,22 +86,32 @@ export default function PacientePerfil() {
 
   async function salvarCampo() {
     setSalvandoCampo(true);
-    const { error } = await supabase.from('pacientes')
-      .update({ [editandoCampo]: novoCampo || null }).eq('id', id);
-    setSalvandoCampo(false);
-    if (error) { alert('Erro: ' + error.message); return; }
-    setEditandoCampo(null);
-    carregar();
+    try {
+      const { error } = await supabase.from('pacientes')
+        .update({ [editandoCampo]: novoCampo || null }).eq('id', id);
+      if (error) throw error;
+      setEditandoCampo(null);
+      carregar();
+    } catch (err) {
+      alert('Erro: ' + (err?.message || 'tente novamente'));
+    } finally {
+      setSalvandoCampo(false);
+    }
   }
 
   async function salvarNascimento() {
     setSalvandoNasc(true);
-    const { error } = await supabase.from('pacientes')
-      .update({ nascimento: novoNasc || null }).eq('id', id);
-    setSalvandoNasc(false);
-    if (error) { alert('Erro: ' + error.message); return; }
-    setEditandoNasc(false);
-    carregar();
+    try {
+      const { error } = await supabase.from('pacientes')
+        .update({ nascimento: novoNasc || null }).eq('id', id);
+      if (error) throw error;
+      setEditandoNasc(false);
+      carregar();
+    } catch (err) {
+      alert('Erro: ' + (err?.message || 'tente novamente'));
+    } finally {
+      setSalvandoNasc(false);
+    }
   }
 
   function calcularIdade(iso) {
@@ -653,19 +663,24 @@ function ModalEditarDados({ paciente, onClose, onSaved }) {
   async function salvar() {
     if (!form.nome.trim()) return setErro('Nome é obrigatório.');
     setBusy(true); setErro(null);
-    const { error } = await supabase.from('pacientes').update({
-      nome:       form.nome.trim()       || null,
-      email:      form.email.trim()      || null,
-      telefone:   form.telefone.trim()   || null,
-      nascimento: form.nascimento        || null,
-      objetivo:   form.objetivo          || null,
-      tipo_plano: form.tipo_plano        || null,
-      modalidade: form.modalidade        || null,
-    }).eq('id', paciente.id);
-    setBusy(false);
-    if (error) return setErro(error.message);
-    onSaved();
-    onClose();
+    try {
+      const { error } = await supabase.from('pacientes').update({
+        nome:       form.nome.trim()       || null,
+        email:      form.email.trim()      || null,
+        telefone:   form.telefone.trim()   || null,
+        nascimento: form.nascimento        || null,
+        objetivo:   form.objetivo          || null,
+        tipo_plano: form.tipo_plano        || null,
+        modalidade: form.modalidade        || null,
+      }).eq('id', paciente.id);
+      if (error) throw error;
+      onSaved();
+      onClose();
+    } catch (err) {
+      setErro(err?.message || 'Erro ao salvar');
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -1104,37 +1119,42 @@ Retorne SOMENTE o JSON.`;
       return setFeedback({ tipo: 'erro', msg: 'Data e peso são obrigatórios.' });
     }
     setBusy(true);
-    const payload = {
-      paciente_id: pacienteId,
-      nutri_id: nutriId,
-      data: form.data,
-      kg: num(form.kg),
-      altura_cm: numInt(form.altura_cm),
-      cintura_cm: num(form.cintura_cm),
-      quadril_cm: num(form.quadril_cm),
-      abdome_cm: num(form.abdome_cm),
-      braco_cm: num(form.braco_cm),
-      braco_dir_cm: num(form.braco_dir_cm),
-      braco_esq_cm: num(form.braco_esq_cm),
-      coxa_cm: num(form.coxa_cm),
-      coxa_dir_cm: num(form.coxa_dir_cm),
-      coxa_esq_cm: num(form.coxa_esq_cm),
-      panturrilha_cm: num(form.panturrilha_cm),
-      pgc: num(form.pgc),
-      mm_kg: num(form.mm_kg),
-      mm_pct: num(form.mm_pct),
-      gordura_kg: num(form.gordura_kg),
-      hidratacao_pct: num(form.hidratacao_pct),
-      geb_kcal: numInt(form.geb_kcal),
-      get_kcal: numInt(form.get_kcal),
-      obs: form.obs.trim() || null,
-    };
-    const { error } = await supabase.from('peso_registros').insert(payload);
-    setBusy(false);
-    if (error) return setFeedback({ tipo: 'erro', msg: error.message });
-    setFeedback({ tipo: 'ok', msg: 'Avaliação registrada.' });
-    setForm(novaAvaliacao());
-    carregar();
+    try {
+      const payload = {
+        paciente_id: pacienteId,
+        nutri_id: nutriId,
+        data: form.data,
+        kg: num(form.kg),
+        altura_cm: numInt(form.altura_cm),
+        cintura_cm: num(form.cintura_cm),
+        quadril_cm: num(form.quadril_cm),
+        abdome_cm: num(form.abdome_cm),
+        braco_cm: num(form.braco_cm),
+        braco_dir_cm: num(form.braco_dir_cm),
+        braco_esq_cm: num(form.braco_esq_cm),
+        coxa_cm: num(form.coxa_cm),
+        coxa_dir_cm: num(form.coxa_dir_cm),
+        coxa_esq_cm: num(form.coxa_esq_cm),
+        panturrilha_cm: num(form.panturrilha_cm),
+        pgc: num(form.pgc),
+        mm_kg: num(form.mm_kg),
+        mm_pct: num(form.mm_pct),
+        gordura_kg: num(form.gordura_kg),
+        hidratacao_pct: num(form.hidratacao_pct),
+        geb_kcal: numInt(form.geb_kcal),
+        get_kcal: numInt(form.get_kcal),
+        obs: form.obs.trim() || null,
+      };
+      const { error } = await supabase.from('peso_registros').insert(payload);
+      if (error) throw error;
+      setFeedback({ tipo: 'ok', msg: 'Avaliação registrada.' });
+      setForm(novaAvaliacao());
+      carregar();
+    } catch (err) {
+      setFeedback({ tipo: 'erro', msg: err?.message || 'Erro ao salvar avaliação' });
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function remover(id) {
@@ -1652,20 +1672,24 @@ Estrutura JSON obrigatória:
     if (!v.ok) return setFeedback({ tipo: 'erro', msg: v.erro });
 
     setBusy(true);
-    const { error } = await supabase.from('planos').insert({
-      paciente_id: pacienteId, nutri_id: nutriId,
-      dados, validade: validade || null,
-    });
-    setBusy(false);
-    if (error) return setFeedback({ tipo: 'erro', msg: error.message });
-
-    setFeedback({ tipo: 'ok', msg: 'Plano publicado! A paciente já pode visualizar.' });
-    setMacros({ kcal: '', proteinas_g: '', carbo_g: '', gorduras_g: '', agua_l: '' });
-    setRefeicoes([]);
-    setObs('');
-    setValidade('');
-    setSubstituicoes([]);
-    carregar();
+    try {
+      const { error } = await supabase.from('planos').insert({
+        paciente_id: pacienteId, nutri_id: nutriId,
+        dados, validade: validade || null,
+      });
+      if (error) throw error;
+      setFeedback({ tipo: 'ok', msg: 'Plano publicado! A paciente já pode visualizar.' });
+      setMacros({ kcal: '', proteinas_g: '', carbo_g: '', gorduras_g: '', agua_l: '' });
+      setRefeicoes([]);
+      setObs('');
+      setValidade('');
+      setSubstituicoes([]);
+      carregar();
+    } catch (err) {
+      setFeedback({ tipo: 'erro', msg: err?.message || 'Erro ao publicar plano' });
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function excluirPlano(p) {
@@ -2657,16 +2681,20 @@ Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (e
     if (!v.ok) return setFeedback({ tipo: 'erro', msg: v.erro });
 
     setBusy(true);
-    const { error } = await supabase.from('listas_compras').insert({
-      paciente_id: pacienteId, nutri_id: nutriId, dados,
-    });
-    setBusy(false);
-    if (error) return setFeedback({ tipo: 'erro', msg: error.message });
-
-    setFeedback({ tipo: 'ok', msg: 'Lista publicada! A paciente já pode ver.' });
-    setPreview(null);
-    setMarcados({});
-    carregar();
+    try {
+      const { error } = await supabase.from('listas_compras').insert({
+        paciente_id: pacienteId, nutri_id: nutriId, dados,
+      });
+      if (error) throw error;
+      setFeedback({ tipo: 'ok', msg: 'Lista publicada! A paciente já pode ver.' });
+      setPreview(null);
+      setMarcados({});
+      carregar();
+    } catch (err) {
+      setFeedback({ tipo: 'erro', msg: err?.message || 'Erro ao publicar lista' });
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function copiarLista() {
