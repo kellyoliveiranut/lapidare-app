@@ -80,7 +80,7 @@ export default function TermoConsentimento({ children }) {
     const { error } = await supabase.from('pacientes').update({
       termo_aceito_em: new Date().toISOString(),
       termo_versao: TERMO_VERSAO,
-    }).eq('id', user.id);
+    }).eq('id', profile.id);
     setAceitando(false);
     if (error) {
       setErro('Não foi possível salvar: ' + error.message);
@@ -128,8 +128,10 @@ export default function TermoConsentimento({ children }) {
 
         <div style={{
           padding: '16px 24px',
-          overflow: 'auto', flex: 1,
+          overflow: 'auto', flex: 1, minHeight: 0,
           fontSize: 13, lineHeight: 1.6, color: 'var(--ink, #2b2b2b)',
+          WebkitOverflowScrolling: 'touch',
+          overscrollBehavior: 'contain',
         }}
           dangerouslySetInnerHTML={{ __html: TERMO_HTML }}
         />
@@ -154,6 +156,9 @@ export default function TermoConsentimento({ children }) {
               fontSize: 14, fontWeight: 500, cursor: 'pointer',
               fontFamily: 'var(--font-sans)',
               opacity: aceitando ? 0.7 : 1,
+              touchAction: 'manipulation',
+              WebkitTapHighlightColor: 'transparent',
+              userSelect: 'none',
             }}>
             {aceitando ? 'Salvando...' : 'Aceito e continuar'}
           </button>

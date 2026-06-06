@@ -14,9 +14,11 @@ function parsearItem(raw) {
 }
 
 // Normaliza a lista: parseia itens, deduplica por nome (case-insensitive).
+// Aceita tanto { lista: [...] } quanto { lista_compras: [...] }.
 function limparLista(compras) {
-  if (!compras?.lista) return compras;
-  const novasCategorias = compras.lista
+  const lista = compras?.lista ?? compras?.lista_compras;
+  if (!lista) return compras;
+  const novasCategorias = lista
     .map(cat => {
       const vistos = new Set();
       const itens = (cat.itens ?? [])
