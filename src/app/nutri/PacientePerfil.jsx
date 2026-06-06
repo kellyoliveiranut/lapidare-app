@@ -2087,7 +2087,7 @@ DIRETRIZES:
                 style={gerando ? { animation: 'lapidare-spin .75s linear infinite' } : {}}
                 aria-hidden="true"
               />
-              {gerando ? 'Gerando...' : '✨ Gerar com IA'}
+              {gerando ? 'Gerando...' : 'Gerar'}
             </button>
           </div>
         </div>
@@ -2521,7 +2521,7 @@ const ORDEM_CATEGORIAS = [
   'Cereais e Grãos','Laticínios','Temperos e Condimentos','Outros',
 ];
 
-const REGEX_PREPARO = /\b(cozido|cozida|amassado|amassada|grelhado|grelhada|assado|assada|refogado|refogada|picado|picada|fatiado|fatiada|batido|batida|triturado|triturada)\b/gi;
+const REGEX_PREPARO = /\b(cozidos?|cozidas?|amassados?|amassadas?|grelhados?|grelhadas?|assados?|assadas?|refogados?|refogadas?|picados?|picadas?|fatiados?|fatiadas?|batidos?|batidas?|triturados?|trituradas?|mexidos?|mexidas?|escaldados?|escaldadas?|temperados?|temperadas?|misturados?|misturadas?)\b/gi;
 
 function limparNomeAlimento(nome) {
   return nome.replace(REGEX_PREPARO, '').replace(/\s+/g, ' ').trim();
@@ -2551,6 +2551,9 @@ function PublicarLista({ pacienteId, nutriId }) {
   const [feedback, setFeedback]       = useState(null);
   const [historico, setHistorico]     = useState([]);
   const [copiado, setCopiado]         = useState(false);
+  const [jsonOpen, setJsonOpen]       = useState(false);
+  const [jsonInput, setJsonInput]     = useState('');
+  const [erroJson, setErroJson]       = useState(null);
 
   useEffect(() => { carregar(); }, [pacienteId]);
 
@@ -2812,6 +2815,89 @@ Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (e
     setGerando(false);
   }
 
+  function importarJSON() {
+    setErroJson(null);
+    const raw = jsonInput.replace(/```[\w]*\n?/gi, '').replace(/\n?```/g, '').trim();
+    if (!raw) return setErroJson('Cole o JSON antes de importar.');
+    let data;
+    try { data = JSON.parse(raw); }
+    catch (e) { return setErroJson(`JSON inválido: ${e.message}`); }
+
+    function processarArray(arr) {
+      if (!Array.isArray(arr) || arr.length === 0) return null;
+      const primeiro = arr[0];
+      const ehCategoria = primeiro && typeof primeiro === 'object' && (
+        Array.isArray(primeiro.itens) || Array.isArray(primeiro.items)
+      );
+      if (ehCategoria) {
+        return arr.map(cat => ({
+          categoria: cat.categoria ?? cat.nome ?? cat.category ?? cat.name ?? '',
+          emoji:     cat.emoji ?? cat.icone ?? cat.icon ?? '',
+          itens: (cat.itens ?? cat.items ?? []).map(item => ({
+            _id: Math.random().toString(36).slice(2),
+            nome: limparNomeAlimento(typeof item === 'string' ? item : (item.nome ?? item.name ?? item.item ?? '')),
+            quantidade: typeof item === 'object' ? (item.quantidade ?? item.qty ?? item.quantity ?? '') : '',
+          })).filter(i => i.nome),
+        })).filter(c => c.categoria && c.itens.length > 0);
+      } else {
+        const grupos = {}; const ordem = [];
+        for (const item of arr) {
+          if (!item || typeof item !== 'object') continue;
+          const cat  = item.categoria ?? item.category ?? item.grupo ?? item.group ?? 'Geral';
+          const nome = limparNomeAlimento(item.nome ?? item.name ?? item.item ?? item.descricao ?? '');
+          const qtd  = item.quantidade ?? item.qty ?? item.quantity ?? '';
+          if (!nome) continue;
+          if (!grupos[cat]) { grupos[cat] = { emoji: item.emoji ?? '', itens: [] }; ordem.push(cat); }
+          grupos[cat].itens.push({ _id: Math.random().toString(36).slice(2), nome, quantidade: qtd });
+        }
+        return ordem.map(c => ({ categoria: c, emoji: grupos[c].emoji, itens: grupos[c].itens })).filter(c => c.itens.length > 0);
+      }
+    }
+
+    let lista = null;
+    if (!Array.isArray(data) && data && typeof data === 'object') {
+      if (data.lista_compras)     lista = processarArray(data.lista_compras);
+      else if (data.categorias)   lista = processarArray(data.categorias);
+      else if (data.lista)        lista = processarArray(data.lista);
+      else if (data.items)        lista = processarArray(data.items);
+      else {
+        // Formato 6: { "Proteínas": ["Frango", ...], "Vegetais": [...] }
+        const chaves = Object.keys(data).filter(k => Array.isArray(data[k]));
+        if (chaves.length > 0) {
+          lista = chaves.map(k => ({
+            categoria: k,
+            emoji: categorizarAlimento(k).emoji,
+            itens: data[k].map(item => ({
+              _id: Math.random().toString(36).slice(2),
+              nome: limparNomeAlimento(typeof item === 'string' ? item : (item.nome ?? item.name ?? '')),
+              quantidade: typeof item === 'object' ? (item.quantidade ?? item.qty ?? '') : '',
+            })).filter(i => i.nome),
+          })).filter(c => c.itens.length > 0);
+        } else {
+          for (const v of Object.values(data)) {
+            if (Array.isArray(v) && v.length > 0) { lista = processarArray(v); if (lista) break; }
+          }
+        }
+      }
+    } else if (Array.isArray(data)) {
+      lista = processarArray(data);
+    }
+
+    if (!lista || lista.length === 0) {
+      const chaves = Array.isArray(data) ? '(array raiz)' : Object.keys(data ?? {}).join(', ');
+      return setErroJson(
+        `Formato não reconhecido. Chaves encontradas: ${chaves || '(nenhuma)'}. ` +
+        `Aceitos: "lista_compras", "categorias", "lista", "items", objeto com chaves de categorias, ou array direto.`
+      );
+    }
+
+    setPreview({ lista });
+    setMarcados({});
+    setJsonInput('');
+    setErroJson(null);
+    setJsonOpen(false);
+  }
+
   async function excluirLista(l) {
     if (!window.confirm(`Excluir lista publicada em ${dataBR(l.publicado_em)}?`)) return;
     const { error } = await supabase.from('listas_compras').delete().eq('id', l.id);
@@ -2825,6 +2911,63 @@ Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (e
 
   return (
     <>
+      {/* Modal: Importar JSON */}
+      {jsonOpen && (
+        <div onClick={() => { setJsonOpen(false); setErroJson(null); setJsonInput(''); }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400, padding: 16 }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background: 'var(--white)', borderRadius: 14,
+            width: '100%', maxWidth: 540, maxHeight: '90dvh',
+            display: 'flex', flexDirection: 'column', overflow: 'hidden',
+            boxShadow: '0 8px 32px rgba(0,0,0,.18)',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 20px 12px', borderBottom: '0.5px solid var(--border)', flexShrink: 0 }}>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 600 }}>{'{ }'} Importar JSON</div>
+                <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>
+                  Aceita: lista_compras · categorias · lista · items · objeto de categorias · array direto
+                </div>
+              </div>
+              <button onClick={() => { setJsonOpen(false); setErroJson(null); setJsonInput(''); }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'var(--text3)' }}>
+                <i className="ti ti-x" aria-hidden="true" />
+              </button>
+            </div>
+            <div style={{ padding: '16px 20px', overflowY: 'auto', flex: 1 }}>
+              <textarea
+                autoFocus
+                value={jsonInput}
+                onChange={e => { setJsonInput(e.target.value); setErroJson(null); }}
+                rows={12}
+                placeholder={'{"lista_compras": [{"categoria": "Proteínas", "itens": ["Frango", "Ovos"]}]}'}
+                style={{
+                  width: '100%', boxSizing: 'border-box', resize: 'vertical', minHeight: 220,
+                  fontSize: 12, fontFamily: 'monospace', lineHeight: 1.55,
+                  padding: 10, borderRadius: 8,
+                  border: erroJson ? '1.5px solid var(--red)' : '1px solid var(--border)',
+                  background: 'var(--bg2)', color: 'var(--dark)',
+                }}
+              />
+              {erroJson && (
+                <div style={{ marginTop: 8, padding: '8px 12px', borderRadius: 6, background: 'var(--red-bg)', color: 'var(--red)', fontSize: 12, display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                  <i className="ti ti-alert-triangle" style={{ flexShrink: 0, marginTop: 1 }} /> {erroJson}
+                </div>
+              )}
+            </div>
+            <div style={{ padding: '12px 20px', borderTop: '0.5px solid var(--border)', display: 'flex', gap: 8, flexShrink: 0 }}>
+              <button className="btn-outline" style={{ flex: 1, justifyContent: 'center' }}
+                onClick={() => { setJsonOpen(false); setErroJson(null); setJsonInput(''); }}>
+                Cancelar
+              </button>
+              <button className="btn" style={{ flex: 2, justifyContent: 'center' }}
+                onClick={importarJSON} disabled={!jsonInput.trim()}>
+                <i className="ti ti-file-import" aria-hidden="true" /> Importar lista
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="card">
         <div className="card-header">
           <div>
@@ -2832,6 +2975,17 @@ Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (e
             <div className="card-sub">Gerada a partir do plano alimentar publicado</div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <button
+              onClick={() => setJsonOpen(true)}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '7px 12px', borderRadius: 8, cursor: 'pointer',
+                border: '1px solid var(--border)',
+                background: 'var(--bg2)', color: 'var(--dark)',
+                fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-sans)',
+              }}>
+              {'{ }'} JSON
+            </button>
             <button
               onClick={gerarDoPlano}
               disabled={gerando}
