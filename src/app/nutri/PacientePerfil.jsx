@@ -2463,6 +2463,77 @@ DIRETRIZES:
 }
 
 /* ============================================================
+   PUBLICAR LISTA DE COMPRAS — helpers de categorização
+   ============================================================ */
+const CATEGORIAS_ALIMENTOS = [
+  { categoria: 'Proteínas', emoji: '🥩', palavras: [
+    'frango','galinha','peito','sobrecoxa','coxa',
+    'peixe','tilapia','salmao','atum','sardinha','bacalhau','merluza','robalo',
+    'pacu','tambaqui','saint peter',
+    'carne','bife','patinho','alcatra','contrafile','fraldinha','musculo','acem',
+    'maminha','picanha','lagarto','coxao','costela',
+    'porco','suino','lombo','pernil','linguica','salsicha','mortadela',
+    'presunto','salame','peito de peru',
+    'ovo','ovos','clara','gema',
+    'camarao','lula','polvo','marisco',
+    'whey','caseina','albumina','proteina',
+    'tofu','tempeh',
+  ]},
+  { categoria: 'Laticínios', emoji: '🥛', palavras: [
+    'leite','iogurte','kefir','coalhada',
+    'queijo','mussarela','cottage','ricota','requeijao','creme de leite',
+    'manteiga','ghee',
+  ]},
+  { categoria: 'Frutas', emoji: '🍎', palavras: [
+    'banana','maca','pera','manga','mamao','papaia','melancia','melao','abacaxi',
+    'uva','morango','laranja','limao','kiwi','abacate','coco','acerola','goiaba',
+    'acai','mirtilo','blueberry','framboesa','amora','cereja','pessego','ameixa',
+    'figo','tamara','maracuja','caju','pitanga','jabuticaba','tangerina','mexerica',
+    'fruta',
+  ]},
+  { categoria: 'Vegetais e Legumes', emoji: '🥦', palavras: [
+    'brocolis','couve','repolho','cenoura','beterraba','abobrinha','berinjela',
+    'pepino','tomate','pimentao','alface','rucula','agriao','espinafre','acelga',
+    'vagem','chuchu','jilo','quiabo','aspargo','palmito',
+    'cogumelo','shiitake','champignon','shimeji',
+    'batata doce','inhame','mandioca','aipim',
+    'alho','cebola','alho poro','gengibre','milho',
+    'legume','verdura','hortalica',
+  ]},
+  { categoria: 'Cereais e Grãos', emoji: '🌾', palavras: [
+    'arroz','aveia','granola','quinoa','amaranto',
+    'pao','torrada','tapioca','biscoito','bolacha',
+    'macarrao','massa','espaguete','fettuccine','lasanha','penne',
+    'farinha','fuba','polenta','cuscuz','trigo','centeio','cevada',
+    'feijao','lentilha','grao de bico','ervilha','soja','cereal',
+  ]},
+  { categoria: 'Temperos e Condimentos', emoji: '🫙', palavras: [
+    'azeite','oleo','vinagre',
+    'sal','pimenta','colorau','paprika','curcuma','curry','canela',
+    'oregano','tomilho','louro','alecrim','cebolinha','coentro','manjericao',
+    'molho','shoyu','missô','tahine','mostarda','ketchup',
+    'mel','cacau','acucar','adocante','stevia','cafe',
+  ]},
+];
+
+const ORDEM_CATEGORIAS = [
+  'Proteínas','Vegetais e Legumes','Frutas',
+  'Cereais e Grãos','Laticínios','Temperos e Condimentos','Outros',
+];
+
+function categorizarAlimento(nome) {
+  const n = ' ' + nome.toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim() + ' ';
+  for (const { categoria, emoji, palavras } of CATEGORIAS_ALIMENTOS) {
+    if (palavras.some(p => n.includes(' ' + p + ' '))) return { categoria, emoji };
+  }
+  return { categoria: 'Outros', emoji: '🧴' };
+}
+
+/* ============================================================
    PUBLICAR LISTA DE COMPRAS
    ============================================================ */
 function PublicarLista({ pacienteId, nutriId }) {
@@ -2474,9 +2545,6 @@ function PublicarLista({ pacienteId, nutriId }) {
   const [feedback, setFeedback]       = useState(null);
   const [historico, setHistorico]     = useState([]);
   const [copiado, setCopiado]         = useState(false);
-  const [jsonListaOpen, setJsonListaOpen]   = useState(false);
-  const [jsonListaInput, setJsonListaInput] = useState('');
-  const [erroJsonLista, setErroJsonLista]   = useState(null);
 
   useEffect(() => { carregar(); }, [pacienteId]);
 
@@ -2688,99 +2756,52 @@ Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (e
     setTimeout(() => win.print(), 500);
   }
 
-  function aplicarJsonLista() {
-    setErroJsonLista(null);
-    const raw = jsonListaInput.replace(/```[\w]*\n?/gi, '').replace(/\n?```/g, '').trim();
-    if (!raw) return setErroJsonLista('Cole o JSON antes de clicar em Importar.');
-    let parsed;
-    try { parsed = JSON.parse(raw); }
-    catch (e) { return setErroJsonLista(`JSON inválido: ${e.message}`); }
-
-    // Normaliza qualquer formato para [{ categoria, emoji, itens: [{ _id, nome, quantidade }] }]
-    function normalizarLista(obj) {
-      // Passo 1: achar o array de entrada
-      let arr;
-      if (Array.isArray(obj)) {
-        arr = obj;
-      } else if (obj && typeof obj === 'object') {
-        arr = obj.categorias ?? obj.lista ?? obj.lista_compras ?? obj.items ?? obj.compras ?? obj.shopping_list ?? null;
-        // fallback: qualquer valor que seja array não-vazio
-        if (!Array.isArray(arr) || arr.length === 0) {
-          for (const v of Object.values(obj)) {
-            if (Array.isArray(v) && v.length > 0) { arr = v; break; }
-          }
-        }
-        // caso especial: dicionário { "Proteínas": ["Frango 1kg", ...], "Vegetais": [...] }
-        if (!Array.isArray(arr) && arr && typeof arr === 'object') {
-          const entradas = Object.entries(arr);
-          if (entradas.length > 0 && entradas.every(([, v]) => Array.isArray(v))) {
-            return entradas.map(([cat, itens]) => ({
-              categoria: cat,
-              emoji: '',
-              itens: itens.map(item => ({
-                _id:        Math.random().toString(36).slice(2),
-                nome:       typeof item === 'string' ? item : (item.nome ?? item.name ?? item.item ?? ''),
-                quantidade: typeof item === 'object' ? (item.quantidade ?? item.qty ?? item.quantity ?? '') : '',
-              })).filter(i => i.nome),
-            })).filter(c => c.itens.length > 0);
-          }
-        }
-      }
-      if (!Array.isArray(arr) || arr.length === 0) return null;
-
-      // Passo 2: categoria-based (tem itens/items aninhados) ou item-based (plano)?
-      const primeiro = arr[0];
-      const ehCategoria = primeiro && typeof primeiro === 'object' && (
-        Array.isArray(primeiro.itens) || Array.isArray(primeiro.items) || Array.isArray(primeiro.alimentos)
-      );
-
-      if (ehCategoria) {
-        // Cada elemento é uma categoria com lista de itens aninhada
-        return arr.map(cat => ({
-          categoria: cat.nome ?? cat.categoria ?? cat.category ?? cat.name ?? '',
-          emoji:     cat.icone ?? cat.emoji ?? cat.icon ?? '',
-          itens: (cat.itens ?? cat.items ?? cat.alimentos ?? []).map(item => ({
-            _id:        Math.random().toString(36).slice(2),
-            nome:       typeof item === 'string' ? item : (item.nome ?? item.name ?? item.item ?? ''),
-            quantidade: typeof item === 'object' ? (item.quantidade ?? item.qty ?? item.quantity ?? item.qtd ?? '') : '',
-          })).filter(i => i.nome),
-        })).filter(c => c.categoria && c.itens.length > 0);
-      } else {
-        // Cada elemento é um item plano — agrupar por categoria
-        const grupos = {};
-        const ordem = [];
-        for (const item of arr) {
-          if (!item || typeof item !== 'object') continue;
-          const cat = item.categoria ?? item.category ?? item.grupo ?? item.group ?? 'Geral';
-          const emoji = item.icone ?? item.emoji ?? item.icon ?? '';
-          const nome  = item.nome ?? item.name ?? item.item ?? item.descricao ?? item.alimento ?? '';
-          const qtd   = item.quantidade ?? item.qty ?? item.quantity ?? item.qtd ?? '';
-          if (!nome) continue;
-          if (!grupos[cat]) { grupos[cat] = { emoji, itens: [] }; ordem.push(cat); }
-          grupos[cat].itens.push({ _id: Math.random().toString(36).slice(2), nome, quantidade: qtd });
-        }
-        return ordem.map(cat => ({ categoria: cat, emoji: grupos[cat].emoji, itens: grupos[cat].itens }))
-                    .filter(c => c.itens.length > 0);
-      }
-    }
-
-    const listaFormatada = normalizarLista(parsed);
-
-    if (!listaFormatada || listaFormatada.length === 0) {
-      const chaves = Array.isArray(parsed)
-        ? '(array raiz)'
-        : Object.keys(parsed ?? {}).join(', ');
-      return setErroJsonLista(
-        `Formato não reconhecido. Chaves encontradas: ${chaves || '(nenhuma)'}. ` +
-        `Formatos aceitos: "lista_compras", "categorias", "lista", "items", "compras" — ou um array direto de objetos com campo "categoria".`
-      );
-    }
-
-    setPreview({ lista: listaFormatada });
+  async function gerarDoPlano() {
+    setGerando(true);
+    setErroIA(null);
+    setPreview(null);
     setMarcados({});
-    setJsonListaInput('');
-    setErroJsonLista(null);
-    setJsonListaOpen(false);
+    try {
+      const { data: plano } = await supabase
+        .from('planos').select('dados')
+        .eq('paciente_id', pacienteId)
+        .order('publicado_em', { ascending: false }).limit(1).maybeSingle();
+
+      if (!plano?.dados?.refeicoes?.length)
+        throw new Error('Nenhum plano alimentar publicado. Publique um plano primeiro na aba Plano.');
+
+      // Extrai todos os alimentos, deduplica pelo nome normalizado
+      const vistos = new Map();
+      for (const ref of plano.dados.refeicoes) {
+        for (const alim of ref.alimentos ?? []) {
+          if (!alim.nome?.trim()) continue;
+          const chave = alim.nome.toLowerCase()
+            .normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+          if (!vistos.has(chave)) vistos.set(chave, alim.nome.trim());
+        }
+      }
+
+      if (vistos.size === 0)
+        throw new Error('O plano alimentar não possui alimentos cadastrados.');
+
+      // Categoriza e agrupa
+      const grupos = {};
+      for (const [, nome] of vistos) {
+        const { categoria, emoji } = categorizarAlimento(nome);
+        if (!grupos[categoria]) grupos[categoria] = { emoji, itens: [] };
+        grupos[categoria].itens.push({ _id: Math.random().toString(36).slice(2), nome, quantidade: '' });
+      }
+
+      const lista = [
+        ...ORDEM_CATEGORIAS.filter(c => grupos[c]).map(c => ({ categoria: c, emoji: grupos[c].emoji, itens: grupos[c].itens })),
+        ...Object.keys(grupos).filter(c => !ORDEM_CATEGORIAS.includes(c)).map(c => ({ categoria: c, emoji: grupos[c].emoji, itens: grupos[c].itens })),
+      ];
+
+      setPreview({ lista });
+    } catch (e) {
+      setErroIA(e.message || 'Erro ao gerar lista.');
+    }
+    setGerando(false);
   }
 
   async function excluirLista(l) {
@@ -2796,100 +2817,44 @@ Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (e
 
   return (
     <>
-      {/* Modal: Colar JSON da lista */}
-      {jsonListaOpen && (
-        <div onClick={() => { setJsonListaOpen(false); setErroJsonLista(null); setJsonListaInput(''); }}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 400, padding: 16 }}>
-          <div onClick={e => e.stopPropagation()} style={{
-            background: 'var(--white)', borderRadius: 14,
-            width: '100%', maxWidth: 540, maxHeight: '90dvh',
-            display: 'flex', flexDirection: 'column', overflow: 'hidden',
-            boxShadow: '0 8px 32px rgba(0,0,0,.18)',
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 20px 12px', borderBottom: '0.5px solid var(--border)', flexShrink: 0 }}>
-              <div>
-                <div style={{ fontSize: 15, fontWeight: 600 }}><i className="ti ti-code" style={{ marginRight: 6 }} /> Colar JSON da lista</div>
-                <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>Cole o JSON gerado pelo Claude ou ChatGPT</div>
-              </div>
-              <button onClick={() => { setJsonListaOpen(false); setErroJsonLista(null); setJsonListaInput(''); }}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'var(--text3)' }}>
-                <i className="ti ti-x" aria-hidden="true" />
-              </button>
-            </div>
-            <div style={{ padding: '16px 20px', overflowY: 'auto', flex: 1 }}>
-              <textarea
-                autoFocus
-                value={jsonListaInput}
-                onChange={e => { setJsonListaInput(e.target.value); setErroJsonLista(null); }}
-                rows={12}
-                placeholder={'{\n  "categorias": [\n    {\n      "nome": "Proteínas",\n      "icone": "🥩",\n      "itens": [\n        {"nome": "Frango", "quantidade": "1kg"},\n        {"nome": "Ovos", "quantidade": "12 unidades"}\n      ]\n    }\n  ]\n}'}
-                style={{
-                  width: '100%', boxSizing: 'border-box', resize: 'vertical', minHeight: 220,
-                  fontSize: 12, fontFamily: 'monospace', lineHeight: 1.55,
-                  padding: 10, borderRadius: 8,
-                  border: erroJsonLista ? '1.5px solid var(--red)' : '1px solid var(--border)',
-                  background: 'var(--bg2)', color: 'var(--dark)',
-                }}
-              />
-              {erroJsonLista && (
-                <div style={{ marginTop: 8, padding: '8px 12px', borderRadius: 6, background: 'var(--red-bg)', color: 'var(--red)', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <i className="ti ti-alert-triangle" style={{ flexShrink: 0 }} /> {erroJsonLista}
-                </div>
-              )}
-            </div>
-            <div style={{ padding: '12px 20px', borderTop: '0.5px solid var(--border)', display: 'flex', gap: 8, flexShrink: 0 }}>
-              <button className="btn-outline" style={{ flex: 1, justifyContent: 'center' }}
-                onClick={() => { setJsonListaOpen(false); setErroJsonLista(null); setJsonListaInput(''); }}>
-                Cancelar
-              </button>
-              <button className="btn" style={{ flex: 2, justifyContent: 'center' }}
-                onClick={aplicarJsonLista} disabled={!jsonListaInput.trim()}>
-                <i className="ti ti-file-import" aria-hidden="true" /> Importar lista
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className="card">
         <div className="card-header">
           <div>
             <div className="card-title">Lista de compras</div>
-            <div className="card-sub">Gerada automaticamente a partir do plano alimentar publicado</div>
+            <div className="card-sub">Gerada a partir do plano alimentar publicado</div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-          <button
-            onClick={() => setJsonListaOpen(true)}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              padding: '7px 12px', borderRadius: 8, cursor: 'pointer',
-              border: '1px solid var(--border)',
-              background: 'var(--bg2)',
-              color: 'var(--dark)', fontSize: 12, fontWeight: 600,
-              fontFamily: 'var(--font-sans)',
-            }}
-          >
-            <i className="ti ti-code" aria-hidden="true" />
-            {'{ }'} Colar JSON
-          </button>
-          <button
-            onClick={gerarComIA}
-            disabled={gerando}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              padding: '7px 14px', borderRadius: 8,
-              border: 'none', cursor: gerando ? 'default' : 'pointer',
-              background: 'linear-gradient(135deg, #16a34a, #15803d)',
-              color: '#fff', fontSize: 13, fontWeight: 600,
-              fontFamily: 'var(--font-sans)', flexShrink: 0,
-              opacity: gerando ? 0.75 : 1,
-            }}
-          >
-            <i className={`ti ti-${gerando ? 'loader-2' : 'shopping-cart'}`}
-               style={gerando ? { animation: 'lapidare-spin .75s linear infinite' } : {}}
-               aria-hidden="true" />
-            {gerando ? 'Gerando lista...' : '🛒 Gerar com IA'}
-          </button>
+            <button
+              onClick={gerarDoPlano}
+              disabled={gerando}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '7px 14px', borderRadius: 8,
+                border: 'none', cursor: gerando ? 'default' : 'pointer',
+                background: 'var(--dark, #2b2b2b)',
+                color: '#fff', fontSize: 13, fontWeight: 600,
+                fontFamily: 'var(--font-sans)', flexShrink: 0,
+                opacity: gerando ? 0.75 : 1,
+              }}>
+              📋 Gerar lista do plano
+            </button>
+            <button
+              onClick={gerarComIA}
+              disabled={gerando}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '7px 14px', borderRadius: 8,
+                border: 'none', cursor: gerando ? 'default' : 'pointer',
+                background: 'linear-gradient(135deg, #16a34a, #15803d)',
+                color: '#fff', fontSize: 13, fontWeight: 600,
+                fontFamily: 'var(--font-sans)', flexShrink: 0,
+                opacity: gerando ? 0.75 : 1,
+              }}>
+              <i className={`ti ti-${gerando ? 'loader-2' : 'sparkles'}`}
+                 style={gerando ? { animation: 'lapidare-spin .75s linear infinite' } : {}}
+                 aria-hidden="true" />
+              {gerando ? 'Gerando...' : '🛒 Gerar com IA'}
+            </button>
           </div>
         </div>
 
@@ -2902,15 +2867,20 @@ Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (e
         {gerando && (
           <div style={{ margin: '0 16px 12px', padding: '10px 14px', borderRadius: 8, background: '#f0fdf4', border: '1px solid #bbf7d0', fontSize: 12, color: '#15803d', display: 'flex', gap: 8 }}>
             <i className="ti ti-loader-2" style={{ animation: 'lapidare-spin .75s linear infinite' }} />
-            Analisando o plano alimentar e organizando por categorias...
+            Organizando alimentos do plano por categoria...
           </div>
         )}
 
         {!preview && !gerando && (
           <div style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text3)' }}>
-            <i className="ti ti-shopping-cart" style={{ fontSize: 28, marginBottom: 8, display: 'block', opacity: .35 }} />
-            <div style={{ fontSize: 13, marginBottom: 6 }}>Clique em "🛒 Gerar com IA" para criar a lista automaticamente</div>
-            <div style={{ fontSize: 12 }}>A IA lê o plano publicado e organiza os alimentos por categoria com quantidades para 7 dias.</div>
+            <i className="ti ti-shopping-cart" style={{ fontSize: 28, marginBottom: 12, display: 'block', opacity: .35 }} />
+            <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 10 }}>Gere a lista de compras</div>
+            <div style={{ fontSize: 12, marginBottom: 6, textAlign: 'left', maxWidth: 340, margin: '0 auto 8px' }}>
+              <strong>📋 Gerar lista do plano</strong> — extrai automaticamente os alimentos do plano publicado e organiza por categoria, sem usar IA.
+            </div>
+            <div style={{ fontSize: 12, textAlign: 'left', maxWidth: 340, margin: '0 auto' }}>
+              <strong>🛒 Gerar com IA</strong> — a IA analisa o plano, agrupa por categoria e sugere quantidades para 7 dias.
+            </div>
           </div>
         )}
 
