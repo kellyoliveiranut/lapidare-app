@@ -3380,19 +3380,20 @@ function EnviarPrescricao({ pacienteId, nutriId }) {
 
   async function enviar() {
     setFeedback(null);
-    if (!arquivo) return setFeedback({ tipo: 'erro', msg: 'Selecione um arquivo PDF.' });
     if (!titulo.trim()) return setFeedback({ tipo: 'erro', msg: 'Informe um título.' });
+    if (!arquivo && !nota.trim()) return setFeedback({ tipo: 'erro', msg: 'Anexe um PDF ou escreva o texto da prescrição.' });
 
     setBusy(true);
     let path = null;
     try {
-      const ext = arquivo.name.split('.').pop() || 'pdf';
-      path = `${pacienteId}/${Date.now()}-${titulo.trim().replace(/[^a-z0-9]/gi, '_')}.${ext}`;
-
-      const { error: uploadErr } = await supabase.storage
-        .from('prescricoes')
-        .upload(path, arquivo, { contentType: arquivo.type });
-      if (uploadErr) throw new Error('Upload falhou: ' + uploadErr.message);
+      if (arquivo) {
+        const ext = arquivo.name.split('.').pop() || 'pdf';
+        path = `${pacienteId}/${Date.now()}-${titulo.trim().replace(/[^a-z0-9]/gi, '_')}.${ext}`;
+        const { error: uploadErr } = await supabase.storage
+          .from('prescricoes')
+          .upload(path, arquivo, { contentType: arquivo.type });
+        if (uploadErr) throw new Error('Upload falhou: ' + uploadErr.message);
+      }
 
       const { error: insertErr } = await supabase.from('prescricoes').insert({
         paciente_id: pacienteId,
@@ -3402,7 +3403,7 @@ function EnviarPrescricao({ pacienteId, nutriId }) {
         nota: nota.trim() || null,
       });
       if (insertErr) {
-        await supabase.storage.from('prescricoes').remove([path]);
+        if (path) await supabase.storage.from('prescricoes').remove([path]);
         throw new Error('Erro ao registrar: ' + insertErr.message);
       }
 
@@ -3427,7 +3428,7 @@ function EnviarPrescricao({ pacienteId, nutriId }) {
 
   async function remover(item) {
     if (!window.confirm(`Remover "${item.titulo}"?`)) return;
-    await supabase.storage.from('prescricoes').remove([item.storage_path]);
+    if (item.storage_path) await supabase.storage.from('prescricoes').remove([item.storage_path]);
     await supabase.from('prescricoes').delete().eq('id', item.id);
     carregar();
   }
@@ -3473,28 +3474,35 @@ function EnviarPrescricao({ pacienteId, nutriId }) {
             style={{ padding: 6 }}
           />
 
-          <label className="field-label" style={{ marginTop: 10 }}>Observação (opcional)</label>
-          <textarea rows="2" value={nota} onChange={e => setNota(e.target.value)}
-            placeholder="Ex: trazer este pedido na próxima consulta" />
+          <label className="field-label" style={{ marginTop: 10 }}>Texto da prescrição (opcional se houver PDF)</label>
+          <textarea rows="4" value={nota} onChange={e => setNota(e.target.value)}
+            placeholder="Ex: Creatina 5g/dia — tomar pela manhã com água..." />
 
-          {(!arquivo || !titulo.trim()) && !busy && (
-            <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 10, textAlign: 'right' }}>
-              <i className="ti ti-info-circle" aria-hidden="true"></i>{' '}
-              {!arquivo && !titulo.trim()
-                ? 'Selecione um arquivo PDF e digite um título para enviar'
-                : !arquivo
-                  ? 'Selecione um arquivo PDF para continuar'
-                  : 'Digite um título para continuar'}
-            </div>
-          )}
+          {(() => {
+            const semTitulo = !titulo.trim();
+            const semConteudo = !arquivo && !nota.trim();
+            if (!busy && (semTitulo || semConteudo)) {
+              const msg = semTitulo && semConteudo
+                ? 'Digite um título e anexe um PDF ou escreva a prescrição'
+                : semTitulo
+                  ? 'Digite um título para continuar'
+                  : 'Anexe um PDF ou escreva o texto da prescrição';
+              return (
+                <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 10, textAlign: 'right' }}>
+                  <i className="ti ti-info-circle" aria-hidden="true"></i>{' '}{msg}
+                </div>
+              );
+            }
+            return null;
+          })()}
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
             <button
               className="btn"
               onClick={enviar}
-              disabled={busy || !arquivo || !titulo.trim()}
+              disabled={busy || !titulo.trim() || (!arquivo && !nota.trim())}
               style={{
-                opacity: (busy || !arquivo || !titulo.trim()) ? 0.45 : 1,
-                cursor: (busy || !arquivo || !titulo.trim()) ? 'not-allowed' : 'pointer',
+                opacity: (busy || !titulo.trim() || (!arquivo && !nota.trim())) ? 0.45 : 1,
+                cursor: (busy || !titulo.trim() || (!arquivo && !nota.trim())) ? 'not-allowed' : 'pointer',
               }}>
               <i className="ti ti-upload" aria-hidden="true"></i> {busy ? 'Enviando...' : 'Enviar prescrição'}
             </button>
@@ -3537,9 +3545,11 @@ function EnviarPrescricao({ pacienteId, nutriId }) {
                     </div>
                   )}
                 </div>
-                <button className="btn-outline" style={{ fontSize: 12, padding: '4px 10px' }} onClick={() => abrirDocumento(d.storage_path)}>
-                  <i className="ti ti-eye" aria-hidden="true"></i> Ver
-                </button>
+                {d.storage_path && (
+                  <button className="btn-outline" style={{ fontSize: 12, padding: '4px 10px' }} onClick={() => abrirDocumento(d.storage_path)}>
+                    <i className="ti ti-eye" aria-hidden="true"></i> Ver
+                  </button>
+                )}
                 <button onClick={() => remover(d)}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--red)', padding: 4 }}
                   title="Remover">
@@ -3791,7 +3801,8 @@ function EbooksDaPaciente({ pacienteId, nutriId, pacienteNome }) {
     window.open(data.publicUrl, '_blank', 'noopener');
   }
 
-  const atribuidos = todos.filter(e => atribuidosIds.has(e.id));
+  const TAGS_SUPLEMENTO = new Set(['manipulados', 'suplementacao']);
+  const atribuidos = todos.filter(e => atribuidosIds.has(e.id) && !TAGS_SUPLEMENTO.has(e.tag));
   const disponiveis = todos.filter(e => !atribuidosIds.has(e.id))
     .filter(e => {
       if (acervo !== 'todas' && secaoEbook(e.tag) !== acervo) return false;

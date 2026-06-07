@@ -100,13 +100,21 @@ export default function PrescricoesPaciente() {
                 <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 2 }}>{d.titulo}</div>
                 <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 8 }}>{dataBR(d.created_at)}</div>
                 {d.nota && (
-                  <div style={{ background: t.bg, color: t.color, fontSize: 11, padding: '6px 10px', borderRadius: 6, lineHeight: 1.45, marginBottom: 8 }}>
+                  <div style={{
+                    background: t.bg, fontSize: d.storage_path ? 11 : 13,
+                    padding: d.storage_path ? '6px 10px' : '10px 12px',
+                    borderRadius: 6, lineHeight: 1.6, marginBottom: 8,
+                    color: d.storage_path ? t.color : 'var(--ink)',
+                    whiteSpace: 'pre-wrap',
+                  }}>
                     {d.nota}
                   </div>
                 )}
-                <button className="btn ghost sm" onClick={() => abrir(d.storage_path)}>
-                  <i className="ti ti-eye" style={{ fontSize: 13 }} aria-hidden="true"></i> Ver documento
-                </button>
+                {d.storage_path && (
+                  <button className="btn ghost sm" onClick={() => abrir(d.storage_path)}>
+                    <i className="ti ti-eye" style={{ fontSize: 13 }} aria-hidden="true"></i> Ver documento
+                  </button>
+                )}
               </div>
             </div>
           );
