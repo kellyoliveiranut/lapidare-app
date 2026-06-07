@@ -41,6 +41,20 @@ function tipoColor(tipo) {
   return 'var(--green)';
 }
 
+// Normaliza número brasileiro para formato wa.me (sem +, sem espaços).
+// Aceita: "(11) 99999-9999", "011 9 9999-9999", "+55 11 99999-9999", etc.
+function normalizarTelefone(raw) {
+  let n = (raw ?? '').replace(/\D/g, '');
+  if (n.startsWith('0')) n = n.slice(1);            // remove zero à esquerda
+  if (n.startsWith('55') && n.length >= 12) return n; // já tem código do país
+  return '55' + n;
+}
+
+// Texto padrão do lembrete — edite aqui para mudar a mensagem em todos os envios.
+function templateLembrete({ nome, data, diaSemana, hora, assinatura }) {
+  return `Olá, ${nome}! Passando para lembrar da sua consulta de nutrição em ${data} (${diaSemana}) às ${hora}. Qualquer imprevisto, me avise por aqui. Até breve! — ${assinatura}`;
+}
+
 export default function Agenda() {
   const { user, profile } = useSession();
   const [consultas, setConsultas] = useState(undefined);
@@ -52,7 +66,7 @@ export default function Agenda() {
   });
   const [diaSelecionado, setDiaSelecionado] = useState(() => new Date());
   const [lembretes, setLembretes] = useState([]);
-  const [enviadosLocais, setEnviadosLocais] = useState(new Set());
+  const [enviadosLocais, setEnviadosLocais] = useState(new Map()); // consultaId → ISO timestamp do envio
 
   async function carregar() {
     if (!user) return;
@@ -80,22 +94,47 @@ export default function Agenda() {
     if (!user) return;
     const { data } = await supabase
       .from('consultas')
-      .select('id, data_hora, paciente:pacientes(id, nome, telefone)')
+      .select('id, data_hora, lembrete_enviado, lembrete_enviado_em, paciente:pacientes(id, nome, telefone)')
       .eq('nutri_id', user.id)
       .eq('lembrete_ativo', true)
-      .eq('lembrete_enviado', false)
       .eq('status', 'agendada')
-      .gte('data_hora', new Date(Date.now() + 23 * 3600 * 1000).toISOString())
-      .lte('data_hora', new Date(Date.now() + 26 * 3600 * 1000).toISOString());
+      .gte('data_hora', new Date(Date.now() + 12 * 3600 * 1000).toISOString())
+      .lte('data_hora', new Date(Date.now() + 26 * 3600 * 1000).toISOString())
+      .order('data_hora', { ascending: true });
     setLembretes(data ?? []);
   }
 
+  // Marca enviado: persiste no Supabase (fonte da verdade) e atualiza cache local.
+  // Só é chamado ao clicar no botão — NUNCA automaticamente ao exibir o painel.
   async function marcarEnviado(consultaId) {
-    await supabase.from('consultas').update({ lembrete_enviado: true }).eq('id', consultaId);
-    setEnviadosLocais(prev => new Set([...prev, consultaId]));
+    const agora = new Date().toISOString();
+    await supabase.from('consultas')
+      .update({ lembrete_enviado: true, lembrete_enviado_em: agora })
+      .eq('id', consultaId);
+    setEnviadosLocais(prev => new Map([...prev, [consultaId, agora]]));
+    // Atualiza o dado do DB na lista local sem re-fetch completo
+    setLembretes(prev => prev.map(l =>
+      l.id === consultaId ? { ...l, lembrete_enviado: true, lembrete_enviado_em: agora } : l
+    ));
   }
 
-  useEffect(() => { carregar(); carregarPacientes(); verificarLembretes(); }, [user]);
+  async function desfazerEnvio(consultaId) {
+    await supabase.from('consultas')
+      .update({ lembrete_enviado: false, lembrete_enviado_em: null })
+      .eq('id', consultaId);
+    setEnviadosLocais(prev => { const m = new Map(prev); m.delete(consultaId); return m; });
+    setLembretes(prev => prev.map(l =>
+      l.id === consultaId ? { ...l, lembrete_enviado: false, lembrete_enviado_em: null } : l
+    ));
+  }
+
+  useEffect(() => {
+    carregar();
+    carregarPacientes();
+    verificarLembretes();
+    const intervalo = setInterval(verificarLembretes, 5 * 60 * 1000);
+    return () => clearInterval(intervalo);
+  }, [user]);
 
   const agora = new Date().toISOString();
   const ativas = (consultas ?? []).filter(c => c.status !== 'cancelada');
@@ -140,53 +179,14 @@ export default function Agenda() {
         </div>
       )}
 
-      {lembretes.filter(l => !enviadosLocais.has(l.id)).length > 0 && (
-        <div style={{
-          marginBottom: 14, padding: '12px 16px', borderRadius: 10,
-          background: 'var(--orange-bg)', border: '0.5px solid var(--orange)',
-          borderLeft: '3px solid var(--orange)',
-        }}>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
-            <i className="ti ti-bell" style={{ fontSize: 16, color: 'var(--orange)' }} aria-hidden="true"></i>
-            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--orange)' }}>
-              Lembrete 24h — consultas amanhã
-            </div>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {lembretes.filter(l => !enviadosLocais.has(l.id)).map(l => {
-              const hora = new Date(l.data_hora).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-              const nutriNome = profile?.nome ?? 'sua nutricionista';
-              const pacNome = l.paciente?.nome ?? '';
-              const tel = l.paciente?.telefone?.replace(/\D/g, '') ?? '';
-              const msg = encodeURIComponent(`Olá ${pacNome.split(' ')[0]}! Lembrando que sua consulta com ${nutriNome} é amanhã às ${hora}. Qualquer dúvida estou à disposição! 😊`);
-              return (
-                <div key={l.id} style={{
-                  display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap',
-                  background: 'var(--white)', borderRadius: 8, padding: '8px 12px',
-                  border: '0.5px solid var(--border)',
-                }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <span style={{ fontSize: 13, fontWeight: 500 }}>{pacNome}</span>
-                    <span style={{ fontSize: 12, color: 'var(--text3)', marginLeft: 8 }}>{hora}</span>
-                  </div>
-                  {tel ? (
-                    <a href={`https://wa.me/55${tel}?text=${msg}`}
-                      target="_blank" rel="noreferrer"
-                      className="btn-outline"
-                      onClick={() => marcarEnviado(l.id)}
-                      style={{ fontSize: 11, padding: '3px 10px', textDecoration: 'none' }}>
-                      <i className="ti ti-brand-whatsapp" aria-hidden="true"></i> WhatsApp
-                    </a>
-                  ) : null}
-                  <button className="btn-outline" style={{ fontSize: 11, padding: '3px 10px' }}
-                    onClick={() => marcarEnviado(l.id)}>
-                    Marcar enviado
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+      {lembretes.length > 0 && (
+        <PainelLembretes
+          lembretes={lembretes}
+          profile={profile}
+          enviadosLocais={enviadosLocais}
+          onEnviar={marcarEnviado}
+          onDesfazer={desfazerEnvio}
+        />
       )}
 
       <CalendarioMensal
@@ -266,6 +266,198 @@ export default function Agenda() {
         />
       )}
     </>
+  );
+}
+
+/* ============================================================
+   PAINEL DE LEMBRETES DE HOJE
+   ============================================================ */
+function PainelLembretes({ lembretes, profile, enviadosLocais, onEnviar, onDesfazer }) {
+  const [copiadoId, setCopiadoId] = useState(null);
+
+  async function copiarMensagem(id, texto) {
+    try { await navigator.clipboard.writeText(texto); }
+    catch { alert(texto); } // fallback caso sem permissão (mobile)
+    setCopiadoId(id);
+    setTimeout(() => setCopiadoId(null), 2000);
+  }
+
+  const assinatura = (profile?.nome?.split(' ')[0] ?? 'Kelly') + ' | Essentia';
+  const pendentes = lembretes.filter(l => {
+    const localTs = enviadosLocais.get(l.id);
+    return !localTs && !l.lembrete_enviado_em && !l.lembrete_enviado;
+  }).length;
+
+  return (
+    <div style={{
+      marginBottom: 16, borderRadius: 12,
+      border: '1px solid var(--orange)',
+      background: 'var(--orange-bg)',
+      overflow: 'hidden',
+    }}>
+      {/* Header */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        padding: '12px 16px',
+        borderBottom: '0.5px solid var(--orange)',
+      }}>
+        <i className="ti ti-bell" style={{ fontSize: 16, color: 'var(--orange)' }} aria-hidden="true" />
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--orange)' }}>
+            Lembretes de hoje
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--orange)', opacity: 0.85 }}>
+            {pendentes === 0
+              ? 'Todos os lembretes enviados ✓'
+              : `${pendentes} pendente${pendentes > 1 ? 's' : ''} · toque para enviar`}
+          </div>
+        </div>
+      </div>
+
+      {/* Rows */}
+      <div style={{ padding: '8px 12px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {lembretes.map(l => {
+          const dt = new Date(l.data_hora);
+          const horaConsulta = dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+          const dataFormatada = dt.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+          const diaSemana = dt.toLocaleDateString('pt-BR', { weekday: 'long' });
+          const pacNome = l.paciente?.nome ?? '';
+          const temTelefone = !!(l.paciente?.telefone?.trim());
+          const telFormatado = temTelefone ? normalizarTelefone(l.paciente.telefone) : '';
+
+          const msgTexto = templateLembrete({
+            nome: pacNome.split(' ')[0],
+            data: dataFormatada,
+            diaSemana,
+            hora: horaConsulta,
+            assinatura,
+          });
+          const msgEncoded = encodeURIComponent(msgTexto);
+
+          // Cache local tem prioridade para exibição imediata; fonte da verdade é o Supabase
+          const localTs = enviadosLocais.get(l.id);
+          const dbTs = l.lembrete_enviado_em;
+          const enviado = !!localTs || !!dbTs || l.lembrete_enviado;
+          const enviadoTs = localTs ?? dbTs; // ISO string ou null
+          const enviadoLabel = enviadoTs
+            ? `Enviado em ${new Date(enviadoTs).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} às ${new Date(enviadoTs).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+            : 'Enviado';
+
+          const copiado = copiadoId === l.id;
+
+          return (
+            <div key={l.id} style={{
+              background: enviado ? '#f0fdf4' : 'var(--white)',
+              borderRadius: 10,
+              border: `1px solid ${enviado ? '#bbf7d0' : 'var(--border)'}`,
+              padding: '12px 14px',
+            }}>
+              {/* Info */}
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 10 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--dark)' }}>{pacNome}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>
+                    {dataFormatada} ({diaSemana}) às {horaConsulta}
+                  </div>
+                  {l.paciente?.telefone && (
+                    <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 1 }}>
+                      <i className="ti ti-phone" style={{ fontSize: 11 }} aria-hidden="true" /> {l.paciente.telefone}
+                    </div>
+                  )}
+                </div>
+                {enviado ? (
+                  <span style={{
+                    fontSize: 11, padding: '3px 9px', borderRadius: 20, fontWeight: 500,
+                    background: '#dcfce7', color: '#15803d', flexShrink: 0,
+                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                  }}>
+                    <i className="ti ti-check" aria-hidden="true" /> {enviadoLabel}
+                  </span>
+                ) : (
+                  <span style={{
+                    fontSize: 11, padding: '3px 9px', borderRadius: 20, fontWeight: 500,
+                    background: 'var(--orange-bg)', color: 'var(--orange)', flexShrink: 0,
+                  }}>
+                    Lembrete pendente
+                  </span>
+                )}
+              </div>
+
+              {/* Ações */}
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {!enviado ? (
+                  temTelefone ? (
+                    <a
+                      href={`https://wa.me/${telFormatado}?text=${msgEncoded}`}
+                      target="_blank" rel="noreferrer"
+                      className="btn"
+                      onClick={() => onEnviar(l.id)}
+                      style={{
+                        flex: 1, minWidth: 160, justifyContent: 'center',
+                        textDecoration: 'none', fontSize: 13,
+                        minHeight: 44, display: 'inline-flex', alignItems: 'center', gap: 6,
+                      }}
+                    >
+                      <i className="ti ti-brand-whatsapp" aria-hidden="true" /> Enviar pelo WhatsApp
+                    </a>
+                  ) : (
+                    <div style={{
+                      flex: 1, display: 'flex', alignItems: 'center', gap: 6,
+                      fontSize: 12, color: 'var(--orange)', fontStyle: 'italic',
+                    }}>
+                      <i className="ti ti-alert-triangle" aria-hidden="true" /> Sem telefone cadastrado
+                    </div>
+                  )
+                ) : (
+                  temTelefone && (
+                    <a
+                      href={`https://wa.me/${telFormatado}?text=${msgEncoded}`}
+                      target="_blank" rel="noreferrer"
+                      className="btn-outline"
+                      onClick={() => onEnviar(l.id)}
+                      style={{
+                        fontSize: 12, minHeight: 40, padding: '0 14px',
+                        textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6,
+                      }}
+                    >
+                      <i className="ti ti-refresh" aria-hidden="true" /> Reenviar
+                    </a>
+                  )
+                )}
+
+                <button
+                  className="btn-outline"
+                  onClick={() => copiarMensagem(l.id, msgTexto)}
+                  style={{
+                    fontSize: 12, minHeight: enviado ? 40 : 44, padding: '0 14px',
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    color: copiado ? 'var(--green)' : undefined,
+                    borderColor: copiado ? 'var(--green)' : undefined,
+                  }}
+                >
+                  <i className={`ti ti-${copiado ? 'check' : 'copy'}`} aria-hidden="true" />
+                  {copiado ? 'Copiado!' : 'Copiar mensagem'}
+                </button>
+
+                {enviado && (
+                  <button
+                    className="btn-outline"
+                    onClick={() => onDesfazer(l.id)}
+                    style={{
+                      fontSize: 12, minHeight: 40, padding: '0 14px',
+                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                      color: 'var(--text3)',
+                    }}
+                  >
+                    <i className="ti ti-arrow-back-up" aria-hidden="true" /> Desfazer
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
