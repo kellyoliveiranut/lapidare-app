@@ -1,0 +1,179 @@
+/* =============================================================
+   PlanoView — estilos do plano alimentar, escopados sob
+   .plano-view-scope para não vazar no painel da nutri.
+   Valores idênticos ao paciente.css; variáveis vêm de tokens.css.
+   ============================================================= */
+
+/* ── MACROS ── */
+.plano-view-scope .plano-macros-card {
+  background: var(--paper);
+  border: 0.5px solid var(--hair);
+  border-radius: 16px;
+  padding: 14px 16px;
+  margin: 0 0 10px;
+  box-shadow:
+    0 1px 2px rgba(28, 23, 18, .04),
+    0 4px 16px rgba(28, 23, 18, .04);
+}
+
+.plano-view-scope .macro-row { margin-bottom: 10px; }
+.plano-view-scope .macro-label {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.plano-view-scope .macro-label span:first-child {
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+.plano-view-scope .macro-label span:last-child {
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.plano-view-scope .bar {
+  background: var(--bg-deep);
+  border-radius: 3px;
+  height: 6px;
+  overflow: hidden;
+}
+.plano-view-scope .bar > i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--gold);
+}
+
+.plano-view-scope .pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  padding: 3px 9px;
+  border-radius: 20px;
+  font-weight: 500;
+}
+.plano-view-scope .pill.ghost {
+  background: transparent;
+  border: 0.5px solid var(--hair);
+  color: var(--muted);
+}
+
+/* ── REFEIÇÕES ── */
+.plano-view-scope .refeicao-card {
+  margin: 0 0 10px;
+  background: var(--paper);
+  border: 0.5px solid var(--hair);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow:
+    0 1px 2px rgba(28, 23, 18, .04),
+    0 4px 16px rgba(28, 23, 18, .04);
+}
+
+.plano-view-scope .refeicao-header {
+  background: var(--ink);
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.plano-view-scope .refeicao-titulo {
+  font-family: var(--font-serif);
+  font-size: 16px;
+  color: var(--bg-soft);
+}
+.plano-view-scope .refeicao-kcal {
+  font-size: 11px;
+  color: var(--gold-soft);
+}
+.plano-view-scope .refeicao-horario {
+  font-size: 10px;
+  color: var(--muted-2);
+}
+
+.plano-view-scope .alimento-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 16px;
+  border-bottom: 0.5px solid var(--hair-soft);
+}
+.plano-view-scope .alimento-row:last-child { border-bottom: none; }
+.plano-view-scope .alimento-nome {
+  font-size: 13px;
+  color: var(--ink);
+  font-weight: 500;
+}
+.plano-view-scope .alimento-qty {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.plano-view-scope .alimento-kcal {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.plano-view-scope .refeicao-obs {
+  background: var(--bg-soft);
+  border-top: 0.5px solid var(--hair-soft);
+  padding: 8px 16px;
+  font-size: 11px;
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+
+/* ── SUBSTITUIÇÕES POR ALIMENTO ── */
+.plano-view-scope .subs-toggle {
+  width: 100%;
+  background: none;
+  border: none;
+  border-top: 0.5px dashed var(--hair);
+  padding: 8px 16px;
+  font-size: 11px;
+  color: var(--gold-deep);
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-sans);
+}
+.plano-view-scope .subs-list {
+  background: var(--bg-soft);
+  padding: 8px 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.plano-view-scope .sub-item {
+  font-size: 11px;
+  color: var(--ink-soft);
+  padding: 5px 8px;
+  background: var(--paper);
+  border-radius: 6px;
+  border: 0.5px solid var(--hair-soft);
+}
+
+/* ── SUBSTITUIÇÕES GLOBAIS ── */
+.plano-view-scope .plano-subs-card {
+  background: var(--paper);
+  border: 0.5px solid var(--hair);
+  border-radius: 16px;
+  padding: 14px 16px;
+  margin: 0 0 10px;
+  box-shadow:
+    0 1px 2px rgba(28, 23, 18, .04),
+    0 4px 16px rgba(28, 23, 18, .04);
+}
+
+/* ── VALIDADE ── */
+.plano-view-scope .plano-validade {
+  padding: 8px 0;
+  font-size: 10px;
+  color: var(--muted);
+  text-align: center;
+}

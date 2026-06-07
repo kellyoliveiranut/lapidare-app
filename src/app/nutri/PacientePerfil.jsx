@@ -22,6 +22,7 @@ const Calculos             = lazy(() => import('./_Calculos.jsx'));
 const AnalisarAvaliacao    = lazy(() => import('./_AnalisarAvaliacao.jsx'));
 const Treinos              = lazy(() => import('./_Treinos.jsx'));
 import DicaJSON from '../../components/DicaJSON.jsx';
+import PlanoView from '../../components/PlanoView.jsx';
 
 export default function PacientePerfil() {
   const { id } = useParams();
@@ -1370,6 +1371,7 @@ function PublicarPlano({ pacienteId, nutriId, calculosImportados, onLimparImport
   const [substituicoes, setSubstituicoes] = useState([]);
   const [previewOpen, setPreviewOpen]     = useState(false);
   const [dadosPreview, setDadosPreview]   = useState(null);
+  const [verPlano, setVerPlano]           = useState(null); // plano publicado sendo visualizado
 
   useEffect(() => { carregar(); }, [pacienteId]);
 
@@ -2498,8 +2500,9 @@ DIRETRIZES:
         titulo="Planos publicados"
         items={historico}
         onDelete={excluirPlano}
+        onView={(p) => setVerPlano(p)}
         renderItem={(p) => (
-          <div style={{ flex: 1 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 14, fontWeight: 500 }}>
               {p.dados?.macros?.kcal ? `${p.dados.macros.kcal} kcal · ` : ''}
               {p.dados?.refeicoes?.length ?? 0} refeição(ões)
@@ -2511,6 +2514,13 @@ DIRETRIZES:
           </div>
         )}
       />
+
+      {verPlano && (
+        <ModalVerPlano
+          plano={verPlano}
+          onClose={() => setVerPlano(null)}
+        />
+      )}
     </>
   );
 }
@@ -3477,7 +3487,63 @@ function FeedbackInline({ f }) {
   );
 }
 
-function HistoricoLista({ titulo, items, renderItem, onDelete }) {
+/* ============================================================
+   MODAL VER PLANO PUBLICADO
+   Usa PlanoView — exibe exatamente o que a paciente vê no portal.
+   ============================================================ */
+function ModalVerPlano({ plano, onClose }) {
+  return (
+    <div onClick={onClose} style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)',
+      display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+      zIndex: 400, padding: '24px 16px', overflowY: 'auto',
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: 'var(--white)', borderRadius: 14,
+        width: '100%', maxWidth: 480,
+        boxShadow: '0 8px 32px rgba(0,0,0,.18)',
+        overflow: 'hidden',
+        marginBottom: 24,
+      }}>
+        {/* Cabeçalho */}
+        <div style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          padding: '16px 20px', borderBottom: '0.5px solid var(--border)',
+        }}>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 600 }}>Como a paciente vê</div>
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 1 }}>
+              Publicado em {dataBR(plano.publicado_em)}
+              {plano.validade && ` · válido até ${dataBR(plano.validade)}`}
+            </div>
+          </div>
+          <button onClick={onClose} style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            fontSize: 20, color: 'var(--text3)', padding: 4,
+            minWidth: 44, minHeight: 44,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <i className="ti ti-x" aria-hidden="true" />
+          </button>
+        </div>
+
+        {/* Corpo — mesmo layout do portal da paciente, modo leitura */}
+        <div style={{ padding: '16px 20px 8px', maxHeight: '70dvh', overflowY: 'auto' }}>
+          <PlanoView dados={plano.dados} validade={plano.validade} readOnly />
+        </div>
+
+        {/* Rodapé */}
+        <div style={{ padding: '12px 20px', borderTop: '0.5px solid var(--border)' }}>
+          <button className="btn-outline" style={{ width: '100%', justifyContent: 'center', minHeight: 44 }} onClick={onClose}>
+            Fechar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function HistoricoLista({ titulo, items, renderItem, onDelete, onView }) {
   return (
     <>
       <div className="section-label">{titulo} ({items.length})</div>
@@ -3489,22 +3555,39 @@ function HistoricoLista({ titulo, items, renderItem, onDelete }) {
         <div className="card" style={{ padding: 0 }}>
           {items.map((it, i) => (
             <div key={it.id} style={{
-              display: 'flex', alignItems: 'center', gap: 10,
-              padding: '12px 16px',
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '12px 16px', flexWrap: 'wrap',
               borderBottom: i === items.length - 1 ? 'none' : '0.5px solid #f5f0e8',
             }}>
               {renderItem(it)}
-              {onDelete && (
-                <button onClick={() => onDelete(it)}
-                  title="Excluir"
-                  style={{
-                    background: 'none', border: '0.5px solid var(--red)',
-                    borderRadius: 6, padding: '4px 8px',
-                    color: 'var(--red)', cursor: 'pointer',
-                  }}>
-                  <i className="ti ti-trash" style={{ fontSize: 15 }} aria-hidden="true"></i>
-                </button>
-              )}
+              <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                {onView && (
+                  <button onClick={() => onView(it)}
+                    title="Ver plano"
+                    style={{
+                      background: 'none', border: '0.5px solid var(--border)',
+                      borderRadius: 6, padding: '6px 12px', minHeight: 36,
+                      color: 'var(--dark)', cursor: 'pointer',
+                      display: 'inline-flex', alignItems: 'center', gap: 5,
+                      fontSize: 12, fontWeight: 500, fontFamily: 'var(--font-sans)',
+                    }}>
+                    <i className="ti ti-eye" style={{ fontSize: 14 }} aria-hidden="true"></i>
+                    Ver
+                  </button>
+                )}
+                {onDelete && (
+                  <button onClick={() => onDelete(it)}
+                    title="Excluir"
+                    style={{
+                      background: 'none', border: '0.5px solid var(--red)',
+                      borderRadius: 6, padding: '6px 10px', minHeight: 36,
+                      color: 'var(--red)', cursor: 'pointer',
+                      display: 'inline-flex', alignItems: 'center',
+                    }}>
+                    <i className="ti ti-trash" style={{ fontSize: 15 }} aria-hidden="true"></i>
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>
