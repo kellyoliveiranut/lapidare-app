@@ -34,6 +34,8 @@ const SEM_COR = {
   gray:   { bg: '#f3f4f6', border: '#9ca3af', label: 'Sem dados', dot: '#9ca3af' },
 };
 
+const ORDEM_SEM = { red: 0, yellow: 1, green: 2, gray: 3 };
+
 function gerarAlertas(r) {
   if (!r) return [];
   const al = [];
@@ -133,6 +135,20 @@ export default function MonitoramentoOncologico() {
     return map;
   }, [registros]);
 
+  const pacientesSorted = useMemo(() =>
+    [...(pacientes ?? [])].sort((a, b) =>
+      (ORDEM_SEM[calcSemaforo(ultimoReg[a.id])] ?? 3) -
+      (ORDEM_SEM[calcSemaforo(ultimoReg[b.id])] ?? 3)
+    ),
+  [pacientes, ultimoReg]);
+
+  const pacientesAlerta = useMemo(() =>
+    pacientesSorted.filter(p => {
+      const s = calcSemaforo(ultimoReg[p.id]);
+      return s === 'red' || s === 'yellow';
+    }),
+  [pacientesSorted, ultimoReg]);
+
   // Ao selecionar uma paciente, filtra os registros dela
   function selecionar(id) {
     setSelecionado(id);
@@ -158,6 +174,51 @@ export default function MonitoramentoOncologico() {
       <div className="page-title">Monitoramento Oncológico</div>
       <div className="page-sub">Acompanhe o estado nutricional das suas pacientes em tratamento</div>
 
+      {/* ── Banner de alertas ── */}
+      {pacientes.length > 0 && (
+        <div style={{
+          marginBottom: 16, borderRadius: 12, padding: '12px 16px',
+          background: pacientesAlerta.length > 0 ? '#fff7ed' : '#f0fdf4',
+          border: `1.5px solid ${pacientesAlerta.length > 0 ? '#fb923c' : '#86efac'}`,
+          display: 'flex', flexDirection: 'column', gap: 8,
+        }}>
+          {pacientesAlerta.length === 0 ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#166534', fontWeight: 500 }}>
+              <i className="ti ti-circle-check" style={{ fontSize: 16 }} aria-hidden="true" />
+              Nenhum alerta no momento — todas as pacientes estão estáveis.
+            </div>
+          ) : (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, color: '#9a3412', fontWeight: 600 }}>
+                <i className="ti ti-alert-triangle" style={{ fontSize: 16 }} aria-hidden="true" />
+                {pacientesAlerta.length === 1
+                  ? '1 paciente precisa de atenção'
+                  : `${pacientesAlerta.length} pacientes precisam de atenção`}
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {pacientesAlerta.map(p => {
+                  const s = calcSemaforo(ultimoReg[p.id]);
+                  return (
+                    <span key={p.id} style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 5,
+                      padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 500,
+                      background: s === 'red' ? '#fee2e2' : '#fef9c3',
+                      color: s === 'red' ? '#991b1b' : '#92400e',
+                      border: `1px solid ${s === 'red' ? '#fca5a5' : '#fde68a'}`,
+                    }}>
+                      {s === 'red' ? '🔴' : '🟠'} {p.nome.split(' ')[0]}
+                      <span style={{ fontWeight: 400, opacity: 0.75 }}>
+                        ({s === 'red' ? 'crítico' : 'atenção'})
+                      </span>
+                    </span>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '280px 1fr', gap: 16, alignItems: 'start' }}>
 
         {/* ── Lista de pacientes ── */}
@@ -171,7 +232,7 @@ export default function MonitoramentoOncologico() {
             </div>
           ) : (
             <div style={{ maxHeight: isMobile ? 260 : 'calc(100vh - 220px)', overflowY: 'auto' }}>
-              {pacientes.map(p => {
+              {pacientesSorted.map(p => {
                 const ul = ultimoReg[p.id];
                 const sem = calcSemaforo(ul);
                 const cor = SEM_COR[sem];
