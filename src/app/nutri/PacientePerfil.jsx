@@ -3384,35 +3384,38 @@ function EnviarPrescricao({ pacienteId, nutriId }) {
     if (!titulo.trim()) return setFeedback({ tipo: 'erro', msg: 'Informe um título.' });
 
     setBusy(true);
-    const ext = arquivo.name.split('.').pop() || 'pdf';
-    const path = `${pacienteId}/${Date.now()}-${titulo.trim().replace(/[^a-z0-9]/gi, '_')}.${ext}`;
+    let path = null;
+    try {
+      const ext = arquivo.name.split('.').pop() || 'pdf';
+      path = `${pacienteId}/${Date.now()}-${titulo.trim().replace(/[^a-z0-9]/gi, '_')}.${ext}`;
 
-    const { error: uploadErr } = await supabase.storage
-      .from('prescricoes')
-      .upload(path, arquivo, { contentType: arquivo.type });
-    if (uploadErr) {
+      const { error: uploadErr } = await supabase.storage
+        .from('prescricoes')
+        .upload(path, arquivo, { contentType: arquivo.type });
+      if (uploadErr) throw new Error('Upload falhou: ' + uploadErr.message);
+
+      const { error: insertErr } = await supabase.from('prescricoes').insert({
+        paciente_id: pacienteId,
+        nutri_id: nutriId,
+        tipo, titulo: titulo.trim(),
+        storage_path: path,
+        nota: nota.trim() || null,
+      });
+      if (insertErr) {
+        await supabase.storage.from('prescricoes').remove([path]);
+        throw new Error('Erro ao registrar: ' + insertErr.message);
+      }
+
+      setFeedback({ tipo: 'ok', msg: 'Prescrição enviada!' });
+      setTitulo(''); setNota(''); setArquivo(null);
+      const fileInput = document.getElementById('prescricao-file');
+      if (fileInput) fileInput.value = '';
+      carregar();
+    } catch (e) {
+      setFeedback({ tipo: 'erro', msg: e.message ?? 'Erro inesperado — tente novamente.' });
+    } finally {
       setBusy(false);
-      return setFeedback({ tipo: 'erro', msg: 'Upload falhou: ' + uploadErr.message });
     }
-
-    const { error: insertErr } = await supabase.from('prescricoes').insert({
-      paciente_id: pacienteId,
-      nutri_id: nutriId,
-      tipo, titulo: titulo.trim(),
-      storage_path: path,
-      nota: nota.trim() || null,
-    });
-    setBusy(false);
-    if (insertErr) {
-      // tenta limpar o arquivo subido se o insert falhou
-      await supabase.storage.from('prescricoes').remove([path]);
-      return setFeedback({ tipo: 'erro', msg: 'Erro ao registrar: ' + insertErr.message });
-    }
-    setFeedback({ tipo: 'ok', msg: 'Prescrição enviada!' });
-    setTitulo(''); setNota(''); setArquivo(null);
-    const fileInput = document.getElementById('prescricao-file');
-    if (fileInput) fileInput.value = '';
-    carregar();
   }
 
   async function abrirDocumento(path) {
@@ -3474,8 +3477,25 @@ function EnviarPrescricao({ pacienteId, nutriId }) {
           <textarea rows="2" value={nota} onChange={e => setNota(e.target.value)}
             placeholder="Ex: trazer este pedido na próxima consulta" />
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
-            <button className="btn" onClick={enviar} disabled={busy || !arquivo || !titulo.trim()}>
+          {(!arquivo || !titulo.trim()) && !busy && (
+            <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 10, textAlign: 'right' }}>
+              <i className="ti ti-info-circle" aria-hidden="true"></i>{' '}
+              {!arquivo && !titulo.trim()
+                ? 'Selecione um arquivo PDF e digite um título para enviar'
+                : !arquivo
+                  ? 'Selecione um arquivo PDF para continuar'
+                  : 'Digite um título para continuar'}
+            </div>
+          )}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+            <button
+              className="btn"
+              onClick={enviar}
+              disabled={busy || !arquivo || !titulo.trim()}
+              style={{
+                opacity: (busy || !arquivo || !titulo.trim()) ? 0.45 : 1,
+                cursor: (busy || !arquivo || !titulo.trim()) ? 'not-allowed' : 'pointer',
+              }}>
               <i className="ti ti-upload" aria-hidden="true"></i> {busy ? 'Enviando...' : 'Enviar prescrição'}
             </button>
           </div>

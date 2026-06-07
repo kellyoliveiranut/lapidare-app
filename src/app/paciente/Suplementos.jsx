@@ -40,7 +40,7 @@ export default function Suplementos() {
     setSuplementos(supRes.data ?? []);
     setLogs(logRes.data ?? []);
 
-    // Materiais de suplementação da biblioteca (tag = 'manipulados')
+    // Materiais de suplementação — tags 'manipulados' e 'suplementacao'
     const { data: links } = await supabase
       .from('ebooks_pacientes')
       .select('ebook_id')
@@ -51,7 +51,7 @@ export default function Suplementos() {
         .from('ebooks')
         .select('*')
         .in('id', ids)
-        .eq('tag', 'manipulados')
+        .in('tag', ['manipulados', 'suplementacao'])
         .order('created_at', { ascending: false });
       if (!signal.cancelled) setBiblioItems(bib ?? []);
     } else {
