@@ -360,13 +360,23 @@ export default function Inicio() {
             <div className="serif" style={{ fontSize: 18, lineHeight: 1.1, marginBottom: 2 }}>
               {checkinPendente.tipo === 'pre_consulta'
                 ? 'Antes da nossa primeira consulta'
-                : (checkinPendente.nome || 'Sua Dra. pediu um check-in')}
+                : 'Você tem um check-in nutricional pendente'}
             </div>
-            <div style={{ fontSize: 11, color: ckUrgente ? 'var(--ink)' : 'var(--muted)', opacity: ckUrgente ? .8 : 1 }}>
+            <div style={{ fontSize: 11, color: ckUrgente ? 'var(--ink)' : 'var(--muted)', opacity: ckUrgente ? .8 : 1, marginBottom: 8 }}>
               {checkinPendente.tipo === 'pre_consulta'
-                ? 'Toque para responder — leva uns 5 minutos'
-                : 'Toque para responder · leva uns 3 minutos'}
+                ? 'Leva uns 5 minutos'
+                : (checkinPendente.nome ? checkinPendente.nome + ' · ' : '') + 'Leva uns 3 minutos'}
             </div>
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              fontSize: 12, fontWeight: 600,
+              background: ckUrgente ? 'rgba(28,23,18,.15)' : 'var(--gold-soft)',
+              color: ckUrgente ? 'var(--ink)' : 'var(--gold-deep)',
+              padding: '5px 12px', borderRadius: 20,
+            }}>
+              Responder agora
+              <i className="ti ti-arrow-right" style={{ fontSize: 12 }} aria-hidden="true" />
+            </span>
           </div>
           <i className="ti ti-chevron-right" style={{ fontSize: 18, color: ckUrgente ? 'var(--ink)' : 'var(--muted)', flexShrink: 0 }} aria-hidden="true"></i>
         </div>

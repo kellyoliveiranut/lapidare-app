@@ -13,8 +13,20 @@ import {
 import CheckinForm from '../../components/CheckinForm.jsx';
 import DicaJSON from '../../components/DicaJSON.jsx';
 
+function normalizarTelefone(raw) {
+  let n = (raw ?? '').replace(/\D/g, '');
+  if (n.startsWith('0')) n = n.slice(1);
+  if (n.startsWith('55') && n.length >= 12) return n;
+  return '55' + n;
+}
+
+function montarMsgCheckinWA(nomeP, linkCheckin, assinatura) {
+  return `Olá, ${nomeP}! 🌿\n\nVocê tem um check-in nutricional pendente. Leva uns 3 minutinhos para responder!\n\n👉 ${linkCheckin}\n\nQualquer dúvida, estou por aqui! — ${assinatura}`;
+}
+
 export default function Checkins() {
-  const { user } = useSession();
+  const { user, profile } = useSession();
+  const assinatura = (profile?.nome?.split(' ')[0] ?? '') + ' | Essentia';
   const [tab, setTab] = useState('enviar');
   const [pacientes, setPacientes] = useState([]);
   const [envios, setEnvios] = useState([]);
@@ -35,7 +47,7 @@ export default function Checkins() {
   async function carregar(signal = { cancelled: false }) {
     if (!user) return;
     const [pacRes, envRes, tplRes, agRes] = await Promise.all([
-      supabase.from('pacientes').select('id, nome').eq('nutri_id', user.id).order('nome'),
+      supabase.from('pacientes').select('id, nome, telefone').eq('nutri_id', user.id).order('nome'),
       supabase.from('checkin_envios')
         .select('id, paciente_id, perguntas, enviado_em, respondido_em, respostas, lembrete_enviado_em, paciente:pacientes(id, nome)')
         .eq('nutri_id', user.id)
@@ -114,7 +126,22 @@ export default function Checkins() {
       .update({ lembrete_enviado_em: new Date().toISOString() })
       .eq('id', envio.id);
     if (error) return mostraToast('Erro: ' + error.message);
-    mostraToast(`Lembrete enviado para ${envio.paciente?.nome?.split(' ')[0] ?? 'paciente'}`);
+    mostraToast(`Lembrete marcado para ${envio.paciente?.nome?.split(' ')[0] ?? 'paciente'}`);
+    carregar();
+  }
+
+  async function enviarLembreteWA(paciente, envio) {
+    const { error } = await supabase
+      .from('checkin_envios')
+      .update({ lembrete_enviado_em: new Date().toISOString() })
+      .eq('id', envio.id);
+    if (error) return mostraToast('Erro: ' + error.message);
+    const nome = paciente.nome.split(' ')[0];
+    const link = `${window.location.origin}/paciente/checkin/${envio.id}`;
+    const msg = montarMsgCheckinWA(nome, link, assinatura);
+    const tel = normalizarTelefone(paciente.telefone);
+    window.open(`https://wa.me/${tel}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
+    mostraToast(`WhatsApp aberto para ${nome}`);
     carregar();
   }
 
@@ -252,11 +279,29 @@ export default function Checkins() {
                                 <i className="ti ti-eye" aria-hidden="true"></i> Ver
                               </button>
                             )}
-                            {ult && !respondeu && !lembrado && (
-                              <button className="btn-outline" style={{ fontSize: 12, padding: '4px 10px', color: 'var(--orange)', borderColor: 'var(--orange)' }}
-                                onClick={() => enviarLembrete(ult)}>
-                                <i className="ti ti-bell" aria-hidden="true"></i> Lembrete
-                              </button>
+                            {ult && !respondeu && (
+                              p.telefone?.trim() ? (
+                                <button
+                                  className="btn-outline"
+                                  style={{
+                                    fontSize: 12, padding: '4px 10px',
+                                    color: lembrado ? 'var(--text3)' : '#25D366',
+                                    borderColor: lembrado ? 'var(--border)' : '#25D366',
+                                  }}
+                                  title={lembrado ? 'Lembrete já enviado — clique para reenviar' : 'Abrir WhatsApp com mensagem pronta'}
+                                  onClick={() => enviarLembreteWA(p, ult)}>
+                                  <i className="ti ti-brand-whatsapp" aria-hidden="true"></i>
+                                  {lembrado ? 'Reenviar WA' : 'Enviar WA'}
+                                </button>
+                              ) : (
+                                <button
+                                  className="btn-outline"
+                                  disabled
+                                  title="Cadastre o telefone da paciente para enviar pelo WhatsApp"
+                                  style={{ fontSize: 12, padding: '4px 10px', opacity: 0.45 }}>
+                                  <i className="ti ti-brand-whatsapp" aria-hidden="true"></i> Sem tel.
+                                </button>
+                              )
                             )}
                             <SelecionarEnviarTemplate
                               templates={templatesDisp}
