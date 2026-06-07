@@ -17,7 +17,8 @@ export default function Inicio() {
   const tema = useTheme();
   const nutriNome = tema.nutri_nome ?? 'Sua nutri';
   const navigate = useNavigate();
-  const { user } = useSession();
+  const { user, profile } = useSession();
+  const pacienteId = profile?.id ?? user?.id;
   const [plano, setPlano] = useState(null);
   const [compras, setCompras] = useState(null);
   const [proximaConsulta, setProximaConsulta] = useState(null);
@@ -35,21 +36,21 @@ export default function Inicio() {
       const hoje  = new Date().toISOString().slice(0, 10);
       const [planoRes, comprasRes, consultaRes, checkinRes, ebooksRes, habitosRes, logsHojeRes] = await Promise.all([
         supabase.from('planos').select('dados, publicado_em')
-          .eq('paciente_id', user.id).order('publicado_em', { ascending: false }).limit(1).maybeSingle(),
+          .eq('paciente_id', pacienteId).order('publicado_em', { ascending: false }).limit(1).maybeSingle(),
         supabase.from('listas_compras').select('dados, publicado_em')
-          .eq('paciente_id', user.id).order('publicado_em', { ascending: false }).limit(1).maybeSingle(),
+          .eq('paciente_id', pacienteId).order('publicado_em', { ascending: false }).limit(1).maybeSingle(),
         supabase.from('consultas').select('id, data_hora, tipo, duracao_min, meet_link, links_extras')
-          .eq('paciente_id', user.id).eq('status', 'agendada')
+          .eq('paciente_id', pacienteId).eq('status', 'agendada')
           .gte('data_hora', agora).order('data_hora', { ascending: true }).limit(1).maybeSingle(),
         supabase.from('checkin_envios').select('id, enviado_em, lembrete_enviado_em, nome, tipo')
-          .eq('paciente_id', user.id).is('respondido_em', null)
+          .eq('paciente_id', pacienteId).is('respondido_em', null)
           .order('enviado_em', { ascending: false }).limit(1).maybeSingle(),
         supabase.from('ebooks_pacientes').select('id', { count: 'exact', head: true })
-          .eq('paciente_id', user.id).is('visto_em', null),
+          .eq('paciente_id', pacienteId).is('visto_em', null),
         supabase.from('habitos').select('id, nome, emoji, tipo, meta, unidade, ordem')
-          .eq('paciente_id', user.id).eq('ativo', true).order('ordem'),
+          .eq('paciente_id', pacienteId).eq('ativo', true).order('ordem'),
         supabase.from('habitos_logs').select('habito_id, valor, data')
-          .eq('paciente_id', user.id)
+          .eq('paciente_id', pacienteId)
           .gte('data', new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10)),
       ]);
       if (!active) return;
@@ -94,7 +95,7 @@ export default function Inicio() {
   async function marcarEbooksComoVistos() {
     await supabase.from('ebooks_pacientes')
       .update({ visto_em: new Date().toISOString() })
-      .eq('paciente_id', user.id).is('visto_em', null);
+      .eq('paciente_id', pacienteId).is('visto_em', null);
     navigate('/paciente/ebooks');
   }
 
@@ -117,7 +118,7 @@ export default function Inicio() {
       });
     } else {
       await supabase.from('habitos_logs').upsert({
-        habito_id: habito.id, paciente_id: user.id,
+        habito_id: habito.id, paciente_id: pacienteId,
         data: hoje, valor,
       }, { onConflict: 'habito_id,data' });
     }

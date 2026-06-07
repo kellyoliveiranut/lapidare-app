@@ -25,6 +25,7 @@ export default function FeedPaciente() {
   const tema = useTheme();
   const nutriNome = tema.nutri_nome ?? 'Sua nutri';
   const { user, profile } = useSession();
+  const pacienteId = profile?.id ?? user?.id;
   const [posts, setPosts] = useState(undefined);
   const [urls, setUrls] = useState({});
   const [formOpen, setFormOpen] = useState(false);
@@ -41,7 +42,7 @@ export default function FeedPaciente() {
     const { data } = await supabase
       .from('feed_pratos')
       .select('id, refeicao, legenda, storage_path, comentario_nutri, created_at')
-      .eq('paciente_id', user.id)
+      .eq('paciente_id', pacienteId)
       .order('created_at', { ascending: false });
     if (signal.cancelled) return;
     setPosts(data ?? []);
@@ -87,7 +88,7 @@ export default function FeedPaciente() {
     setBusy(true);
 
     const ext = arquivo.name.split('.').pop() || 'jpg';
-    const path = `${user.id}/${Date.now()}-${refeicao.toLowerCase().replace(/[^a-z]/g, '')}.${ext}`;
+    const path = `${pacienteId}/${Date.now()}-${refeicao.toLowerCase().replace(/[^a-z]/g, '')}.${ext}`;
 
     const { error: upErr } = await supabase.storage
       .from('fotos_pratos').upload(path, arquivo, { contentType: arquivo.type });
@@ -97,7 +98,7 @@ export default function FeedPaciente() {
     }
 
     const { error: insErr } = await supabase.from('feed_pratos').insert({
-      paciente_id: user.id,
+      paciente_id: pacienteId,
       storage_path: path,
       refeicao,
       legenda: legenda.trim() || null,

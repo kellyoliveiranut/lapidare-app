@@ -26,7 +26,8 @@ const DIAS_7 = (() => {
 const HOJE = () => new Date().toISOString().slice(0, 10);
 
 export default function Habitos() {
-  const { user } = useSession();
+  const { user, profile } = useSession();
+  const pacienteId = profile?.id ?? user?.id;
   const [habitos, setHabitos] = useState(null);
   const [logs, setLogs] = useState([]);
   const [erroSalvar, setErroSalvar] = useState(null);
@@ -35,9 +36,9 @@ export default function Habitos() {
     if (!user) return;
     const [hRes, lRes] = await Promise.all([
       supabase.from('habitos').select('*')
-        .eq('paciente_id', user.id).eq('ativo', true).order('ordem'),
+        .eq('paciente_id', pacienteId).eq('ativo', true).order('ordem'),
       supabase.from('habitos_logs').select('*')
-        .eq('paciente_id', user.id)
+        .eq('paciente_id', pacienteId)
         .gte('data', new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10))
         .order('data', { ascending: false }),
     ]);
@@ -77,7 +78,7 @@ export default function Habitos() {
         }
       } else {
         const { error } = await supabase.from('habitos_logs').upsert({
-          habito_id: habito.id, paciente_id: user.id,
+          habito_id: habito.id, paciente_id: pacienteId,
           data: hoje, valor,
         }, { onConflict: 'habito_id,data' });
         if (error) throw error;

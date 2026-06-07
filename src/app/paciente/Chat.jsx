@@ -12,6 +12,7 @@ function fmtHora(iso) {
 
 export default function ChatPaciente() {
   const { user, profile } = useSession();
+  const pacienteId = profile?.id ?? user?.id;
   const tema = useTheme();
   const nutriNome = tema.nutri_nome ?? 'Sua nutri';
   const [msgs, setMsgs] = useState(undefined);
@@ -28,7 +29,7 @@ export default function ChatPaciente() {
       const { data } = await supabase
         .from('mensagens')
         .select('id, de, texto, created_at, lida')
-        .eq('paciente_id', user.id)
+        .eq('paciente_id', pacienteId)
         .order('created_at', { ascending: true });
       if (!active) return;
       setMsgs(data ?? []);
@@ -53,7 +54,7 @@ export default function ChatPaciente() {
         event: 'INSERT',
         schema: 'public',
         table: 'mensagens',
-        filter: `paciente_id=eq.${user.id}`,
+        filter: `paciente_id=eq.${pacienteId}`,
       }, async (payload) => {
         const m = payload.new;
         setMsgs(curr => {
@@ -81,7 +82,7 @@ export default function ChatPaciente() {
     setText('');
     setBusy(true);
     const { error } = await supabase.from('mensagens').insert({
-      paciente_id: user.id,
+      paciente_id: pacienteId,
       nutri_id: profile.nutri_id,
       de: 'paciente',
       texto: conteudo,

@@ -33,7 +33,8 @@ const METRICAS = [
 ];
 
 export default function Progresso() {
-  const { user } = useSession();
+  const { user, profile } = useSession();
+  const pacienteId = profile?.id ?? user?.id;
   const [registros, setRegistros] = useState(undefined);
   const [metrica, setMetrica] = useState('kg');
 
@@ -44,7 +45,7 @@ export default function Progresso() {
       const { data } = await supabase
         .from('peso_registros')
         .select('id, data, kg, altura_cm, cintura_cm, quadril_cm, braco_cm, coxa_cm, pgc, mm_kg, obs')
-        .eq('paciente_id', user.id)
+        .eq('paciente_id', pacienteId)
         .order('data', { ascending: true });
       if (!active) return;
       setRegistros(data ?? []);
@@ -251,7 +252,7 @@ function FotosEvolucao() {
     const { data } = await supabase
       .from('fotos_evolucao')
       .select('id, storage_path, tipo, data_foto, obs, created_at')
-      .eq('paciente_id', user.id)
+      .eq('paciente_id', pacienteId)
       .order('data_foto', { ascending: false });
     if (signal.cancelled) return;
     setFotos(data ?? []);
@@ -331,7 +332,7 @@ function FotosEvolucao() {
       return setErro('Erro ao processar: ' + e.message);
     }
     const ext = (arquivo.name.split('.').pop() || 'jpg').toLowerCase();
-    const path = `${user.id}/${Date.now()}-${tipo}.${ext}`;
+    const path = `${pacienteId}/${Date.now()}-${tipo}.${ext}`;
     const { error: upErr } = await supabase.storage
       .from('fotos_evolucao').upload(path, blob, { contentType: arquivo.type });
     if (upErr) {
@@ -339,7 +340,7 @@ function FotosEvolucao() {
       return setErro('Upload falhou: ' + upErr.message);
     }
     const { error: insErr } = await supabase.from('fotos_evolucao').insert({
-      paciente_id: user.id,
+      paciente_id: pacienteId,
       storage_path: path,
       tipo,
       data_foto: new Date().toISOString().slice(0, 10),

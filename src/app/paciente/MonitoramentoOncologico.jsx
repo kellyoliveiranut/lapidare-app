@@ -53,6 +53,7 @@ const OPCOES_REF = [
 
 export default function MonitoramentoOncologico() {
   const { user, profile } = useSession();
+  const pacienteId = profile?.id ?? user?.id;
   const [step, setStep]           = useState(null); // null = carregando
   const [registroHoje, setRegistroHoje] = useState(null);
   const [salvando, setSalvando]   = useState(false);
@@ -86,7 +87,7 @@ export default function MonitoramentoOncologico() {
     supabase
       .from('monitoramento_oncologico')
       .select('*')
-      .eq('paciente_id', user.id)
+      .eq('paciente_id', pacienteId)
       .eq('data', hoje)
       .maybeSingle()
       .then(({ data }) => {
@@ -139,7 +140,7 @@ export default function MonitoramentoOncologico() {
     setSalvando(true);
     const hoje = new Date().toISOString().split('T')[0];
     const payload = {
-      paciente_id:  user.id,
+      paciente_id:  pacienteId,
       nutri_id:     profile.nutri_id,
       data:         hoje,
       apetite,
