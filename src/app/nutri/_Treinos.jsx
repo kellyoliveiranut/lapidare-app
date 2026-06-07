@@ -47,6 +47,7 @@ const form0 = () => ({
   progressao: '',
   observacoes: '',
   video_url: '',
+  data_liberacao_video: '',
 });
 
 export default function Treinos({ pacienteId, nutriId, pacienteNome }) {
@@ -93,7 +94,8 @@ export default function Treinos({ pacienteId, nutriId, pacienteNome }) {
       precaucoes:       form.precaucoes.trim() || null,
       progressao:       form.progressao.trim() || null,
       observacoes:      form.observacoes.trim() || null,
-      video_url:        form.video_url.trim() || null,
+      video_url:             form.video_url.trim() || null,
+      data_liberacao_video:  form.data_liberacao_video || null,
       ativo: true,
     });
     setBusy(false);
@@ -290,6 +292,17 @@ export default function Treinos({ pacienteId, nutriId, pacienteNome }) {
               value={form.video_url}
               onChange={set('video_url')}
             />
+            <div style={{ marginTop: 10 }}>
+              <label className="field-label">Data de liberação do vídeo (opcional)</label>
+              <input
+                type="date"
+                value={form.data_liberacao_video}
+                onChange={set('data_liberacao_video')}
+              />
+              <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>
+                Deixe em branco para liberar o vídeo imediatamente.
+              </div>
+            </div>
             {embedPreview && (
               <div style={{ marginTop: 8, borderRadius: 8, overflow: 'hidden', aspectRatio: '16/9' }}>
                 <iframe

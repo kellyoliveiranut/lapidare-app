@@ -47,6 +47,19 @@ function youtubeEmbedUrl(url) {
   return m ? `https://www.youtube.com/embed/${m[1]}` : null;
 }
 
+function videoLiberado(dataLiberacao) {
+  if (!dataLiberacao) return true;
+  const h = new Date();
+  const hojeStr = `${h.getFullYear()}-${String(h.getMonth() + 1).padStart(2, '0')}-${String(h.getDate()).padStart(2, '0')}`;
+  return dataLiberacao <= hojeStr;
+}
+
+function formatDataBR(dataISO) {
+  if (!dataISO) return '';
+  const [ano, mes, dia] = dataISO.split('-');
+  return `${dia}/${mes}/${ano}`;
+}
+
 function AvisoImportante() {
   return (
     <div style={{
@@ -266,15 +279,29 @@ export default function TreinosPaciente() {
 
           {/* Vídeo da prescrição */}
           {embedUrl && (
-            <div style={{ borderRadius: 12, overflow: 'hidden', aspectRatio: '16/9', marginBottom: 16 }}>
-              <iframe
-                src={embedUrl}
-                title={treino.tipo}
-                style={{ width: '100%', height: '100%', border: 'none' }}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
-            </div>
+            videoLiberado(treino.data_liberacao_video) ? (
+              <div style={{ borderRadius: 12, overflow: 'hidden', aspectRatio: '16/9', marginBottom: 16 }}>
+                <iframe
+                  src={embedUrl}
+                  title={treino.tipo}
+                  style={{ width: '100%', height: '100%', border: 'none' }}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            ) : (
+              <div style={{
+                borderRadius: 12, marginBottom: 16, padding: '28px 16px',
+                background: 'var(--bg2)', border: '0.5px solid var(--border)',
+                display: 'flex', flexDirection: 'column', alignItems: 'center',
+                justifyContent: 'center', gap: 6, textAlign: 'center',
+              }}>
+                <span style={{ fontSize: 24 }}>🔒</span>
+                <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--text2)' }}>
+                  Vídeo será liberado em {formatDataBR(treino.data_liberacao_video)}
+                </span>
+              </div>
+            )
           )}
 
           {/* Registrar sessão */}
