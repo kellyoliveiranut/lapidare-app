@@ -1369,6 +1369,8 @@ function PublicarPlano({ pacienteId, nutriId, calculosImportados, onLimparImport
   const [erroJson, setErroJson]           = useState(null);
   const [jsonOpen, setJsonOpen]           = useState(false);
   const [substituicoes, setSubstituicoes] = useState([]);
+  const [gerandoSubs, setGerandoSubs]     = useState(false);
+  const [erroSubs, setErroSubs]           = useState(null);
   const [previewOpen, setPreviewOpen]     = useState(false);
   const [dadosPreview, setDadosPreview]   = useState(null);
   const [verPlano, setVerPlano]           = useState(null); // plano publicado sendo visualizado
@@ -1426,6 +1428,61 @@ function PublicarPlano({ pacienteId, nutriId, calculosImportados, onLimparImport
   const addSubstituicao = () => setSubstituicoes(p => [...p, { _id: Math.random().toString(36).slice(2), original: '', subs: '' }]);
   const removeSubstituicao = id => setSubstituicoes(p => p.filter(s => s._id !== id));
   const setSubst = (id, k, v) => setSubstituicoes(p => p.map(s => s._id === id ? { ...s, [k]: v } : s));
+
+  async function gerarSubstituicoesIA() {
+    const alimentos = [...new Set(
+      refeicoes.flatMap(r => r.alimentos.map(a => a.nome.trim()).filter(Boolean))
+    )];
+
+    if (alimentos.length === 0) {
+      setErroSubs('Adicione alimentos ao plano antes de gerar substituições.');
+      return;
+    }
+
+    setGerandoSubs(true);
+    setErroSubs(null);
+
+    const prompt = `Você é uma nutricionista clínica especialista em oncologia.
+Recebi um plano alimentar com os seguintes alimentos: ${alimentos.join(', ')}.
+
+Sugira substituições por equivalência de grupo alimentar para cada alimento listado.
+Regras obrigatórias:
+- NÃO inclua quantidades — apenas os nomes dos alimentos substitutos.
+- Priorize alimentos regionais brasileiros e acessíveis, com atenção a ingredientes do Norte/Amazônia quando fizer sentido, mas mantendo opções que o paciente encontre com facilidade.
+- Respeite a equivalência nutricional dentro do mesmo grupo alimentar.
+- Responda em português do Brasil.
+- Responda APENAS em JSON válido, sem texto antes ou depois e sem markdown.
+- Formato exato (array JSON):
+[{"original": "Arroz branco", "substitutos": "arroz integral, batata doce, mandioca, cará"}]
+
+Liste TODOS os alimentos fornecidos, um objeto por alimento.`;
+
+    try {
+      const resposta = await callAnthropic(
+        [{ role: 'user', content: prompt }],
+        { model: 'claude-sonnet-4-6', maxTokens: 1500 }
+      );
+
+      let parsed;
+      try {
+        parsed = JSON.parse(resposta.replace(/```json\n?|\n?```/g, '').trim());
+      } catch {
+        throw new Error('formato-invalido');
+      }
+
+      if (!Array.isArray(parsed) || parsed.length === 0) throw new Error('formato-invalido');
+
+      setSubstituicoes(parsed.map(item => ({
+        _id: Math.random().toString(36).slice(2),
+        original: String(item.original ?? '').trim(),
+        subs:     String(item.substitutos ?? item.subs ?? '').trim(),
+      })));
+    } catch {
+      setErroSubs('Não consegui gerar agora, tente novamente.');
+    } finally {
+      setGerandoSubs(false);
+    }
+  }
 
   /* ── build dados ── */
   function buildDados() {
@@ -2433,17 +2490,37 @@ DIRETRIZES:
               <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--amber)', letterSpacing: 1.2, textTransform: 'uppercase' }}>
                 Lista de Substituições
               </div>
-              <button className="btn-outline" style={{ fontSize: 11, padding: '3px 8px', gap: 4 }} onClick={addSubstituicao}>
-                <i className="ti ti-plus" style={{ fontSize: 12 }} aria-hidden="true" />
-                Adicionar
-              </button>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button
+                  className="btn-outline"
+                  style={{ fontSize: 11, padding: '3px 8px', gap: 4, opacity: gerandoSubs ? 0.6 : 1 }}
+                  onClick={gerarSubstituicoesIA}
+                  disabled={gerandoSubs}
+                >
+                  <i className={`ti ${gerandoSubs ? 'ti-loader-2' : 'ti-sparkles'}`} style={{ fontSize: 12, animation: gerandoSubs ? 'spin 1s linear infinite' : 'none' }} aria-hidden="true" />
+                  {gerandoSubs ? 'Gerando...' : 'Gerar com IA'}
+                </button>
+                <button className="btn-outline" style={{ fontSize: 11, padding: '3px 8px', gap: 4 }} onClick={addSubstituicao}>
+                  <i className="ti ti-plus" style={{ fontSize: 12 }} aria-hidden="true" />
+                  Adicionar
+                </button>
+              </div>
             </div>
+            {erroSubs && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--red, #e05252)', background: 'color-mix(in srgb, var(--red, #e05252) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--red, #e05252) 25%, transparent)', borderRadius: 6, padding: '6px 10px', marginBottom: 8 }}>
+                <i className="ti ti-alert-circle" style={{ fontSize: 13, flexShrink: 0 }} aria-hidden="true" />
+                <span style={{ flex: 1 }}>{erroSubs}</span>
+                <button onClick={() => setErroSubs(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: 0, lineHeight: 1 }}>
+                  <i className="ti ti-x" style={{ fontSize: 12 }} aria-hidden="true" />
+                </button>
+              </div>
+            )}
             {substituicoes.length === 0 ? (
               <div style={{ fontSize: 12, color: 'var(--text3)', lineHeight: 1.5 }}>
-                Adicione substituições por grupo alimentar. Ex: "No lugar de Arroz branco → Arroz integral, batata doce, mandioca"
+                Adicione substituições por grupo alimentar ou clique em "Gerar com IA" para sugestões automáticas.
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 7, opacity: gerandoSubs ? 0.4 : 1, transition: 'opacity 0.2s' }}>
                 {substituicoes.map(s => (
                   <div key={s._id} style={{ display: 'grid', gridTemplateColumns: '2fr 3fr auto', gap: 6, alignItems: 'center' }}>
                     <input
