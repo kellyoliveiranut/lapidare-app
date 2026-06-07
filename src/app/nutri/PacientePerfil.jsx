@@ -1395,7 +1395,7 @@ function PublicarPlano({ pacienteId, nutriId, calculosImportados, onLimparImport
     const { data } = await supabase
       .from('planos').select('id, dados, validade, publicado_em')
       .eq('paciente_id', pacienteId)
-      .order('publicado_em', { ascending: false }).limit(5);
+      .order('publicado_em', { ascending: false });
     setHistorico(data ?? []);
   }
 
@@ -1720,6 +1720,7 @@ Estrutura JSON obrigatória:
   }
 
   async function publicar() {
+    if (busy) return;
     setFeedback(null);
     if (!refeicoes.length)
       return setFeedback({ tipo: 'erro', msg: 'Adicione pelo menos uma refeição.' });
@@ -2036,7 +2037,7 @@ DIRETRIZES:
               <button className="btn-outline" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setPreviewOpen(false)}>
                 Fechar
               </button>
-              <button className="btn" style={{ flex: 2, justifyContent: 'center' }} onClick={() => { setPreviewOpen(false); publicar(); }}>
+              <button className="btn" style={{ flex: 2, justifyContent: 'center' }} onClick={() => { setPreviewOpen(false); publicar(); }} disabled={busy}>
                 <i className="ti ti-send" aria-hidden="true" /> Publicar agora
               </button>
             </div>
