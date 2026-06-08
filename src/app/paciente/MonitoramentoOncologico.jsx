@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
+import { dataBR } from '../../lib/utils.js';
 
 const TOTAL_STEPS = 11;
 
@@ -51,6 +52,12 @@ const OPCOES_REF = [
   { v: 0, l: 'Não consegui', cor: '#dc2626', bg: '#fee2e2' },
 ];
 
+function addDias(dateStr, n) {
+  const d = new Date(dateStr + 'T12:00:00');
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
 export default function MonitoramentoOncologico() {
   const { user, profile } = useSession();
   const pacienteId = profile?.id ?? user?.id;
@@ -59,6 +66,10 @@ export default function MonitoramentoOncologico() {
   const [salvando, setSalvando]   = useState(false);
   const [salvo, setSalvo]         = useState(false);
   const [erro, setErro]           = useState(null);
+
+  // Estado da linha do tempo de ciclo
+  const [ciclos,    setCiclos]    = useState([]);
+  const [intervalo, setIntervalo] = useState(21);
 
   // Estado do formulário
   const [apetite,     setApetite]     = useState(null);
@@ -81,6 +92,7 @@ export default function MonitoramentoOncologico() {
   const [mobilidade,   setMobilidade]  = useState(null);
   const [impedimentos, setImpedimentos] = useState([]);
 
+  // Busca registro de check-in de hoje
   useEffect(() => {
     if (!user) return;
     const hoje = new Date().toISOString().split('T')[0];
@@ -95,6 +107,25 @@ export default function MonitoramentoOncologico() {
         else       { setStep(1); }
       });
   }, [user]);
+
+  // Busca ciclos de quimio e intervalo (somente leitura)
+  useEffect(() => {
+    if (!pacienteId) return;
+    Promise.all([
+      supabase.from('ciclos_quimio')
+        .select('id,numero_ciclo,data_quimio,d3,d7,d10,d14')
+        .eq('paciente_id', pacienteId)
+        .order('data_quimio', { ascending: false })
+        .limit(5),
+      supabase.from('tratamentos_oncologicos')
+        .select('intervalo_ciclos')
+        .eq('paciente_id', pacienteId)
+        .maybeSingle(),
+    ]).then(([{ data: cic }, { data: trat }]) => {
+      setCiclos(cic ?? []);
+      setIntervalo(trat?.intervalo_ciclos ?? 21);
+    });
+  }, [pacienteId]);
 
   function preencherForm(r) {
     setApetite(r.apetite);
@@ -176,19 +207,30 @@ export default function MonitoramentoOncologico() {
   if (step === null) {
     return (
       <Wrap>
+        <LinhaDoTempoCiclo ciclos={ciclos} intervalo={intervalo} />
         <div style={{ textAlign: 'center', color: 'var(--muted)', padding: 40 }}>Carregando…</div>
       </Wrap>
     );
   }
 
-  if (salvo) return <Concluido />;
+  if (salvo) {
+    return (
+      <>
+        <LinhaDoTempoCiclo ciclos={ciclos} intervalo={intervalo} standalone />
+        <Concluido />
+      </>
+    );
+  }
 
   if (step === 0 && registroHoje) {
     return (
-      <JaPreenchidoHoje
-        registro={registroHoje}
-        onEditar={() => { preencherForm(registroHoje); setStep(1); }}
-      />
+      <>
+        <LinhaDoTempoCiclo ciclos={ciclos} intervalo={intervalo} standalone />
+        <JaPreenchidoHoje
+          registro={registroHoje}
+          onEditar={() => { preencherForm(registroHoje); setStep(1); }}
+        />
+      </>
     );
   }
 
@@ -197,6 +239,8 @@ export default function MonitoramentoOncologico() {
 
   return (
     <Wrap>
+      <LinhaDoTempoCiclo ciclos={ciclos} intervalo={intervalo} />
+
       {/* Barra de progresso */}
       <div style={{ marginBottom: 28 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--muted)', marginBottom: 6 }}>
@@ -580,9 +624,105 @@ export default function MonitoramentoOncologico() {
   );
 }
 
+// ── Linha do tempo de ciclo (somente leitura) ─────────────────────
+function LinhaDoTempoCiclo({ ciclos, intervalo, standalone }) {
+  const hoje = new Date().toISOString().slice(0, 10);
+
+  // standalone = usado fora do <Wrap>, precisa do próprio centramento
+  const wrapStyle = standalone
+    ? { maxWidth: 540, margin: '0 auto', padding: '0 0 4px' }
+    : { marginBottom: 20 };
+
+  if (!ciclos.length) {
+    return (
+      <div style={wrapStyle}>
+        <div style={{
+          padding: '16px 18px', borderRadius: 14,
+          background: 'var(--bg2, #f5f1e8)',
+          border: '0.5px solid var(--border, #e8e2d8)',
+          fontSize: 13, color: 'var(--muted)',
+          textAlign: 'center', lineHeight: 1.6,
+        }}>
+          Seu acompanhamento de ciclo aparecerá aqui assim que for cadastrado pela sua nutricionista.
+        </div>
+      </div>
+    );
+  }
+
+  const uc = ciclos[0];
+  const iv = intervalo || 21;
+  const emJanela = hoje >= uc.d7 && hoje <= uc.d14;
+
+  const marcos = [
+    { d: uc.data_quimio,          label: 'D0',       desc: 'Quimio',          cor: '#6366f1' },
+    { d: uc.d3,                    label: 'D+3',      desc: 'Início da piora', cor: '#f59e0b' },
+    { d: uc.d7,                    label: 'D+7',      desc: 'Janela de risco', cor: '#ef4444' },
+    { d: uc.d10,                   label: 'D+10',     desc: 'Pico de risco',   cor: '#dc2626' },
+    { d: uc.d14,                   label: 'D+14',     desc: 'Fim da janela',   cor: '#f97316' },
+    { d: addDias(uc.data_quimio, iv), label: `D+${iv}`, desc: 'Próximo ciclo', cor: '#16a34a' },
+  ];
+
+  return (
+    <div style={wrapStyle}>
+      {emJanela && (
+        <div style={{
+          padding: '10px 14px', borderRadius: 10, marginBottom: 12,
+          background: '#fee2e2', border: '1.5px solid #fca5a5',
+          color: '#991b1b', fontSize: 13, fontWeight: 500,
+          display: 'flex', alignItems: 'flex-start', gap: 8,
+        }}>
+          <span style={{ flexShrink: 0 }}>⚠️</span>
+          <span>
+            Você está na <strong>janela de risco imunológico</strong> (D+7 a D+14 do ciclo {uc.numero_ciclo}).
+            Fique atenta a febre e mal-estar — avise sua nutri se precisar.
+          </span>
+        </div>
+      )}
+
+      <div style={{
+        background: 'var(--white, #fff)', borderRadius: 14,
+        border: '0.5px solid var(--border, #e8e2d8)',
+        padding: '14px 16px 20px',
+      }}>
+        <div style={{
+          fontSize: 11, fontWeight: 600, color: 'var(--text3)',
+          marginBottom: 14, textTransform: 'uppercase', letterSpacing: '.05em',
+        }}>
+          Linha do tempo · Ciclo {uc.numero_ciclo} · {dataBR(uc.data_quimio)}
+        </div>
+        <div style={{ position: 'relative', padding: '0 6px 28px' }}>
+          <div style={{
+            position: 'absolute', top: 10, left: 6, right: 6,
+            height: 2, background: 'var(--bg3, #e8e2d8)', borderRadius: 1,
+          }} />
+          <div style={{ display: 'flex', justifyContent: 'space-between', position: 'relative' }}>
+            {marcos.map((m, i) => {
+              const passado = m.d <= hoje;
+              const isHoje  = m.d === hoje;
+              return (
+                <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+                  <div style={{
+                    width: 20, height: 20, borderRadius: '50%', zIndex: 1, marginBottom: 6,
+                    background: passado ? m.cor : '#fff',
+                    border: `2px solid ${passado ? m.cor : 'var(--border, #e8e2d8)'}`,
+                    boxShadow: isHoje ? `0 0 0 3px ${m.cor}40` : 'none',
+                  }} />
+                  <div style={{ fontSize: 10, fontWeight: 700, color: passado ? m.cor : 'var(--text3)', textAlign: 'center', lineHeight: 1.3 }}>{m.label}</div>
+                  <div style={{ fontSize: 9, color: 'var(--text3)', textAlign: 'center', lineHeight: 1.3 }}>{dataBR(m.d)}</div>
+                  <div style={{ fontSize: 9, color: 'var(--text3)', textAlign: 'center', lineHeight: 1.3, maxWidth: 56 }}>{m.desc}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Tela "já preencheu hoje" ──────────────────────────────────────
 function JaPreenchidoHoje({ registro, onEditar }) {
-  const dataBR = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+  const dataBRHoje = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
   return (
     <Wrap>
       <div style={{ textAlign: 'center', padding: '32px 0 24px' }}>
@@ -591,7 +731,7 @@ function JaPreenchidoHoje({ registro, onEditar }) {
           Check-in de hoje registrado!
         </div>
         <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, marginBottom: 24 }}>
-          {dataBR.charAt(0).toUpperCase() + dataBR.slice(1)}<br />
+          {dataBRHoje.charAt(0).toUpperCase() + dataBRHoje.slice(1)}<br />
           Sua nutricionista já consegue ver como você está. 💛
         </div>
         <div style={{ background: 'var(--bg2, #f5f1e8)', borderRadius: 14, padding: '16px 18px', textAlign: 'left', marginBottom: 20 }}>
