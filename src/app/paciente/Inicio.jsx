@@ -5,6 +5,15 @@ import { useSession } from '../../lib/session.jsx';
 import { useTheme } from '../../lib/theme.jsx';
 import { textoDias, dataConsultaBR, diasAte, linkCall, consultaEmBreve, gerarGoogleCalendarUrl } from '../../lib/utils.js';
 
+const FASE_META = {
+  quimio:        { label: 'Dia da quimio',   cor: '#16a34a', bg: '#f0fdf4' },
+  inicio_piora:  { label: 'Início da piora', cor: '#ca8a04', bg: '#fefce8' },
+  janela_risco:  { label: 'Janela de risco', cor: '#dc2626', bg: '#fef2f2' },
+  pico_risco:    { label: 'Pico de risco',   cor: '#b91c1c', bg: '#fef2f2' },
+  fim_janela:    { label: 'Fim da janela',   cor: '#ca8a04', bg: '#fefce8' },
+  proximo_ciclo: { label: 'Próximo ciclo',   cor: '#16a34a', bg: '#f0fdf4' },
+};
+
 function cumpriuHabito(h, valor) {
   if (valor === undefined || valor === null) return false;
   if (h.tipo === 'boolean') return valor >= 1;
@@ -27,6 +36,7 @@ export default function Inicio() {
   const [habitos, setHabitos] = useState([]);
   const [habitosLogs, setHabitosLogs] = useState({});  // { habito_id: valor } — hoje
   const [todosLogs, setTodosLogs] = useState([]);      // 30 dias — pra streak
+  const [mensagemCiclo, setMensagemCiclo] = useState(null); // { texto, fase }
 
   useEffect(() => {
     let active = true;
@@ -72,6 +82,56 @@ export default function Inicio() {
     load();
     return () => { active = false; };
   }, [pacienteId]);
+
+  // Busca mensagem motivacional baseada no dia do ciclo de quimio
+  useEffect(() => {
+    if (!pacienteId || !profile?.nutri_id) return;
+    let active = true;
+
+    async function carregarMensagem() {
+      const hoje = new Date().toISOString().slice(0, 10);
+
+      const { data: ciclo } = await supabase
+        .from('ciclos_quimio')
+        .select('data_quimio')
+        .eq('paciente_id', pacienteId)
+        .lte('data_quimio', hoje)
+        .order('data_quimio', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!ciclo || !active) return;
+
+      const d0 = new Date(ciclo.data_quimio + 'T12:00:00');
+      const hojeD = new Date(hoje + 'T12:00:00');
+      const dias = Math.round((hojeD - d0) / 86_400_000);
+
+      const fase =
+        dias === 0  ? 'quimio'        :
+        dias <= 3   ? 'inicio_piora'  :
+        dias <= 7   ? 'janela_risco'  :
+        dias <= 10  ? 'pico_risco'    :
+        dias <= 14  ? 'fim_janela'    :
+                      'proximo_ciclo';
+
+      const { data: msg } = await supabase
+        .from('mensagens_ciclo')
+        .select('mensagem')
+        .eq('nutri_id', profile.nutri_id)
+        .eq('fase', fase)
+        .eq('ativo', true)
+        .maybeSingle();
+
+      if (!msg || !active) return;
+
+      const primeiroNome = profile.apelido || profile.nome?.split(' ')[0] || '';
+      const texto = msg.mensagem.replace(/\{nome\}/g, primeiroNome);
+      setMensagemCiclo({ texto, fase });
+    }
+
+    carregarMensagem();
+    return () => { active = false; };
+  }, [pacienteId, profile?.nutri_id]);
 
   const proximaRef = plano?.refeicoes?.find(r => !r.feita) ?? plano?.refeicoes?.[0] ?? null;
   const totalCompras = compras?.lista?.reduce((a, c) => a + (c.itens?.length ?? 0), 0) ?? 0;
@@ -149,6 +209,34 @@ export default function Inicio() {
 
   return (
     <>
+      {/* Banner motivacional do ciclo */}
+      {mensagemCiclo && (() => {
+        const meta = FASE_META[mensagemCiclo.fase] ?? {};
+        return (
+          <div style={{
+            margin: '0 16px 12px',
+            padding: '14px 16px',
+            background: meta.bg,
+            borderRadius: 14,
+            borderLeft: `3px solid ${meta.cor}`,
+            boxShadow: '0 1px 6px rgba(0,0,0,.06)',
+          }}>
+            <div style={{
+              fontSize: 9, letterSpacing: '.22em', textTransform: 'uppercase',
+              color: meta.cor, fontWeight: 600, marginBottom: 5,
+            }}>
+              {meta.label}
+            </div>
+            <div style={{
+              fontSize: 14, lineHeight: 1.6, color: 'var(--ink)',
+              fontFamily: 'var(--font-sans)',
+            }}>
+              {mensagemCiclo.texto}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Aviso de e-books novos */}
       {ebooksNovos > 0 && (
         <div onClick={marcarEbooksComoVistos}
