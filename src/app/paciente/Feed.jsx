@@ -114,7 +114,7 @@ export default function FeedPaciente() {
 
   return (
     <>
-      <input ref={fileInputRef} type="file" accept="image/*" capture="environment"
+      <input ref={fileInputRef} type="file" accept="image/*"
         onChange={selecionarFoto} style={{ display: 'none' }} />
 
       {/* CTA topo — só quando form fechado */}
