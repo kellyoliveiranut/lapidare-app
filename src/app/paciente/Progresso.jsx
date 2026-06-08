@@ -173,11 +173,15 @@ export default function Progresso() {
         </div>
       ) : dadosMetrica.length > 1 && points.length > 1 ? (
         <div className="card" style={{ padding: '14px 12px 10px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0 4px 8px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '0 4px 8px' }}>
             <span style={{ fontSize: 10, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--muted)', fontWeight: 500 }}>
               Evolução de {metricaAtual?.label?.toLowerCase() ?? ''}
             </span>
-            <span style={{ fontSize: 10, color: 'var(--muted)' }}>{dadosMetrica.length} pontos</span>
+            <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink)', opacity: .75 }}>
+              {dif !== 0
+                ? `${dif > 0 ? '+' : '−'}${Math.abs(dif).toFixed(metricaAtual.dec).replace('.', ',')} ${metricaAtual.unit}`
+                : `${dadosMetrica.length} pontos`}
+            </span>
           </div>
           <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="weight-chart">
             <defs>
@@ -198,9 +202,19 @@ export default function Progresso() {
               <circle key={i} cx={p.x} cy={p.y} r="1.2" fill="#c4a882" stroke="#1c1712" strokeWidth=".4" vectorEffect="non-scaling-stroke" />
             ))}
           </svg>
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 6px 0', fontSize: 10, color: 'var(--muted)' }}>
-            <span>{dataBR(dadosMetrica[0]?.data)}</span>
-            <span>{dataBR(dadosMetrica[dadosMetrica.length - 1]?.data)}</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 6px 0', fontSize: 10, color: 'var(--muted)' }}>
+            <div>
+              <div style={{ fontWeight: 600, color: 'var(--ink)', opacity: .65 }}>
+                {dadosMetrica[0]?.valor.toFixed(metricaAtual.dec).replace('.', ',')} {metricaAtual.unit}
+              </div>
+              <div>{dataBR(dadosMetrica[0]?.data)}</div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontWeight: 600, color: 'var(--ink)', opacity: .65 }}>
+                {dadosMetrica[dadosMetrica.length - 1]?.valor.toFixed(metricaAtual.dec).replace('.', ',')} {metricaAtual.unit}
+              </div>
+              <div>{dataBR(dadosMetrica[dadosMetrica.length - 1]?.data)}</div>
+            </div>
           </div>
         </div>
       ) : (
