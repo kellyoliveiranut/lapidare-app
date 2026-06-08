@@ -8,8 +8,7 @@ import CheckinForm from '../../components/CheckinForm.jsx';
 export default function Checkin() {
   const { envioId } = useParams();
   const navigate = useNavigate();
-  const { user, profile } = useSession();
-  const pacienteId = profile?.id ?? user?.id;
+  const { user } = useSession();
   const [envio, setEnvio] = useState(undefined);
   const [respostas, setRespostas] = useState({});
   const [busy, setBusy] = useState(false);
@@ -19,12 +18,11 @@ export default function Checkin() {
   useEffect(() => {
     let active = true;
     async function load() {
-      if (!pacienteId) return;
+      if (!user) return;
       const { data, error } = await supabase
         .from('checkin_envios')
         .select('*')
         .eq('id', envioId)
-        .eq('paciente_id', pacienteId)
         .maybeSingle();
       if (!active) return;
       if (error) { setErro(error.message); setEnvio(null); return; }
@@ -36,7 +34,7 @@ export default function Checkin() {
     }
     load();
     return () => { active = false; };
-  }, [envioId, pacienteId]);
+  }, [envioId, user]);
 
   if (envio === undefined) {
     return (
