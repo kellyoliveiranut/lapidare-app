@@ -8,22 +8,23 @@ import { iniciais } from '../lib/utils.js';
 import '../styles/paciente.css';
 
 const TABS = [
-  { id: 'inicio',     path: '/paciente/inicio',                      label: 'Início',     icon: 'home' },
-  { id: 'plano',      path: '/paciente/plano',                       label: 'Plano',      icon: 'salad' },
-  { id: 'feed',       path: '/paciente/feed',                        label: 'Pratos',     icon: 'camera' },
-  { id: 'tratamento', path: '/paciente/monitoramento-oncologico',    label: 'Tratamento', icon: 'stethoscope' },
-  { id: 'mais',                                                       label: 'Mais',       icon: 'menu-2' },
+  { id: 'inicio',     path: '/paciente/inicio',                   label: 'Início',      icon: 'home-2' },
+  { id: 'plano',      path: '/paciente/plano',                    label: 'Plano',       icon: 'salad' },
+  { id: 'feed',       path: '/paciente/feed',                     label: 'Pratos',      icon: 'camera' },
+  { id: 'habitos',    path: '/paciente/habitos',                   label: 'Hábitos',     icon: 'checklist' },
+  { id: 'tratamento', path: '/paciente/monitoramento-oncologico', label: 'Tratamento',  icon: 'stethoscope' },
+  { id: 'mais',                                                    label: 'Mais',        icon: 'menu-2' },
 ];
 
 const MAIS_ITEMS = [
-  { path: '/paciente/progresso',   icon: 'trending-up',    label: 'Progresso',           sub: 'Evolução e medidas' },
-  { path: '/paciente/compras',     icon: 'shopping-cart',  label: 'Lista de compras',    sub: 'Lista da semana' },
-  { path: '/paciente/suplementos', icon: 'pill',           label: 'Suplementos',         sub: 'Lista do dia' },
-  { path: '/paciente/habitos',     icon: 'checklist',      label: 'Hábitos',             sub: 'Tracker diário' },
-  { path: '/paciente/prescricoes', icon: 'file-text',      label: 'Prescrições',         sub: 'Documentos da Dra.' },
-  { path: '/paciente/ebooks',      icon: 'book-2',         label: 'E-books',             sub: 'Materiais da Dra.' },
-  { path: '/paciente/chat',        icon: 'message-circle', label: 'Chat com a Dra.',     sub: 'Conversa direta' },
-  { path: '/paciente/treinos',     icon: 'run',            label: 'Treinos',             sub: 'Plano de exercícios' },
+  { path: '/paciente/checkins',    icon: 'clipboard-check', label: 'Check-ins',          sub: 'Formulários da Dra.' },
+  { path: '/paciente/progresso',   icon: 'trending-up',     label: 'Progresso',          sub: 'Evolução e medidas' },
+  { path: '/paciente/compras',     icon: 'shopping-cart',   label: 'Lista de compras',   sub: 'Lista da semana' },
+  { path: '/paciente/suplementos', icon: 'pill',            label: 'Suplementos',        sub: 'Lista do dia' },
+  { path: '/paciente/prescricoes', icon: 'file-text',       label: 'Prescrições',        sub: 'Documentos da Dra.' },
+  { path: '/paciente/ebooks',      icon: 'book-2',          label: 'E-books',            sub: 'Materiais da Dra.' },
+  { path: '/paciente/chat',        icon: 'message-circle',  label: 'Chat com a Dra.',    sub: 'Conversa direta' },
+  { path: '/paciente/treinos',     icon: 'run',             label: 'Treinos',            sub: 'Plano de exercícios' },
 ];
 
 // Paths acessíveis no plano Avulsa — todo o resto fica bloqueado
@@ -46,6 +47,7 @@ const HEADERS = {
   '/paciente/habitos':      () =>                ({ eyebrow: 'Hábitos do dia',   title: 'Meus hábitos',      subtitle: 'Acompanhe sua rotina' }),
   '/paciente/treinos':                  ()                => ({ eyebrow: 'Plano de exercícios',    title: 'Meus treinos' }),
   '/paciente/chat':                     (_nome, nutriNome) => ({ eyebrow: 'Conversa',              title: nutriNome || 'Sua nutri',      subtitle: 'Online' }),
+  '/paciente/checkins':                  ()                => ({ eyebrow: 'Formulários',             title: 'Check-ins',                   subtitle: 'Enviados pela sua nutri' }),
   '/paciente/monitoramento-oncologico': ()                => ({ eyebrow: 'Check-in diário',      title: 'Como você está hoje?',        subtitle: 'Leva menos de 2 minutos' }),
 };
 
@@ -165,7 +167,7 @@ export default function PacienteLayout() {
           {TABS.map(t => {
             const active = t.path
               ? location.pathname === t.path
-              : ['/paciente/progresso', '/paciente/compras', '/paciente/suplementos', '/paciente/habitos', '/paciente/prescricoes', '/paciente/ebooks', '/paciente/chat', '/paciente/treinos'].includes(location.pathname);
+              : ['/paciente/checkins', '/paciente/progresso', '/paciente/compras', '/paciente/suplementos', '/paciente/prescricoes', '/paciente/ebooks', '/paciente/chat', '/paciente/treinos'].includes(location.pathname);
             const blocked = isBlocked(t.path);
 
             if (!t.path) {
