@@ -74,15 +74,16 @@ export default function PacienteLayout() {
   }
 
   // Conta mensagens não lidas vindas da nutri
+  const pacienteId = profile?.id ?? user?.id;
   useEffect(() => {
-    if (!user) return;
+    if (!pacienteId) return;
     let active = true;
 
     async function recarregar() {
       const { count } = await supabase
         .from('mensagens')
         .select('id', { count: 'exact', head: true })
-        .eq('paciente_id', user.id)
+        .eq('paciente_id', pacienteId)
         .eq('de', 'nutri')
         .eq('lida', false);
       if (active) setUnreadChat(count ?? 0);
@@ -90,15 +91,15 @@ export default function PacienteLayout() {
 
     recarregar();
     const channel = supabase
-      .channel(`paciente-unread-${user.id}`)
+      .channel(`paciente-unread-${pacienteId}`)
       .on('postgres_changes', {
         event: '*', schema: 'public', table: 'mensagens',
-        filter: `paciente_id=eq.${user.id}`,
+        filter: `paciente_id=eq.${pacienteId}`,
       }, recarregar)
       .subscribe();
 
     return () => { active = false; supabase.removeChannel(channel); };
-  }, [user]);
+  }, [pacienteId]);
 
   const header = useMemo(() => {
     const factory = HEADERS[location.pathname];
@@ -357,7 +358,7 @@ function PerfilSheet({ profile, user, onClose, refreshProfile }) {
     const { error } = await supabase
       .from('pacientes')
       .update(updates)
-      .eq('id', user.id);
+      .eq('id', profile.id);
     setSaving(false);
     if (error) { setErro('Erro ao salvar: ' + error.message); return; }
     await refreshProfile();
