@@ -358,7 +358,7 @@ function PerfilSheet({ profile, user, onClose, refreshProfile }) {
     const { error } = await supabase
       .from('pacientes')
       .update(updates)
-      .eq('id', profile.id);
+      .eq('id', profile?.id);
     setSaving(false);
     if (error) { setErro('Erro ao salvar: ' + error.message); return; }
     await refreshProfile();

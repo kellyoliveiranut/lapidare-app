@@ -141,7 +141,7 @@ export default function MonitoramentoOncologico() {
     const hoje = new Date().toISOString().split('T')[0];
     const payload = {
       paciente_id:  pacienteId,
-      nutri_id:     profile.nutri_id,
+      nutri_id:     profile?.nutri_id ?? null,
       data:         hoje,
       apetite,
       ...Object.fromEntries(REFEICOES.map(r => [r.key, refeicoes[r.key] ?? null])),

@@ -20,6 +20,7 @@ import { SessionProvider } from './lib/session.jsx';
 import { ThemeProvider } from './lib/theme.jsx';
 import RequireAuth from './components/RequireAuth.jsx';
 import RootRedirect from './components/RootRedirect.jsx';
+import PacienteErrorBoundary from './components/PacienteErrorBoundary.jsx';
 
 // Login e Callback ficam eager — são o caminho crítico para usuários não autenticados
 import Login from './app/auth/Login.jsx';
@@ -101,7 +102,7 @@ export default function App() {
               </Route>
 
               {/* App da Paciente */}
-              <Route element={<RequireAuth role="paciente"><TermoConsentimento><PacienteLayout /></TermoConsentimento></RequireAuth>}>
+              <Route element={<RequireAuth role="paciente"><PacienteErrorBoundary><TermoConsentimento><PacienteLayout /></TermoConsentimento></PacienteErrorBoundary></RequireAuth>}>
                 <Route path="/paciente" element={<Navigate to="/paciente/inicio" replace />} />
                 <Route path="/paciente/inicio" element={<Inicio />} />
                 <Route path="/paciente/plano" element={<Plano />} />

@@ -31,7 +31,7 @@ export default function Inicio() {
   useEffect(() => {
     let active = true;
     async function load() {
-      if (!user) return;
+      if (!pacienteId) return;
       const agora = new Date().toISOString();
       const hoje  = new Date().toISOString().slice(0, 10);
       const [planoRes, comprasRes, consultaRes, checkinRes, ebooksRes, habitosRes, logsHojeRes] = await Promise.all([
@@ -71,7 +71,7 @@ export default function Inicio() {
     }
     load();
     return () => { active = false; };
-  }, [user]);
+  }, [pacienteId]);
 
   const proximaRef = plano?.refeicoes?.find(r => !r.feita) ?? plano?.refeicoes?.[0] ?? null;
   const totalCompras = compras?.lista?.reduce((a, c) => a + (c.itens?.length ?? 0), 0) ?? 0;
