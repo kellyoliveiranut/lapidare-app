@@ -654,11 +654,11 @@ function LinhaDoTempoCiclo({ ciclos, intervalo, standalone }) {
   const emJanela = hoje >= uc.d7 && hoje <= uc.d14;
 
   const marcos = [
-    { d: uc.data_quimio,          label: 'D0',       desc: 'Quimio',          cor: '#6366f1' },
-    { d: uc.d3,                    label: 'D+3',      desc: 'Início da piora', cor: '#f59e0b' },
+    { d: uc.data_quimio,          label: 'D0',       desc: 'Quimio',          cor: '#16a34a' },
+    { d: uc.d3,                    label: 'D+3',      desc: 'Início da piora', cor: '#eab308' },
     { d: uc.d7,                    label: 'D+7',      desc: 'Janela de risco', cor: '#ef4444' },
     { d: uc.d10,                   label: 'D+10',     desc: 'Pico de risco',   cor: '#dc2626' },
-    { d: uc.d14,                   label: 'D+14',     desc: 'Fim da janela',   cor: '#f97316' },
+    { d: uc.d14,                   label: 'D+14',     desc: 'Fim da janela',   cor: '#eab308' },
     { d: addDias(uc.data_quimio, iv), label: `D+${iv}`, desc: 'Próximo ciclo', cor: '#16a34a' },
   ];
 
@@ -703,11 +703,11 @@ function LinhaDoTempoCiclo({ ciclos, intervalo, standalone }) {
                 <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
                   <div style={{
                     width: 20, height: 20, borderRadius: '50%', zIndex: 1, marginBottom: 6,
-                    background: passado ? m.cor : '#fff',
-                    border: `2px solid ${passado ? m.cor : 'var(--border, #e8e2d8)'}`,
-                    boxShadow: isHoje ? `0 0 0 3px ${m.cor}40` : 'none',
+                    background: passado ? m.cor : m.cor + '30',
+                    border: `2px solid ${m.cor}`,
+                    boxShadow: isHoje ? `0 0 0 3px ${m.cor}55` : 'none',
                   }} />
-                  <div style={{ fontSize: 10, fontWeight: 700, color: passado ? m.cor : 'var(--text3)', textAlign: 'center', lineHeight: 1.3 }}>{m.label}</div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: m.cor, textAlign: 'center', lineHeight: 1.3 }}>{m.label}</div>
                   <div style={{ fontSize: 9, color: 'var(--text3)', textAlign: 'center', lineHeight: 1.3 }}>{dataBR(m.d)}</div>
                   <div style={{ fontSize: 9, color: 'var(--text3)', textAlign: 'center', lineHeight: 1.3, maxWidth: 56 }}>{m.desc}</div>
                 </div>
