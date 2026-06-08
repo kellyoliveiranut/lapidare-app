@@ -1,5 +1,5 @@
 /* ============================================================
-   LAPIDARE · Design Tokens
+   Essentia · Design Tokens
    ============================================================
    Para mudar a identidade visual do app, edite apenas este arquivo.
    Cole no Claude.ai junto com o pedido (ex: "muda para verde e branco")
@@ -7,7 +7,7 @@
    ============================================================ */
 
 :root {
-  /* Cores — base bege/dourado Lapidare */
+  /* Cores — identidade Essentia */
   --bg: #f0ebe3;
   --bg-soft: #f5f2ec;
   --bg-deep: #e8e2d6;
@@ -87,7 +87,7 @@
   --shadow-md: 0 4px 12px rgba(28, 23, 18, .06), 0 2px 4px rgba(28, 23, 18, .04);
 }
 
-@keyframes lapidare-spin {
+@keyframes essentia-spin {
   to { transform: rotate(360deg); }
 }
 

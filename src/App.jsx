@@ -10,7 +10,7 @@ function LoadingSpinner() {
         width: 32, height: 32, borderRadius: '50%',
         border: '2.5px solid var(--hair)',
         borderTopColor: 'var(--gold-deep)',
-        animation: 'lapidare-spin 0.75s linear infinite',
+        animation: 'essentia-spin 0.75s linear infinite',
       }} />
     </div>
   );
