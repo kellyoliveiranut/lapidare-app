@@ -14,6 +14,15 @@ const FASE_META = {
   proximo_ciclo: { label: 'Próximo ciclo',   cor: '#16a34a', bg: '#f0fdf4' },
 };
 
+function labelTipo(tipo) {
+  if (!tipo) return '';
+  if (tipo === 'primeira')  return '1ª consulta';
+  if (tipo === 'avaliacao') return 'Avaliação';
+  if (tipo === 'retorno')   return 'Retorno';
+  const m = tipo.match(/^consulta_(\d+)$/);
+  return m ? `Consulta ${m[1]}` : tipo;
+}
+
 function cumpriuHabito(h, valor) {
   if (valor === undefined || valor === null) return false;
   if (h.tipo === 'boolean') return valor >= 1;
@@ -506,7 +515,7 @@ export default function Inicio() {
               {textoDias(proximaConsulta.data_hora)}
             </div>
             <div style={{ fontSize: 11, color: urgente ? 'var(--ink)' : 'var(--muted)', opacity: urgente ? .8 : 1 }}>
-              {dataConsultaBR(proximaConsulta.data_hora)} · {proximaConsulta.duracao_min}min
+              {labelTipo(proximaConsulta.tipo)} · {dataConsultaBR(proximaConsulta.data_hora)} · {nutriNome}
             </div>
             {callUrl && (
               <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
