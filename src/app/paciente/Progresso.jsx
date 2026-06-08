@@ -69,6 +69,22 @@ export default function Progresso() {
 
   const registrosRev = useMemo(() => [...(registros ?? [])].reverse(), [registros]);
 
+  // IMPORTANTE: o chart precisa ser calculado SEMPRE (antes de qualquer return),
+  // senão o número de hooks muda entre renders e o React quebra a tela inteira.
+  const chart = useMemo(() => {
+    if (dadosMetrica.length <= 1) return { points: [], path: '', area: '' };
+    const min = Math.min(...dadosMetrica.map(p => p.valor)) - 0.5;
+    const max = Math.max(...dadosMetrica.map(p => p.valor)) + 0.5;
+    const range = max - min || 1;
+    const points = dadosMetrica.map((p, i) => ({
+      x: (i / (dadosMetrica.length - 1)) * 100,
+      y: 100 - ((p.valor - min) / range) * 100,
+      ...p,
+    }));
+    const path = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+    return { points, path, area: path + ' L 100 100 L 0 100 Z' };
+  }, [dadosMetrica]);
+
   if (registros === undefined) {
     return <div className="empty-state"><div className="empty-sub">Carregando…</div></div>;
   }
@@ -89,20 +105,6 @@ export default function Progresso() {
   const atual = dadosMetrica[dadosMetrica.length - 1];
   const inicial = dadosMetrica[0];
   const dif = atual && inicial ? (atual.valor - inicial.valor) : 0;
-
-  const chart = useMemo(() => {
-    if (dadosMetrica.length <= 1) return { points: [], path: '', area: '' };
-    const min = Math.min(...dadosMetrica.map(p => p.valor)) - 0.5;
-    const max = Math.max(...dadosMetrica.map(p => p.valor)) + 0.5;
-    const range = max - min || 1;
-    const points = dadosMetrica.map((p, i) => ({
-      x: (i / (dadosMetrica.length - 1)) * 100,
-      y: 100 - ((p.valor - min) / range) * 100,
-      ...p,
-    }));
-    const path = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-    return { points, path, area: path + ' L 100 100 L 0 100 Z' };
-  }, [dadosMetrica]);
   const { points, path, area } = chart;
 
   return (
@@ -233,7 +235,8 @@ export default function Progresso() {
    FOTOS DE EVOLUÇÃO — paciente sobe as próprias
    ============================================================ */
 function FotosEvolucao() {
-  const { user } = useSession();
+  const { user, profile } = useSession();
+  const pacienteId = profile?.id ?? user?.id;
   const [fotos, setFotos] = useState(undefined);
   const [urls, setUrls] = useState({});
   const [formOpen, setFormOpen] = useState(false);

@@ -3,19 +3,24 @@ import { Component } from 'react';
 export default class PacienteErrorBoundary extends Component {
   constructor(props) {
     super(props);
-    this.state = { crashed: false };
+    this.state = { crashed: false, error: null, info: null };
   }
 
-  static getDerivedStateFromError() {
-    return { crashed: true };
+  static getDerivedStateFromError(error) {
+    return { crashed: true, error };
   }
 
   componentDidCatch(error, info) {
     console.error('[PacienteErrorBoundary]', error, info?.componentStack);
+    this.setState({ info });
   }
 
   render() {
     if (!this.state.crashed) return this.props.children;
+
+    const { error, info } = this.state;
+    const stack = info?.componentStack ?? '';
+    const stackLines = stack.split('\n').slice(0, 13).join('\n');
 
     return (
       <div style={{
@@ -59,6 +64,27 @@ export default class PacienteErrorBoundary extends Component {
         >
           Recarregar
         </button>
+
+        {/* DEBUG — remover depois */}
+        <div style={{
+          marginTop: 24, width: '100%', maxWidth: 480,
+          background: '#1e1e1e', borderRadius: 10,
+          padding: '14px 16px', textAlign: 'left',
+        }}>
+          <div style={{
+            fontFamily: 'monospace', fontSize: 13, fontWeight: 700,
+            color: '#f87171', marginBottom: 10, wordBreak: 'break-word',
+          }}>
+            {error?.message ?? 'Erro desconhecido'}
+          </div>
+          <pre style={{
+            fontFamily: 'monospace', fontSize: 10,
+            color: '#a3a3a3', whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word', margin: 0, lineHeight: 1.5,
+          }}>
+            {stackLines}
+          </pre>
+        </div>
       </div>
     );
   }
