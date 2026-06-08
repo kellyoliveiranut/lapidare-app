@@ -72,16 +72,24 @@ export default function Progresso() {
   // IMPORTANTE: o chart precisa ser calculado SEMPRE (antes de qualquer return),
   // senão o número de hooks muda entre renders e o React quebra a tela inteira.
   const chart = useMemo(() => {
-    if (dadosMetrica.length <= 1) return { points: [], path: '', area: '' };
-    const min = Math.min(...dadosMetrica.map(p => p.valor)) - 0.5;
-    const max = Math.max(...dadosMetrica.map(p => p.valor)) + 0.5;
-    const range = max - min || 1;
-    const points = dadosMetrica.map((p, i) => ({
-      x: (i / (dadosMetrica.length - 1)) * 100,
-      y: 100 - ((p.valor - min) / range) * 100,
-      ...p,
-    }));
-    const path = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+    const pts = dadosMetrica ?? [];
+    if (pts.length < 2) return { points: [], path: '', area: '' };
+    const vals = pts.map(p => (typeof p.valor === 'number' && isFinite(p.valor) ? p.valor : null)).filter(v => v !== null);
+    if (vals.length < 2) return { points: [], path: '', area: '' };
+    const rawMin = Math.min(...vals);
+    const rawMax = Math.max(...vals);
+    const range = rawMax - rawMin === 0 ? 1 : rawMax - rawMin;
+    const min = rawMin - range * 0.05;
+    const displayRange = (rawMax + range * 0.05) - min || 1;
+    const points = pts.map((p, i) => {
+      const v = typeof p.valor === 'number' && isFinite(p.valor) ? p.valor : rawMin;
+      return {
+        x: pts.length > 1 ? (i / (pts.length - 1)) * 100 : 50,
+        y: Math.max(0, Math.min(100, 100 - ((v - min) / displayRange) * 100)),
+        ...p,
+      };
+    });
+    const path = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(' ');
     return { points, path, area: path + ' L 100 100 L 0 100 Z' };
   }, [dadosMetrica]);
 
@@ -101,9 +109,9 @@ export default function Progresso() {
     );
   }
 
-  const metricaAtual = METRICAS.find(m => m.key === metrica);
-  const atual = dadosMetrica[dadosMetrica.length - 1];
-  const inicial = dadosMetrica[0];
+  const metricaAtual = METRICAS.find(m => m.key === metrica) ?? METRICAS[0];
+  const atual = dadosMetrica.length > 0 ? dadosMetrica[dadosMetrica.length - 1] : null;
+  const inicial = dadosMetrica.length > 0 ? dadosMetrica[0] : null;
   const dif = atual && inicial ? (atual.valor - inicial.valor) : 0;
   const { points, path, area } = chart;
 
@@ -157,11 +165,17 @@ export default function Progresso() {
       )}
 
       {/* Chart */}
-      {dadosMetrica.length > 1 ? (
+      {dadosMetrica.length === 0 ? (
+        <div className="card" style={{ padding: '20px 16px', textAlign: 'center' }}>
+          <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+            Ainda não há dados de progresso para {metricaAtual?.label?.toLowerCase() ?? 'esta métrica'}.
+          </div>
+        </div>
+      ) : dadosMetrica.length > 1 && points.length > 1 ? (
         <div className="card" style={{ padding: '14px 12px 10px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0 4px 8px' }}>
             <span style={{ fontSize: 10, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--muted)', fontWeight: 500 }}>
-              Evolução de {metricaAtual.label.toLowerCase()}
+              Evolução de {metricaAtual?.label?.toLowerCase() ?? ''}
             </span>
             <span style={{ fontSize: 10, color: 'var(--muted)' }}>{dadosMetrica.length} pontos</span>
           </div>
@@ -175,9 +189,11 @@ export default function Progresso() {
             {[25, 50, 75].map(y => (
               <line key={y} x1="0" x2="100" y1={y} y2={y} stroke="#e6dfd3" strokeWidth=".3" strokeDasharray="1,1" />
             ))}
-            <path d={area} fill="url(#wfade)" />
-            <path d={path} fill="none" stroke="#1c1712" strokeWidth=".7"
-              strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+            {area && <path d={area} fill="url(#wfade)" />}
+            {path && (
+              <path d={path} fill="none" stroke="#1c1712" strokeWidth=".7"
+                strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+            )}
             {points.map((p, i) => (
               <circle key={i} cx={p.x} cy={p.y} r="1.2" fill="#c4a882" stroke="#1c1712" strokeWidth=".4" vectorEffect="non-scaling-stroke" />
             ))}

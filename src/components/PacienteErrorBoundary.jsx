@@ -20,7 +20,7 @@ export default class PacienteErrorBoundary extends Component {
 
     const { error, info } = this.state;
     const stack = info?.componentStack ?? '';
-    const stackLines = stack.split('\n').slice(0, 13).join('\n');
+    const stackLines = stack.split('\n').slice(0, 8).join('\n');
 
     return (
       <div style={{
@@ -66,25 +66,29 @@ export default class PacienteErrorBoundary extends Component {
         </button>
 
         {/* DEBUG — remover depois */}
-        <div style={{
-          marginTop: 24, width: '100%', maxWidth: 480,
-          background: '#1e1e1e', borderRadius: 10,
-          padding: '14px 16px', textAlign: 'left',
-        }}>
-          <div style={{
-            fontFamily: 'monospace', fontSize: 13, fontWeight: 700,
-            color: '#f87171', marginBottom: 10, wordBreak: 'break-word',
+        <details open style={{ marginTop: 24, width: '100%', maxWidth: 480, textAlign: 'left' }}>
+          <summary style={{
+            fontSize: 12, color: 'var(--muted, #999)',
+            cursor: 'pointer', userSelect: 'none', marginBottom: 8,
           }}>
-            {error?.message ?? 'Erro desconhecido'}
+            Detalhes técnicos
+          </summary>
+          <div style={{ background: '#1e1e1e', borderRadius: 10, padding: '14px 16px' }}>
+            <div style={{
+              fontFamily: 'monospace', fontSize: 13, fontWeight: 700,
+              color: '#f87171', marginBottom: 10, wordBreak: 'break-word',
+            }}>
+              {error?.message ?? 'Erro desconhecido'}
+            </div>
+            <pre style={{
+              fontFamily: 'monospace', fontSize: 10,
+              color: '#a3a3a3', whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word', margin: 0, lineHeight: 1.5,
+            }}>
+              {stackLines}
+            </pre>
           </div>
-          <pre style={{
-            fontFamily: 'monospace', fontSize: 10,
-            color: '#a3a3a3', whiteSpace: 'pre-wrap',
-            wordBreak: 'break-word', margin: 0, lineHeight: 1.5,
-          }}>
-            {stackLines}
-          </pre>
-        </div>
+        </details>
       </div>
     );
   }
