@@ -35,7 +35,7 @@ const AVULSA_ALLOWED = new Set([
 ]);
 
 const HEADERS = {
-  '/paciente/inicio':       (nome) =>           ({ eyebrow: 'Essentia',          title: `Bom dia, ${nome}` }),
+  '/paciente/inicio':       (nome) => { const h = new Date().getHours(); const s = h < 5 || h >= 18 ? 'Boa noite' : h < 12 ? 'Bom dia' : 'Boa tarde'; return { eyebrow: 'Essentia', title: `${s}, ${nome}` }; },
   '/paciente/plano':        () =>                ({ eyebrow: 'Plano alimentar',  title: 'Meu plano',         subtitle: '' }),
   '/paciente/feed':         () =>                ({ eyebrow: 'Diário alimentar', title: 'Pratos',            subtitle: 'Registre o que você comeu' }),
   '/paciente/progresso':    () =>                ({ eyebrow: 'Minha evolução',   title: 'Progresso' }),
