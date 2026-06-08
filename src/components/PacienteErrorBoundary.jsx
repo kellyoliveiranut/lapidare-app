@@ -1,5 +1,21 @@
 import { Component } from 'react';
 
+const CHUNK_RELOAD_KEY = 'essentia_chunk_reload_v1';
+
+function isChunkLoadError(error) {
+  const msg = error?.message ?? '';
+  const name = error?.name ?? '';
+  return (
+    name === 'ChunkLoadError' ||
+    msg.includes('valid JavaScript MIME type') ||
+    msg.includes('Failed to fetch dynamically imported module') ||
+    msg.includes('Importing a module script failed') ||
+    msg.includes('error loading dynamically imported module') ||
+    msg.includes('ChunkLoadError') ||
+    msg.includes('Loading chunk')
+  );
+}
+
 export default class PacienteErrorBoundary extends Component {
   constructor(props) {
     super(props);
@@ -13,6 +29,14 @@ export default class PacienteErrorBoundary extends Component {
   componentDidCatch(error, info) {
     console.error('[PacienteErrorBoundary]', error, info?.componentStack);
     this.setState({ info });
+
+    if (isChunkLoadError(error)) {
+      if (!sessionStorage.getItem(CHUNK_RELOAD_KEY)) {
+        sessionStorage.setItem(CHUNK_RELOAD_KEY, '1');
+        window.location.reload();
+        return;
+      }
+    }
   }
 
   render() {
