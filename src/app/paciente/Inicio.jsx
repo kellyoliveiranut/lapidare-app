@@ -14,6 +14,15 @@ const FASE_META = {
   proximo_ciclo: { label: 'Próximo ciclo',   cor: '#16a34a', bg: '#f0fdf4' },
 };
 
+const DIAS_SEG = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+
+const HUMOR_OPCOES = [
+  { label: 'Cansada', emoji: '😔', valEscala: 1, valMon: 2 },
+  { label: 'Regular', emoji: '😐', valEscala: 2, valMon: 4 },
+  { label: 'Bem',     emoji: '🙂', valEscala: 4, valMon: 7 },
+  { label: 'Ótima',   emoji: '😄', valEscala: 5, valMon: 9 },
+];
+
 function labelTipo(tipo) {
   if (!tipo) return '';
   if (tipo === 'primeira')  return '1ª consulta';
@@ -45,7 +54,8 @@ export default function Inicio() {
   const [habitos, setHabitos] = useState([]);
   const [habitosLogs, setHabitosLogs] = useState({});  // { habito_id: valor } — hoje
   const [todosLogs, setTodosLogs] = useState([]);      // 30 dias — pra streak
-  const [mensagemCiclo, setMensagemCiclo] = useState(null); // { texto, fase }
+  const [mensagemCiclo, setMensagemCiclo] = useState(null);
+  const [monHoje, setMonHoje] = useState(null);        // { id, disposicao } do monitoramento
 
   useEffect(() => {
     let active = true;
@@ -53,7 +63,7 @@ export default function Inicio() {
       if (!pacienteId) return;
       const agora = new Date().toISOString();
       const hoje  = new Date().toISOString().slice(0, 10);
-      const [planoRes, comprasRes, consultaRes, checkinRes, ebooksRes, habitosRes, logsHojeRes] = await Promise.all([
+      const [planoRes, comprasRes, consultaRes, checkinRes, ebooksRes, habitosRes, logsHojeRes, monRes] = await Promise.all([
         supabase.from('planos').select('dados, publicado_em')
           .eq('paciente_id', pacienteId).order('publicado_em', { ascending: false }).limit(1).maybeSingle(),
         supabase.from('listas_compras').select('dados, publicado_em')
@@ -71,6 +81,11 @@ export default function Inicio() {
         supabase.from('habitos_logs').select('habito_id, valor, data')
           .eq('paciente_id', pacienteId)
           .gte('data', new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10)),
+        supabase.from('monitoramento_oncologico')
+          .select('id, disposicao')
+          .eq('paciente_id', pacienteId)
+          .eq('data', hoje)
+          .maybeSingle(),
       ]);
       if (!active) return;
       setPlano(planoRes.data?.dados ?? null);
@@ -78,6 +93,7 @@ export default function Inicio() {
       setProximaConsulta(consultaRes.data ?? null);
       setCheckinPendente(checkinRes.data ?? null);
       setEbooksNovos(ebooksRes.count ?? 0);
+      setMonHoje(monRes.data ?? null);
 
       const habitosLista = habitosRes.data ?? [];
       const logsHoje = {};
@@ -92,7 +108,7 @@ export default function Inicio() {
     return () => { active = false; };
   }, [pacienteId]);
 
-  // Busca mensagem motivacional baseada no dia do ciclo de quimio
+  // Mensagem motivacional baseada no dia do ciclo de quimio
   useEffect(() => {
     if (!pacienteId || !profile?.nutri_id) return;
     let active = true;
@@ -142,11 +158,12 @@ export default function Inicio() {
     return () => { active = false; };
   }, [pacienteId, profile?.nutri_id]);
 
+  // ─── Derivados básicos ────────────────────────────────────────────────────
   const proximaRef = plano?.refeicoes?.find(r => !r.feita) ?? plano?.refeicoes?.[0] ?? null;
   const totalCompras = compras?.lista?.reduce((a, c) => a + (c.itens?.length ?? 0), 0) ?? 0;
 
   const dias = proximaConsulta ? diasAte(proximaConsulta.data_hora) : null;
-  const urgente = dias !== null && dias <= 1; // hoje ou amanhã
+  const urgente = dias !== null && dias <= 1;
   const emBreve = proximaConsulta ? consultaEmBreve(proximaConsulta.data_hora) : false;
   const callUrl = proximaConsulta ? linkCall(proximaConsulta) : null;
   const gcalUrl = proximaConsulta ? gerarGoogleCalendarUrl({
@@ -157,45 +174,13 @@ export default function Inicio() {
     local: 'Online',
   }) : null;
 
-  // Lembrete de check-in: se foi enviado pela nutri E ainda não respondido.
-  // Se houver `lembrete_enviado_em`, fica em estilo "urgente" (gradiente forte).
   const ckUrgente = !!checkinPendente?.lembrete_enviado_em;
 
-  async function marcarEbooksComoVistos() {
-    await supabase.from('ebooks_pacientes')
-      .update({ visto_em: new Date().toISOString() })
-      .eq('paciente_id', pacienteId).is('visto_em', null);
-    navigate('/paciente/ebooks');
-  }
+  const habitosCumpridos = habitos.filter(h => cumpriuHabito(h, habitosLogs[h.id])).length;
 
-  async function setValorHabito(habito, valor) {
-    const hoje = new Date().toISOString().slice(0, 10);
-    // Update otimista — habitosLogs (hoje) e todosLogs (streak)
-    setHabitosLogs(prev => ({ ...prev, [habito.id]: valor }));
-    setTodosLogs(prev => {
-      const sem = prev.filter(l => !(l.habito_id === habito.id && l.data === hoje));
-      return valor > 0 ? [...sem, { habito_id: habito.id, valor, data: hoje }] : sem;
-    });
-    if (valor === 0 && habito.tipo === 'boolean') {
-      const { data: existente } = await supabase.from('habitos_logs')
-        .select('id').eq('habito_id', habito.id).eq('data', hoje).maybeSingle();
-      if (existente) await supabase.from('habitos_logs').delete().eq('id', existente.id);
-      setHabitosLogs(prev => {
-        const novo = { ...prev };
-        delete novo[habito.id];
-        return novo;
-      });
-    } else {
-      await supabase.from('habitos_logs').upsert({
-        habito_id: habito.id, paciente_id: pacienteId,
-        data: hoje, valor,
-      }, { onConflict: 'habito_id,data' });
-    }
-  }
-
+  // ─── Streak ───────────────────────────────────────────────────────────────
   const habitosStreak = useMemo(() => {
     if (!habitos.length) return 0;
-    // Map { `habito_id|data`: valor } para lookup O(1)
     const m = new Map();
     for (const l of todosLogs) m.set(`${l.habito_id}|${l.data}`, Number(l.valor));
     let count = 0;
@@ -214,11 +199,130 @@ export default function Inicio() {
     return count;
   }, [habitos, todosLogs]);
 
-  const habitosCumpridos = habitos.filter(h => cumpriuHabito(h, habitosLogs[h.id])).length;
+  // ─── Calendário semanal (seg→dom da semana corrente) ─────────────────────
+  const semanaCalendar = useMemo(() => {
+    if (!habitos.length) return [];
+    const hoje = new Date();
+    const hojeIso = hoje.toISOString().slice(0, 10);
+    const dow = hoje.getDay(); // 0=Dom
+    const offsetSeg = dow === 0 ? -6 : 1 - dow;
+    const segunda = new Date(hoje);
+    segunda.setDate(hoje.getDate() + offsetSeg);
+
+    const logMap = new Map();
+    for (const l of todosLogs) logMap.set(`${l.habito_id}|${l.data}`, Number(l.valor));
+
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(segunda);
+      d.setDate(segunda.getDate() + i);
+      const iso = d.toISOString().slice(0, 10);
+      const ehHoje  = iso === hojeIso;
+      const isFuturo = iso > hojeIso;
+      const cumprido = !isFuturo && habitos.every(h => cumpriuHabito(h, logMap.get(`${h.id}|${iso}`) ?? 0));
+      const temAlgum = !isFuturo && habitos.some(h => (logMap.get(`${h.id}|${iso}`) ?? 0) > 0);
+      return { iso, dia: d, ehHoje, isFuturo, cumprido, temAlgum };
+    });
+  }, [habitos, todosLogs]);
+
+  // ─── Adesão semanal ───────────────────────────────────────────────────────
+  const adesaoSemana = useMemo(() => {
+    if (!habitos.length || !semanaCalendar.length) return null;
+    const hojeIso = new Date().toISOString().slice(0, 10);
+    const diasPassados = semanaCalendar.filter(d => !d.isFuturo && d.iso <= hojeIso);
+    if (!diasPassados.length) return null;
+    const logMap = new Map();
+    for (const l of todosLogs) logMap.set(`${l.habito_id}|${l.data}`, Number(l.valor));
+    let cumpridos = 0;
+    const total = diasPassados.length * habitos.length;
+    for (const d of diasPassados) {
+      for (const h of habitos) {
+        if (cumpriuHabito(h, logMap.get(`${h.id}|${d.iso}`) ?? 0)) cumpridos++;
+      }
+    }
+    return total > 0 ? Math.round((cumpridos / total) * 100) : null;
+  }, [habitos, todosLogs, semanaCalendar]);
+
+  // ─── Hábitos especiais ────────────────────────────────────────────────────
+  const habiToAgua = useMemo(() =>
+    habitos.find(h => /água|agua|water/i.test(h.nome)),
+  [habitos]);
+
+  // Primeiro hábito de escala → usado como "humor do dia"
+  const habiToHumor = useMemo(() =>
+    habitos.find(h => h.tipo === 'escala'),
+  [habitos]);
+
+  // ─── Humor: índice selecionado (0-3) ─────────────────────────────────────
+  const humorAtualIdx = useMemo(() => {
+    if (habiToHumor) {
+      const v = habitosLogs[habiToHumor.id] ?? 0;
+      return HUMOR_OPCOES.findIndex(o => o.valEscala === v);
+    }
+    const dis = monHoje?.disposicao;
+    if (!dis) return -1;
+    if (dis <= 3) return 0;
+    if (dis <= 5) return 1;
+    if (dis <= 7) return 2;
+    return 3;
+  }, [habiToHumor, habitosLogs, monHoje]);
+
+  // ─── Ações ────────────────────────────────────────────────────────────────
+  async function marcarEbooksComoVistos() {
+    await supabase.from('ebooks_pacientes')
+      .update({ visto_em: new Date().toISOString() })
+      .eq('paciente_id', pacienteId).is('visto_em', null);
+    navigate('/paciente/ebooks');
+  }
+
+  async function setValorHabito(habito, valor) {
+    const hoje = new Date().toISOString().slice(0, 10);
+    setHabitosLogs(prev => ({ ...prev, [habito.id]: valor }));
+    setTodosLogs(prev => {
+      const sem = prev.filter(l => !(l.habito_id === habito.id && l.data === hoje));
+      return valor > 0 ? [...sem, { habito_id: habito.id, valor, data: hoje }] : sem;
+    });
+    if (valor === 0 && habito.tipo === 'boolean') {
+      const { data: existente } = await supabase.from('habitos_logs')
+        .select('id').eq('habito_id', habito.id).eq('data', hoje).maybeSingle();
+      if (existente) await supabase.from('habitos_logs').delete().eq('id', existente.id);
+      setHabitosLogs(prev => { const n = { ...prev }; delete n[habito.id]; return n; });
+    } else {
+      await supabase.from('habitos_logs').upsert({
+        habito_id: habito.id, paciente_id: pacienteId,
+        data: hoje, valor,
+      }, { onConflict: 'habito_id,data' });
+    }
+  }
+
+  async function salvarHumor(idx) {
+    const opcao = HUMOR_OPCOES[idx];
+    if (!opcao) return;
+    if (habiToHumor) {
+      await setValorHabito(habiToHumor, opcao.valEscala);
+    } else {
+      if (!profile?.nutri_id) return;
+      const hoje = new Date().toISOString().slice(0, 10);
+      const { data } = await supabase.from('monitoramento_oncologico')
+        .upsert(
+          { paciente_id: pacienteId, nutri_id: profile.nutri_id, data: hoje, disposicao: opcao.valMon },
+          { onConflict: 'paciente_id,data' }
+        )
+        .select('id, disposicao').maybeSingle();
+      if (data) setMonHoje(data);
+    }
+  }
+
+  // ─── Helpers de exibição ─────────────────────────────────────────────────
+  const mostrarHumor = habiToHumor != null || !!profile?.nutri_id;
+
+  function fmtNum(v, unidade) {
+    const s = Number.isInteger(v) ? String(v) : v.toFixed(1).replace('.', ',');
+    return unidade ? `${s} ${unidade}` : s;
+  }
 
   return (
     <>
-      {/* Lembrete de consulta */}
+      {/* 1 — Próxima consulta */}
       {proximaConsulta && (
         <div style={{
           margin: '0 16px 12px',
@@ -229,13 +333,11 @@ export default function Inicio() {
           borderRadius: 14,
           padding: '14px 16px',
           display: 'flex', alignItems: 'center', gap: 14,
-          color: urgente ? 'var(--ink)' : 'var(--ink)',
         }}>
           <div style={{
             width: 42, height: 42, borderRadius: 11,
             background: urgente ? 'rgba(28,23,18,.12)' : 'var(--paper)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            flexShrink: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
           }}>
             <i className="ti ti-calendar-event"
                style={{ fontSize: 20, color: urgente ? 'var(--ink)' : 'var(--gold-deep)' }}
@@ -246,9 +348,7 @@ export default function Inicio() {
               fontSize: 9, letterSpacing: '.22em', textTransform: 'uppercase',
               color: urgente ? 'var(--ink)' : 'var(--gold-deep)',
               fontWeight: 500, marginBottom: 2, opacity: urgente ? .85 : 1,
-            }}>
-              Próxima consulta
-            </div>
+            }}>Próxima consulta</div>
             <div className="serif" style={{ fontSize: 20, lineHeight: 1.1, marginBottom: 2 }}>
               {textoDias(proximaConsulta.data_hora)}
             </div>
@@ -264,10 +364,7 @@ export default function Inicio() {
                     background: emBreve ? 'var(--green)' : (urgente ? 'rgba(28,23,18,.85)' : 'var(--ink)'),
                     color: 'var(--bg-soft)',
                     padding: emBreve ? '8px 14px' : '6px 12px',
-                    borderRadius: 10,
-                    fontSize: emBreve ? 12 : 11,
-                    fontWeight: 600,
-                    textDecoration: 'none',
+                    borderRadius: 10, fontSize: emBreve ? 12 : 11, fontWeight: 600, textDecoration: 'none',
                   }}>
                   <i className="ti ti-video" style={{ fontSize: 14 }} aria-hidden="true"></i>
                   {emBreve ? 'Entrar na call agora' : 'Entrar na call'}
@@ -277,12 +374,9 @@ export default function Inicio() {
                     onClick={e => e.stopPropagation()}
                     style={{
                       display: 'inline-flex', alignItems: 'center', gap: 5,
-                      background: 'transparent',
-                      color: 'var(--muted)',
+                      background: 'transparent', color: 'var(--muted)',
                       border: '0.5px solid var(--hair)',
-                      padding: '6px 12px', borderRadius: 10,
-                      fontSize: 11, fontWeight: 500,
-                      textDecoration: 'none',
+                      padding: '6px 12px', borderRadius: 10, fontSize: 11, fontWeight: 500, textDecoration: 'none',
                     }}>
                     <i className="ti ti-calendar-plus" style={{ fontSize: 13 }} aria-hidden="true"></i>
                     Adicionar à agenda
@@ -300,9 +394,7 @@ export default function Inicio() {
                       background: 'transparent',
                       color: urgente ? 'var(--ink)' : 'var(--gold-deep)',
                       border: '0.5px solid ' + (urgente ? 'rgba(28,23,18,.4)' : 'var(--gold)'),
-                      padding: '5px 10px', borderRadius: 10,
-                      fontSize: 11, fontWeight: 500,
-                      textDecoration: 'none',
+                      padding: '5px 10px', borderRadius: 10, fontSize: 11, fontWeight: 500, textDecoration: 'none',
                     }}>
                     <i className="ti ti-external-link" style={{ fontSize: 12 }} aria-hidden="true"></i>
                     {link.label || 'Link'}
@@ -314,35 +406,28 @@ export default function Inicio() {
         </div>
       )}
 
-      {/* Banner motivacional do ciclo */}
+      {/* 2 — Banner motivacional do ciclo */}
       {mensagemCiclo && (() => {
         const meta = FASE_META[mensagemCiclo.fase] ?? {};
         return (
           <div style={{
-            margin: '0 16px 12px',
-            padding: '14px 16px',
-            background: meta.bg,
-            borderRadius: 14,
+            margin: '0 16px 12px', padding: '14px 16px',
+            background: meta.bg, borderRadius: 14,
             borderLeft: `3px solid ${meta.cor}`,
             boxShadow: '0 1px 6px rgba(0,0,0,.06)',
           }}>
             <div style={{
               fontSize: 9, letterSpacing: '.22em', textTransform: 'uppercase',
               color: meta.cor, fontWeight: 600, marginBottom: 5,
-            }}>
-              {meta.label}
-            </div>
-            <div style={{
-              fontSize: 14, lineHeight: 1.6, color: 'var(--ink)',
-              fontFamily: 'var(--font-sans)',
-            }}>
+            }}>{meta.label}</div>
+            <div style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--ink)', fontFamily: 'var(--font-sans)' }}>
               {mensagemCiclo.texto}
             </div>
           </div>
         );
       })()}
 
-      {/* Aviso de e-books novos */}
+      {/* 3 — Aviso de e-books novos */}
       {ebooksNovos > 0 && (
         <div onClick={marcarEbooksComoVistos}
           style={{
@@ -364,19 +449,194 @@ export default function Inicio() {
               color: 'var(--gold-deep)', fontWeight: 500, marginBottom: 2,
             }}>Novo material</div>
             <div className="serif" style={{ fontSize: 17, lineHeight: 1.1 }}>
-              {ebooksNovos === 1
-                ? 'Você tem 1 e-book novo'
-                : `Você tem ${ebooksNovos} e-books novos`}
+              {ebooksNovos === 1 ? 'Você tem 1 e-book novo' : `Você tem ${ebooksNovos} e-books novos`}
             </div>
-            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
-              Toque para abrir
-            </div>
+            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>Toque para abrir</div>
           </div>
           <i className="ti ti-chevron-right" style={{ fontSize: 18, color: 'var(--muted)' }} aria-hidden="true"></i>
         </div>
       )}
 
-      {/* Hero — próxima refeição */}
+      {/* 4 — BLOCO A: Progresso da semana */}
+      {habitos.length > 0 && semanaCalendar.length > 0 && (
+        <div style={{
+          margin: '0 16px 12px', padding: '14px 16px',
+          background: 'var(--white)',
+          border: '0.5px solid var(--hair)', borderRadius: 16,
+        }}>
+          <div style={{
+            fontSize: 9, letterSpacing: '.22em', textTransform: 'uppercase',
+            color: 'var(--muted)', fontWeight: 500, marginBottom: 12,
+          }}>Progresso da semana</div>
+
+          {/* 7 bolinhas */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
+            {semanaCalendar.map((d, i) => {
+              const bgColor = d.cumprido
+                ? 'var(--green)'
+                : d.ehHoje
+                ? 'var(--gold-soft)'
+                : d.temAlgum
+                ? 'var(--green-bg, #f0fdf4)'
+                : 'var(--bg-soft)';
+              const txtColor = d.cumprido
+                ? '#fff'
+                : d.ehHoje
+                ? 'var(--gold-deep)'
+                : d.temAlgum
+                ? 'var(--green)'
+                : d.isFuturo
+                ? 'var(--hair)'
+                : 'var(--muted)';
+              return (
+                <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+                  <div style={{
+                    fontSize: 9, fontWeight: d.ehHoje ? 700 : 400,
+                    color: d.ehHoje ? 'var(--gold-deep)' : 'var(--muted)',
+                  }}>
+                    {DIAS_SEG[i].charAt(0)}
+                  </div>
+                  <div style={{
+                    width: 30, height: 30, borderRadius: '50%',
+                    background: bgColor,
+                    border: d.ehHoje && !d.cumprido ? '2px solid var(--gold-deep)' : 'none',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: d.cumprido ? 13 : 10,
+                    fontWeight: d.ehHoje ? 700 : 500,
+                    color: txtColor,
+                  }}>
+                    {d.cumprido
+                      ? <i className="ti ti-check" aria-hidden="true" />
+                      : d.dia.getDate()}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Resumo do dia */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ fontSize: 13, color: 'var(--ink)' }}>
+              <span style={{ fontWeight: 700 }}>{habitosCumpridos}</span>
+              <span style={{ color: 'var(--muted)' }}> de {habitos.length} hábitos hoje</span>
+              {habitos.length > 0 && (
+                <span style={{
+                  marginLeft: 6, fontSize: 11, fontWeight: 600,
+                  color: habitosCumpridos === habitos.length ? 'var(--green)' : 'var(--muted)',
+                }}>
+                  · {Math.round((habitosCumpridos / habitos.length) * 100)}%
+                </span>
+              )}
+            </div>
+            {adesaoSemana !== null && (
+              <div style={{
+                fontSize: 11, fontWeight: 600,
+                color: adesaoSemana >= 80 ? 'var(--green)' : adesaoSemana >= 50 ? 'var(--gold-deep)' : 'var(--muted)',
+              }}>
+                {adesaoSemana}% semana
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 5 — BLOCO B: Quadradinhos de resumo */}
+      {habitos.length > 0 && (habiToAgua || habitosStreak > 0 || adesaoSemana !== null) && (
+        <div style={{ margin: '0 16px 12px' }}>
+
+          {/* Água — linha inteira quando existir */}
+          {habiToAgua && (() => {
+            const v     = habitosLogs[habiToAgua.id] ?? 0;
+            const meta  = habiToAgua.meta ?? 0;
+            const uni   = habiToAgua.unidade ?? '';
+            const pct   = meta > 0 ? Math.min(100, Math.round((v / meta) * 100)) : 0;
+            return (
+              <div style={{
+                padding: '12px 14px', borderRadius: 12, marginBottom: 8,
+                background: 'var(--white)', border: '0.5px solid var(--hair)',
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 8 }}>
+                  <div>
+                    <div style={{
+                      fontSize: 9, letterSpacing: '.18em', textTransform: 'uppercase',
+                      color: 'var(--muted)', fontWeight: 500, marginBottom: 2,
+                    }}>💧 Água hoje</div>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink)', lineHeight: 1 }}>
+                      {fmtNum(v, uni)}
+                      {meta > 0 && (
+                        <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 400, marginLeft: 4 }}>
+                          / meta {fmtNum(meta, uni)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{
+                    fontSize: 13, fontWeight: 700,
+                    color: pct >= 100 ? 'var(--green)' : pct >= 60 ? 'var(--gold-deep)' : 'var(--muted)',
+                  }}>
+                    {meta > 0 ? `${pct}%` : ''}
+                  </div>
+                </div>
+                {meta > 0 && (
+                  <div style={{ height: 5, borderRadius: 3, background: 'var(--hair)', overflow: 'hidden' }}>
+                    <div style={{
+                      height: '100%', borderRadius: 3,
+                      width: `${pct}%`,
+                      background: pct >= 100 ? 'var(--green)' : 'var(--blue, var(--gold-deep))',
+                      transition: 'width .3s ease',
+                    }} />
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* Sequência + Adesão — 2 colunas */}
+          {(habitosStreak > 0 || adesaoSemana !== null) && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              {habitosStreak > 0 && (
+                <div style={{
+                  padding: '12px 14px', borderRadius: 12,
+                  background: 'var(--white)', border: '0.5px solid var(--hair)',
+                }}>
+                  <div style={{
+                    fontSize: 9, letterSpacing: '.18em', textTransform: 'uppercase',
+                    color: 'var(--muted)', fontWeight: 500, marginBottom: 4,
+                  }}>🔥 Sequência</div>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)', lineHeight: 1 }}>
+                    {habitosStreak}
+                    <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 400, marginLeft: 3 }}>
+                      dia{habitosStreak === 1 ? '' : 's'}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>seguidos</div>
+                </div>
+              )}
+              {adesaoSemana !== null && (
+                <div style={{
+                  padding: '12px 14px', borderRadius: 12,
+                  background: 'var(--white)', border: '0.5px solid var(--hair)',
+                }}>
+                  <div style={{
+                    fontSize: 9, letterSpacing: '.18em', textTransform: 'uppercase',
+                    color: 'var(--muted)', fontWeight: 500, marginBottom: 4,
+                  }}>📊 Adesão</div>
+                  <div style={{
+                    fontSize: 22, fontWeight: 700, lineHeight: 1,
+                    color: adesaoSemana >= 80 ? 'var(--green)' : adesaoSemana >= 50 ? 'var(--gold-deep)' : 'var(--ink)',
+                  }}>
+                    {adesaoSemana}
+                    <span style={{ fontSize: 14, fontWeight: 400 }}>%</span>
+                  </div>
+                  <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>esta semana</div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 6 — Hero: próxima refeição */}
       {proximaRef ? (
         <div className="card dark" style={{ padding: '16px 18px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
@@ -405,7 +665,47 @@ export default function Inicio() {
         </div>
       )}
 
-      {/* Visão completa dos hábitos do dia (interativa) */}
+      {/* 7 — BLOCO C: Check-in rápido de humor */}
+      {mostrarHumor && (
+        <div style={{
+          margin: '0 16px 12px', padding: '14px 16px',
+          background: 'var(--white)', border: '0.5px solid var(--hair)', borderRadius: 16,
+        }}>
+          <div style={{
+            fontSize: 9, letterSpacing: '.22em', textTransform: 'uppercase',
+            color: 'var(--muted)', fontWeight: 500, marginBottom: 10,
+          }}>Como você está hoje?</div>
+
+          <div style={{ display: 'flex', gap: 6 }}>
+            {HUMOR_OPCOES.map((o, i) => {
+              const ativo = humorAtualIdx === i;
+              return (
+                <button
+                  key={i}
+                  onClick={() => salvarHumor(i)}
+                  style={{
+                    flex: 1, padding: '8px 4px', borderRadius: 10,
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+                    cursor: 'pointer',
+                    background: ativo ? 'var(--gold-soft)' : 'var(--bg-soft)',
+                    border: ativo ? '1.5px solid var(--gold-deep)' : '1.5px solid transparent',
+                    fontFamily: 'var(--font-sans)',
+                    transition: 'background .15s, border-color .15s',
+                  }}>
+                  <span style={{ fontSize: 20, lineHeight: 1 }}>{o.emoji}</span>
+                  <span style={{
+                    fontSize: 9, fontWeight: ativo ? 700 : 400,
+                    color: ativo ? 'var(--gold-deep)' : 'var(--muted)',
+                    letterSpacing: '.01em',
+                  }}>{o.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* 8 — Hábitos de hoje */}
       {habitos.length > 0 && (
         <div style={{
           margin: '0 16px 14px', padding: 16,
@@ -489,10 +789,7 @@ export default function Inicio() {
                             cursor: 'pointer', fontSize: 14, color: 'var(--ink)',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                           }}>−</button>
-                        <div style={{
-                          minWidth: 60, textAlign: 'center', fontSize: 12,
-                          color: 'var(--ink)', fontWeight: 600,
-                        }}>
+                        <div style={{ minWidth: 60, textAlign: 'center', fontSize: 12, color: 'var(--ink)', fontWeight: 600 }}>
                           {v}<span style={{ color: 'var(--muted)', fontWeight: 400 }}>
                             {meta ? `/${meta}` : ''} {h.unidade ?? ''}
                           </span>
@@ -530,7 +827,7 @@ export default function Inicio() {
             })}
           </div>
 
-          {/* Ver detalhes */}
+          {/* Ver histórico */}
           <button onClick={() => navigate('/paciente/habitos')}
             style={{
               width: '100%', marginTop: 10, padding: '8px',
@@ -544,7 +841,7 @@ export default function Inicio() {
         </div>
       )}
 
-      {/* Cards 2x2 */}
+      {/* 9 — Cards 2×2 */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, margin: '0 16px 10px' }}>
         <div className="card" style={{ margin: 0, padding: '12px 14px', cursor: 'pointer' }} onClick={() => navigate('/paciente/plano')}>
           <div style={{ display: 'flex', gap: 6, marginBottom: 6, alignItems: 'center' }}>
@@ -592,7 +889,7 @@ export default function Inicio() {
         </div>
       </div>
 
-      {/* Lembrete de check-in pendente */}
+      {/* 10 — Check-in pendente */}
       {checkinPendente && (
         <div
           onClick={() => navigate(`/paciente/checkin/${checkinPendente.id}`)}
@@ -602,8 +899,7 @@ export default function Inicio() {
               ? 'linear-gradient(135deg, #ffd9c4 0%, #f5a373 100%)'
               : 'var(--paper)',
             border: ckUrgente ? 'none' : '1.5px dashed var(--gold)',
-            borderRadius: 14,
-            padding: '14px 16px',
+            borderRadius: 14, padding: '14px 16px',
             display: 'flex', alignItems: 'center', gap: 12,
             cursor: 'pointer',
           }}>
