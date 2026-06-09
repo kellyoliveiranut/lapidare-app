@@ -198,7 +198,7 @@ export default function TreinosPaciente() {
             fontSize: 10, letterSpacing: '.18em', textTransform: 'uppercase',
             color: 'var(--muted)', fontWeight: 500, marginBottom: 8,
           }}>
-            Prescrição da sua nutri
+            Recomendação da sua nutri
           </div>
 
           <div className="card" style={{ marginBottom: 12 }}>

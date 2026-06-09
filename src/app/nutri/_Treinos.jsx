@@ -168,7 +168,7 @@ export default function Treinos({ pacienteId, nutriId, pacienteNome }) {
       <div className="card">
         <div className="card-header">
           <div>
-            <div className="card-title">Prescrever treino</div>
+            <div className="card-title">Recomendar treino</div>
             <div className="card-sub">Visível para {pacienteNome.split(' ')[0]} no portal Essentia</div>
           </div>
         </div>
@@ -359,13 +359,13 @@ export default function Treinos({ pacienteId, nutriId, pacienteNome }) {
       </div>
 
       {/* Lista de treinos prescritos */}
-      <div className="section-label">Treinos prescritos ({treinos?.length ?? 0})</div>
+      <div className="section-label">Treinos recomendados ({treinos?.length ?? 0})</div>
 
       {treinos === null ? (
         <div className="card empty-card"><div className="empty-sub">Carregando…</div></div>
       ) : treinos.length === 0 ? (
         <div className="card empty-card">
-          <div className="empty-sub">Nenhum treino prescrito ainda.</div>
+          <div className="empty-sub">Nenhum treino recomendado ainda.</div>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
