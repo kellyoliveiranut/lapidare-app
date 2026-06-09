@@ -96,6 +96,7 @@
 
 html, body, #root {
   height: 100%;
+  overflow-x: hidden; /* previne scroll horizontal no nível do documento */
 }
 
 body {

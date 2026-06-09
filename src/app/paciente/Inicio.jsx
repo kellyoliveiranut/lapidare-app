@@ -419,8 +419,8 @@ export default function Inicio() {
             color: 'var(--muted)', fontWeight: 500, marginBottom: 12,
           }}>Progresso da semana</div>
 
-          {/* 7 bolinhas */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
+          {/* 7 bolinhas — width:100% garante que o flex não estoure o card */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', marginBottom: 12 }}>
             {semanaCalendar.map((d, i) => {
               const bgColor = d.cumprido
                 ? 'var(--green)'
@@ -439,7 +439,10 @@ export default function Inicio() {
                 ? 'var(--hair)'
                 : 'var(--muted)';
               return (
-                <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+                <div key={i} style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+                  flex: '1 1 0', minWidth: 0, /* cada coluna encolhe proporcionalmente */
+                }}>
                   <div style={{
                     fontSize: 9, fontWeight: d.ehHoje ? 700 : 400,
                     color: d.ehHoje ? 'var(--gold-deep)' : 'var(--muted)',
@@ -447,11 +450,12 @@ export default function Inicio() {
                     {DIAS_SEG[i].charAt(0)}
                   </div>
                   <div style={{
-                    width: 30, height: 30, borderRadius: '50%',
+                    width: 28, height: 28, borderRadius: '50%',
+                    flexShrink: 0,
                     background: bgColor,
                     border: d.ehHoje && !d.cumprido ? '2px solid var(--gold-deep)' : 'none',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: d.cumprido ? 13 : 10,
+                    fontSize: d.cumprido ? 12 : 10,
                     fontWeight: d.ehHoje ? 700 : 500,
                     color: txtColor,
                   }}>
@@ -543,10 +547,10 @@ export default function Inicio() {
 
           {/* Sequência + Adesão — 2 colunas */}
           {(habitosStreak > 0 || adesaoSemana !== null) && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, minWidth: 0 }}>
               {habitosStreak > 0 && (
                 <div style={{
-                  padding: '12px 14px', borderRadius: 12,
+                  padding: '12px 14px', borderRadius: 12, minWidth: 0,
                   background: 'var(--white)', border: '0.5px solid var(--hair)',
                 }}>
                   <div style={{
@@ -564,7 +568,7 @@ export default function Inicio() {
               )}
               {adesaoSemana !== null && (
                 <div style={{
-                  padding: '12px 14px', borderRadius: 12,
+                  padding: '12px 14px', borderRadius: 12, minWidth: 0,
                   background: 'var(--white)', border: '0.5px solid var(--hair)',
                 }}>
                   <div style={{

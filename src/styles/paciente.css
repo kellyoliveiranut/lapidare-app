@@ -32,6 +32,7 @@
   color: var(--ink);
   font-family: var(--font-sans);
   position: relative;
+  overflow-x: hidden; /* impede qualquer filho de gerar scroll horizontal */
 }
 
 @media (min-width: 600px) {
@@ -88,6 +89,7 @@
 .paciente-app .body {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden; /* iOS Safari: overflow-y:auto tornaria overflow-x:auto sem isso */
   padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)); /* espaço para tab bar + gesto */
 }
 
