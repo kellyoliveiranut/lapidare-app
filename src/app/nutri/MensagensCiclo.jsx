@@ -2,13 +2,14 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 
-const FASES = [
-  { id: 'quimio',        label: 'Dia da quimio (D0)',            cor: '#16a34a' },
-  { id: 'inicio_piora',  label: 'Início da piora (D+1 a D+3)',   cor: '#eab308' },
-  { id: 'janela_risco',  label: 'Janela de risco (D+4 a D+7)',   cor: '#ef4444' },
-  { id: 'pico_risco',    label: 'Pico de risco (D+8 a D+10)',    cor: '#dc2626' },
-  { id: 'fim_janela',    label: 'Fim da janela (D+11 a D+14)',   cor: '#eab308' },
-  { id: 'proximo_ciclo', label: 'Próximo ciclo (D+15+)',          cor: '#16a34a' },
+// Grupos apenas para organizar a biblioteca de exemplos
+const GRUPOS = [
+  { id: 'quimio',        label: 'Dia da químio' },
+  { id: 'inicio_piora',  label: 'Início da piora' },
+  { id: 'janela_risco',  label: 'Janela de risco' },
+  { id: 'pico_risco',    label: 'Pico de risco' },
+  { id: 'fim_janela',    label: 'Fim da janela' },
+  { id: 'proximo_ciclo', label: 'Próximo ciclo / fase boa' },
 ];
 
 const EXEMPLOS = {
@@ -46,7 +47,8 @@ const EXEMPLOS = {
 
 export default function MensagensCiclo() {
   const { user } = useSession();
-  const [msgs, setMsgs] = useState({});
+  const [ativa, setAtiva] = useState(null);   // texto da mensagem ativa
+  const [custom, setCustom] = useState('');   // campo de texto livre
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState(null);
 
@@ -54,163 +56,115 @@ export default function MensagensCiclo() {
     if (!user) return;
     supabase
       .from('mensagens_ciclo')
-      .select('fase, mensagem')
+      .select('mensagem')
       .eq('nutri_id', user.id)
+      .eq('fase', 'ativa')
+      .maybeSingle()
       .then(({ data }) => {
-        const m = {};
-        for (const row of (data ?? [])) m[row.fase] = row.mensagem;
-        setMsgs(m);
+        if (data?.mensagem) setAtiva(data.mensagem);
       });
   }, [user]);
 
-  async function salvar() {
-    if (!user) return;
+  async function definirAtiva(texto) {
+    if (!texto?.trim() || !user) return;
     setBusy(true);
     setFeedback(null);
-
-    const comTexto = FASES.filter(f =>  msgs[f.id]?.trim());
-    const semTexto = FASES.filter(f => !msgs[f.id]?.trim());
-
-    const ops = [];
-
-    if (comTexto.length) {
-      ops.push(
-        supabase.from('mensagens_ciclo').upsert(
-          comTexto.map(f => ({
-            nutri_id: user.id,
-            fase: f.id,
-            mensagem: msgs[f.id].trim(),
-            ativo: true,
-          })),
-          { onConflict: 'nutri_id,fase' }
-        )
+    const { error } = await supabase
+      .from('mensagens_ciclo')
+      .upsert(
+        { nutri_id: user.id, fase: 'ativa', mensagem: texto.trim(), ativo: true },
+        { onConflict: 'nutri_id,fase' }
       );
-    }
-
-    for (const f of semTexto) {
-      ops.push(
-        supabase.from('mensagens_ciclo')
-          .delete()
-          .eq('nutri_id', user.id)
-          .eq('fase', f.id)
-      );
-    }
-
-    const resultados = await Promise.all(ops);
     setBusy(false);
-
-    const erro = resultados.find(r => r.error)?.error;
-    if (erro) return setFeedback({ tipo: 'erro', msg: 'Erro ao salvar: ' + erro.message });
-
-    setFeedback({ tipo: 'ok', msg: 'Mensagens salvas!' });
+    if (error) {
+      setFeedback({ tipo: 'erro', msg: 'Erro ao salvar: ' + error.message });
+      return;
+    }
+    setAtiva(texto.trim());
+    setCustom('');
+    setFeedback({ tipo: 'ok', msg: 'Mensagem ativa definida!' });
     setTimeout(() => setFeedback(null), 3000);
+  }
+
+  async function removerAtiva() {
+    if (!user) return;
+    setBusy(true);
+    await supabase
+      .from('mensagens_ciclo')
+      .delete()
+      .eq('nutri_id', user.id)
+      .eq('fase', 'ativa');
+    setBusy(false);
+    setAtiva(null);
   }
 
   return (
     <div style={{ maxWidth: 640 }}>
       <div className="card">
         <div className="card-header">
-          <div className="card-title">💌 Mensagens do ciclo</div>
+          <div className="card-title">💌 Mensagem motivacional</div>
           <div className="card-sub">
-            Mensagem exibida no app da paciente conforme o dia em que ela está no ciclo.
-            Deixe em branco para não exibir em determinada fase.
+            A mensagem ativa aparece para <strong>todos os seus pacientes</strong> no topo do app,
+            com o nome de cada uma no lugar de <code style={{ fontSize: 11 }}>{'{nome}'}</code>.
+            Troque quando quiser.
           </div>
         </div>
         <div className="card-body">
 
-          {/* Dica {nome} */}
+          {/* ── MENSAGEM ATIVA ── */}
           <div style={{
-            padding: '9px 13px', borderRadius: 8, marginBottom: 20,
-            background: 'var(--bg2)', border: '0.5px solid var(--border)',
-            fontSize: 12, color: 'var(--text3)',
-            display: 'flex', alignItems: 'flex-start', gap: 8,
+            fontSize: 10, letterSpacing: '.12em', textTransform: 'uppercase',
+            color: 'var(--text3)', fontWeight: 600, marginBottom: 8,
           }}>
-            <i className="ti ti-info-circle" style={{ fontSize: 15, flexShrink: 0, marginTop: 1 }} />
-            <span>
-              Use{' '}
-              <code style={{
-                background: 'var(--bg3)', borderRadius: 4,
-                padding: '1px 5px', fontSize: 11, fontFamily: 'monospace',
-              }}>{'{nome}'}</code>
-              {' '}para inserir o primeiro nome da paciente automaticamente.
-            </span>
+            Mensagem ativa
           </div>
 
-          {/* Campos por fase */}
-          {FASES.map(f => {
-            const temTexto = !!msgs[f.id]?.trim();
-            const exemplos = EXEMPLOS[f.id] ?? [];
-            return (
-              <div key={f.id} style={{ marginBottom: 24 }}>
-                <label className="field-label" style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5 }}>
-                  <span style={{
-                    width: 9, height: 9, borderRadius: '50%',
-                    background: f.cor, flexShrink: 0, display: 'inline-block',
-                  }} />
-                  {f.label}
-                </label>
-
-                <textarea
-                  value={msgs[f.id] ?? ''}
-                  onChange={e => setMsgs(prev => ({ ...prev, [f.id]: e.target.value }))}
-                  rows={3}
-                  placeholder="Digite sua mensagem ou selecione um exemplo abaixo…"
-                  style={{
-                    width: '100%', resize: 'vertical', minHeight: 68,
-                    padding: '10px 12px', borderRadius: 8, boxSizing: 'border-box',
-                    border: `1.5px solid ${temTexto ? f.cor + '70' : 'var(--border)'}`,
-                    background: temTexto ? f.cor + '09' : 'var(--bg-soft)',
-                    fontFamily: 'var(--font-sans)', fontSize: 13, lineHeight: 1.5,
-                    outline: 'none', transition: 'border .2s, background .2s',
-                    color: 'var(--ink)',
-                  }}
-                />
-
-                {/* Exemplos prontos */}
-                <div style={{ marginTop: 6 }}>
+          {ativa ? (
+            <div style={{
+              padding: '12px 14px', borderRadius: 10, marginBottom: 20,
+              background: 'var(--green-bg, #f0fdf4)',
+              border: '1.5px solid var(--green, #16a34a)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{
-                    fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase',
-                    color: 'var(--text3)', fontWeight: 500, marginBottom: 5,
+                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                    fontSize: 10, fontWeight: 700, color: 'var(--green, #16a34a)',
+                    letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 5,
                   }}>
-                    Exemplos prontos — toque para usar
+                    <i className="ti ti-check" style={{ fontSize: 12 }} />
+                    Ativa agora
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                    {exemplos.map((ex, i) => {
-                      const selecionado = msgs[f.id]?.trim() === ex;
-                      return (
-                        <button
-                          key={i}
-                          type="button"
-                          onClick={() => setMsgs(prev => ({ ...prev, [f.id]: ex }))}
-                          style={{
-                            textAlign: 'left',
-                            padding: '8px 11px',
-                            borderRadius: 8,
-                            border: selecionado
-                              ? `1.5px solid ${f.cor}`
-                              : '1px solid var(--border)',
-                            background: selecionado ? f.cor + '12' : 'var(--bg-soft)',
-                            cursor: 'pointer',
-                            fontSize: 12,
-                            lineHeight: 1.5,
-                            color: 'var(--text2)',
-                            fontFamily: 'var(--font-sans)',
-                            transition: 'border .15s, background .15s',
-                          }}
-                        >
-                          {ex}
-                        </button>
-                      );
-                    })}
+                  <div style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--ink)', fontFamily: 'var(--font-sans)' }}>
+                    {ativa}
                   </div>
                 </div>
+                <button
+                  onClick={removerAtiva}
+                  disabled={busy}
+                  title="Remover mensagem ativa"
+                  style={{
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    color: 'var(--muted)', padding: 4, flexShrink: 0,
+                  }}
+                >
+                  <i className="ti ti-x" style={{ fontSize: 15 }} />
+                </button>
               </div>
-            );
-          })}
+            </div>
+          ) : (
+            <div style={{
+              padding: '12px 14px', borderRadius: 10, marginBottom: 20,
+              background: 'var(--bg2)', border: '1px dashed var(--border)',
+              fontSize: 12, color: 'var(--text3)', textAlign: 'center',
+            }}>
+              Nenhuma mensagem ativa — escolha um exemplo abaixo ou escreva a sua.
+            </div>
+          )}
 
           {feedback && (
             <div style={{
-              padding: '8px 12px', borderRadius: 6, marginBottom: 12, fontSize: 13,
+              padding: '8px 12px', borderRadius: 6, marginBottom: 16, fontSize: 13,
               background: feedback.tipo === 'ok' ? 'var(--green-bg)' : 'var(--red-bg)',
               color: feedback.tipo === 'ok' ? 'var(--green)' : 'var(--red)',
             }}>
@@ -218,9 +172,106 @@ export default function MensagensCiclo() {
             </div>
           )}
 
-          <button className="btn" onClick={salvar} disabled={busy}>
-            {busy ? 'Salvando…' : 'Salvar mensagens'}
-          </button>
+          {/* ── ESCREVER A PRÓPRIA ── */}
+          <div style={{
+            fontSize: 10, letterSpacing: '.12em', textTransform: 'uppercase',
+            color: 'var(--text3)', fontWeight: 600, marginBottom: 8,
+          }}>
+            Escrever a própria
+          </div>
+
+          <div style={{ marginBottom: 24 }}>
+            <textarea
+              value={custom}
+              onChange={e => setCustom(e.target.value)}
+              rows={3}
+              placeholder={`Ex.: {nome}, você está arrasando! 💚 Continue firme e qualquer dúvida me chama.`}
+              style={{
+                width: '100%', resize: 'vertical', minHeight: 72,
+                padding: '10px 12px', borderRadius: 8, boxSizing: 'border-box',
+                border: '1.5px solid var(--border)',
+                background: custom.trim() ? 'var(--bg-soft)' : 'var(--bg2)',
+                fontFamily: 'var(--font-sans)', fontSize: 13, lineHeight: 1.5,
+                outline: 'none', color: 'var(--ink)',
+                transition: 'border .2s',
+              }}
+            />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+              <span style={{ fontSize: 11, color: 'var(--text3)', flex: 1 }}>
+                Use{' '}
+                <code style={{
+                  background: 'var(--bg3)', borderRadius: 4,
+                  padding: '1px 5px', fontSize: 11, fontFamily: 'monospace',
+                }}>{'{nome}'}</code>
+                {' '}para o primeiro nome da paciente.
+              </span>
+              <button
+                className="btn"
+                onClick={() => definirAtiva(custom)}
+                disabled={busy || !custom.trim()}
+              >
+                {busy ? 'Salvando…' : 'Definir como ativa'}
+              </button>
+            </div>
+          </div>
+
+          {/* ── BIBLIOTECA DE EXEMPLOS ── */}
+          <div style={{
+            fontSize: 10, letterSpacing: '.12em', textTransform: 'uppercase',
+            color: 'var(--text3)', fontWeight: 600, marginBottom: 12,
+          }}>
+            Biblioteca de exemplos
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            {GRUPOS.map(g => (
+              <div key={g.id}>
+                <div style={{
+                  fontSize: 11, fontWeight: 600, color: 'var(--text2)',
+                  marginBottom: 7,
+                }}>
+                  {g.label}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {(EXEMPLOS[g.id] ?? []).map((ex, i) => {
+                    const ehAtiva = ativa === ex;
+                    return (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => definirAtiva(ex)}
+                        disabled={busy}
+                        style={{
+                          textAlign: 'left',
+                          padding: '9px 12px',
+                          borderRadius: 9,
+                          border: ehAtiva
+                            ? '1.5px solid var(--green, #16a34a)'
+                            : '1px solid var(--border)',
+                          background: ehAtiva
+                            ? 'var(--green-bg, #f0fdf4)'
+                            : 'var(--bg-soft)',
+                          cursor: busy ? 'default' : 'pointer',
+                          fontSize: 12, lineHeight: 1.55,
+                          color: 'var(--text2)',
+                          fontFamily: 'var(--font-sans)',
+                          transition: 'border .15s, background .15s',
+                          display: 'flex', alignItems: 'flex-start', gap: 8,
+                        }}
+                      >
+                        {ehAtiva && (
+                          <i className="ti ti-check"
+                             style={{ fontSize: 13, color: 'var(--green, #16a34a)', flexShrink: 0, marginTop: 1 }} />
+                        )}
+                        <span>{ex}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+
         </div>
       </div>
     </div>

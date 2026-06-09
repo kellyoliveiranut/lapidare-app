@@ -6,14 +6,6 @@ import { useTheme } from '../../lib/theme.jsx';
 import { textoDias, dataConsultaBR, diasAte, linkCall, consultaEmBreve, gerarGoogleCalendarUrl } from '../../lib/utils.js';
 import { cumpriuHabito } from './_HabitosHoje.jsx';
 
-const FASE_META = {
-  quimio:        { label: 'Dia da quimio',   cor: '#16a34a', bg: '#f0fdf4' },
-  inicio_piora:  { label: 'Início da piora', cor: '#ca8a04', bg: '#fefce8' },
-  janela_risco:  { label: 'Janela de risco', cor: '#dc2626', bg: '#fef2f2' },
-  pico_risco:    { label: 'Pico de risco',   cor: '#b91c1c', bg: '#fef2f2' },
-  fim_janela:    { label: 'Fim da janela',   cor: '#ca8a04', bg: '#fefce8' },
-  proximo_ciclo: { label: 'Próximo ciclo',   cor: '#16a34a', bg: '#f0fdf4' },
-};
 
 const DIAS_SEG = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
 
@@ -102,55 +94,26 @@ export default function Inicio() {
     return () => { active = false; };
   }, [pacienteId]);
 
-  // Mensagem motivacional baseada no dia do ciclo de quimio
+  // Mensagem motivacional ativa da nutri (vale para todos os pacientes)
   useEffect(() => {
-    if (!pacienteId || !profile?.nutri_id) return;
+    if (!profile?.nutri_id) return;
     let active = true;
 
-    async function carregarMensagem() {
-      const hoje = new Date().toISOString().slice(0, 10);
+    supabase
+      .from('mensagens_ciclo')
+      .select('mensagem')
+      .eq('nutri_id', profile.nutri_id)
+      .eq('fase', 'ativa')
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!active || !data?.mensagem) return;
+        const primeiroNome = profile.apelido || profile.nome?.split(' ')[0] || '';
+        const texto = data.mensagem.replace(/\{nome\}/g, primeiroNome);
+        setMensagemCiclo({ texto });
+      });
 
-      const { data: ciclo } = await supabase
-        .from('ciclos_quimio')
-        .select('data_quimio')
-        .eq('paciente_id', pacienteId)
-        .lte('data_quimio', hoje)
-        .order('data_quimio', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (!ciclo || !active) return;
-
-      const d0 = new Date(ciclo.data_quimio + 'T12:00:00');
-      const hojeD = new Date(hoje + 'T12:00:00');
-      const dias = Math.round((hojeD - d0) / 86_400_000);
-
-      const fase =
-        dias === 0  ? 'quimio'        :
-        dias <= 3   ? 'inicio_piora'  :
-        dias <= 7   ? 'janela_risco'  :
-        dias <= 10  ? 'pico_risco'    :
-        dias <= 14  ? 'fim_janela'    :
-                      'proximo_ciclo';
-
-      const { data: msg } = await supabase
-        .from('mensagens_ciclo')
-        .select('mensagem')
-        .eq('nutri_id', profile.nutri_id)
-        .eq('fase', fase)
-        .eq('ativo', true)
-        .maybeSingle();
-
-      if (!msg || !active) return;
-
-      const primeiroNome = profile.apelido || profile.nome?.split(' ')[0] || '';
-      const texto = msg.mensagem.replace(/\{nome\}/g, primeiroNome);
-      setMensagemCiclo({ texto, fase });
-    }
-
-    carregarMensagem();
     return () => { active = false; };
-  }, [pacienteId, profile?.nutri_id]);
+  }, [profile?.nutri_id]);
 
   // ─── Derivados básicos ────────────────────────────────────────────────────
   const proximaRef = plano?.refeicoes?.find(r => !r.feita) ?? plano?.refeicoes?.[0] ?? null;
@@ -400,26 +363,19 @@ export default function Inicio() {
         </div>
       )}
 
-      {/* 2 — Banner motivacional do ciclo */}
-      {mensagemCiclo && (() => {
-        const meta = FASE_META[mensagemCiclo.fase] ?? {};
-        return (
-          <div style={{
-            margin: '0 16px 12px', padding: '14px 16px',
-            background: meta.bg, borderRadius: 14,
-            borderLeft: `3px solid ${meta.cor}`,
-            boxShadow: '0 1px 6px rgba(0,0,0,.06)',
-          }}>
-            <div style={{
-              fontSize: 9, letterSpacing: '.22em', textTransform: 'uppercase',
-              color: meta.cor, fontWeight: 600, marginBottom: 5,
-            }}>{meta.label}</div>
-            <div style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--ink)', fontFamily: 'var(--font-sans)' }}>
-              {mensagemCiclo.texto}
-            </div>
+      {/* 2 — Banner motivacional */}
+      {mensagemCiclo && (
+        <div style={{
+          margin: '0 16px 12px', padding: '14px 16px',
+          background: 'var(--gold-soft, #fef9ee)', borderRadius: 14,
+          borderLeft: '3px solid var(--gold-deep, #c4a882)',
+          boxShadow: '0 1px 6px rgba(0,0,0,.06)',
+        }}>
+          <div style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--ink)', fontFamily: 'var(--font-sans)' }}>
+            {mensagemCiclo.texto}
           </div>
-        );
-      })()}
+        </div>
+      )}
 
       {/* 3 — Aviso de e-books novos */}
       {ebooksNovos > 0 && (
