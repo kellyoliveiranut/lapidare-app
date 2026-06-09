@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { dataBR } from '../../lib/utils.js';
@@ -37,11 +37,17 @@ export default function Progresso() {
   const pacienteId = profile?.id ?? user?.id;
   const [registros, setRegistros] = useState(undefined);
   const [metrica, setMetrica] = useState('kg');
+  const [obsExpandido, setObsExpandido] = useState(new Set());
+  const toggleObs = useCallback(id => setObsExpandido(s => {
+    const n = new Set(s);
+    n.has(id) ? n.delete(id) : n.add(id);
+    return n;
+  }), []);
 
   useEffect(() => {
     let active = true;
     async function load() {
-      if (!user) return;
+      if (!pacienteId) return;
       const { data } = await supabase
         .from('peso_registros')
         .select('id, data, kg, altura_cm, cintura_cm, quadril_cm, braco_cm, coxa_cm, pgc, mm_kg, obs')
@@ -52,7 +58,7 @@ export default function Progresso() {
     }
     load();
     return () => { active = false; };
-  }, [user]);
+  }, [pacienteId]);
 
   // Métricas disponíveis (com pelo menos 1 valor não-nulo)
   const metricasDisponiveis = useMemo(() => {
@@ -110,9 +116,11 @@ export default function Progresso() {
   }
 
   const metricaAtual = METRICAS.find(m => m.key === metrica) ?? METRICAS[0];
-  const atual = dadosMetrica.length > 0 ? dadosMetrica[dadosMetrica.length - 1] : null;
+  const atual   = dadosMetrica.length > 0 ? dadosMetrica[dadosMetrica.length - 1] : null;
   const inicial = dadosMetrica.length > 0 ? dadosMetrica[0] : null;
-  const dif = atual && inicial ? (atual.valor - inicial.valor) : 0;
+  const dif = (atual && inicial && dadosMetrica.length > 1)
+    ? (atual.valor - inicial.valor)
+    : 0;
   const { points, path, area } = chart;
 
   return (
@@ -141,48 +149,46 @@ export default function Progresso() {
         })}
       </div>
 
-      {/* Card valor atual */}
-      {atual && (
-        <div className="card gold" style={{ padding: '18px 16px' }}>
-          <div style={{ fontSize: 10, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--ink)', opacity: .65, marginBottom: 4 }}>
-            {metricaAtual.label} atual
+      {/* ─── GRÁFICO EM DESTAQUE ──────────────────────────────── */}
+      {dadosMetrica.length === 0 ? (
+        <div className="card" style={{ padding: '20px 16px', textAlign: 'center' }}>
+          <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+            Ainda não há dados de {metricaAtual?.label?.toLowerCase() ?? 'esta métrica'}.
           </div>
-          <div style={{ display: 'flex', gap: 14, alignItems: 'baseline' }}>
-            <div className="serif" style={{ fontSize: 42, lineHeight: 1, fontWeight: 600 }}>
-              {atual.valor.toFixed(metricaAtual.dec).replace('.', ',')}
-              <span style={{ fontSize: 18, fontWeight: 500, marginLeft: 4 }}>{metricaAtual.unit}</span>
+        </div>
+      ) : (
+        <div className="card" style={{ padding: '14px 12px 10px' }}>
+          {/* Cabeçalho: valor atual + variação */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '0 4px 10px' }}>
+            <div>
+              <div style={{ fontSize: 9, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--muted)', fontWeight: 500, marginBottom: 2 }}>
+                {metricaAtual.label} atual
+              </div>
+              {atual && (
+                <div className="serif" style={{ fontSize: 30, lineHeight: 1, fontWeight: 600, color: 'var(--ink)' }}>
+                  {atual.valor.toFixed(metricaAtual.dec).replace('.', ',')}
+                  <span style={{ fontSize: 14, fontWeight: 500, marginLeft: 3 }}>{metricaAtual.unit}</span>
+                </div>
+              )}
+              {atual && (
+                <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>
+                  {dataBR(atual.data)}
+                </div>
+              )}
             </div>
-            {dif !== 0 && dadosMetrica.length > 1 && (
-              <div className="pill" style={{ background: 'rgba(28,23,18,.85)', color: 'var(--bg-soft)' }}>
+            {dif !== 0 && (
+              <div style={{
+                marginTop: 2,
+                padding: '4px 10px', borderRadius: 20,
+                background: 'rgba(28,23,18,.85)', color: 'var(--bg-soft)',
+                fontSize: 12, fontWeight: 600,
+              }}>
                 {dif > 0 ? '+' : '−'}{Math.abs(dif).toFixed(metricaAtual.dec).replace('.', ',')} {metricaAtual.unit}
               </div>
             )}
           </div>
-          <div style={{ fontSize: 11, color: 'var(--ink)', opacity: .7, marginTop: 6 }}>
-            Última avaliação em {dataBR(atual.data)}
-          </div>
-        </div>
-      )}
 
-      {/* Chart */}
-      {dadosMetrica.length === 0 ? (
-        <div className="card" style={{ padding: '20px 16px', textAlign: 'center' }}>
-          <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-            Ainda não há dados de progresso para {metricaAtual?.label?.toLowerCase() ?? 'esta métrica'}.
-          </div>
-        </div>
-      ) : dadosMetrica.length > 1 && points.length > 1 ? (
-        <div className="card" style={{ padding: '14px 12px 10px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '0 4px 8px' }}>
-            <span style={{ fontSize: 10, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--muted)', fontWeight: 500 }}>
-              Evolução de {metricaAtual?.label?.toLowerCase() ?? ''}
-            </span>
-            <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink)', opacity: .75 }}>
-              {dif !== 0
-                ? `${dif > 0 ? '+' : '−'}${Math.abs(dif).toFixed(metricaAtual.dec).replace('.', ',')} ${metricaAtual.unit}`
-                : `${dadosMetrica.length} pontos`}
-            </span>
-          </div>
+          {/* SVG — com linha quando ≥2 pontos, só ponto quando 1 ponto */}
           <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="weight-chart">
             <defs>
               <linearGradient id="wfade" x1="0" x2="0" y1="0" y2="1">
@@ -191,43 +197,43 @@ export default function Progresso() {
               </linearGradient>
             </defs>
             {[25, 50, 75].map(y => (
-              <line key={y} x1="0" x2="100" y1={y} y2={y} stroke="#e6dfd3" strokeWidth=".3" strokeDasharray="1,1" />
+              <line key={y} x1="0" x2="100" y1={y} y2={y}
+                stroke="#e6dfd3" strokeWidth=".3" strokeDasharray="1,1" />
             ))}
-            {area && <path d={area} fill="url(#wfade)" />}
-            {path && (
+            {points.length >= 2 && area && <path d={area} fill="url(#wfade)" />}
+            {points.length >= 2 && path && (
               <path d={path} fill="none" stroke="#1c1712" strokeWidth=".7"
                 strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
             )}
             {points.map((p, i) => (
-              <circle key={i} cx={p.x} cy={p.y} r="1.2" fill="#c4a882" stroke="#1c1712" strokeWidth=".4" vectorEffect="non-scaling-stroke" />
+              <circle key={i} cx={p.x} cy={p.y} r={points.length === 1 ? 2.5 : 1.2}
+                fill="#c4a882" stroke="#1c1712" strokeWidth=".4" vectorEffect="non-scaling-stroke" />
             ))}
           </svg>
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 6px 0', fontSize: 10, color: 'var(--muted)' }}>
-            <div>
-              <div style={{ fontWeight: 600, color: 'var(--ink)', opacity: .65 }}>
-                {dadosMetrica[0]?.valor.toFixed(metricaAtual.dec).replace('.', ',')} {metricaAtual.unit}
+
+          {/* Extremos da série */}
+          {points.length >= 2 && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 4px 0', fontSize: 10, color: 'var(--muted)' }}>
+              <div>
+                <div style={{ fontWeight: 600, color: 'var(--ink)', opacity: .65 }}>
+                  {dadosMetrica[0]?.valor.toFixed(metricaAtual.dec).replace('.', ',')} {metricaAtual.unit}
+                </div>
+                <div>{dataBR(dadosMetrica[0]?.data)}</div>
               </div>
-              <div>{dataBR(dadosMetrica[0]?.data)}</div>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontWeight: 600, color: 'var(--ink)', opacity: .65 }}>
-                {dadosMetrica[dadosMetrica.length - 1]?.valor.toFixed(metricaAtual.dec).replace('.', ',')} {metricaAtual.unit}
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontWeight: 600, color: 'var(--ink)', opacity: .65 }}>
+                  {dadosMetrica[dadosMetrica.length - 1]?.valor.toFixed(metricaAtual.dec).replace('.', ',')} {metricaAtual.unit}
+                </div>
+                <div>{dataBR(dadosMetrica[dadosMetrica.length - 1]?.data)}</div>
               </div>
-              <div>{dataBR(dadosMetrica[dadosMetrica.length - 1]?.data)}</div>
             </div>
-          </div>
-        </div>
-      ) : (
-        <div className="card" style={{ padding: '20px 16px', textAlign: 'center' }}>
-          <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-            O gráfico de evolução aparece a partir da 2ª avaliação.
-          </div>
+          )}
         </div>
       )}
 
-      {/* Histórico simplificado */}
+      {/* ─── HISTÓRICO ────────────────────────────────────────── */}
       <div style={{ margin: '14px 16px 8px', fontSize: 10, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--muted)', fontWeight: 500 }}>
-        Histórico de avaliações
+        Histórico de avaliações ({registros.length})
       </div>
       <div className="card" style={{ padding: 0 }}>
         {registrosRev.map((r, i, arr) => (
@@ -237,19 +243,37 @@ export default function Progresso() {
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
               <span style={{ fontSize: 13, fontWeight: 500 }}>{dataBR(r.data)}</span>
-              <span className="serif" style={{ fontSize: 17 }}>{r.kg ? `${Number(r.kg).toFixed(1).replace('.', ',')} kg` : '—'}</span>
+              <span className="serif" style={{ fontSize: 17 }}>
+                {r.kg != null ? `${Number(r.kg).toFixed(1).replace('.', ',')} kg` : '—'}
+              </span>
             </div>
             <div style={{ fontSize: 10, color: 'var(--muted)', display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              {r.cintura_cm && <span>Cintura {r.cintura_cm}cm</span>}
-              {r.quadril_cm && <span>Quadril {r.quadril_cm}cm</span>}
-              {r.braco_cm && <span>Braço {r.braco_cm}cm</span>}
-              {r.coxa_cm && <span>Coxa {r.coxa_cm}cm</span>}
-              {r.pgc && <span>{r.pgc}% gordura</span>}
-              {r.mm_kg && <span>{r.mm_kg}kg massa magra</span>}
+              {r.cintura_cm != null && <span>Cintura {r.cintura_cm}cm</span>}
+              {r.quadril_cm != null && <span>Quadril {r.quadril_cm}cm</span>}
+              {r.braco_cm   != null && <span>Braço {r.braco_cm}cm</span>}
+              {r.coxa_cm    != null && <span>Coxa {r.coxa_cm}cm</span>}
+              {r.pgc        != null && <span>{r.pgc}% gordura</span>}
+              {r.mm_kg      != null && <span>{r.mm_kg}kg massa magra</span>}
             </div>
+            {/* Observações clínicas — recolhidas por padrão */}
             {r.obs && (
-              <div style={{ fontSize: 11, color: 'var(--ink-soft)', fontStyle: 'italic', marginTop: 6 }}>
-                "{r.obs}"
+              <div style={{ marginTop: 6 }}>
+                <button
+                  onClick={() => toggleObs(r.id)}
+                  style={{
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    fontSize: 10, color: 'var(--muted)', fontFamily: 'var(--font-sans)',
+                    padding: 0, display: 'flex', alignItems: 'center', gap: 3,
+                  }}>
+                  <i className={`ti ti-chevron-${obsExpandido.has(r.id) ? 'up' : 'down'}`}
+                     style={{ fontSize: 10 }} aria-hidden="true" />
+                  {obsExpandido.has(r.id) ? 'Ocultar observação' : 'Ver observação'}
+                </button>
+                {obsExpandido.has(r.id) && (
+                  <div style={{ fontSize: 11, color: 'var(--ink)', fontStyle: 'italic', marginTop: 4, lineHeight: 1.5 }}>
+                    "{r.obs}"
+                  </div>
+                )}
               </div>
             )}
           </div>
