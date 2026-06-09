@@ -218,6 +218,102 @@ export default function Inicio() {
 
   return (
     <>
+      {/* Lembrete de consulta */}
+      {proximaConsulta && (
+        <div style={{
+          margin: '0 16px 12px',
+          background: urgente
+            ? 'linear-gradient(135deg, var(--gold) 0%, var(--gold-deep) 100%)'
+            : 'linear-gradient(135deg, var(--gold-soft) 0%, var(--bg-soft) 100%)',
+          border: urgente ? 'none' : '0.5px solid var(--gold)',
+          borderRadius: 14,
+          padding: '14px 16px',
+          display: 'flex', alignItems: 'center', gap: 14,
+          color: urgente ? 'var(--ink)' : 'var(--ink)',
+        }}>
+          <div style={{
+            width: 42, height: 42, borderRadius: 11,
+            background: urgente ? 'rgba(28,23,18,.12)' : 'var(--paper)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0,
+          }}>
+            <i className="ti ti-calendar-event"
+               style={{ fontSize: 20, color: urgente ? 'var(--ink)' : 'var(--gold-deep)' }}
+               aria-hidden="true"></i>
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{
+              fontSize: 9, letterSpacing: '.22em', textTransform: 'uppercase',
+              color: urgente ? 'var(--ink)' : 'var(--gold-deep)',
+              fontWeight: 500, marginBottom: 2, opacity: urgente ? .85 : 1,
+            }}>
+              Próxima consulta
+            </div>
+            <div className="serif" style={{ fontSize: 20, lineHeight: 1.1, marginBottom: 2 }}>
+              {textoDias(proximaConsulta.data_hora)}
+            </div>
+            <div style={{ fontSize: 11, color: urgente ? 'var(--ink)' : 'var(--muted)', opacity: urgente ? .8 : 1 }}>
+              {labelTipo(proximaConsulta.tipo)} · {dataConsultaBR(proximaConsulta.data_hora)} · {nutriNome}
+            </div>
+            {callUrl && (
+              <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                <a href={callUrl} target="_blank" rel="noreferrer"
+                  onClick={e => e.stopPropagation()}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 5,
+                    background: emBreve ? 'var(--green)' : (urgente ? 'rgba(28,23,18,.85)' : 'var(--ink)'),
+                    color: 'var(--bg-soft)',
+                    padding: emBreve ? '8px 14px' : '6px 12px',
+                    borderRadius: 10,
+                    fontSize: emBreve ? 12 : 11,
+                    fontWeight: 600,
+                    textDecoration: 'none',
+                  }}>
+                  <i className="ti ti-video" style={{ fontSize: 14 }} aria-hidden="true"></i>
+                  {emBreve ? 'Entrar na call agora' : 'Entrar na call'}
+                </a>
+                {gcalUrl && !urgente && (
+                  <a href={gcalUrl} target="_blank" rel="noreferrer"
+                    onClick={e => e.stopPropagation()}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 5,
+                      background: 'transparent',
+                      color: 'var(--muted)',
+                      border: '0.5px solid var(--hair)',
+                      padding: '6px 12px', borderRadius: 10,
+                      fontSize: 11, fontWeight: 500,
+                      textDecoration: 'none',
+                    }}>
+                    <i className="ti ti-calendar-plus" style={{ fontSize: 13 }} aria-hidden="true"></i>
+                    Adicionar à agenda
+                  </a>
+                )}
+              </div>
+            )}
+            {Array.isArray(proximaConsulta.links_extras) && proximaConsulta.links_extras.length > 0 && (
+              <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                {proximaConsulta.links_extras.map((link, i) => (
+                  <a key={i} href={link.url} target="_blank" rel="noreferrer"
+                    onClick={e => e.stopPropagation()}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 5,
+                      background: 'transparent',
+                      color: urgente ? 'var(--ink)' : 'var(--gold-deep)',
+                      border: '0.5px solid ' + (urgente ? 'rgba(28,23,18,.4)' : 'var(--gold)'),
+                      padding: '5px 10px', borderRadius: 10,
+                      fontSize: 11, fontWeight: 500,
+                      textDecoration: 'none',
+                    }}>
+                    <i className="ti ti-external-link" style={{ fontSize: 12 }} aria-hidden="true"></i>
+                    {link.label || 'Link'}
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Banner motivacional do ciclo */}
       {mensagemCiclo && (() => {
         const meta = FASE_META[mensagemCiclo.fase] ?? {};
@@ -277,6 +373,35 @@ export default function Inicio() {
             </div>
           </div>
           <i className="ti ti-chevron-right" style={{ fontSize: 18, color: 'var(--muted)' }} aria-hidden="true"></i>
+        </div>
+      )}
+
+      {/* Hero — próxima refeição */}
+      {proximaRef ? (
+        <div className="card dark" style={{ padding: '16px 18px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <span style={{ fontSize: 10, letterSpacing: '.22em', textTransform: 'uppercase', color: 'var(--bg-soft)', opacity: .6 }}>
+              Próxima refeição{proximaRef.horario ? ` · ${proximaRef.horario}` : ''}
+            </span>
+            {proximaRef.emoji && (
+              <span className="pill" style={{ background: 'var(--gold)', color: 'var(--ink)' }}>{proximaRef.emoji}</span>
+            )}
+          </div>
+          <div className="serif" style={{ fontSize: 22, color: 'var(--bg-soft)', lineHeight: 1.1, marginBottom: 4 }}>
+            {proximaRef.nome}
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--muted-2)', marginBottom: 10 }}>
+            {proximaRef.alimentos?.slice(0, 2).map(a => a.nome).join(' · ')}
+          </div>
+          <button className="btn gold sm" onClick={() => navigate('/paciente/plano')}>Ver plano completo</button>
+        </div>
+      ) : (
+        <div className="card" style={{ padding: '20px 18px', textAlign: 'center' }}>
+          <i className="ti ti-sparkles" style={{ fontSize: 28, color: 'var(--gold-deep)', display: 'block', marginBottom: 8 }}></i>
+          <div className="serif" style={{ fontSize: 18, marginBottom: 4 }}>Seu acompanhamento nutricional começa aqui.</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>
+            Sua nutricionista publicará seu plano em breve. Você será notificada!
+          </div>
         </div>
       )}
 
@@ -419,6 +544,54 @@ export default function Inicio() {
         </div>
       )}
 
+      {/* Cards 2x2 */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, margin: '0 16px 10px' }}>
+        <div className="card" style={{ margin: 0, padding: '12px 14px', cursor: 'pointer' }} onClick={() => navigate('/paciente/plano')}>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 6, alignItems: 'center' }}>
+            <i className="ti ti-salad" style={{ fontSize: 14, color: 'var(--green)' }}></i>
+            <span style={{ fontSize: 10, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--muted)', fontWeight: 500 }}>Plano</span>
+          </div>
+          {plano ? (
+            <>
+              <div className="serif" style={{ fontSize: 22, lineHeight: 1 }}>
+                {plano.macros?.kcal}<span style={{ fontSize: 11, color: 'var(--muted)', marginLeft: 2 }}>kcal</span>
+              </div>
+              <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 3 }}>
+                P {plano.macros?.prot_g}g · C {plano.macros?.cho_g}g · G {plano.macros?.lip_g}g
+              </div>
+            </>
+          ) : <div style={{ fontSize: 12, color: 'var(--muted)' }}>Aguardando plano</div>}
+        </div>
+
+        <div className="card" style={{ margin: 0, padding: '12px 14px', cursor: 'pointer' }} onClick={() => navigate('/paciente/compras')}>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 6, alignItems: 'center' }}>
+            <i className="ti ti-shopping-cart" style={{ fontSize: 14, color: 'var(--orange)' }}></i>
+            <span style={{ fontSize: 10, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--muted)', fontWeight: 500 }}>Compras</span>
+          </div>
+          {compras ? (
+            <div className="serif" style={{ fontSize: 22, lineHeight: 1 }}>
+              {totalCompras}<span style={{ fontSize: 13, color: 'var(--muted)', marginLeft: 2 }}>itens</span>
+            </div>
+          ) : <div style={{ fontSize: 12, color: 'var(--muted)' }}>Lista não enviada</div>}
+        </div>
+
+        <div className="card" style={{ margin: 0, padding: '12px 14px', cursor: 'pointer' }} onClick={() => navigate('/paciente/progresso')}>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 6, alignItems: 'center' }}>
+            <i className="ti ti-trending-up" style={{ fontSize: 14, color: 'var(--blue)' }}></i>
+            <span style={{ fontSize: 10, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--muted)', fontWeight: 500 }}>Progresso</span>
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--muted)' }}>Veja sua evolução</div>
+        </div>
+
+        <div className="card" style={{ margin: 0, padding: '12px 14px', cursor: 'pointer' }} onClick={() => navigate('/paciente/chat')}>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 6, alignItems: 'center' }}>
+            <i className="ti ti-message-circle" style={{ fontSize: 14, color: 'var(--gold-deep)' }}></i>
+            <span style={{ fontSize: 10, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--muted)', fontWeight: 500 }}>Chat</span>
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--muted)' }}>Falar com a Dra.</div>
+        </div>
+      </div>
+
       {/* Lembrete de check-in pendente */}
       {checkinPendente && (
         <div
@@ -479,179 +652,6 @@ export default function Inicio() {
           <i className="ti ti-chevron-right" style={{ fontSize: 18, color: ckUrgente ? 'var(--ink)' : 'var(--muted)', flexShrink: 0 }} aria-hidden="true"></i>
         </div>
       )}
-
-      {/* Lembrete de consulta */}
-      {proximaConsulta && (
-        <div style={{
-          margin: '0 16px 12px',
-          background: urgente
-            ? 'linear-gradient(135deg, var(--gold) 0%, var(--gold-deep) 100%)'
-            : 'linear-gradient(135deg, var(--gold-soft) 0%, var(--bg-soft) 100%)',
-          border: urgente ? 'none' : '0.5px solid var(--gold)',
-          borderRadius: 14,
-          padding: '14px 16px',
-          display: 'flex', alignItems: 'center', gap: 14,
-          color: urgente ? 'var(--ink)' : 'var(--ink)',
-        }}>
-          <div style={{
-            width: 42, height: 42, borderRadius: 11,
-            background: urgente ? 'rgba(28,23,18,.12)' : 'var(--paper)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            flexShrink: 0,
-          }}>
-            <i className="ti ti-calendar-event"
-               style={{ fontSize: 20, color: urgente ? 'var(--ink)' : 'var(--gold-deep)' }}
-               aria-hidden="true"></i>
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{
-              fontSize: 9, letterSpacing: '.22em', textTransform: 'uppercase',
-              color: urgente ? 'var(--ink)' : 'var(--gold-deep)',
-              fontWeight: 500, marginBottom: 2, opacity: urgente ? .85 : 1,
-            }}>
-              Próxima consulta
-            </div>
-            <div className="serif" style={{ fontSize: 20, lineHeight: 1.1, marginBottom: 2 }}>
-              {textoDias(proximaConsulta.data_hora)}
-            </div>
-            <div style={{ fontSize: 11, color: urgente ? 'var(--ink)' : 'var(--muted)', opacity: urgente ? .8 : 1 }}>
-              {labelTipo(proximaConsulta.tipo)} · {dataConsultaBR(proximaConsulta.data_hora)} · {nutriNome}
-            </div>
-            {callUrl && (
-              <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
-                <a href={callUrl} target="_blank" rel="noreferrer"
-                  onClick={e => e.stopPropagation()}
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 5,
-                    background: emBreve ? 'var(--green)' : (urgente ? 'rgba(28,23,18,.85)' : 'var(--ink)'),
-                    color: 'var(--bg-soft)',
-                    padding: emBreve ? '8px 14px' : '6px 12px',
-                    borderRadius: 10,
-                    fontSize: emBreve ? 12 : 11,
-                    fontWeight: 600,
-                    textDecoration: 'none',
-                  }}>
-                  <i className="ti ti-video" style={{ fontSize: 14 }} aria-hidden="true"></i>
-                  {emBreve ? 'Entrar na call agora' : 'Entrar na call'}
-                </a>
-                {gcalUrl && !urgente && (
-                  <a href={gcalUrl} target="_blank" rel="noreferrer"
-                    onClick={e => e.stopPropagation()}
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 5,
-                      background: 'transparent',
-                      color: 'var(--muted)',
-                      border: '0.5px solid var(--hair)',
-                      padding: '6px 12px', borderRadius: 10,
-                      fontSize: 11, fontWeight: 500,
-                      textDecoration: 'none',
-                    }}>
-                    <i className="ti ti-calendar-plus" style={{ fontSize: 13 }} aria-hidden="true"></i>
-                    Adicionar à agenda
-                  </a>
-                )}
-              </div>
-            )}
-            {Array.isArray(proximaConsulta.links_extras) && proximaConsulta.links_extras.length > 0 && (
-              <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
-                {proximaConsulta.links_extras.map((link, i) => (
-                  <a key={i} href={link.url} target="_blank" rel="noreferrer"
-                    onClick={e => e.stopPropagation()}
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 5,
-                      background: 'transparent',
-                      color: urgente ? 'var(--ink)' : 'var(--gold-deep)',
-                      border: '0.5px solid ' + (urgente ? 'rgba(28,23,18,.4)' : 'var(--gold)'),
-                      padding: '5px 10px', borderRadius: 10,
-                      fontSize: 11, fontWeight: 500,
-                      textDecoration: 'none',
-                    }}>
-                    <i className="ti ti-external-link" style={{ fontSize: 12 }} aria-hidden="true"></i>
-                    {link.label || 'Link'}
-                  </a>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Hero — próxima refeição */}
-      {proximaRef ? (
-        <div className="card dark" style={{ padding: '16px 18px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <span style={{ fontSize: 10, letterSpacing: '.22em', textTransform: 'uppercase', color: 'var(--bg-soft)', opacity: .6 }}>
-              Próxima refeição{proximaRef.horario ? ` · ${proximaRef.horario}` : ''}
-            </span>
-            {proximaRef.emoji && (
-              <span className="pill" style={{ background: 'var(--gold)', color: 'var(--ink)' }}>{proximaRef.emoji}</span>
-            )}
-          </div>
-          <div className="serif" style={{ fontSize: 22, color: 'var(--bg-soft)', lineHeight: 1.1, marginBottom: 4 }}>
-            {proximaRef.nome}
-          </div>
-          <div style={{ fontSize: 11, color: 'var(--muted-2)', marginBottom: 10 }}>
-            {proximaRef.alimentos?.slice(0, 2).map(a => a.nome).join(' · ')}
-          </div>
-          <button className="btn gold sm" onClick={() => navigate('/paciente/plano')}>Ver plano completo</button>
-        </div>
-      ) : (
-        <div className="card" style={{ padding: '20px 18px', textAlign: 'center' }}>
-          <i className="ti ti-sparkles" style={{ fontSize: 28, color: 'var(--gold-deep)', display: 'block', marginBottom: 8 }}></i>
-          <div className="serif" style={{ fontSize: 18, marginBottom: 4 }}>Seu acompanhamento nutricional começa aqui.</div>
-          <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>
-            Sua nutricionista publicará seu plano em breve. Você será notificada!
-          </div>
-        </div>
-      )}
-
-      {/* Cards 2x2 */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, margin: '0 16px 10px' }}>
-        <div className="card" style={{ margin: 0, padding: '12px 14px', cursor: 'pointer' }} onClick={() => navigate('/paciente/plano')}>
-          <div style={{ display: 'flex', gap: 6, marginBottom: 6, alignItems: 'center' }}>
-            <i className="ti ti-salad" style={{ fontSize: 14, color: 'var(--green)' }}></i>
-            <span style={{ fontSize: 10, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--muted)', fontWeight: 500 }}>Plano</span>
-          </div>
-          {plano ? (
-            <>
-              <div className="serif" style={{ fontSize: 22, lineHeight: 1 }}>
-                {plano.macros?.kcal}<span style={{ fontSize: 11, color: 'var(--muted)', marginLeft: 2 }}>kcal</span>
-              </div>
-              <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 3 }}>
-                P {plano.macros?.prot_g}g · C {plano.macros?.cho_g}g · G {plano.macros?.lip_g}g
-              </div>
-            </>
-          ) : <div style={{ fontSize: 12, color: 'var(--muted)' }}>Aguardando plano</div>}
-        </div>
-
-        <div className="card" style={{ margin: 0, padding: '12px 14px', cursor: 'pointer' }} onClick={() => navigate('/paciente/compras')}>
-          <div style={{ display: 'flex', gap: 6, marginBottom: 6, alignItems: 'center' }}>
-            <i className="ti ti-shopping-cart" style={{ fontSize: 14, color: 'var(--orange)' }}></i>
-            <span style={{ fontSize: 10, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--muted)', fontWeight: 500 }}>Compras</span>
-          </div>
-          {compras ? (
-            <div className="serif" style={{ fontSize: 22, lineHeight: 1 }}>
-              {totalCompras}<span style={{ fontSize: 13, color: 'var(--muted)', marginLeft: 2 }}>itens</span>
-            </div>
-          ) : <div style={{ fontSize: 12, color: 'var(--muted)' }}>Lista não enviada</div>}
-        </div>
-
-        <div className="card" style={{ margin: 0, padding: '12px 14px', cursor: 'pointer' }} onClick={() => navigate('/paciente/progresso')}>
-          <div style={{ display: 'flex', gap: 6, marginBottom: 6, alignItems: 'center' }}>
-            <i className="ti ti-trending-up" style={{ fontSize: 14, color: 'var(--blue)' }}></i>
-            <span style={{ fontSize: 10, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--muted)', fontWeight: 500 }}>Progresso</span>
-          </div>
-          <div style={{ fontSize: 12, color: 'var(--muted)' }}>Veja sua evolução</div>
-        </div>
-
-        <div className="card" style={{ margin: 0, padding: '12px 14px', cursor: 'pointer' }} onClick={() => navigate('/paciente/chat')}>
-          <div style={{ display: 'flex', gap: 6, marginBottom: 6, alignItems: 'center' }}>
-            <i className="ti ti-message-circle" style={{ fontSize: 14, color: 'var(--gold-deep)' }}></i>
-            <span style={{ fontSize: 10, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--muted)', fontWeight: 500 }}>Chat</span>
-          </div>
-          <div style={{ fontSize: 12, color: 'var(--muted)' }}>Falar com a Dra.</div>
-        </div>
-      </div>
     </>
   );
 }
