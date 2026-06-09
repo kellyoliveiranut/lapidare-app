@@ -15,7 +15,7 @@ import { useSession } from './session.jsx';
  */
 
 const DEFAULT_TEMA = {
-  marca_nome: 'Lapidare',
+  marca_nome: 'Essentia',
   marca_subtitulo: null,
   logo_url: null,
   cor_primaria: '#a08456',
@@ -42,7 +42,7 @@ export function ThemeProvider({ children }) {
         if (!active) return;
         setTema({
           ...DEFAULT_TEMA,
-          marca_nome:        profile.marca_nome      ?? 'Lapidare',
+          marca_nome:        profile.marca_nome      ?? 'Essentia',
           marca_subtitulo:   profile.marca_subtitulo ?? null,
           logo_url:          profile.logo_url        ?? null,
           cor_primaria:      profile.cor_primaria    ?? DEFAULT_TEMA.cor_primaria,

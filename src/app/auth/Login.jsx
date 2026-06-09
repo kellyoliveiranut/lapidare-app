@@ -155,7 +155,7 @@ export default function Login() {
           {tema.logo_url ? (
             <img
               src={tema.logo_url}
-              alt={tema.marca_nome ?? 'Lapidare'}
+              alt={tema.marca_nome ?? 'Essentia'}
               loading="lazy" decoding="async"
               style={{
                 height: 'clamp(140px, 20vw, 160px)',
@@ -169,7 +169,7 @@ export default function Login() {
               fontSize: 10, letterSpacing: '.22em', textTransform: 'uppercase',
               color: 'var(--muted)', marginBottom: 4
             }}>
-              {tema.marca_nome ?? 'Lapidare'}
+              {tema.marca_nome ?? 'Essentia'}
             </div>
           )}
           <h1 style={{

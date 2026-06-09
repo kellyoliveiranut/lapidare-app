@@ -81,7 +81,7 @@ export default function RedefinirSenha() {
       }}>
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
           {tema.logo_url ? (
-            <img src={tema.logo_url} alt={tema.marca_nome ?? 'Lapidare'}
+            <img src={tema.logo_url} alt={tema.marca_nome ?? 'Essentia'}
               loading="lazy" decoding="async"
               style={{ maxHeight: 48, maxWidth: 200, margin: '0 auto 8px', display: 'block' }} />
           ) : (
@@ -89,7 +89,7 @@ export default function RedefinirSenha() {
               fontSize: 10, letterSpacing: '.22em', textTransform: 'uppercase',
               color: 'var(--gold-deep)', marginBottom: 4, fontWeight: 600
             }}>
-              {tema.marca_nome ?? 'Lapidare'}
+              {tema.marca_nome ?? 'Essentia'}
             </div>
           )}
           <h1 style={{
