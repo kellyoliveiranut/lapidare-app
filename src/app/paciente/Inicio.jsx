@@ -382,7 +382,7 @@ export default function Inicio() {
         <div onClick={marcarEbooksComoVistos}
           style={{
             margin: '0 16px 12px', padding: '14px 16px',
-            background: 'linear-gradient(135deg, var(--gold-soft, var(--bg-soft)), var(--white))',
+            background: 'linear-gradient(135deg, var(--gold-soft, var(--bg-soft)), var(--paper))',
             border: '0.5px solid var(--gold-deep)',
             borderRadius: 14, cursor: 'pointer',
             display: 'flex', alignItems: 'center', gap: 12,
@@ -411,7 +411,7 @@ export default function Inicio() {
       {habitos.length > 0 && semanaCalendar.length > 0 && (
         <div style={{
           margin: '0 16px 12px', padding: '14px 16px',
-          background: 'var(--white)',
+          background: 'var(--paper)',
           border: '0.5px solid var(--hair)', borderRadius: 16,
         }}>
           <div style={{
@@ -507,7 +507,7 @@ export default function Inicio() {
             return (
               <div style={{
                 padding: '12px 14px', borderRadius: 12, marginBottom: 8,
-                background: 'var(--white)', border: '0.5px solid var(--hair)',
+                background: 'var(--paper)', border: '0.5px solid var(--hair)',
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 8 }}>
                   <div>
@@ -551,7 +551,7 @@ export default function Inicio() {
               {habitosStreak > 0 && (
                 <div style={{
                   padding: '12px 14px', borderRadius: 12, minWidth: 0,
-                  background: 'var(--white)', border: '0.5px solid var(--hair)',
+                  background: 'var(--paper)', border: '0.5px solid var(--hair)',
                 }}>
                   <div style={{
                     fontSize: 9, letterSpacing: '.18em', textTransform: 'uppercase',
@@ -569,7 +569,7 @@ export default function Inicio() {
               {adesaoSemana !== null && (
                 <div style={{
                   padding: '12px 14px', borderRadius: 12, minWidth: 0,
-                  background: 'var(--white)', border: '0.5px solid var(--hair)',
+                  background: 'var(--paper)', border: '0.5px solid var(--hair)',
                 }}>
                   <div style={{
                     fontSize: 9, letterSpacing: '.18em', textTransform: 'uppercase',
@@ -623,7 +623,7 @@ export default function Inicio() {
       {mostrarHumor && (
         <div style={{
           margin: '0 16px 12px', padding: '14px 16px',
-          background: 'var(--white)', border: '0.5px solid var(--hair)', borderRadius: 16,
+          background: 'var(--paper)', border: '0.5px solid var(--hair)', borderRadius: 16,
         }}>
           <div style={{
             fontSize: 9, letterSpacing: '.22em', textTransform: 'uppercase',
@@ -665,7 +665,7 @@ export default function Inicio() {
           onClick={() => navigate('/paciente/habitos')}
           style={{
             margin: '0 16px 12px', padding: '12px 16px',
-            background: habitosCumpridos === habitos.length ? 'var(--green-bg, #f0fdf4)' : 'var(--white)',
+            background: habitosCumpridos === habitos.length ? 'var(--green-bg, #f0fdf4)' : 'var(--paper)',
             border: `0.5px solid ${habitosCumpridos === habitos.length ? 'var(--green)' : 'var(--hair)'}`,
             borderRadius: 14, cursor: 'pointer',
             display: 'flex', alignItems: 'center', gap: 12,

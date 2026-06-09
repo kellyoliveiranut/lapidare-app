@@ -67,6 +67,9 @@
   letter-spacing: -0.02em;
   line-height: 1.05;
   color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .paciente-app .app-subtitle {
   font-size: 12px;
@@ -388,7 +391,7 @@
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-top: 0.5px solid var(--hair);
-  padding: 8px 4px calc(22px + env(safe-area-inset-bottom, 0));
+  padding: 8px 4px calc(22px + env(safe-area-inset-bottom, 0px));
   display: flex;
   z-index: 20;
   box-shadow: 0 -4px 24px rgba(28, 23, 18, .06);
