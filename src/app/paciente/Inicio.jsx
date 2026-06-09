@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { useTheme } from '../../lib/theme.jsx';
 import { textoDias, dataConsultaBR, diasAte, linkCall, consultaEmBreve, gerarGoogleCalendarUrl } from '../../lib/utils.js';
-import { HabitosHoje, cumpriuHabito } from './_HabitosHoje.jsx';
+import { cumpriuHabito } from './_HabitosHoje.jsx';
 
 const FASE_META = {
   quimio:        { label: 'Dia da quimio',   cor: '#16a34a', bg: '#f0fdf4' },
@@ -699,13 +699,60 @@ export default function Inicio() {
         </div>
       )}
 
-      {/* 8 — Hábitos de hoje */}
-      <HabitosHoje
-        habitos={habitos}
-        habitosLogs={habitosLogs}
-        habitosStreak={habitosStreak}
-        setValorHabito={setValorHabito}
-      />
+      {/* 8 — Atalho: Hábitos de hoje */}
+      {habitos.length > 0 && (
+        <div
+          onClick={() => navigate('/paciente/habitos')}
+          style={{
+            margin: '0 16px 12px', padding: '12px 16px',
+            background: habitosCumpridos === habitos.length ? 'var(--green-bg, #f0fdf4)' : 'var(--white)',
+            border: `0.5px solid ${habitosCumpridos === habitos.length ? 'var(--green)' : 'var(--hair)'}`,
+            borderRadius: 14, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: 12,
+          }}>
+          <div style={{
+            width: 40, height: 40, borderRadius: 10, flexShrink: 0,
+            background: habitosCumpridos === habitos.length ? 'var(--green)' : 'var(--bg-soft)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <i className={`ti ti-${habitosCumpridos === habitos.length ? 'check' : 'checklist'}`}
+               style={{ fontSize: 20, color: habitosCumpridos === habitos.length ? '#fff' : 'var(--muted)' }}
+               aria-hidden="true" />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{
+              fontSize: 9, letterSpacing: '.18em', textTransform: 'uppercase',
+              color: 'var(--muted)', fontWeight: 500, marginBottom: 3,
+            }}>Hábitos de hoje</div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.2 }}>
+              {habitosCumpridos}
+              <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 400 }}>/{habitos.length} concluídos</span>
+              {habitosCumpridos === habitos.length && (
+                <span style={{ marginLeft: 6, fontSize: 13 }}>🎉</span>
+              )}
+            </div>
+            <div style={{ height: 3, borderRadius: 2, background: 'var(--hair)', overflow: 'hidden', marginTop: 5 }}>
+              <div style={{
+                height: '100%', borderRadius: 2,
+                width: `${Math.round((habitosCumpridos / habitos.length) * 100)}%`,
+                background: habitosCumpridos === habitos.length ? 'var(--green)' : 'var(--gold-deep)',
+                transition: 'width .3s ease',
+              }} />
+            </div>
+          </div>
+          {habitosStreak > 0 && (
+            <div style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center',
+              flexShrink: 0, fontSize: 10,
+              color: 'var(--orange, var(--gold-deep))', fontWeight: 600,
+            }}>
+              <i className="ti ti-flame" style={{ fontSize: 16 }} aria-hidden="true" />
+              {habitosStreak}d
+            </div>
+          )}
+          <i className="ti ti-chevron-right" style={{ fontSize: 16, color: 'var(--muted)', flexShrink: 0 }} aria-hidden="true" />
+        </div>
+      )}
 
       {/* 9 — Cards 2×2 */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, margin: '0 16px 10px' }}>
