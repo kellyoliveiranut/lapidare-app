@@ -52,7 +52,7 @@ export default function PrescricoesPaciente() {
   return (
     <>
       {/* Filtros */}
-      <div style={{ display: 'flex', gap: 2, background: 'var(--bg-deep)', borderRadius: 10, padding: 3, margin: '0 16px 12px' }}>
+      <div style={{ display: 'flex', gap: 2, background: 'var(--bg-deep)', borderRadius: 10, padding: 3, margin: '0 0 12px' }}>
         {[
           { id: 'todos',   label: 'Todos' },
           { id: 'exame',   label: 'Exames' },

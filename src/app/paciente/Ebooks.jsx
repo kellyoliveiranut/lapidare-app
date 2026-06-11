@@ -60,7 +60,7 @@ export default function Ebooks() {
           </div>
         </div>
       ) : (
-        <div style={{ padding: '0 16px' }}>
+        <div style={{ padding: '0' }}>
           {ebooks.map(eb => (
             <button key={eb.id} onClick={() => abrir(eb)}
               style={{

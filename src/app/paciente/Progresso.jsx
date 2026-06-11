@@ -127,7 +127,7 @@ export default function Progresso() {
     <>
       {/* Seletor de métrica */}
       <div style={{
-        margin: '0 16px 12px', display: 'flex', gap: 4,
+        margin: '0 0 12px', display: 'flex', gap: 4,
         overflowX: 'auto', paddingBottom: 4,
       }}>
         {metricasDisponiveis.map(m => {
@@ -232,7 +232,7 @@ export default function Progresso() {
       )}
 
       {/* ─── HISTÓRICO ────────────────────────────────────────── */}
-      <div style={{ margin: '14px 16px 8px', fontSize: 10, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--muted)', fontWeight: 500 }}>
+      <div style={{ margin: '14px 0 8px', fontSize: 10, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--muted)', fontWeight: 500 }}>
         Histórico de avaliações ({registros.length})
       </div>
       <div className="card" style={{ padding: 0 }}>
@@ -421,7 +421,7 @@ function FotosEvolucao() {
 
   return (
     <>
-      <div style={{ margin: '20px 16px 8px', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+      <div style={{ margin: '20px 0 8px', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
         <span style={{ fontSize: 10, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--muted)', fontWeight: 500 }}>
           Suas fotos de evolução
         </span>
@@ -436,7 +436,7 @@ function FotosEvolucao() {
       {/* CTA topo */}
       {!formOpen && (
         <div style={{
-          margin: '0 16px 12px',
+          margin: '0 0 12px',
           border: '1.5px dashed var(--gold)',
           borderRadius: 14,
           padding: '18px 16px',
@@ -559,7 +559,7 @@ function FotosEvolucao() {
         </div>
       ) : (
         <div style={{
-          margin: '0 16px',
+          margin: '0',
           display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6,
         }}>
           {fotos.map(f => (

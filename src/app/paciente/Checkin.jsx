@@ -133,7 +133,7 @@ export default function Checkin() {
       />
 
       {!jaRespondido && (
-        <div style={{ padding: '16px 20px 40px' }}>
+        <div style={{ padding: '16px 0 40px' }}>
           {erro && (
             <div style={{
               background: 'var(--red-soft)', color: 'var(--red)',

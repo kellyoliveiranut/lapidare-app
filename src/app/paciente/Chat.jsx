@@ -98,7 +98,7 @@ export default function ChatPaciente() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 76px)' }}>
       {/* Banner da Dra. */}
-      <div className="card cream" style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '0 16px 10px', padding: '10px 14px' }}>
+      <div className="card cream" style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '0 0 10px', padding: '10px 14px' }}>
         {tema.nutri_foto_url ? (
           <img src={tema.nutri_foto_url} alt={nutriNome}
             loading="lazy" decoding="async"

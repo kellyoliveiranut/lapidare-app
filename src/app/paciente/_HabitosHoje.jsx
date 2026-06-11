@@ -33,7 +33,7 @@ export function HabitosHoje({
 
   return (
     <div style={{
-      margin: '0 16px 14px', padding: 16,
+      margin: '0 0 14px', padding: 16,
       background: 'var(--white)',
       border: `0.5px solid ${habitosCumpridos === habitos.length ? 'var(--green, var(--hair))' : 'var(--hair)'}`,
       borderRadius: 16,

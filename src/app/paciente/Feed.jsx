@@ -124,7 +124,7 @@ export default function FeedPaciente() {
       {/* CTA topo — só quando form fechado */}
       {!formOpen && (
         <div style={{
-          margin: '0 16px 12px',
+          margin: '0 0 12px',
           border: '1.5px dashed var(--gold)',
           borderRadius: 14,
           padding: '18px 16px',

@@ -125,7 +125,7 @@ export default function Suplementos() {
   }
 
   return (
-    <div style={{ padding: '0 16px' }}>
+    <div style={{ padding: '0' }}>
       {/* Seção de suplementos prescritos */}
       {suplementos.length > 0 && (
         <>

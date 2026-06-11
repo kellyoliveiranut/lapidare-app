@@ -129,7 +129,7 @@ export default function Habitos() {
   const hoje = HOJE();
 
   return (
-    <div style={{ padding: '0 16px' }}>
+    <div style={{ padding: '0' }}>
 
       {erroSalvar && (
         <div style={{

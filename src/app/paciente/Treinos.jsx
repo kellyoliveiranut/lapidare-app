@@ -78,6 +78,21 @@ function AvisoImportante() {
   );
 }
 
+function AvisoASCO() {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'flex-start', gap: 10,
+      padding: '12px 14px', borderRadius: 10, marginBottom: 16,
+      background: '#FDECEC',
+      border: '1.5px solid #E5A3A3',
+      fontSize: 12, color: '#B3261E', lineHeight: 1.6, fontWeight: 600,
+    }}>
+      <i className="ti ti-info-circle" style={{ fontSize: 16, color: '#B3261E', flexShrink: 0, marginTop: 1 }} aria-hidden="true" />
+      <span>ASCO 2026 recomenda atividade física de 150 a 300 minutos por semana.</span>
+    </div>
+  );
+}
+
 function BibliotecaVideos() {
   return (
     <>
@@ -176,6 +191,7 @@ export default function TreinosPaciente() {
     return (
       <>
         <AvisoImportante />
+        <AvisoASCO />
         <div className="card empty-card"><div className="empty-sub">Carregando…</div></div>
       </>
     );
@@ -190,6 +206,7 @@ export default function TreinosPaciente() {
   return (
     <>
       <AvisoImportante />
+      <AvisoASCO />
 
       {/* Prescrição da nutri — exibida quando existe */}
       {treino && (

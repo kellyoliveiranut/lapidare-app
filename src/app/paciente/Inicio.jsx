@@ -282,7 +282,7 @@ export default function Inicio() {
       {/* 1 — Próxima consulta */}
       {proximaConsulta && (
         <div style={{
-          margin: '0 16px 12px',
+          margin: '0 0 12px',
           background: urgente
             ? 'linear-gradient(135deg, var(--gold) 0%, var(--gold-deep) 100%)'
             : 'linear-gradient(135deg, var(--gold-soft) 0%, var(--bg-soft) 100%)',
@@ -312,33 +312,19 @@ export default function Inicio() {
             <div style={{ fontSize: 11, color: urgente ? 'var(--ink)' : 'var(--muted)', opacity: urgente ? .8 : 1 }}>
               {labelTipo(proximaConsulta.tipo)} · {dataConsultaBR(proximaConsulta.data_hora)} · {nutriNome}
             </div>
-            {callUrl && (
+            {gcalUrl && !urgente && (
               <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
-                <a href={callUrl} target="_blank" rel="noreferrer"
+                <a href={gcalUrl} target="_blank" rel="noreferrer"
                   onClick={e => e.stopPropagation()}
                   style={{
                     display: 'inline-flex', alignItems: 'center', gap: 5,
-                    background: emBreve ? 'var(--green)' : (urgente ? 'rgba(28,23,18,.85)' : 'var(--ink)'),
-                    color: 'var(--bg-soft)',
-                    padding: emBreve ? '8px 14px' : '6px 12px',
-                    borderRadius: 10, fontSize: emBreve ? 12 : 11, fontWeight: 600, textDecoration: 'none',
+                    background: 'transparent', color: 'var(--muted)',
+                    border: '0.5px solid var(--hair)',
+                    padding: '6px 12px', borderRadius: 10, fontSize: 11, fontWeight: 500, textDecoration: 'none',
                   }}>
-                  <i className="ti ti-video" style={{ fontSize: 14 }} aria-hidden="true"></i>
-                  {emBreve ? 'Entrar na call agora' : 'Entrar na call'}
+                  <i className="ti ti-calendar-plus" style={{ fontSize: 13 }} aria-hidden="true"></i>
+                  Adicionar à agenda
                 </a>
-                {gcalUrl && !urgente && (
-                  <a href={gcalUrl} target="_blank" rel="noreferrer"
-                    onClick={e => e.stopPropagation()}
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 5,
-                      background: 'transparent', color: 'var(--muted)',
-                      border: '0.5px solid var(--hair)',
-                      padding: '6px 12px', borderRadius: 10, fontSize: 11, fontWeight: 500, textDecoration: 'none',
-                    }}>
-                    <i className="ti ti-calendar-plus" style={{ fontSize: 13 }} aria-hidden="true"></i>
-                    Adicionar à agenda
-                  </a>
-                )}
               </div>
             )}
             {Array.isArray(proximaConsulta.links_extras) && proximaConsulta.links_extras.length > 0 && (
@@ -366,12 +352,12 @@ export default function Inicio() {
       {/* 2 — Banner motivacional */}
       {mensagemCiclo && (
         <div style={{
-          margin: '0 16px 12px', padding: '14px 16px',
-          background: 'var(--gold-soft, #fef9ee)', borderRadius: 14,
+          margin: '0 0 12px', padding: '14px 16px',
+          background: '#FFFFFF', borderRadius: 14,
           borderLeft: '3px solid var(--gold-deep, #c4a882)',
           boxShadow: '0 1px 6px rgba(0,0,0,.06)',
         }}>
-          <div style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--ink)', fontFamily: 'var(--font-sans)' }}>
+          <div style={{ fontSize: 16, lineHeight: 1.6, color: 'var(--ink)', fontFamily: 'var(--font-sans)' }}>
             {mensagemCiclo.texto}
           </div>
         </div>
@@ -381,7 +367,7 @@ export default function Inicio() {
       {ebooksNovos > 0 && (
         <div onClick={marcarEbooksComoVistos}
           style={{
-            margin: '0 16px 12px', padding: '14px 16px',
+            margin: '0 0 12px', padding: '14px 16px',
             background: 'linear-gradient(135deg, var(--gold-soft, var(--bg-soft)), var(--paper))',
             border: '0.5px solid var(--gold-deep)',
             borderRadius: 14, cursor: 'pointer',
@@ -410,7 +396,7 @@ export default function Inicio() {
       {/* 4 — BLOCO A: Progresso da semana */}
       {habitos.length > 0 && semanaCalendar.length > 0 && (
         <div style={{
-          margin: '0 16px 12px', padding: '14px 16px',
+          margin: '0 0 12px', padding: '14px 16px',
           background: 'var(--paper)',
           border: '0.5px solid var(--hair)', borderRadius: 16,
         }}>
@@ -482,21 +468,13 @@ export default function Inicio() {
                 </span>
               )}
             </div>
-            {adesaoSemana !== null && (
-              <div style={{
-                fontSize: 11, fontWeight: 600,
-                color: adesaoSemana >= 80 ? 'var(--green)' : adesaoSemana >= 50 ? 'var(--gold-deep)' : 'var(--muted)',
-              }}>
-                {adesaoSemana}% semana
-              </div>
-            )}
           </div>
         </div>
       )}
 
       {/* 5 — BLOCO B: Quadradinhos de resumo */}
       {habitos.length > 0 && (habiToAgua || habitosStreak > 0 || adesaoSemana !== null) && (
-        <div style={{ margin: '0 16px 12px' }}>
+        <div style={{ margin: '0 0 12px' }}>
 
           {/* Água — linha inteira quando existir */}
           {habiToAgua && (() => {
@@ -622,7 +600,7 @@ export default function Inicio() {
       {/* 7 — BLOCO C: Check-in rápido de humor */}
       {mostrarHumor && (
         <div style={{
-          margin: '0 16px 12px', padding: '14px 16px',
+          margin: '0 0 12px', padding: '14px 16px',
           background: 'var(--paper)', border: '0.5px solid var(--hair)', borderRadius: 16,
         }}>
           <div style={{
@@ -664,7 +642,7 @@ export default function Inicio() {
         <div
           onClick={() => navigate('/paciente/habitos')}
           style={{
-            margin: '0 16px 12px', padding: '12px 16px',
+            margin: '0 0 12px', padding: '12px 16px',
             background: habitosCumpridos === habitos.length ? 'var(--green-bg, #f0fdf4)' : 'var(--paper)',
             border: `0.5px solid ${habitosCumpridos === habitos.length ? 'var(--green)' : 'var(--hair)'}`,
             borderRadius: 14, cursor: 'pointer',
@@ -715,7 +693,7 @@ export default function Inicio() {
       )}
 
       {/* 9 — Cards 2×2 */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, margin: '0 16px 10px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, margin: '0 0 10px' }}>
         <div className="card" style={{ margin: 0, padding: '12px 14px', cursor: 'pointer' }} onClick={() => navigate('/paciente/plano')}>
           <div style={{ display: 'flex', gap: 6, marginBottom: 6, alignItems: 'center' }}>
             <i className="ti ti-salad" style={{ fontSize: 14, color: 'var(--green)' }}></i>
@@ -767,7 +745,7 @@ export default function Inicio() {
         <div
           onClick={() => navigate(`/paciente/checkin/${checkinPendente.id}`)}
           style={{
-            margin: '0 16px 12px',
+            margin: '0 0 12px',
             background: ckUrgente
               ? 'linear-gradient(135deg, #ffd9c4 0%, #f5a373 100%)'
               : 'var(--paper)',

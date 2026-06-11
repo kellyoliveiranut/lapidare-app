@@ -145,7 +145,7 @@ export default function Compras() {
       ))}
 
       {totalMarcados === totalItens && totalItens > 0 && (
-        <div style={{ margin: '0 16px 16px', textAlign: 'center', padding: 16, background: 'var(--green-soft)', borderRadius: 12 }}>
+        <div style={{ margin: '0 0 16px', textAlign: 'center', padding: 16, background: 'var(--green-soft)', borderRadius: 12 }}>
           <div style={{ fontSize: 20, marginBottom: 4 }}>🎉</div>
           <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--green)' }}>Lista completa!</div>
         </div>
