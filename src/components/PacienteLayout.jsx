@@ -4,7 +4,7 @@ import BrandFooter from './BrandFooter.jsx';
 import { useSession, signOut } from '../lib/session.jsx';
 import { useTheme } from '../lib/theme.jsx';
 import { supabase } from '../lib/supabase.js';
-import { iniciais } from '../lib/utils.js';
+import { iniciais, diasAte } from '../lib/utils.js';
 import '../styles/paciente.css';
 
 const TABS = [
@@ -60,6 +60,8 @@ export default function PacienteLayout() {
   const [perfilOpen, setPerfilOpen] = useState(false);
   const [unreadChat, setUnreadChat] = useState(0);
   const [lockToast, setLockToast] = useState(false);
+  const [proximaBanner, setProximaBanner] = useState(null);
+  const [bannerTick, setBannerTick] = useState(0);
 
   const isChat = location.pathname === '/paciente/chat';
   const primeiroNome = profile?.apelido || profile?.nome?.split(' ')[0] || '';
@@ -102,6 +104,66 @@ export default function PacienteLayout() {
 
     return () => { active = false; supabase.removeChannel(channel); };
   }, [pacienteId]);
+
+  // Banner de consulta: busca a próxima dentro de 48h (ou até 15min passada)
+  useEffect(() => {
+    if (!pacienteId) return;
+    let active = true;
+
+    async function fetchBanner() {
+      const janela15m  = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+      const janela48h  = new Date(Date.now() + 48 * 3600 * 1000).toISOString();
+      const { data } = await supabase
+        .from('consultas')
+        .select('id, data_hora, tipo, status')
+        .eq('paciente_id', pacienteId)
+        .eq('status', 'agendada')
+        .gte('data_hora', janela15m)
+        .lte('data_hora', janela48h)
+        .order('data_hora', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (active) setProximaBanner(data ?? null);
+    }
+
+    fetchBanner();
+
+    // Tick a cada minuto para reavaliar condição de tempo
+    const tick = setInterval(() => setBannerTick(n => n + 1), 60_000);
+
+    // Realtime: se a nutri finalizar ou cancelar, some o banner imediatamente
+    const channel = supabase
+      .channel(`banner-consulta-${pacienteId}`)
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'consultas',
+        filter: `paciente_id=eq.${pacienteId}`,
+      }, () => { if (active) fetchBanner(); })
+      .subscribe();
+
+    return () => {
+      active = false;
+      clearInterval(tick);
+      supabase.removeChannel(channel);
+    };
+  }, [pacienteId]);
+
+  // mostrarBanner: reavalia a cada tick de minuto e a cada mudança de proximaBanner
+  const mostrarBanner = useMemo(() => {
+    if (!proximaBanner) return false;
+    const agora = Date.now();
+    const dh    = new Date(proximaBanner.data_hora).getTime();
+    return (
+      proximaBanner.status === 'agendada' &&
+      dh - agora <= 48 * 3600 * 1000 &&   // ainda dentro das 48h
+      agora < dh + 15 * 60 * 1000          // não passou 15min do horário
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [proximaBanner, bannerTick]);
+
+  const bannerDias = mostrarBanner ? diasAte(proximaBanner.data_hora) : null;
+  const bannerHora = mostrarBanner
+    ? new Date(proximaBanner.data_hora).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+    : null;
 
   const header = useMemo(() => {
     const factory = HEADERS[location.pathname];
@@ -148,6 +210,34 @@ export default function PacienteLayout() {
           </button>
         </div>
       </header>
+
+      {/* Banner de lembrete de consulta — fixo entre header e body, sem scroll */}
+      {mostrarBanner && (
+        <div style={{
+          padding: '9px max(16px, env(safe-area-inset-right)) 9px max(16px, env(safe-area-inset-left))',
+          background: 'var(--paper)',
+          borderBottom: '0.5px solid var(--hair)',
+          borderLeft: '3px solid var(--green, #3a7a46)',
+          display: 'flex', alignItems: 'center', gap: 10,
+          flexShrink: 0,
+        }}>
+          <span style={{ fontSize: 15, lineHeight: 1, flexShrink: 0 }}>📅</span>
+          <div style={{ minWidth: 0 }}>
+            <div style={{
+              fontSize: 8, letterSpacing: '.18em', textTransform: 'uppercase',
+              color: 'var(--green, #3a7a46)', fontWeight: 600, marginBottom: 1,
+            }}>
+              Lembrete
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--ink)', lineHeight: 1.35 }}>
+              Consulta{' '}
+              <strong>{bannerDias === 0 ? 'hoje' : 'amanhã'}</strong>
+              {bannerHora && ` às ${bannerHora}`}
+              {tema.nutri_nome && ` · ${tema.nutri_nome}`}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="body">
         <Outlet />

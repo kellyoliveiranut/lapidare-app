@@ -795,6 +795,18 @@ function ConsultaModal({ consulta, pacientes, nutriId, onClose, onSaved }) {
     }
   }
 
+  async function finalizarConsulta() {
+    if (!window.confirm('Marcar esta consulta como realizada?')) return;
+    setBusy(true);
+    const { error } = await supabase
+      .from('consultas')
+      .update({ status: 'realizada', encerrada_em: new Date().toISOString() })
+      .eq('id', consulta.id);
+    setBusy(false);
+    if (error) { setErro(error.message); return; }
+    onSaved();
+  }
+
   async function cancelarConsulta() {
     if (!window.confirm('Tem certeza que deseja cancelar esta consulta?')) return;
     setBusy(true);
@@ -956,7 +968,37 @@ function ConsultaModal({ consulta, pacientes, nutriId, onClose, onSaved }) {
           </button>
         </div>
 
-        {isEdit && consulta.status !== 'cancelada' && (
+        {isEdit && consulta.status === 'agendada' && (
+          <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+            <button
+              onClick={finalizarConsulta}
+              disabled={busy}
+              style={{
+                flex: 1, padding: '10px 14px',
+                background: 'transparent', color: 'var(--green)',
+                border: '0.5px solid var(--green)', borderRadius: 6,
+                fontSize: 13, cursor: 'pointer',
+                fontFamily: 'var(--font-sans)',
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              }}>
+              <i className="ti ti-check" aria-hidden="true"></i> Finalizar consulta
+            </button>
+            <button
+              onClick={cancelarConsulta}
+              disabled={busy}
+              style={{
+                flex: 1, padding: '10px 14px',
+                background: 'transparent', color: 'var(--red)',
+                border: '0.5px solid var(--red)', borderRadius: 6,
+                fontSize: 13, cursor: 'pointer',
+                fontFamily: 'var(--font-sans)',
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              }}>
+              <i className="ti ti-x" aria-hidden="true"></i> Cancelar
+            </button>
+          </div>
+        )}
+        {isEdit && consulta.status === 'realizada' && (
           <button
             onClick={cancelarConsulta}
             disabled={busy}

@@ -40,6 +40,41 @@ export default function PacientePerfil() {
   const [arquivarOpen, setArquivarOpen] = useState(false);
   const [editarDadosOpen, setEditarDadosOpen] = useState(false);
   const [excluirOpen, setExcluirOpen] = useState(false);
+  const [consultaAtiva, setConsultaAtiva] = useState(undefined);
+  const [busyConsulta, setBusyConsulta] = useState(false);
+
+  function labelTipoConsulta(tipo) {
+    if (!tipo) return 'Consulta';
+    if (tipo === 'primeira') return '1ª consulta';
+    if (tipo === 'avaliacao') return 'Avaliação';
+    if (tipo === 'retorno') return 'Retorno';
+    const m = tipo.match(/^consulta_(\d+)$/);
+    return m ? `Consulta ${m[1]}` : tipo;
+  }
+
+  async function iniciarConsulta() {
+    if (!consultaAtiva || busyConsulta) return;
+    setBusyConsulta(true);
+    const agora = new Date().toISOString();
+    const { error } = await supabase.from('consultas')
+      .update({ iniciada_em: agora })
+      .eq('id', consultaAtiva.id);
+    setBusyConsulta(false);
+    if (error) { alert('Erro ao iniciar: ' + error.message); return; }
+    setConsultaAtiva(c => c ? { ...c, iniciada_em: agora } : c);
+  }
+
+  async function encerrarConsulta() {
+    if (!consultaAtiva || busyConsulta) return;
+    setBusyConsulta(true);
+    const agora = new Date().toISOString();
+    const { error } = await supabase.from('consultas')
+      .update({ status: 'realizada', encerrada_em: agora })
+      .eq('id', consultaAtiva.id);
+    setBusyConsulta(false);
+    if (error) { alert('Erro ao encerrar: ' + error.message); return; }
+    setConsultaAtiva(c => c ? { ...c, status: 'realizada', encerrada_em: agora } : c);
+  }
 
   async function carregar() {
     const { data } = await supabase
@@ -58,6 +93,29 @@ export default function PacientePerfil() {
     load();
     return () => { active = false; };
   }, [id]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    let active = true;
+    async function loadConsulta() {
+      // Mostra a primeira consulta de hoje em diante (agendada ou recém-finalizada)
+      const hoje0 = new Date();
+      hoje0.setHours(0, 0, 0, 0);
+      const { data } = await supabase
+        .from('consultas')
+        .select('id, data_hora, tipo, status, duracao_min, iniciada_em, encerrada_em')
+        .eq('paciente_id', id)
+        .eq('nutri_id', user.id)
+        .neq('status', 'cancelada')
+        .gte('data_hora', hoje0.toISOString())
+        .order('data_hora', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (active) setConsultaAtiva(data ?? null);
+    }
+    loadConsulta();
+    return () => { active = false; };
+  }, [id, user?.id]);
 
   async function enviarRedefinicaoSenha() {
     if (!paciente?.email) return;
@@ -338,6 +396,89 @@ export default function PacientePerfil() {
           </div>
         </div>
       )}
+
+      {/* Card de consulta ativa */}
+      {consultaAtiva && (() => {
+        const finalizada = consultaAtiva.status === 'realizada';
+        const emAndamento = !finalizada && !!consultaAtiva.iniciada_em;
+        const agendada = !finalizada && !emAndamento;
+
+        const bg     = finalizada ? '#f0fdf4' : emAndamento ? '#fff7ed' : 'var(--amber-bg, #fdf8ee)';
+        const borda  = finalizada ? 'var(--green, #3a7a46)' : emAndamento ? 'var(--orange, #e67e22)' : 'var(--gold-deep, #a08456)';
+        const tagCor = finalizada ? 'var(--green, #3a7a46)' : emAndamento ? 'var(--orange, #e67e22)' : 'var(--gold-deep, #a08456)';
+        const tag    = finalizada ? '✓ Finalizada'
+          : emAndamento ? '● Em andamento'
+          : 'Próxima consulta';
+
+        const dtFmt = new Date(consultaAtiva.data_hora);
+        const dataStr = dtFmt.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
+        const horaStr = dtFmt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        const iniciadaStr = consultaAtiva.iniciada_em
+          ? new Date(consultaAtiva.iniciada_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+          : null;
+
+        return (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 12,
+            padding: '10px 14px', borderRadius: 10, marginBottom: 14,
+            background: bg,
+            border: `1px solid ${borda}`,
+          }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{
+                fontSize: 9, letterSpacing: '.06em', textTransform: 'uppercase',
+                fontWeight: 600, color: tagCor, marginBottom: 3,
+              }}>{tag}</div>
+              <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--dark)' }}>
+                {labelTipoConsulta(consultaAtiva.tipo)}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>
+                {dataStr} às {horaStr}
+                {consultaAtiva.duracao_min ? ` · ${consultaAtiva.duracao_min}min` : ''}
+                {emAndamento && iniciadaStr ? ` · iniciada às ${iniciadaStr}` : ''}
+              </div>
+            </div>
+
+            {finalizada ? (
+              <span style={{
+                background: 'var(--green, #3a7a46)', color: '#fff',
+                borderRadius: 8, padding: '5px 12px', fontSize: 12, fontWeight: 600,
+                flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 5,
+              }}>
+                <i className="ti ti-check" aria-hidden="true" /> Finalizada
+              </span>
+            ) : emAndamento ? (
+              <button
+                onClick={encerrarConsulta}
+                disabled={busyConsulta}
+                style={{
+                  background: 'var(--orange, #e67e22)', color: '#fff',
+                  border: 'none', borderRadius: 8, padding: '7px 14px',
+                  fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                  fontFamily: 'var(--font-sans)', flexShrink: 0,
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                }}>
+                <i className="ti ti-player-stop" aria-hidden="true" />
+                {busyConsulta ? '…' : 'Encerrar'}
+              </button>
+            ) : (
+              <button
+                onClick={iniciarConsulta}
+                disabled={busyConsulta}
+                style={{
+                  background: 'var(--green, #3a7a46)', color: '#fff',
+                  border: 'none', borderRadius: 8, padding: '7px 14px',
+                  fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                  fontFamily: 'var(--font-sans)', flexShrink: 0,
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                }}>
+                <i className="ti ti-player-play" aria-hidden="true" />
+                {busyConsulta ? '…' : 'Iniciar'}
+              </button>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Tabs */}
       <div className="tabs-scroll" style={{

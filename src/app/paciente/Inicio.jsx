@@ -42,7 +42,6 @@ export default function Inicio() {
   const [todosLogs, setTodosLogs] = useState([]);      // 30 dias — pra streak
   const [mensagemCiclo, setMensagemCiclo] = useState(null);
   const [monHoje, setMonHoje] = useState(null);        // { id, disposicao } do monitoramento
-  const [bannerFechado, setBannerFechado] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -122,10 +121,6 @@ export default function Inicio() {
 
   const dias = proximaConsulta ? diasAte(proximaConsulta.data_hora) : null;
   const urgente = dias !== null && dias <= 1;
-
-  const horaConsulta = proximaConsulta?.data_hora
-    ? new Date(proximaConsulta.data_hora).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-    : null;
   const emBreve = proximaConsulta ? consultaEmBreve(proximaConsulta.data_hora) : false;
   const callUrl = proximaConsulta ? linkCall(proximaConsulta) : null;
   const gcalUrl = proximaConsulta ? gerarGoogleCalendarUrl({
@@ -284,46 +279,6 @@ export default function Inicio() {
 
   return (
     <>
-      {/* 0 — Banner de lembrete de consulta (hoje ou amanhã) */}
-      {urgente && !bannerFechado && (
-        <div style={{
-          margin: '0 0 12px',
-          padding: '11px 14px',
-          background: 'var(--paper)',
-          border: '0.5px solid var(--hair)',
-          borderLeft: '3px solid var(--green, #3a7a46)',
-          borderRadius: 12,
-          display: 'flex', alignItems: 'flex-start', gap: 10,
-        }}>
-          <span style={{ fontSize: 17, lineHeight: 1, flexShrink: 0, marginTop: 2 }}>📅</span>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{
-              fontSize: 9, letterSpacing: '.18em', textTransform: 'uppercase',
-              color: 'var(--green, #3a7a46)', fontWeight: 600, marginBottom: 3,
-            }}>
-              Lembrete
-            </div>
-            <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.5 }}>
-              Você tem consulta{' '}
-              <strong>{dias === 0 ? 'hoje' : 'amanhã'}</strong>
-              {horaConsulta && ` às ${horaConsulta}`}
-              {nutriNome && ` com ${nutriNome}`}.
-            </div>
-          </div>
-          <button
-            onClick={() => setBannerFechado(true)}
-            style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              color: 'var(--muted)', padding: '2px 4px', lineHeight: 1,
-              flexShrink: 0, marginTop: 1,
-            }}
-            aria-label="Fechar lembrete"
-          >
-            <i className="ti ti-x" style={{ fontSize: 14 }} aria-hidden="true" />
-          </button>
-        </div>
-      )}
-
       {/* 1 — Próxima consulta */}
       {proximaConsulta && (
         <div style={{
