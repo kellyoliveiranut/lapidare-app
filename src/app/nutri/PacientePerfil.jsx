@@ -813,7 +813,7 @@ function CheckinPersonalizado({ pacienteId, nutriId, pacienteNome }) {
   const navigate = useNavigate();
   const [templates, setTemplates] = useState([]);
   const [envios, setEnvios] = useState([]);
-  const [templateSel, setTemplateSel] = useState('');
+  const [selecionados, setSelecionados] = useState(new Set());
   const [busy, setBusy] = useState(false);
   const [aviso, setAviso] = useState(null);
 
@@ -831,27 +831,48 @@ function CheckinPersonalizado({ pacienteId, nutriId, pacienteNome }) {
     ]);
     setTemplates(tplRes.data ?? []);
     setEnvios(envRes.data ?? []);
-    // pré-seleciona: personalizado dessa paciente > is_padrao > primeiro
-    const sel = (tplRes.data ?? []).find(t => t.paciente_id === pacienteId)
-             ?? (tplRes.data ?? []).find(t => t.is_padrao)
-             ?? (tplRes.data ?? [])[0];
-    setTemplateSel(sel?.id ?? '');
+    setSelecionados(new Set());
   }
   useEffect(() => { carregar(); }, [pacienteId, nutriId]);
 
+  function toggleTemplate(id) {
+    setSelecionados(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleTodos() {
+    setSelecionados(prev =>
+      prev.size === templates.length
+        ? new Set()
+        : new Set(templates.map(t => t.id))
+    );
+  }
+
   async function enviar() {
     setAviso(null);
-    const tpl = templates.find(t => t.id === templateSel);
-    if (!tpl) return setAviso({ tipo: 'erro', msg: 'Selecione um template.' });
+    if (selecionados.size === 0)
+      return setAviso({ tipo: 'erro', msg: 'Marque ao menos um template.' });
     setBusy(true);
-    const { error } = await supabase.from('checkin_envios').insert({
+    const tpls = templates.filter(t => selecionados.has(t.id));
+    const rows = tpls.map(t => ({
       nutri_id: nutriId,
       paciente_id: pacienteId,
-      perguntas: tpl.perguntas,
-    });
+      perguntas: t.perguntas,
+    }));
+    const { error } = await supabase.from('checkin_envios').insert(rows);
     setBusy(false);
     if (error) return setAviso({ tipo: 'erro', msg: error.message });
-    setAviso({ tipo: 'ok', msg: `Check-in "${tpl.nome}" enviado para ${pacienteNome.split(' ')[0]}.` });
+    const n = tpls.length;
+    const nome = pacienteNome.split(' ')[0];
+    setAviso({
+      tipo: 'ok',
+      msg: n === 1
+        ? `Check-in "${tpls[0].nome}" enviado para ${nome}.`
+        : `${n} check-ins enviados para ${nome}.`,
+    });
     carregar();
   }
 
@@ -865,14 +886,18 @@ function CheckinPersonalizado({ pacienteId, nutriId, pacienteNome }) {
     carregar();
   }
 
+  const todosChecados = templates.length > 0 && selecionados.size === templates.length;
+  const qtd = selecionados.size;
+
   return (
     <>
       <div className="card">
         <div className="card-header">
           <div>
-            <div className="card-title">Enviar check-in rápido</div>
+            <div className="card-title">Enviar check-ins</div>
             <div className="card-sub">
-              Templates ficam em <strong>Check-ins → Templates</strong>. Aqui você só escolhe e envia para {pacienteNome.split(' ')[0]}.
+              Marque um ou mais modelos e envie para {pacienteNome.split(' ')[0]} de uma vez.
+              Templates ficam em <strong>Check-ins → Templates</strong>.
             </div>
           </div>
           <button className="btn-outline" style={{ fontSize: 12, padding: '4px 10px' }}
@@ -887,29 +912,105 @@ function CheckinPersonalizado({ pacienteId, nutriId, pacienteNome }) {
             </div>
           ) : (
             <>
-              <label className="field-label">Template</label>
-              <select value={templateSel} onChange={e => setTemplateSel(e.target.value)}>
-                {templates.map(t => (
-                  <option key={t.id} value={t.id}>
-                    {t.nome} ({t.perguntas?.length ?? 0} perguntas)
-                    {t.is_padrao ? ' · padrão' : ''}
-                    {t.paciente_id === pacienteId ? ' · personalizado' : ''}
-                  </option>
-                ))}
-              </select>
+              {/* Cabeçalho com "selecionar todos" */}
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                marginBottom: 8,
+              }}>
+                <label style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  fontSize: 12, color: 'var(--text3)', cursor: 'pointer',
+                  userSelect: 'none',
+                }}>
+                  <input
+                    type="checkbox"
+                    checked={todosChecados}
+                    onChange={toggleTodos}
+                    style={{ margin: 0, cursor: 'pointer' }}
+                  />
+                  Selecionar todos
+                </label>
+                {qtd > 0 && (
+                  <span style={{ fontSize: 11, color: 'var(--text3)' }}>
+                    {qtd} selecionado{qtd !== 1 ? 's' : ''}
+                  </span>
+                )}
+              </div>
+
+              {/* Lista de templates com checkboxes */}
+              <div style={{
+                display: 'flex', flexDirection: 'column', gap: 4,
+                marginBottom: 12,
+              }}>
+                {templates.map(t => {
+                  const sel = selecionados.has(t.id);
+                  return (
+                    <label key={t.id} style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      padding: '10px 12px', borderRadius: 8, cursor: 'pointer',
+                      background: sel ? 'var(--amber-bg, #fdf8ee)' : 'var(--bg2)',
+                      border: `0.5px solid ${sel ? 'var(--amber, #c9a96e)' : 'var(--border)'}`,
+                      transition: 'background .12s, border-color .12s',
+                      userSelect: 'none',
+                    }}>
+                      <input
+                        type="checkbox"
+                        checked={sel}
+                        onChange={() => toggleTemplate(t.id)}
+                        style={{ margin: 0, cursor: 'pointer', flexShrink: 0 }}
+                      />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--dark)' }}>
+                          {t.nome}
+                          {t.is_padrao && (
+                            <span style={{
+                              marginLeft: 6, fontSize: 10, fontWeight: 400,
+                              color: 'var(--text3)', background: 'var(--bg2)',
+                              border: '0.5px solid var(--border)',
+                              borderRadius: 4, padding: '1px 5px',
+                            }}>padrão</span>
+                          )}
+                          {t.paciente_id === pacienteId && (
+                            <span style={{
+                              marginLeft: 6, fontSize: 10, fontWeight: 400,
+                              color: 'var(--gold-deep, #a08456)', background: 'var(--amber-bg, #fdf8ee)',
+                              border: '0.5px solid var(--amber, #c9a96e)',
+                              borderRadius: 4, padding: '1px 5px',
+                            }}>personalizado</span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
+                          {t.perguntas?.length ?? 0} pergunta{(t.perguntas?.length ?? 0) !== 1 ? 's' : ''}
+                        </div>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
 
               {aviso && (
                 <div style={{
-                  marginTop: 10,
+                  marginBottom: 10,
                   background: aviso.tipo === 'ok' ? 'var(--green-bg)' : 'var(--red-bg)',
                   color: aviso.tipo === 'ok' ? 'var(--green)' : 'var(--red)',
                   padding: '8px 12px', borderRadius: 6, fontSize: 13,
-                }}>{aviso.msg}</div>
+                  display: 'flex', alignItems: 'center', gap: 6,
+                }}>
+                  <i className={`ti ti-${aviso.tipo === 'ok' ? 'check' : 'alert-circle'}`} aria-hidden="true" />
+                  {aviso.msg}
+                </div>
               )}
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
-                <button className="btn" onClick={enviar} disabled={busy}>
-                  <i className="ti ti-send" aria-hidden="true"></i> {busy ? '...' : 'Enviar agora'}
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <button className="btn" onClick={enviar} disabled={busy || qtd === 0}>
+                  <i className="ti ti-send" aria-hidden="true"></i>
+                  {busy
+                    ? 'Enviando…'
+                    : qtd === 0
+                      ? 'Enviar selecionados'
+                      : qtd === 1
+                        ? 'Enviar 1 check-in'
+                        : `Enviar ${qtd} check-ins`}
                 </button>
               </div>
             </>
