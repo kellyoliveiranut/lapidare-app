@@ -253,7 +253,7 @@ export default function PacientePerfil() {
             label: 'Tipo de plano',
             valor: paciente.tipo_plano,
             tipo: 'text',
-            opcoes: ['avulsa', 'essentia'],
+            opcoes: ['Avulsa', 'Essentia'],
           },
           {
             campo: 'modalidade',
@@ -3755,16 +3755,14 @@ const EBOOK_TAGS = [
 ];
 
 const ACERVOS = [
-  { id: 'todas',       emoji: '📚', label: 'Todas'         },
-  { id: 'receitas',    emoji: '📖', label: 'Receitas'      },
-  { id: 'manipulados', emoji: '💊', label: 'Suplementação' },
-  { id: 'formulacoes', emoji: '🧪', label: 'Formulações'   },
-  { id: 'materiais',   emoji: '📄', label: 'Materiais'     },
+  { id: 'todas',     emoji: '📚', label: 'Todas'    },
+  { id: 'receitas',  emoji: '📖', label: 'Receitas' },
+  { id: 'materiais', emoji: '📄', label: 'Materiais'},
 ];
 
 function secaoEbook(tag) {
-  const proprias = new Set(['receitas', 'manipulados', 'formulacoes', 'materiais']);
-  return proprias.has(tag) ? tag : 'materiais';
+  if (tag === 'receitas') return 'receitas';
+  return 'materiais';
 }
 
 function EbooksDaPaciente({ pacienteId, nutriId, pacienteNome }) {
