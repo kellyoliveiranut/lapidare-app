@@ -1095,6 +1095,12 @@ function RegistrarAvaliacao({ pacienteId, nutriId, paciente }) {
   const [importandoShaped, setImportandoShaped] = useState(false);
   const shapedRef = useRef(null);
 
+  // PDFs de avaliação (só nutri)
+  const [pdfs, setPdfs] = useState([]);
+  const [uploadingPdfs, setUploadingPdfs] = useState(false);
+  const [pdfFeedback, setPdfFeedback] = useState(null);
+  const pdfRef = useRef(null);
+
   function novaAvaliacao() {
     return {
       data: new Date().toISOString().slice(0, 10),
@@ -1201,6 +1207,63 @@ Retorne SOMENTE o JSON.`;
     setHistorico(av ?? []);
   }
   useEffect(() => { carregar(); }, [pacienteId]);
+
+  async function carregarPdfs() {
+    const { data } = await supabase
+      .from('avaliacoes_pdfs')
+      .select('id, titulo, storage_path, created_at')
+      .eq('paciente_id', pacienteId)
+      .eq('nutri_id', nutriId)
+      .order('created_at', { ascending: false });
+    setPdfs(data ?? []);
+  }
+  useEffect(() => { carregarPdfs(); }, [pacienteId]);
+
+  async function enviarPdfs(files) {
+    setUploadingPdfs(true);
+    setPdfFeedback(null);
+    const arr = Array.from(files);
+    let ok = 0;
+    const erros = [];
+    for (const file of arr) {
+      const ext = (file.name.split('.').pop() || 'pdf').toLowerCase();
+      const titulo = file.name.replace(/\.[^.]+$/, '');
+      const slug = titulo.replace(/[^a-z0-9]/gi, '_').slice(0, 60);
+      const path = `${pacienteId}/${Date.now()}-${slug}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from('avaliacoes_nutri')
+        .upload(path, file, { contentType: 'application/pdf' });
+      if (upErr) { erros.push(titulo); continue; }
+      const { error: insErr } = await supabase.from('avaliacoes_pdfs').insert({
+        paciente_id: pacienteId, nutri_id: nutriId, storage_path: path, titulo,
+      });
+      if (insErr) { erros.push(titulo); continue; }
+      ok++;
+    }
+    setUploadingPdfs(false);
+    if (pdfRef.current) pdfRef.current.value = '';
+    if (ok > 0 && erros.length === 0)
+      setPdfFeedback({ tipo: 'ok', msg: `${ok} PDF${ok > 1 ? 's enviados' : ' enviado'}.` });
+    else if (ok > 0)
+      setPdfFeedback({ tipo: 'ok', msg: `${ok} enviado(s). Erro em: ${erros.join(', ')}` });
+    else
+      setPdfFeedback({ tipo: 'erro', msg: `Erro ao enviar: ${erros.join(', ')}` });
+    carregarPdfs();
+  }
+
+  async function abrirPdf(path) {
+    const { data, error } = await supabase.storage
+      .from('avaliacoes_nutri').createSignedUrl(path, 120);
+    if (error) return alert('Erro ao abrir: ' + error.message);
+    window.open(data.signedUrl, '_blank', 'noopener');
+  }
+
+  async function excluirPdf(pdf) {
+    if (!window.confirm(`Excluir "${pdf.titulo}"?`)) return;
+    await supabase.storage.from('avaliacoes_nutri').remove([pdf.storage_path]);
+    await supabase.from('avaliacoes_pdfs').delete().eq('id', pdf.id);
+    carregarPdfs();
+  }
 
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
 
@@ -1436,6 +1499,130 @@ Retorne SOMENTE o JSON.`;
           ))}
         </div>
       )}
+
+      {/* ── PDFs de avaliação física (só nutri) ── */}
+      <div className="card" style={{ marginTop: 16 }}>
+        <div className="card-header">
+          <div>
+            <div className="card-title">
+              <i className="ti ti-lock" style={{ fontSize: 14, marginRight: 6, color: 'var(--text3)' }} aria-hidden="true" />
+              PDFs de avaliação física
+            </div>
+            <div className="card-sub">Visível apenas para você — a paciente não tem acesso</div>
+          </div>
+          <button
+            type="button"
+            className="btn"
+            onClick={() => pdfRef.current?.click()}
+            disabled={uploadingPdfs}
+          >
+            <i className="ti ti-upload" aria-hidden="true"></i>
+            {uploadingPdfs ? 'Enviando…' : 'Enviar PDFs'}
+          </button>
+        </div>
+        <div className="card-body">
+          {/* Input oculto — múltiplos PDFs */}
+          <input
+            ref={pdfRef}
+            type="file"
+            accept=".pdf,application/pdf"
+            multiple
+            style={{ display: 'none' }}
+            onChange={e => { if (e.target.files?.length) enviarPdfs(e.target.files); }}
+          />
+
+          {pdfFeedback && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '8px 12px', borderRadius: 8, marginBottom: 12,
+              background: pdfFeedback.tipo === 'ok' ? 'var(--green-bg)' : 'var(--red-bg)',
+              border: `0.5px solid var(--${pdfFeedback.tipo === 'ok' ? 'green' : 'red'})`,
+              color: `var(--${pdfFeedback.tipo === 'ok' ? 'green' : 'red'})`,
+              fontSize: 13, fontWeight: 500,
+            }}>
+              <i className={`ti ti-${pdfFeedback.tipo === 'ok' ? 'check' : 'alert-circle'}`} aria-hidden="true" />
+              {pdfFeedback.msg}
+            </div>
+          )}
+
+          {/* Zona de upload clicável */}
+          <button
+            type="button"
+            onClick={() => pdfRef.current?.click()}
+            disabled={uploadingPdfs}
+            style={{
+              width: '100%', padding: '20px 16px',
+              border: '1.5px dashed var(--border)', borderRadius: 10,
+              background: 'var(--bg2)', cursor: uploadingPdfs ? 'default' : 'pointer',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+              marginBottom: 14, fontFamily: 'var(--font-sans)',
+            }}
+          >
+            <i className="ti ti-file-upload"
+              style={{ fontSize: 28, color: 'var(--gold-deep, #a08456)' }}
+              aria-hidden="true" />
+            <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--dark)' }}>
+              {uploadingPdfs ? 'Enviando arquivos…' : 'Clique para selecionar PDFs'}
+            </span>
+            <span style={{ fontSize: 11, color: 'var(--text3)' }}>
+              Múltiplos arquivos permitidos
+            </span>
+          </button>
+
+          {/* Lista de PDFs enviados */}
+          {pdfs.length === 0 ? (
+            <div style={{ fontSize: 12, color: 'var(--text3)', textAlign: 'center', padding: '4px 0' }}>
+              Nenhum PDF enviado ainda.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {pdfs.map(pdf => (
+                <div key={pdf.id} style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '10px 12px', borderRadius: 8,
+                  background: 'var(--white)', border: '0.5px solid var(--border)',
+                }}>
+                  <div style={{
+                    width: 34, height: 34, borderRadius: 8, flexShrink: 0,
+                    background: 'var(--amber-bg, #fdf8ee)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <i className="ti ti-file-type-pdf"
+                      style={{ fontSize: 18, color: 'var(--gold-deep, #a08456)' }}
+                      aria-hidden="true" />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {pdf.titulo}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 1 }}>
+                      {dataBR(pdf.created_at)}
+                    </div>
+                  </div>
+                  <button
+                    className="btn-outline"
+                    style={{ fontSize: 12, padding: '4px 10px', flexShrink: 0 }}
+                    onClick={() => abrirPdf(pdf.storage_path)}
+                  >
+                    <i className="ti ti-eye" aria-hidden="true"></i> Abrir
+                  </button>
+                  <button
+                    onClick={() => excluirPdf(pdf)}
+                    style={{
+                      background: 'none', border: '0.5px solid var(--red)',
+                      borderRadius: 6, padding: '4px 8px',
+                      color: 'var(--red)', cursor: 'pointer', flexShrink: 0,
+                    }}
+                    title="Excluir PDF"
+                  >
+                    <i className="ti ti-trash" aria-hidden="true"></i>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </>
   );
 }
