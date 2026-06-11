@@ -50,7 +50,7 @@ export default function Progresso() {
       if (!pacienteId) return;
       const { data } = await supabase
         .from('peso_registros')
-        .select('id, data, kg, altura_cm, cintura_cm, quadril_cm, braco_cm, coxa_cm, pgc, mm_kg, obs')
+        .select('id, data, kg, altura_cm, cintura_cm, quadril_cm, abdome_cm, braco_cm, braco_dir_cm, braco_esq_cm, coxa_cm, coxa_dir_cm, coxa_esq_cm, panturrilha_cm, pgc, mm_kg, obs')
         .eq('paciente_id', pacienteId)
         .order('data', { ascending: true });
       if (!active) return;
@@ -118,6 +118,16 @@ export default function Progresso() {
   const metricaAtual = METRICAS.find(m => m.key === metrica) ?? METRICAS[0];
   const atual   = dadosMetrica.length > 0 ? dadosMetrica[dadosMetrica.length - 1] : null;
   const inicial = dadosMetrica.length > 0 ? dadosMetrica[0] : null;
+
+  // Registro mais recente para a figura de perímetros
+  const maisRecente = registros.length > 0 ? registros[registros.length - 1] : null;
+  const temPerimetros = maisRecente != null && (
+    maisRecente.cintura_cm != null ||
+    maisRecente.quadril_cm != null ||
+    (maisRecente.braco_dir_cm ?? maisRecente.braco_esq_cm ?? maisRecente.braco_cm) != null ||
+    (maisRecente.coxa_dir_cm ?? maisRecente.coxa_esq_cm ?? maisRecente.coxa_cm) != null ||
+    maisRecente.panturrilha_cm != null
+  );
   const dif = (atual && inicial && dadosMetrica.length > 1)
     ? (atual.valor - inicial.valor)
     : 0;
@@ -231,6 +241,24 @@ export default function Progresso() {
         </div>
       )}
 
+      {/* ─── PERÍMETROS ──────────────────────────────────────── */}
+      <div style={{ margin: '14px 0 0' }}>
+        <div style={{ fontSize: 10, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--muted)', fontWeight: 500, marginBottom: 10 }}>
+          Perímetros corporais
+        </div>
+        {temPerimetros ? (
+          <div className="card" style={{ padding: '16px 10px 12px' }}>
+            <PeriMetrosFigura reg={maisRecente} />
+          </div>
+        ) : (
+          <div className="card" style={{ padding: '16px', textAlign: 'center' }}>
+            <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.6 }}>
+              Suas medidas corporais aparecerão aqui após a avaliação com a nutricionista.
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* ─── HISTÓRICO ────────────────────────────────────────── */}
       <div style={{ margin: '14px 0 8px', fontSize: 10, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--muted)', fontWeight: 500 }}>
         Histórico de avaliações ({registros.length})
@@ -281,6 +309,150 @@ export default function Progresso() {
       </div>
 
       <FotosEvolucao />
+    </>
+  );
+}
+
+/* ============================================================
+   FIGURA DE PERÍMETROS — silhueta com medidas mais recentes
+   ============================================================ */
+function PeriMetrosFigura({ reg }) {
+  const braco = reg.braco_dir_cm ?? reg.braco_esq_cm ?? reg.braco_cm;
+  const coxa  = reg.coxa_dir_cm  ?? reg.coxa_esq_cm  ?? reg.coxa_cm;
+  const { cintura_cm, quadril_cm, abdome_cm, panturrilha_cm, kg, altura_cm } = reg;
+
+  // Índice de Conicidade: IC = (cintura_m) / (0.109 × √(peso_kg / altura_m))
+  const ic = (cintura_cm && kg && altura_cm)
+    ? (cintura_cm / 100) / (0.109 * Math.sqrt(kg / (altura_cm / 100)))
+    : null;
+
+  const f = v => v != null ? Number(v).toFixed(1) : null;
+
+  const FILL  = '#f5f0eb';
+  const STR   = '#c8b99a';
+  const GOLD  = '#a08456';
+  const INK   = '#1c1712';
+  const MUTED = '#9a8570';
+
+  // [label, valor, lado, y-no-SVG, x-borda-do-corpo]
+  const linhas = [
+    { label: 'Braço',       val: f(braco),         side: 'L', y: 126, ex: 80  },
+    { label: 'Cintura',     val: f(cintura_cm),     side: 'L', y: 177, ex: 100 },
+    { label: 'Abdome',      val: f(abdome_cm),      side: 'L', y: 200, ex: 93  },
+    { label: 'Quadril',     val: f(quadril_cm),     side: 'R', y: 214, ex: 196 },
+    { label: 'Coxa',        val: f(coxa),           side: 'R', y: 250, ex: 196 },
+    { label: 'Panturrilha', val: f(panturrilha_cm), side: 'R', y: 326, ex: 192 },
+  ];
+
+  return (
+    <>
+      <svg
+        viewBox="0 0 280 400"
+        style={{ width: '100%', maxWidth: 360, display: 'block', margin: '0 auto' }}
+        aria-hidden="true"
+      >
+        {/* Cabeça */}
+        <ellipse cx="140" cy="28" rx="21" ry="24" fill={FILL} stroke={STR} strokeWidth="1.5" />
+
+        {/* Pescoço */}
+        <rect x="132" y="51" width="16" height="14" rx="3" fill={FILL} stroke={STR} strokeWidth="1.5" />
+
+        {/* Braço esquerdo */}
+        <path fill={FILL} stroke={STR} strokeWidth="1.5" strokeLinejoin="round" d="
+          M 104 66 C 100 69 94 73 90 78
+          L 74 170 C 74 178 78 184 84 184
+          L 90 184 C 94 184 97 178 98 170
+          L 92 82 C 96 75 100 69 104 66 Z" />
+
+        {/* Braço direito */}
+        <path fill={FILL} stroke={STR} strokeWidth="1.5" strokeLinejoin="round" d="
+          M 180 66 C 184 69 188 75 192 82
+          L 186 170 C 187 178 190 184 196 184
+          L 200 184 C 204 184 207 178 206 170
+          L 190 78 C 186 73 180 69 180 66 Z" />
+
+        {/* Corpo (tronco + pernas) */}
+        <path fill={FILL} stroke={STR} strokeWidth="1.5" strokeLinejoin="round" d="
+          M 104 66
+          C 100 70 95 85 94 102
+          C 93 118 94 140 96 154
+          C 97 162 99 170 102 176
+          C 99 184 94 198 90 214
+          L 90 272 C 89 282 90 292 92 298
+          L 94 350 C 96 356 100 362 108 364
+          L 116 364 C 122 364 126 360 127 354
+          L 128 346 C 128 340 126 330 124 322
+          L 122 298 C 120 290 120 280 122 272
+          L 124 218 C 127 208 131 200 135 196
+          C 138 192 140 190 142 190
+          C 144 190 146 192 149 196
+          C 153 200 157 208 160 218
+          L 162 272 C 164 280 164 290 162 298
+          L 160 322 C 158 330 156 340 156 346
+          L 157 354 C 158 360 162 364 168 364
+          L 176 364 C 184 364 188 358 190 350
+          L 192 298 C 194 292 195 282 194 272
+          L 194 214
+          C 190 198 185 184 181 176
+          C 184 170 186 162 187 154
+          C 189 140 190 118 189 102
+          C 188 85 185 70 180 66 Z" />
+
+        {/* Linhas de medida + etiquetas */}
+        {linhas.map(({ label, val, side, y, ex }) => {
+          const isL = side === 'L';
+          const tx  = isL ? 6 : 274;
+          const lx1 = isL ? 68 : ex;
+          const lx2 = isL ? ex : 212;
+          return (
+            <g key={label}>
+              {/* Tracejado central */}
+              <line x1={isL ? ex : 140} y1={y} x2={isL ? 140 : ex} y2={y}
+                stroke={GOLD} strokeWidth="0.8" strokeDasharray="3,3" opacity="0.45" />
+              {/* Conector etiqueta → corpo */}
+              <line x1={lx1} y1={y} x2={lx2} y2={y}
+                stroke={GOLD} strokeWidth="0.8" opacity="0.45" />
+              {/* Tick na borda */}
+              <line x1={ex} y1={y - 3} x2={ex} y2={y + 3}
+                stroke={GOLD} strokeWidth="1.2" />
+              {/* Nome da medida */}
+              <text x={tx} y={y - 4}
+                textAnchor={isL ? 'start' : 'end'}
+                fontSize="8" fill={MUTED}
+                style={{ fontFamily: 'var(--font-sans,system-ui)', fontWeight: 500, letterSpacing: '0.06em' }}>
+                {label.toUpperCase()}
+              </text>
+              {/* Valor */}
+              <text x={tx} y={y + 9}
+                textAnchor={isL ? 'start' : 'end'}
+                fontSize="13" fill={val ? GOLD : MUTED}
+                style={{ fontFamily: 'var(--font-sans,system-ui)', fontWeight: 700 }}>
+                {val != null ? `${val} cm` : '—'}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+
+      {/* Índice de Conicidade */}
+      {ic != null && (
+        <div style={{
+          display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 10,
+          marginTop: 10, padding: '7px 16px',
+          background: 'var(--bg-soft,#f5f0eb)', borderRadius: 20,
+          border: '0.5px solid var(--hair,#e0d8cc)',
+        }}>
+          <span style={{ fontSize: 10, color: MUTED, letterSpacing: '.05em', textTransform: 'uppercase' }}>
+            Índice de conicidade
+          </span>
+          <span style={{ fontSize: 17, fontWeight: 700, color: INK, fontFamily: 'var(--font-serif,serif)' }}>
+            {ic.toFixed(2)}
+          </span>
+          <span style={{ fontSize: 10, color: ic > 1.25 ? '#c0392b' : MUTED }}>
+            {ic > 1.25 ? '↑ atenção' : '✓ ok'}
+          </span>
+        </div>
+      )}
     </>
   );
 }
