@@ -12,8 +12,8 @@ const TIPOS = {
 const CAMPOS = [
   { key: 'hemoglobina', label: 'Hemoglobina', unidade: 'g/dL',  dec: 1 },
   { key: 'leucocitos',  label: 'Leucócitos',  unidade: '/mm³',  dec: 0 },
-  { key: 'neutrofilos', label: 'Neutrófilos', unidade: '/mm³',  dec: 0 },
-  { key: 'linfocitos',  label: 'Linfócitos',  unidade: '/mm³',  dec: 0 },
+  { key: 'neutrofilos', label: 'Neutrófilos', unidade: '',      dec: 0 },
+  { key: 'linfocitos',  label: 'Linfócitos',  unidade: '',      dec: 0 },
   { key: 'plaquetas',   label: 'Plaquetas',   unidade: '/mm³',  dec: 0 },
   { key: 'pcr',         label: 'PCR',         unidade: 'mg/L',  dec: 1 },
   { key: 'albumina',    label: 'Albumina',    unidade: 'g/dL',  dec: 1 },
