@@ -279,72 +279,52 @@ export default function Inicio() {
 
   return (
     <>
-      {/* 1 — Próxima consulta */}
+      {/* 1 — Próxima consulta — sempre estilo creme claro */}
       {proximaConsulta && (
         <div style={{
           margin: '0 0 12px',
-          background: urgente
-            ? 'linear-gradient(135deg, var(--gold) 0%, var(--gold-deep) 100%)'
-            : 'linear-gradient(135deg, var(--gold-soft) 0%, var(--bg-soft) 100%)',
-          border: urgente ? 'none' : '0.5px solid var(--gold)',
+          background: 'var(--bg-soft)',
+          border: '0.5px solid var(--gold)',
           borderRadius: 14,
-          padding: '14px 16px',
-          display: 'flex', alignItems: 'center', gap: 14,
+          padding: '16px',
         }}>
           <div style={{
-            width: 42, height: 42, borderRadius: 11,
-            background: urgente ? 'rgba(28,23,18,.12)' : 'var(--paper)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-          }}>
-            <i className="ti ti-calendar-event"
-               style={{ fontSize: 20, color: urgente ? 'var(--ink)' : 'var(--gold-deep)' }}
-               aria-hidden="true"></i>
+            fontSize: 9, letterSpacing: '.22em', textTransform: 'uppercase',
+            color: 'var(--gold-deep)', fontWeight: 500, marginBottom: 6,
+          }}>Próxima consulta</div>
+          <div className="serif" style={{ fontSize: 22, lineHeight: 1.1, marginBottom: 4, color: 'var(--ink)' }}>
+            {textoDias(proximaConsulta.data_hora)}
           </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{
-              fontSize: 9, letterSpacing: '.22em', textTransform: 'uppercase',
-              color: urgente ? 'var(--ink)' : 'var(--gold-deep)',
-              fontWeight: 500, marginBottom: 2, opacity: urgente ? .85 : 1,
-            }}>Próxima consulta</div>
-            <div className="serif" style={{ fontSize: 20, lineHeight: 1.1, marginBottom: 2 }}>
-              {textoDias(proximaConsulta.data_hora)}
-            </div>
-            <div style={{ fontSize: 11, color: urgente ? 'var(--ink)' : 'var(--muted)', opacity: urgente ? .8 : 1 }}>
-              {labelTipo(proximaConsulta.tipo)} · {dataConsultaBR(proximaConsulta.data_hora)} · {nutriNome}
-            </div>
-            {gcalUrl && !urgente && (
-              <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
-                <a href={gcalUrl} target="_blank" rel="noreferrer"
-                  onClick={e => e.stopPropagation()}
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 5,
-                    background: 'transparent', color: 'var(--muted)',
-                    border: '0.5px solid var(--hair)',
-                    padding: '6px 12px', borderRadius: 10, fontSize: 11, fontWeight: 500, textDecoration: 'none',
-                  }}>
-                  <i className="ti ti-calendar-plus" style={{ fontSize: 13 }} aria-hidden="true"></i>
-                  Adicionar à agenda
-                </a>
-              </div>
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: gcalUrl || (Array.isArray(proximaConsulta.links_extras) && proximaConsulta.links_extras.length > 0) ? 10 : 0 }}>
+            {labelTipo(proximaConsulta.tipo)} · {dataConsultaBR(proximaConsulta.data_hora)} · {nutriNome}
+          </div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {gcalUrl && (
+              <a href={gcalUrl} target="_blank" rel="noreferrer"
+                onClick={e => e.stopPropagation()}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                  background: 'transparent', color: 'var(--muted)',
+                  border: '0.5px solid var(--hair)',
+                  padding: '6px 12px', borderRadius: 10, fontSize: 11, fontWeight: 500, textDecoration: 'none',
+                }}>
+                <i className="ti ti-calendar-plus" style={{ fontSize: 13 }} aria-hidden="true"></i>
+                Adicionar à agenda
+              </a>
             )}
-            {Array.isArray(proximaConsulta.links_extras) && proximaConsulta.links_extras.length > 0 && (
-              <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
-                {proximaConsulta.links_extras.map((link, i) => (
-                  <a key={i} href={link.url} target="_blank" rel="noreferrer"
-                    onClick={e => e.stopPropagation()}
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 5,
-                      background: 'transparent',
-                      color: urgente ? 'var(--ink)' : 'var(--gold-deep)',
-                      border: '0.5px solid ' + (urgente ? 'rgba(28,23,18,.4)' : 'var(--gold)'),
-                      padding: '5px 10px', borderRadius: 10, fontSize: 11, fontWeight: 500, textDecoration: 'none',
-                    }}>
-                    <i className="ti ti-external-link" style={{ fontSize: 12 }} aria-hidden="true"></i>
-                    {link.label || 'Link'}
-                  </a>
-                ))}
-              </div>
-            )}
+            {Array.isArray(proximaConsulta.links_extras) && proximaConsulta.links_extras.map((link, i) => (
+              <a key={i} href={link.url} target="_blank" rel="noreferrer"
+                onClick={e => e.stopPropagation()}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                  background: 'transparent', color: 'var(--gold-deep)',
+                  border: '0.5px solid var(--gold)',
+                  padding: '5px 10px', borderRadius: 10, fontSize: 11, fontWeight: 500, textDecoration: 'none',
+                }}>
+                <i className="ti ti-external-link" style={{ fontSize: 12 }} aria-hidden="true"></i>
+                {link.label || 'Link'}
+              </a>
+            ))}
           </div>
         </div>
       )}
@@ -393,176 +373,62 @@ export default function Inicio() {
         </div>
       )}
 
-      {/* 4 — BLOCO A: Progresso da semana */}
-      {habitos.length > 0 && semanaCalendar.length > 0 && (
-        <div style={{
-          margin: '0 0 12px', padding: '14px 16px',
-          background: 'var(--paper)',
-          border: '0.5px solid var(--hair)', borderRadius: 16,
-        }}>
-          <div style={{
-            fontSize: 9, letterSpacing: '.22em', textTransform: 'uppercase',
-            color: 'var(--muted)', fontWeight: 500, marginBottom: 12,
-          }}>Progresso da semana</div>
 
-          {/* 7 bolinhas — width:100% garante que o flex não estoure o card */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', marginBottom: 12 }}>
-            {semanaCalendar.map((d, i) => {
-              const bgColor = d.cumprido
-                ? 'var(--green)'
-                : d.ehHoje
-                ? 'var(--gold-soft)'
-                : d.temAlgum
-                ? 'var(--green-bg, #f0fdf4)'
-                : 'var(--bg-soft)';
-              const txtColor = d.cumprido
-                ? '#fff'
-                : d.ehHoje
-                ? 'var(--gold-deep)'
-                : d.temAlgum
-                ? 'var(--green)'
-                : d.isFuturo
-                ? 'var(--hair)'
-                : 'var(--muted)';
-              return (
-                <div key={i} style={{
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
-                  flex: '1 1 0', minWidth: 0, /* cada coluna encolhe proporcionalmente */
-                }}>
-                  <div style={{
-                    fontSize: 9, fontWeight: d.ehHoje ? 700 : 400,
-                    color: d.ehHoje ? 'var(--gold-deep)' : 'var(--muted)',
-                  }}>
-                    {DIAS_SEG[i].charAt(0)}
-                  </div>
-                  <div style={{
-                    width: 28, height: 28, borderRadius: '50%',
-                    flexShrink: 0,
-                    background: bgColor,
-                    border: d.ehHoje && !d.cumprido ? '2px solid var(--gold-deep)' : 'none',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: d.cumprido ? 12 : 10,
-                    fontWeight: d.ehHoje ? 700 : 500,
-                    color: txtColor,
-                  }}>
-                    {d.cumprido
-                      ? <i className="ti ti-check" aria-hidden="true" />
-                      : d.dia.getDate()}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Resumo do dia */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ fontSize: 13, color: 'var(--ink)' }}>
-              <span style={{ fontWeight: 700 }}>{habitosCumpridos}</span>
-              <span style={{ color: 'var(--muted)' }}> de {habitos.length} hábitos hoje</span>
-              {habitos.length > 0 && (
-                <span style={{
-                  marginLeft: 6, fontSize: 11, fontWeight: 600,
-                  color: habitosCumpridos === habitos.length ? 'var(--green)' : 'var(--muted)',
-                }}>
-                  · {Math.round((habitosCumpridos / habitos.length) * 100)}%
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 5 — BLOCO B: Quadradinhos de resumo */}
+      {/* 5 — BLOCO B: Água + Adesão compactos lado a lado, Sequência abaixo */}
       {habitos.length > 0 && (habiToAgua || habitosStreak > 0 || adesaoSemana !== null) && (
-        <div style={{ margin: '0 0 12px' }}>
+        <div style={{ margin: '0 0 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
 
-          {/* Água — linha inteira quando existir */}
-          {habiToAgua && (() => {
-            const v     = habitosLogs[habiToAgua.id] ?? 0;
-            const meta  = habiToAgua.meta ?? 0;
-            const uni   = habiToAgua.unidade ?? '';
-            const pct   = meta > 0 ? Math.min(100, Math.round((v / meta) * 100)) : 0;
-            return (
-              <div style={{
-                padding: '12px 14px', borderRadius: 12, marginBottom: 8,
-                background: 'var(--paper)', border: '0.5px solid var(--hair)',
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 8 }}>
-                  <div>
+          {/* Água + Adesão — dois cards compactos lado a lado */}
+          {(habiToAgua || adesaoSemana !== null) && (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: habiToAgua && adesaoSemana !== null ? '1fr 1fr' : '1fr',
+              gap: 8,
+            }}>
+              {habiToAgua && (() => {
+                const v   = habitosLogs[habiToAgua.id] ?? 0;
+                const meta = habiToAgua.meta ?? 0;
+                const uni  = habiToAgua.unidade ?? '';
+                const pct  = meta > 0 ? Math.min(100, Math.round((v / meta) * 100)) : 0;
+                return (
+                  <div style={{ padding: '12px 14px', borderRadius: 12, background: 'var(--paper)', border: '0.5px solid var(--hair)' }}>
+                    <div style={{ fontSize: 18, marginBottom: 4 }}>💧</div>
                     <div style={{
-                      fontSize: 9, letterSpacing: '.18em', textTransform: 'uppercase',
-                      color: 'var(--muted)', fontWeight: 500, marginBottom: 2,
-                    }}>💧 Água hoje</div>
-                    <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink)', lineHeight: 1 }}>
+                      fontSize: 22, fontWeight: 700, lineHeight: 1,
+                      color: pct >= 100 ? 'var(--green)' : pct >= 60 ? 'var(--gold-deep)' : 'var(--ink)',
+                    }}>
                       {fmtNum(v, uni)}
-                      {meta > 0 && (
-                        <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 400, marginLeft: 4 }}>
-                          / meta {fmtNum(meta, uni)}
-                        </span>
-                      )}
+                    </div>
+                    <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 3 }}>
+                      {meta > 0 ? `meta ${fmtNum(meta, uni)}` : 'água hoje'}
                     </div>
                   </div>
-                  <div style={{
-                    fontSize: 13, fontWeight: 700,
-                    color: pct >= 100 ? 'var(--green)' : pct >= 60 ? 'var(--gold-deep)' : 'var(--muted)',
-                  }}>
-                    {meta > 0 ? `${pct}%` : ''}
-                  </div>
-                </div>
-                {meta > 0 && (
-                  <div style={{ height: 5, borderRadius: 3, background: 'var(--hair)', overflow: 'hidden' }}>
-                    <div style={{
-                      height: '100%', borderRadius: 3,
-                      width: `${pct}%`,
-                      background: pct >= 100 ? 'var(--green)' : 'var(--blue, var(--gold-deep))',
-                      transition: 'width .3s ease',
-                    }} />
-                  </div>
-                )}
-              </div>
-            );
-          })()}
-
-          {/* Sequência + Adesão — 2 colunas */}
-          {(habitosStreak > 0 || adesaoSemana !== null) && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, minWidth: 0 }}>
-              {habitosStreak > 0 && (
-                <div style={{
-                  padding: '12px 14px', borderRadius: 12, minWidth: 0,
-                  background: 'var(--paper)', border: '0.5px solid var(--hair)',
-                }}>
-                  <div style={{
-                    fontSize: 9, letterSpacing: '.18em', textTransform: 'uppercase',
-                    color: 'var(--muted)', fontWeight: 500, marginBottom: 4,
-                  }}>🔥 Sequência</div>
-                  <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)', lineHeight: 1 }}>
-                    {habitosStreak}
-                    <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 400, marginLeft: 3 }}>
-                      dia{habitosStreak === 1 ? '' : 's'}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>seguidos</div>
-                </div>
-              )}
+                );
+              })()}
               {adesaoSemana !== null && (
-                <div style={{
-                  padding: '12px 14px', borderRadius: 12, minWidth: 0,
-                  background: 'var(--paper)', border: '0.5px solid var(--hair)',
-                }}>
-                  <div style={{
-                    fontSize: 9, letterSpacing: '.18em', textTransform: 'uppercase',
-                    color: 'var(--muted)', fontWeight: 500, marginBottom: 4,
-                  }}>📊 Adesão</div>
+                <div style={{ padding: '12px 14px', borderRadius: 12, background: 'var(--paper)', border: '0.5px solid var(--hair)' }}>
+                  <div style={{ fontSize: 18, marginBottom: 4 }}>📊</div>
                   <div style={{
                     fontSize: 22, fontWeight: 700, lineHeight: 1,
                     color: adesaoSemana >= 80 ? 'var(--green)' : adesaoSemana >= 50 ? 'var(--gold-deep)' : 'var(--ink)',
                   }}>
-                    {adesaoSemana}
-                    <span style={{ fontSize: 14, fontWeight: 400 }}>%</span>
+                    {adesaoSemana}<span style={{ fontSize: 14, fontWeight: 400 }}>%</span>
                   </div>
-                  <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>esta semana</div>
+                  <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 3 }}>esta semana</div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Sequência — card separado */}
+          {habitosStreak > 0 && (
+            <div style={{ padding: '12px 14px', borderRadius: 12, background: 'var(--paper)', border: '0.5px solid var(--hair)' }}>
+              <div style={{ fontSize: 9, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--muted)', fontWeight: 500, marginBottom: 4 }}>🔥 Sequência</div>
+              <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)', lineHeight: 1 }}>
+                {habitosStreak}
+                <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 400, marginLeft: 3 }}>dia{habitosStreak === 1 ? '' : 's'}</span>
+              </div>
+              <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>seguidos</div>
             </div>
           )}
         </div>
