@@ -272,7 +272,7 @@ export default function Inicio() {
       {proximaConsulta && (
         <div style={{
           margin: '0 0 12px',
-          background: 'var(--bg-soft)',
+          background: '#E6DBC8',
           border: '0.5px solid var(--gold)',
           borderRadius: 14,
           padding: '16px',
