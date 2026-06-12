@@ -61,6 +61,11 @@ export default function PacienteLayout() {
   const [unreadChat, setUnreadChat] = useState(0);
   const [ebooksNovos, setEbooksNovos] = useState(0);
   const [checkinsPendentes, setCheckinsPendentes] = useState(0);
+  const [prescricoesNovas, setPrescricoesNovas] = useState(0);
+  const [suplementosNovos, setSuplementosNovos] = useState(0);
+  const [treinosNovos, setTreinosNovos] = useState(0);
+  const [progressoNovos, setProgressoNovos] = useState(0);
+  const [comprasNovas, setComprasNovas] = useState(0);
   const [lockToast, setLockToast] = useState(false);
   const [proximaBanner, setProximaBanner] = useState(null);
   const [bannerTick, setBannerTick] = useState(0);
@@ -159,6 +164,73 @@ export default function PacienteLayout() {
     return () => { active = false; supabase.removeChannel(ch); };
   }, [pacienteId]);
 
+  // Conta novidades por seção via secoes_vistas (prescricoes, suplementos, treinos, progresso, compras)
+  useEffect(() => {
+    if (!pacienteId) return;
+    let active = true;
+
+    async function recarregarNovidadesSecoes() {
+      const { data: vistos } = await supabase
+        .from('secoes_vistas')
+        .select('secao, visto_em')
+        .eq('paciente_id', pacienteId);
+      const vm = Object.fromEntries((vistos ?? []).map(v => [v.secao, v.visto_em]));
+      const ep = '1970-01-01T00:00:00.000Z';
+
+      const [presc, sup, trei, prog, comp] = await Promise.all([
+        supabase.from('prescricoes').select('id', { count: 'exact', head: true })
+          .eq('paciente_id', pacienteId).gt('created_at', vm['prescricoes'] ?? ep),
+        supabase.from('suplementos').select('id', { count: 'exact', head: true })
+          .eq('paciente_id', pacienteId).eq('ativo', true).gt('created_at', vm['suplementos'] ?? ep),
+        supabase.from('treinos_prescritos').select('id', { count: 'exact', head: true })
+          .eq('paciente_id', pacienteId).eq('ativo', true).gt('created_at', vm['treinos'] ?? ep),
+        supabase.from('peso_registros').select('id', { count: 'exact', head: true })
+          .eq('paciente_id', pacienteId).gt('created_at', vm['progresso'] ?? ep),
+        supabase.from('listas_compras').select('id', { count: 'exact', head: true })
+          .eq('paciente_id', pacienteId).gt('publicado_em', vm['compras'] ?? ep),
+      ]);
+
+      if (!active) return;
+      setPrescricoesNovas(presc.count ?? 0);
+      setSuplementosNovos(sup.count ?? 0);
+      setTreinosNovos(trei.count ?? 0);
+      setProgressoNovos(prog.count ?? 0);
+      setComprasNovas(comp.count ?? 0);
+    }
+
+    recarregarNovidadesSecoes();
+
+    const chs = [
+      supabase.channel(`sv-presc-${pacienteId}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'prescricoes', filter: `paciente_id=eq.${pacienteId}` }, recarregarNovidadesSecoes).subscribe(),
+      supabase.channel(`sv-sups-${pacienteId}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'suplementos', filter: `paciente_id=eq.${pacienteId}` }, recarregarNovidadesSecoes).subscribe(),
+      supabase.channel(`sv-trei-${pacienteId}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'treinos_prescritos', filter: `paciente_id=eq.${pacienteId}` }, recarregarNovidadesSecoes).subscribe(),
+      supabase.channel(`sv-prog-${pacienteId}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'peso_registros', filter: `paciente_id=eq.${pacienteId}` }, recarregarNovidadesSecoes).subscribe(),
+      supabase.channel(`sv-comp-${pacienteId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'listas_compras', filter: `paciente_id=eq.${pacienteId}` }, recarregarNovidadesSecoes).subscribe(),
+    ];
+
+    return () => { active = false; chs.forEach(ch => supabase.removeChannel(ch)); };
+  }, [pacienteId]);
+
+  // Ao entrar em uma seção, zera o badge imediatamente e persiste visto_em em secoes_vistas
+  useEffect(() => {
+    if (!pacienteId) return;
+    const secoesMap = {
+      '/paciente/prescricoes': ['prescricoes', setPrescricoesNovas],
+      '/paciente/suplementos': ['suplementos', setSuplementosNovos],
+      '/paciente/treinos':     ['treinos',      setTreinosNovos],
+      '/paciente/progresso':   ['progresso',    setProgressoNovos],
+      '/paciente/compras':     ['compras',      setComprasNovas],
+    };
+    const entry = secoesMap[location.pathname];
+    if (!entry) return;
+    const [secao, resetFn] = entry;
+    resetFn(0);
+    supabase.from('secoes_vistas').upsert(
+      { paciente_id: pacienteId, secao, visto_em: new Date().toISOString() },
+      { onConflict: 'paciente_id,secao' }
+    );
+  }, [location.pathname, pacienteId]);
+
   // Banner de consulta: busca a próxima dentro de 48h (ou até 15min passada)
   useEffect(() => {
     if (!pacienteId) return;
@@ -228,6 +300,15 @@ export default function PacienteLayout() {
     await signOut();
     navigate('/login', { replace: true });
   };
+
+  const sectionBadges = {
+    '/paciente/prescricoes': prescricoesNovas,
+    '/paciente/suplementos': suplementosNovos,
+    '/paciente/treinos':     treinosNovos,
+    '/paciente/progresso':   progressoNovos,
+    '/paciente/compras':     comprasNovas,
+  };
+  const totalNovas = prescricoesNovas + suplementosNovos + treinosNovos + progressoNovos + comprasNovas;
 
   return (
     <div className="paciente-app">
@@ -325,7 +406,7 @@ export default function PacienteLayout() {
                 >
                   <i className={`ti ti-${t.icon}`} aria-hidden="true"></i>
                   <span>{t.label}</span>
-                  {(unreadChat + ebooksNovos + checkinsPendentes) > 0 && (
+                  {(unreadChat + ebooksNovos + checkinsPendentes + totalNovas) > 0 && (
                     <span style={{
                       position: 'absolute', top: 2, right: 'calc(50% - 16px)',
                       background: unreadChat > 0 ? 'var(--red)' : 'var(--gold-deep)',
@@ -335,7 +416,7 @@ export default function PacienteLayout() {
                       padding: '0 4px',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       border: '1.5px solid var(--paper)',
-                    }}>{unreadChat + ebooksNovos + checkinsPendentes}</span>
+                    }}>{unreadChat + ebooksNovos + checkinsPendentes + totalNovas}</span>
                   )}
                 </button>
               );
@@ -432,6 +513,15 @@ export default function PacienteLayout() {
                       padding: '0 6px',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}>{checkinsPendentes}</span>
+                  )}
+                  {sectionBadges[item.path] > 0 && !blocked && (
+                    <span style={{
+                      background: 'var(--gold-deep)', color: 'var(--paper)',
+                      fontSize: 10, fontWeight: 600,
+                      minWidth: 18, height: 18, borderRadius: 9,
+                      padding: '0 6px',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>{sectionBadges[item.path]}</span>
                   )}
                   <i className="ti ti-chevron-right" style={{ color: 'var(--muted)' }} aria-hidden="true"></i>
                 </button>
