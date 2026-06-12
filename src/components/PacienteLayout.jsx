@@ -60,6 +60,7 @@ export default function PacienteLayout() {
   const [perfilOpen, setPerfilOpen] = useState(false);
   const [unreadChat, setUnreadChat] = useState(0);
   const [ebooksNovos, setEbooksNovos] = useState(0);
+  const [checkinsPendentes, setCheckinsPendentes] = useState(0);
   const [lockToast, setLockToast] = useState(false);
   const [proximaBanner, setProximaBanner] = useState(null);
   const [bannerTick, setBannerTick] = useState(0);
@@ -127,6 +128,32 @@ export default function PacienteLayout() {
         event: '*', schema: 'public', table: 'ebooks_pacientes',
         filter: `paciente_id=eq.${pacienteId}`,
       }, recarregarEbooks)
+      .subscribe();
+
+    return () => { active = false; supabase.removeChannel(ch); };
+  }, [pacienteId]);
+
+  // Conta check-ins enviados pela nutri ainda não respondidos
+  useEffect(() => {
+    if (!pacienteId) return;
+    let active = true;
+
+    async function recarregarCheckins() {
+      const { count } = await supabase
+        .from('checkin_envios')
+        .select('id', { count: 'exact', head: true })
+        .eq('paciente_id', pacienteId)
+        .is('respondido_em', null);
+      if (active) setCheckinsPendentes(count ?? 0);
+    }
+
+    recarregarCheckins();
+    const ch = supabase
+      .channel(`paciente-checkins-${pacienteId}`)
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'checkin_envios',
+        filter: `paciente_id=eq.${pacienteId}`,
+      }, recarregarCheckins)
       .subscribe();
 
     return () => { active = false; supabase.removeChannel(ch); };
@@ -298,27 +325,17 @@ export default function PacienteLayout() {
                 >
                   <i className={`ti ti-${t.icon}`} aria-hidden="true"></i>
                   <span>{t.label}</span>
-                  {unreadChat > 0 && (
+                  {(unreadChat + ebooksNovos + checkinsPendentes) > 0 && (
                     <span style={{
-                      position: 'absolute', top: 2, right: 'calc(50% - 18px)',
-                      background: 'var(--red)', color: 'var(--paper)',
+                      position: 'absolute', top: 2, right: 'calc(50% - 16px)',
+                      background: unreadChat > 0 ? 'var(--red)' : 'var(--gold-deep)',
+                      color: 'var(--paper)',
                       fontSize: 9, fontWeight: 600,
                       minWidth: 14, height: 14, borderRadius: 7,
                       padding: '0 4px',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       border: '1.5px solid var(--paper)',
-                    }}>{unreadChat}</span>
-                  )}
-                  {ebooksNovos > 0 && (
-                    <span style={{
-                      position: 'absolute', top: 2, left: 'calc(50% - 18px)',
-                      background: 'var(--gold-deep)', color: 'var(--paper)',
-                      fontSize: 9, fontWeight: 600,
-                      minWidth: 14, height: 14, borderRadius: 7,
-                      padding: '0 4px',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      border: '1.5px solid var(--paper)',
-                    }}>{ebooksNovos}</span>
+                    }}>{unreadChat + ebooksNovos + checkinsPendentes}</span>
                   )}
                 </button>
               );
@@ -406,6 +423,15 @@ export default function PacienteLayout() {
                       padding: '0 6px',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}>{ebooksNovos}</span>
+                  )}
+                  {item.path === '/paciente/checkins' && checkinsPendentes > 0 && !blocked && (
+                    <span style={{
+                      background: 'var(--gold-deep)', color: 'var(--paper)',
+                      fontSize: 10, fontWeight: 600,
+                      minWidth: 18, height: 18, borderRadius: 9,
+                      padding: '0 6px',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>{checkinsPendentes}</span>
                   )}
                   <i className="ti ti-chevron-right" style={{ color: 'var(--muted)' }} aria-hidden="true"></i>
                 </button>
