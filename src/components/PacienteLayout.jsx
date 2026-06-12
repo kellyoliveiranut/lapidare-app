@@ -59,6 +59,7 @@ export default function PacienteLayout() {
   const [moreOpen, setMoreOpen] = useState(false);
   const [perfilOpen, setPerfilOpen] = useState(false);
   const [unreadChat, setUnreadChat] = useState(0);
+  const [ebooksNovos, setEbooksNovos] = useState(0);
   const [lockToast, setLockToast] = useState(false);
   const [proximaBanner, setProximaBanner] = useState(null);
   const [bannerTick, setBannerTick] = useState(0);
@@ -103,6 +104,32 @@ export default function PacienteLayout() {
       .subscribe();
 
     return () => { active = false; supabase.removeChannel(channel); };
+  }, [pacienteId]);
+
+  // Conta e-books não visualizados — badge no item E-books e no botão Mais
+  useEffect(() => {
+    if (!pacienteId) return;
+    let active = true;
+
+    async function recarregarEbooks() {
+      const { count } = await supabase
+        .from('ebooks_pacientes')
+        .select('id', { count: 'exact', head: true })
+        .eq('paciente_id', pacienteId)
+        .is('visto_em', null);
+      if (active) setEbooksNovos(count ?? 0);
+    }
+
+    recarregarEbooks();
+    const ch = supabase
+      .channel(`paciente-ebooks-${pacienteId}`)
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'ebooks_pacientes',
+        filter: `paciente_id=eq.${pacienteId}`,
+      }, recarregarEbooks)
+      .subscribe();
+
+    return () => { active = false; supabase.removeChannel(ch); };
   }, [pacienteId]);
 
   // Banner de consulta: busca a próxima dentro de 48h (ou até 15min passada)
@@ -282,6 +309,17 @@ export default function PacienteLayout() {
                       border: '1.5px solid var(--paper)',
                     }}>{unreadChat}</span>
                   )}
+                  {ebooksNovos > 0 && (
+                    <span style={{
+                      position: 'absolute', top: 2, left: 'calc(50% - 18px)',
+                      background: 'var(--gold-deep)', color: 'var(--paper)',
+                      fontSize: 9, fontWeight: 600,
+                      minWidth: 14, height: 14, borderRadius: 7,
+                      padding: '0 4px',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      border: '1.5px solid var(--paper)',
+                    }}>{ebooksNovos}</span>
+                  )}
                 </button>
               );
             }
@@ -359,6 +397,15 @@ export default function PacienteLayout() {
                       padding: '0 6px',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}>{unreadChat}</span>
+                  )}
+                  {item.path === '/paciente/ebooks' && ebooksNovos > 0 && !blocked && (
+                    <span style={{
+                      background: 'var(--gold-deep)', color: 'var(--paper)',
+                      fontSize: 10, fontWeight: 600,
+                      minWidth: 18, height: 18, borderRadius: 9,
+                      padding: '0 6px',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>{ebooksNovos}</span>
                   )}
                   <i className="ti ti-chevron-right" style={{ color: 'var(--muted)' }} aria-hidden="true"></i>
                 </button>
