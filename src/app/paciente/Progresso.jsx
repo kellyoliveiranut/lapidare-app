@@ -248,7 +248,7 @@ export default function Progresso() {
         </div>
         {temPerimetros ? (
           <div className="card" style={{ padding: '16px 10px 12px' }}>
-            <PeriMetrosFigura reg={maisRecente} />
+            <PeriMetrosFigura reg={maisRecente} metrica={metrica} />
           </div>
         ) : (
           <div className="card" style={{ padding: '16px', textAlign: 'center' }}>
@@ -316,7 +316,7 @@ export default function Progresso() {
 /* ============================================================
    FIGURA DE PERÍMETROS — silhueta com medidas mais recentes
    ============================================================ */
-function PeriMetrosFigura({ reg }) {
+function PeriMetrosFigura({ reg, metrica }) {
   const braco = reg.braco_dir_cm ?? reg.braco_esq_cm ?? reg.braco_cm;
   const coxa  = reg.coxa_dir_cm  ?? reg.coxa_esq_cm  ?? reg.coxa_cm;
   const { cintura_cm, quadril_cm, abdome_cm, panturrilha_cm, kg, altura_cm } = reg;
@@ -328,11 +328,15 @@ function PeriMetrosFigura({ reg }) {
 
   const f = v => v != null ? Number(v).toFixed(1) : null;
 
-  const FILL  = '#f5f0eb';
-  const STR   = '#c8b99a';
-  const GOLD  = '#a08456';
-  const INK   = '#1c1712';
-  const MUTED = '#9a8570';
+  // Paleta Essentia — verde-floresta + dourado
+  const FOREST  = '#2C3A30';
+  const GOLD    = '#C4A882';
+  const GOLD_DK = '#9A7B3F';
+  const MUTED   = '#8a7a6a';
+
+  // Métrica selecionada → região do corpo a destacar
+  const METRIC_REGION = { cintura_cm: 'Cintura', quadril_cm: 'Quadril' };
+  const activeLabel = METRIC_REGION[metrica] ?? null;
 
   // [label, valor, lado, y-no-SVG, x-borda-do-corpo]
   const linhas = [
@@ -351,28 +355,53 @@ function PeriMetrosFigura({ reg }) {
         style={{ width: '100%', maxWidth: 360, display: 'block', margin: '0 auto' }}
         aria-hidden="true"
       >
+        <defs>
+          {/* Preenchimento degradê — creme suave de cima para baixo */}
+          <linearGradient id="pf-body" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"   stopColor="#faf8f5" />
+            <stop offset="100%" stopColor="#ede8e0" />
+          </linearGradient>
+          {/* Sombra sutil para profundidade */}
+          <filter id="pf-shadow" x="-10%" y="-4%" width="120%" height="116%">
+            <feDropShadow dx="0" dy="2" stdDeviation="4"
+              floodColor="#2C3A30" floodOpacity="0.07" />
+          </filter>
+        </defs>
+
         {/* Cabeça */}
-        <ellipse cx="140" cy="28" rx="21" ry="24" fill={FILL} stroke={STR} strokeWidth="1.5" />
+        <ellipse cx="140" cy="28" rx="21" ry="24"
+          fill="url(#pf-body)" stroke={FOREST} strokeWidth="1.1"
+          filter="url(#pf-shadow)" />
 
         {/* Pescoço */}
-        <rect x="132" y="51" width="16" height="14" rx="3" fill={FILL} stroke={STR} strokeWidth="1.5" />
+        <rect x="132" y="51" width="16" height="14" rx="3"
+          fill="url(#pf-body)" stroke={FOREST} strokeWidth="1.1" />
 
-        {/* Braço esquerdo */}
-        <path fill={FILL} stroke={STR} strokeWidth="1.5" strokeLinejoin="round" d="
+        {/* Braço esquerdo — curvas suaves sem linhas retas */}
+        <path fill="url(#pf-body)" stroke={FOREST} strokeWidth="1.1"
+          strokeLinejoin="round" d="
           M 104 66 C 100 69 94 73 90 78
-          L 74 170 C 74 178 78 184 84 184
-          L 90 184 C 94 184 97 178 98 170
-          L 92 82 C 96 75 100 69 104 66 Z" />
+          C 84 108 80 138 74 170
+          C 74 178 78 184 84 184
+          L 90 184
+          C 94 184 97 178 98 170
+          C 97 136 95 104 92 82
+          C 96 75 100 69 104 66 Z" />
 
-        {/* Braço direito */}
-        <path fill={FILL} stroke={STR} strokeWidth="1.5" strokeLinejoin="round" d="
+        {/* Braço direito — curvas suaves sem linhas retas */}
+        <path fill="url(#pf-body)" stroke={FOREST} strokeWidth="1.1"
+          strokeLinejoin="round" d="
           M 180 66 C 184 69 188 75 192 82
-          L 186 170 C 187 178 190 184 196 184
-          L 200 184 C 204 184 207 178 206 170
-          L 190 78 C 186 73 180 69 180 66 Z" />
+          C 190 108 188 138 186 170
+          C 187 178 190 184 196 184
+          L 200 184
+          C 204 184 207 178 206 170
+          C 198 136 196 104 190 78
+          C 186 73 180 69 180 66 Z" />
 
         {/* Corpo (tronco + pernas) */}
-        <path fill={FILL} stroke={STR} strokeWidth="1.5" strokeLinejoin="round" d="
+        <path fill="url(#pf-body)" stroke={FOREST} strokeWidth="1.1"
+          strokeLinejoin="round" filter="url(#pf-shadow)" d="
           M 104 66
           C 100 70 95 85 94 102
           C 93 118 94 140 96 154
@@ -398,35 +427,48 @@ function PeriMetrosFigura({ reg }) {
           C 189 140 190 118 189 102
           C 188 85 185 70 180 66 Z" />
 
-        {/* Linhas de medida + etiquetas */}
+        {/* Linhas de medida + rótulos — com destaque reativo à métrica */}
         {linhas.map(({ label, val, side, y, ex }) => {
-          const isL = side === 'L';
-          const tx  = isL ? 6 : 274;
-          const lx1 = isL ? 68 : ex;
-          const lx2 = isL ? ex : 212;
+          const isL      = side === 'L';
+          const isActive = activeLabel === label;
+          const isDimmed = activeLabel !== null && !isActive;
+          const opacity  = isDimmed ? 0.18 : 1;
+          const lineClr  = isActive ? GOLD_DK : GOLD;
+          const lineW    = isActive ? 0.85 : 0.5;
+          const valClr   = val ? (isActive ? GOLD_DK : GOLD) : MUTED;
+          const labClr   = isActive ? FOREST : MUTED;
+          const tx       = isL ? 6 : 274;
+          const lx1      = isL ? 68 : ex;
+          const lx2      = isL ? ex : 212;
+
           return (
-            <g key={label}>
-              {/* Tracejado central */}
-              <line x1={isL ? ex : 140} y1={y} x2={isL ? 140 : ex} y2={y}
-                stroke={GOLD} strokeWidth="0.8" strokeDasharray="3,3" opacity="0.45" />
-              {/* Conector etiqueta → corpo */}
+            <g key={label} style={{ transition: 'opacity 0.35s ease', opacity }}>
+              {/* Linha conectora: área de rótulo → borda do corpo */}
               <line x1={lx1} y1={y} x2={lx2} y2={y}
-                stroke={GOLD} strokeWidth="0.8" opacity="0.45" />
-              {/* Tick na borda */}
-              <line x1={ex} y1={y - 3} x2={ex} y2={y + 3}
-                stroke={GOLD} strokeWidth="1.2" />
-              {/* Nome da medida */}
-              <text x={tx} y={y - 4}
+                stroke={lineClr} strokeWidth={lineW} />
+              {/* Tick na borda do corpo */}
+              <line x1={ex} y1={y - 3.5} x2={ex} y2={y + 3.5}
+                stroke={lineClr} strokeWidth={isActive ? 1.3 : 0.9} />
+              {/* Rótulo — Cormorant Garamond, maiúsculo */}
+              <text x={tx} y={y - 3}
                 textAnchor={isL ? 'start' : 'end'}
-                fontSize="8" fill={MUTED}
-                style={{ fontFamily: 'var(--font-sans,system-ui)', fontWeight: 500, letterSpacing: '0.06em' }}>
+                fontSize="7.5" fill={labClr}
+                style={{
+                  fontFamily: 'var(--font-serif)',
+                  fontWeight: isActive ? 600 : 500,
+                  letterSpacing: '0.09em',
+                }}>
                 {label.toUpperCase()}
               </text>
-              {/* Valor */}
-              <text x={tx} y={y + 9}
+              {/* Valor — Jost */}
+              <text x={tx} y={y + 10}
                 textAnchor={isL ? 'start' : 'end'}
-                fontSize="13" fill={val ? GOLD : MUTED}
-                style={{ fontFamily: 'var(--font-sans,system-ui)', fontWeight: 700 }}>
+                fontSize={isActive ? 13 : 11.5}
+                fill={valClr}
+                style={{
+                  fontFamily: "'Jost', var(--font-sans)",
+                  fontWeight: isActive ? 700 : 600,
+                }}>
                 {val != null ? `${val} cm` : '—'}
               </text>
             </g>
@@ -445,7 +487,7 @@ function PeriMetrosFigura({ reg }) {
           <span style={{ fontSize: 10, color: MUTED, letterSpacing: '.05em', textTransform: 'uppercase' }}>
             Índice de conicidade
           </span>
-          <span style={{ fontSize: 17, fontWeight: 700, color: INK, fontFamily: 'var(--font-serif,serif)' }}>
+          <span style={{ fontSize: 17, fontWeight: 700, color: FOREST, fontFamily: 'var(--font-serif,serif)' }}>
             {ic.toFixed(2)}
           </span>
           <span style={{ fontSize: 10, color: ic > 1.25 ? '#c0392b' : MUTED }}>
