@@ -156,6 +156,21 @@
   background: var(--paper);
   border-radius: 6px;
   border: 0.5px solid var(--hair-soft);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.plano-view-scope .sub-equiv {
+  font-size: 10px;
+  color: var(--gold-deep);
+  background: var(--gold-soft, #f8f0e3);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 /* ── SUBSTITUIÇÕES GLOBAIS ── */

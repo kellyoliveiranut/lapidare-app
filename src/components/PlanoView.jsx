@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { dataBR } from '../lib/utils.js';
+import { kcalDoAlimento, kcalEquivalente } from '../lib/taco.js';
 import './PlanoView.css';
 
 /**
@@ -95,15 +96,29 @@ export default function PlanoView({ dados, validade, readOnly = false }) {
                     <i className={`ti ti-${openSubs[`${ri}-${ai}`] ? 'chevron-up' : 'chevron-down'}`} style={{ fontSize: 12 }} aria-hidden="true"></i>
                     {openSubs[`${ri}-${ai}`] ? 'Fechar substituições' : `Ver ${al.subs.length} substituições`}
                   </button>
-                  {openSubs[`${ri}-${ai}`] && (
-                    <div className="subs-list">
-                      {al.subs.map((s, si) => (
-                        <div key={si} className="sub-item">
-                          → {typeof s === 'object' ? (s.nome ?? '') : s}
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  {openSubs[`${ri}-${ai}`] && (() => {
+                    const kcalAlvo = al.kcal ?? kcalDoAlimento(al.nome, al.qty ?? al.quantidade) ?? null;
+                    return (
+                      <div className="subs-list">
+                        {al.subs.map((s, si) => {
+                          const nomeS = typeof s === 'object' ? (s.nome ?? '') : String(s);
+                          const eq = kcalAlvo ? kcalEquivalente(kcalAlvo, nomeS) : null;
+                          let textoEquiv = null;
+                          if (eq) {
+                            textoEquiv = `≈ ${eq.gramas} g${eq.porcaoTexto ? ` (${eq.porcaoTexto})` : ''}`;
+                          } else if (typeof s === 'object' && s.qty_equiv) {
+                            textoEquiv = `≈ ${s.qty_equiv}`;
+                          }
+                          return (
+                            <div key={si} className="sub-item">
+                              <span>→ {nomeS}</span>
+                              {textoEquiv && <span className="sub-equiv">{textoEquiv}</span>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
                 </>
               )}
             </div>
@@ -133,7 +148,22 @@ export default function PlanoView({ dados, validade, readOnly = false }) {
             }}>
               <span style={{ fontWeight: 500, minWidth: 0, flexShrink: 1 }}>{s.original}</span>
               <span style={{ color: 'var(--muted)', flexShrink: 0 }}>→</span>
-              <span style={{ color: 'var(--ink)', flex: 1 }}>{s.subs}</span>
+              {Array.isArray(s.subs) ? (
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {s.subs.map((sub, j) => {
+                    const nome = typeof sub === 'object' ? (sub.nome ?? '') : String(sub);
+                    const qe   = typeof sub === 'object' ? sub.qty_equiv : null;
+                    return (
+                      <div key={j} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ color: 'var(--ink)' }}>{nome}</span>
+                        {qe && <span className="sub-equiv">≈ {qe}</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <span style={{ color: 'var(--ink)', flex: 1 }}>{s.subs}</span>
+              )}
             </div>
           ))}
         </div>

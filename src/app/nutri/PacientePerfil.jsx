@@ -1856,14 +1856,22 @@ function PublicarPlano({ pacienteId, nutriId, calculosImportados, onLimparImport
 
   const addSubstituicao = () => setSubstituicoes(p => [...p, { _id: Math.random().toString(36).slice(2), original: '', subs: '' }]);
   const removeSubstituicao = id => setSubstituicoes(p => p.filter(s => s._id !== id));
-  const setSubst = (id, k, v) => setSubstituicoes(p => p.map(s => s._id === id ? { ...s, [k]: v } : s));
+  const setSubst = (id, k, v) => setSubstituicoes(p => p.map(s =>
+    s._id === id
+      ? { ...s, [k]: v, ...(k === 'subs' ? { _subsObj: undefined } : {}) }
+      : s
+  ));
 
   async function gerarSubstituicoesIA() {
-    const alimentos = [...new Set(
-      refeicoes.flatMap(r => r.alimentos.map(a => a.nome.trim()).filter(Boolean))
-    )];
+    // Inclui quantidade quando disponível para que a IA estime a equivalência calórica
+    const alimentosList = refeicoes.flatMap(r =>
+      r.alimentos
+        .filter(a => a.nome.trim())
+        .map(a => a.quantidade.trim() ? `${a.nome.trim()} (${a.quantidade.trim()})` : a.nome.trim())
+    );
+    const alimentosUnicos = [...new Set(alimentosList)];
 
-    if (alimentos.length === 0) {
+    if (alimentosUnicos.length === 0) {
       setErroSubs('Adicione alimentos ao plano antes de gerar substituições.');
       return;
     }
@@ -1872,24 +1880,24 @@ function PublicarPlano({ pacienteId, nutriId, calculosImportados, onLimparImport
     setErroSubs(null);
 
     const prompt = `Você é uma nutricionista clínica especialista em oncologia.
-Recebi um plano alimentar com os seguintes alimentos: ${alimentos.join(', ')}.
+Plano alimentar com os seguintes alimentos: ${alimentosUnicos.join(', ')}.
 
-Sugira substituições por equivalência de grupo alimentar para cada alimento listado.
-Regras obrigatórias:
-- NÃO inclua quantidades — apenas os nomes dos alimentos substitutos.
-- Priorize alimentos regionais brasileiros e acessíveis, com atenção a ingredientes do Norte/Amazônia quando fizer sentido, mas mantendo opções que o paciente encontre com facilidade.
-- Respeite a equivalência nutricional dentro do mesmo grupo alimentar.
+Para cada alimento, sugira substituições por equivalência de grupo alimentar.
+Para cada substituto, forneça a gramagem (qty_equiv) que equivale caloricamente à porção original, com base nos valores da TACO 4.1.
+
+Regras:
+- Priorize alimentos regionais brasileiros e acessíveis.
 - Responda em português do Brasil.
 - Responda APENAS em JSON válido, sem texto antes ou depois e sem markdown.
 - Formato exato (array JSON):
-[{"original": "Arroz branco", "substitutos": "arroz integral, batata doce, mandioca, cará"}]
+[{"original": "Arroz branco", "substitutos": [{"nome": "batata doce", "qty_equiv": "95g"}, {"nome": "mandioca cozida", "qty_equiv": "105g"}]}]
 
 Liste TODOS os alimentos fornecidos, um objeto por alimento.`;
 
     try {
       const resposta = await callAnthropic(
         [{ role: 'user', content: prompt }],
-        { model: 'claude-sonnet-4-6', maxTokens: 1500 }
+        { model: 'claude-sonnet-4-6', maxTokens: 2000 }
       );
 
       let parsed;
@@ -1901,11 +1909,24 @@ Liste TODOS os alimentos fornecidos, um objeto por alimento.`;
 
       if (!Array.isArray(parsed) || parsed.length === 0) throw new Error('formato-invalido');
 
-      setSubstituicoes(parsed.map(item => ({
-        _id: Math.random().toString(36).slice(2),
-        original: String(item.original ?? '').trim(),
-        subs:     String(item.substitutos ?? item.subs ?? '').trim(),
-      })));
+      setSubstituicoes(parsed.map(item => {
+        const subsArr = Array.isArray(item.substitutos)
+          ? item.substitutos
+          : String(item.substitutos ?? item.subs ?? '').split(',').map(s => ({ nome: s.trim() }));
+        const temQtyEquiv = subsArr.some(s => typeof s === 'object' && s.qty_equiv);
+        return {
+          _id: Math.random().toString(36).slice(2),
+          original: String(item.original ?? '').trim(),
+          subs: subsArr.map(s => (typeof s === 'object' ? s.nome : String(s)).trim()).filter(Boolean).join(', '),
+          ...(temQtyEquiv ? {
+            _subsObj: subsArr.map(s =>
+              typeof s === 'object'
+                ? { nome: (s.nome ?? '').trim(), qty_equiv: s.qty_equiv ?? null }
+                : { nome: String(s).trim() }
+            ),
+          } : {}),
+        };
+      }));
     } catch {
       setErroSubs('Não consegui gerar agora, tente novamente.');
     } finally {
@@ -1943,7 +1964,10 @@ Liste TODOS os alimentos fornecidos, um objeto por alimento.`;
     const dados = { macros: m, refeicoes: refs };
     if (obs.trim()) dados.obs = obs.trim();
     const subsValidas = substituicoes.filter(s => s.original.trim());
-    if (subsValidas.length) dados.substituicoes = subsValidas.map(s => ({ original: s.original.trim(), subs: s.subs.trim() }));
+    if (subsValidas.length) dados.substituicoes = subsValidas.map(s => ({
+      original: s.original.trim(),
+      subs: s._subsObj ?? s.subs.trim(),
+    }));
     return dados;
   }
 
