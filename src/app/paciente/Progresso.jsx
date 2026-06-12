@@ -328,7 +328,7 @@ function PeriMetrosFigura({ reg, metrica }) {
 
   const f = v => v != null ? Number(v).toFixed(1) : null;
 
-  // Paleta Essentia — verde-floresta + dourado
+  // Paleta Essentia
   const FOREST  = '#2C3A30';
   const GOLD    = '#C4A882';
   const GOLD_DK = '#9A7B3F';
@@ -338,121 +338,97 @@ function PeriMetrosFigura({ reg, metrica }) {
   const METRIC_REGION = { cintura_cm: 'Cintura', quadril_cm: 'Quadril' };
   const activeLabel = METRIC_REGION[metrica] ?? null;
 
-  // [label, valor, lado, y-no-SVG, x-borda-do-corpo]
+  // viewBox 680×560.  bodyX/bodyY: ponto-âncora na silhueta.
+  // nameY/valY: baseline dos textos na margem.
+  // lineX: x onde a linha lateral inicia (esq) ou termina (dir).
+  // tx: x de âncora do texto (textAnchor end para L, start para R).
   const linhas = [
-    { label: 'Braço',       val: f(braco),         side: 'L', y: 126, ex: 80  },
-    { label: 'Cintura',     val: f(cintura_cm),     side: 'L', y: 177, ex: 100 },
-    { label: 'Abdome',      val: f(abdome_cm),      side: 'L', y: 200, ex: 93  },
-    { label: 'Quadril',     val: f(quadril_cm),     side: 'R', y: 214, ex: 196 },
-    { label: 'Coxa',        val: f(coxa),           side: 'R', y: 250, ex: 196 },
-    { label: 'Panturrilha', val: f(panturrilha_cm), side: 'R', y: 326, ex: 192 },
+    { label: 'Braço',       val: f(braco),         side: 'L', bodyX: 282, bodyY: 198, nameY: 195, valY: 211, lineX: 246, tx: 240 },
+    { label: 'Cintura',     val: f(cintura_cm),     side: 'L', bodyX: 300, bodyY: 236, nameY: 247, valY: 263, lineX: 246, tx: 240 },
+    { label: 'Abdome',      val: f(abdome_cm),      side: 'L', bodyX: 288, bodyY: 295, nameY: 308, valY: 328, lineX: 246, tx: 240 },
+    { label: 'Quadril',     val: f(quadril_cm),     side: 'R', bodyX: 392, bodyY: 300, nameY: 297, valY: 313, lineX: 438, tx: 444 },
+    { label: 'Coxa',        val: f(coxa),           side: 'R', bodyX: 384, bodyY: 362, nameY: 359, valY: 375, lineX: 438, tx: 444 },
+    { label: 'Panturrilha', val: f(panturrilha_cm), side: 'R', bodyX: 380, bodyY: 442, nameY: 439, valY: 455, lineX: 438, tx: 444 },
   ];
 
   return (
     <>
       <svg
-        viewBox="0 0 280 400"
-        style={{ width: '100%', maxWidth: 360, display: 'block', margin: '0 auto' }}
+        viewBox="0 0 680 560"
+        style={{ width: '100%', maxWidth: 440, display: 'block', margin: '0 auto' }}
         aria-hidden="true"
       >
         <defs>
-          {/* Preenchimento degradê — creme suave de cima para baixo */}
           <linearGradient id="pf-body" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%"   stopColor="#faf8f5" />
             <stop offset="100%" stopColor="#ede8e0" />
           </linearGradient>
-          {/* Sombra sutil para profundidade */}
           <filter id="pf-shadow" x="-10%" y="-4%" width="120%" height="116%">
-            <feDropShadow dx="0" dy="2" stdDeviation="4"
+            <feDropShadow dx="0" dy="3" stdDeviation="5"
               floodColor="#2C3A30" floodOpacity="0.07" />
           </filter>
         </defs>
 
-        {/* Cabeça */}
-        <ellipse cx="140" cy="28" rx="21" ry="24"
-          fill="url(#pf-body)" stroke={FOREST} strokeWidth="1.1"
+        {/* ── Silhueta ── */}
+        <ellipse cx="340" cy="72" rx="26" ry="31"
+          fill="url(#pf-body)" stroke="#2C3A30" strokeWidth="1.3"
           filter="url(#pf-shadow)" />
 
-        {/* Pescoço */}
-        <rect x="132" y="51" width="16" height="14" rx="3"
-          fill="url(#pf-body)" stroke={FOREST} strokeWidth="1.1" />
-
-        {/* Braço esquerdo — curvas suaves sem linhas retas */}
-        <path fill="url(#pf-body)" stroke={FOREST} strokeWidth="1.1"
-          strokeLinejoin="round" d="
-          M 104 66 C 100 69 94 73 90 78
-          C 84 108 80 138 74 170
-          C 74 178 78 184 84 184
-          L 90 184
-          C 94 184 97 178 98 170
-          C 97 136 95 104 92 82
-          C 96 75 100 69 104 66 Z" />
-
-        {/* Braço direito — curvas suaves sem linhas retas */}
-        <path fill="url(#pf-body)" stroke={FOREST} strokeWidth="1.1"
-          strokeLinejoin="round" d="
-          M 180 66 C 184 69 188 75 192 82
-          C 190 108 188 138 186 170
-          C 187 178 190 184 196 184
-          L 200 184
-          C 204 184 207 178 206 170
-          C 198 136 196 104 190 78
-          C 186 73 180 69 180 66 Z" />
-
         {/* Corpo (tronco + pernas) */}
-        <path fill="url(#pf-body)" stroke={FOREST} strokeWidth="1.1"
-          strokeLinejoin="round" filter="url(#pf-shadow)" d="
-          M 104 66
-          C 100 70 95 85 94 102
-          C 93 118 94 140 96 154
-          C 97 162 99 170 102 176
-          C 99 184 94 198 90 214
-          L 90 272 C 89 282 90 292 92 298
-          L 94 350 C 96 356 100 362 108 364
-          L 116 364 C 122 364 126 360 127 354
-          L 128 346 C 128 340 126 330 124 322
-          L 122 298 C 120 290 120 280 122 272
-          L 124 218 C 127 208 131 200 135 196
-          C 138 192 140 190 142 190
-          C 144 190 146 192 149 196
-          C 153 200 157 208 160 218
-          L 162 272 C 164 280 164 290 162 298
-          L 160 322 C 158 330 156 340 156 346
-          L 157 354 C 158 360 162 364 168 364
-          L 176 364 C 184 364 188 358 190 350
-          L 192 298 C 194 292 195 282 194 272
-          L 194 214
-          C 190 198 185 184 181 176
-          C 184 170 186 162 187 154
-          C 189 140 190 118 189 102
-          C 188 85 185 70 180 66 Z" />
+        <path fill="url(#pf-body)" stroke="#2C3A30" strokeWidth="1.3"
+          filter="url(#pf-shadow)"
+          d="M326 100 C324 110 322 114 316 118 C305 122 298 128 296 140
+             C292 165 292 200 298 235 C293 260 286 285 288 305
+             C290 320 296 380 300 440 C301 470 302 495 303 508
+             C304 514 314 515 319 511 C322 505 323 460 324 410
+             C325 375 326 340 327 312 C328 318 335 320 340 320
+             C345 320 352 318 353 312 C354 340 355 375 356 410
+             C357 460 358 505 361 511 C366 515 376 514 377 508
+             C378 495 379 470 380 440 C384 380 390 320 392 305
+             C394 285 387 260 382 235 C388 200 388 165 384 140
+             C382 128 375 122 364 118 C358 114 356 110 354 100
+             C348 98 332 98 326 100 Z" />
 
-        {/* Linhas de medida + rótulos — com destaque reativo à métrica */}
-        {linhas.map(({ label, val, side, y, ex }) => {
+        {/* Braço esquerdo */}
+        <path fill="url(#pf-body)" stroke="#2C3A30" strokeWidth="1.3"
+          d="M296 138 C287 145 281 175 279 215 C277 245 278 272 282 288
+             C284 293 288 293 290 288 C292 265 294 220 299 178
+             C301 160 302 145 300 135 C299 133 297 134 296 138 Z" />
+
+        {/* Braço direito */}
+        <path fill="url(#pf-body)" stroke="#2C3A30" strokeWidth="1.3"
+          d="M384 138 C393 145 399 175 401 215 C403 245 402 272 398 288
+             C396 293 392 293 390 288 C388 265 386 220 381 178
+             C379 160 378 145 380 135 C381 133 383 134 384 138 Z" />
+
+        {/* ── Linhas de medida + rótulos ── */}
+        {linhas.map(({ label, val, side, bodyX, bodyY, nameY, valY, lineX, tx }) => {
           const isL      = side === 'L';
           const isActive = activeLabel === label;
           const isDimmed = activeLabel !== null && !isActive;
           const opacity  = isDimmed ? 0.18 : 1;
           const lineClr  = isActive ? GOLD_DK : GOLD;
-          const lineW    = isActive ? 0.85 : 0.5;
+          const lineW    = isActive ? 1.8 : 1.0;
           const valClr   = val ? (isActive ? GOLD_DK : GOLD) : MUTED;
           const labClr   = isActive ? FOREST : MUTED;
-          const tx       = isL ? 6 : 274;
-          const lx1      = isL ? 68 : ex;
-          const lx2      = isL ? ex : 212;
+          // ponto lateral da linha: na altura média do rótulo
+          const midY     = (nameY + valY) / 2;
 
           return (
             <g key={label} style={{ transition: 'opacity 0.35s ease', opacity }}>
-              {/* Linha conectora: área de rótulo → borda do corpo */}
-              <line x1={lx1} y1={y} x2={lx2} y2={y}
-                stroke={lineClr} strokeWidth={lineW} />
+              {/* Linha diagonal da margem até o corpo */}
+              <line
+                x1={isL ? lineX : bodyX} y1={isL ? midY : bodyY}
+                x2={isL ? bodyX : lineX} y2={isL ? bodyY : midY}
+                stroke={lineClr} strokeWidth={lineW}
+              />
               {/* Tick na borda do corpo */}
-              <line x1={ex} y1={y - 3.5} x2={ex} y2={y + 3.5}
-                stroke={lineClr} strokeWidth={isActive ? 1.3 : 0.9} />
-              {/* Rótulo — Cormorant Garamond, maiúsculo */}
-              <text x={tx} y={y - 3}
-                textAnchor={isL ? 'start' : 'end'}
-                fontSize="7.5" fill={labClr}
+              <line x1={bodyX} y1={bodyY - 7} x2={bodyX} y2={bodyY + 7}
+                stroke={lineClr} strokeWidth={isActive ? 2.8 : 1.8} />
+              {/* Nome — Cormorant Garamond, versalete */}
+              <text x={tx} y={nameY}
+                textAnchor={isL ? 'end' : 'start'}
+                fontSize="16" fill={labClr}
                 style={{
                   fontFamily: 'var(--font-serif)',
                   fontWeight: isActive ? 600 : 500,
@@ -461,9 +437,9 @@ function PeriMetrosFigura({ reg, metrica }) {
                 {label.toUpperCase()}
               </text>
               {/* Valor — Jost */}
-              <text x={tx} y={y + 10}
-                textAnchor={isL ? 'start' : 'end'}
-                fontSize={isActive ? 13 : 11.5}
+              <text x={tx} y={valY}
+                textAnchor={isL ? 'end' : 'start'}
+                fontSize={isActive ? 28 : 24}
                 fill={valClr}
                 style={{
                   fontFamily: "'Jost', var(--font-sans)",
