@@ -375,50 +375,48 @@ export default function Inicio() {
 
 
       {/* 5 — BLOCO B: Água + Adesão compactos lado a lado, Sequência abaixo */}
-      {habitos.length > 0 && (habiToAgua || habitosStreak > 0 || adesaoSemana !== null) && (
+      {habitos.length > 0 && (adesaoSemana !== null || habiToAgua != null || habitosStreak > 0) && (
         <div style={{ margin: '0 0 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
 
-          {/* Água + Adesão — dois cards compactos lado a lado */}
-          {(habiToAgua || adesaoSemana !== null) && (
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: habiToAgua && adesaoSemana !== null ? '1fr 1fr' : '1fr',
-              gap: 8,
-            }}>
-              {habiToAgua && (() => {
-                const v   = habitosLogs[habiToAgua.id] ?? 0;
-                const meta = habiToAgua.meta ?? 0;
-                const uni  = habiToAgua.unidade ?? '';
-                const pct  = meta > 0 ? Math.min(100, Math.round((v / meta) * 100)) : 0;
-                return (
-                  <div style={{ padding: '12px 14px', borderRadius: 12, background: 'var(--paper)', border: '0.5px solid var(--hair)' }}>
-                    <div style={{ fontSize: 18, marginBottom: 4 }}>💧</div>
-                    <div style={{
-                      fontSize: 22, fontWeight: 700, lineHeight: 1,
-                      color: pct >= 100 ? 'var(--green)' : pct >= 60 ? 'var(--gold-deep)' : 'var(--ink)',
-                    }}>
-                      {fmtNum(v, uni)}
-                    </div>
-                    <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 3 }}>
-                      {meta > 0 ? `meta ${fmtNum(meta, uni)}` : 'água hoje'}
-                    </div>
-                  </div>
-                );
-              })()}
-              {adesaoSemana !== null && (
-                <div style={{ padding: '12px 14px', borderRadius: 12, background: 'var(--paper)', border: '0.5px solid var(--hair)' }}>
-                  <div style={{ fontSize: 18, marginBottom: 4 }}>📊</div>
+          {/* Água + Adesão — sempre lado a lado.
+              Água aparece mesmo quando v=0 ou habiToAgua=null (mostra 0 L com defaults).
+              Em telas estreitas, flex-wrap empilha os cards. */}
+          {(habiToAgua != null || adesaoSemana !== null) && (() => {
+            const v   = habiToAgua ? (habitosLogs[habiToAgua.id] ?? 0) : 0;
+            const meta = habiToAgua?.meta ?? 0;
+            const uni  = habiToAgua?.unidade ?? 'L';
+            const pct  = meta > 0 ? Math.min(100, Math.round((v / meta) * 100)) : 0;
+            return (
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {/* Água — sempre renderiza (v=0 quando sem log hoje) */}
+                <div style={{ flex: '1 1 120px', padding: '12px 14px', borderRadius: 12, background: 'var(--paper)', border: '0.5px solid var(--hair)' }}>
+                  <div style={{ fontSize: 18, marginBottom: 4 }}>💧</div>
                   <div style={{
                     fontSize: 22, fontWeight: 700, lineHeight: 1,
-                    color: adesaoSemana >= 80 ? 'var(--green)' : adesaoSemana >= 50 ? 'var(--gold-deep)' : 'var(--ink)',
+                    color: pct >= 100 ? 'var(--green)' : pct >= 60 ? 'var(--gold-deep)' : 'var(--ink)',
                   }}>
-                    {adesaoSemana}<span style={{ fontSize: 14, fontWeight: 400 }}>%</span>
+                    {fmtNum(v, uni)}
                   </div>
-                  <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 3 }}>esta semana</div>
+                  <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 3 }}>
+                    {meta > 0 ? `meta ${fmtNum(meta, uni)}` : 'água hoje'}
+                  </div>
                 </div>
-              )}
-            </div>
-          )}
+                {/* Adesão */}
+                {adesaoSemana !== null && (
+                  <div style={{ flex: '1 1 120px', padding: '12px 14px', borderRadius: 12, background: 'var(--paper)', border: '0.5px solid var(--hair)' }}>
+                    <div style={{ fontSize: 18, marginBottom: 4 }}>📊</div>
+                    <div style={{
+                      fontSize: 22, fontWeight: 700, lineHeight: 1,
+                      color: adesaoSemana >= 80 ? 'var(--green)' : adesaoSemana >= 50 ? 'var(--gold-deep)' : 'var(--ink)',
+                    }}>
+                      {adesaoSemana}<span style={{ fontSize: 14, fontWeight: 400 }}>%</span>
+                    </div>
+                    <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 3 }}>esta semana</div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Sequência — card separado */}
           {habitosStreak > 0 && (
