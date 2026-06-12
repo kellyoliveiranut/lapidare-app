@@ -60,23 +60,37 @@ export function kcalDoAlimento(nomeAlimento, qtyStr) {
   return (al.kcal * g) / 100;
 }
 
-// Retorna { gramas, porcaoTexto } — gramagem do substituto que equivale a kcalAlvo.
-// porcaoTexto é opcional ("~2 porções") quando porcao_g está na TACO.
+// Retorna a medida caseira humanizada para {gramas} do {alimento} TACO.
+// Ex.: "1,3 colher de sopa", "2,0 unidade". Null se porcao_g ausente.
+export function medidaCaseira(gramas, alimento) {
+  if (!alimento?.porcao_g || alimento.porcao_g <= 0) return null;
+
+  const porcao = String(alimento.porcao ?? '');
+  const m = porcao.match(/^(\d+(?:[,.]\d+)?)?\s*([^(]+?)\s*\(/);
+  if (!m) return null;
+
+  const quantidadeInicial = m[1] ? parseFloat(m[1].replace(',', '.')) : 1;
+  let unidade = m[2].trim();
+  if (!unidade) return null;
+
+  // "col sopa" → "colher de sopa", "col chá" → "colher de chá", etc.
+  unidade = unidade.replace(/\bcol\b\s+/g, 'colher de ');
+
+  const qtd = (quantidadeInicial * gramas) / alimento.porcao_g;
+  if (qtd <= 0) return null;
+
+  return `${qtd.toFixed(1).replace('.', ',')} ${unidade}`;
+}
+
+// Retorna { gramas, medida } — gramagem do substituto que equivale a kcalAlvo.
+// medida é a medida caseira humanizada via TACO (ex.: "1,3 colher de sopa").
 export function kcalEquivalente(kcalAlvo, nomeSubstituto) {
   if (!kcalAlvo || kcalAlvo <= 0) return null;
   const al = buscarAlimento(nomeSubstituto);
   if (!al || !al.kcal || al.kcal <= 0) return null;
 
   const gramas = Math.round((kcalAlvo * 100) / al.kcal);
+  const medida = medidaCaseira(gramas, al);
 
-  let porcaoTexto = null;
-  if (al.porcao_g && al.porcao_g > 0) {
-    const n = +(gramas / al.porcao_g).toFixed(1);
-    if (n >= 0.5 && n <= 20) {
-      const fmt = Number.isInteger(n) ? String(n) : String(n).replace('.', ',');
-      porcaoTexto = `~${fmt} porção${n === 1 ? '' : 'ões'}`;
-    }
-  }
-
-  return { gramas, porcaoTexto };
+  return { gramas, medida };
 }

@@ -8,6 +8,7 @@ import {
 } from '../../lib/utils.js';
 import { TEMPLATE_PADRAO } from '../../lib/checkinDefault.js';
 import { callAnthropic } from '../../lib/anthropic.js';
+import { kcalDoAlimento, kcalEquivalente } from '../../lib/taco.js';
 import DateInput from '../../components/DateInput.jsx';
 import CheckinForm from '../../components/CheckinForm.jsx';
 const Evolucao             = lazy(() => import('./_Evolucao.jsx'));
@@ -2437,16 +2438,39 @@ DIRETRIZES:
                     <span style={{ fontWeight: 600, fontSize: 13 }}>{ref.nome}</span>
                     {ref.horario && <span style={{ fontSize: 11, color: 'var(--muted)', marginLeft: 'auto' }}>{ref.horario}</span>}
                   </div>
-                  {(ref.alimentos ?? []).map((al, ai) => (
-                    <div key={ai} style={{
-                      padding: '7px 12px',
-                      borderTop: '0.5px solid var(--border)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    }}>
-                      <div style={{ fontSize: 13 }}>{al.nome}</div>
-                      {al.qty && <div style={{ fontSize: 11, color: 'var(--muted)' }}>{al.qty}</div>}
-                    </div>
-                  ))}
+                  {(ref.alimentos ?? []).map((al, ai) => {
+                    const kcalAlvo = al.kcal ?? kcalDoAlimento(al.nome, al.qty) ?? null;
+                    return (
+                      <div key={ai}>
+                        <div style={{
+                          padding: '7px 12px',
+                          borderTop: '0.5px solid var(--border)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        }}>
+                          <div style={{ fontSize: 13 }}>{al.nome}</div>
+                          {al.qty && <div style={{ fontSize: 11, color: 'var(--muted)' }}>{al.qty}</div>}
+                        </div>
+                        {al.subs?.length > 0 && (
+                          <div style={{ padding: '3px 12px 8px 20px', display: 'flex', flexDirection: 'column', gap: 3, background: 'var(--bg2)' }}>
+                            {al.subs.map((subNome, si) => {
+                              const eq = kcalAlvo ? kcalEquivalente(kcalAlvo, subNome) : null;
+                              const textoEquiv = eq ? `≈ ${eq.gramas} g${eq.medida ? ` · ${eq.medida}` : ''}` : null;
+                              return (
+                                <div key={si} style={{ fontSize: 11, color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                                  <span>→ {subNome}</span>
+                                  {textoEquiv && (
+                                    <span style={{ fontSize: 10, color: '#9A7B3F', background: '#EDE5D8', borderRadius: 4, padding: '1px 6px', fontWeight: 500, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                                      {textoEquiv}
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                   {(ref.alimentos ?? []).length === 0 && (
                     <div style={{ padding: '7px 12px', fontSize: 12, color: 'var(--muted)' }}>Sem alimentos cadastrados</div>
                   )}

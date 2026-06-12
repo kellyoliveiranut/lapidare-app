@@ -105,7 +105,7 @@ export default function PlanoView({ dados, validade, readOnly = false }) {
                           const eq = kcalAlvo ? kcalEquivalente(kcalAlvo, nomeS) : null;
                           let textoEquiv = null;
                           if (eq) {
-                            textoEquiv = `≈ ${eq.gramas} g${eq.porcaoTexto ? ` (${eq.porcaoTexto})` : ''}`;
+                            textoEquiv = `≈ ${eq.gramas} g${eq.medida ? ` · ${eq.medida}` : ''}`;
                           } else if (typeof s === 'object' && s.qty_equiv) {
                             textoEquiv = `≈ ${s.qty_equiv}`;
                           }
