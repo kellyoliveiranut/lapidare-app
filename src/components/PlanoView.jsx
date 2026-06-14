@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { dataBR } from '../lib/utils.js';
-import { kcalDoAlimento, kcalEquivalente } from '../lib/taco.js';
+import { kcalDoAlimento, kcalEquivalente, parseGramas } from '../lib/taco.js';
 import './PlanoView.css';
 
 /**
@@ -97,14 +97,21 @@ export default function PlanoView({ dados, validade, readOnly = false }) {
                     {openSubs[`${ri}-${ai}`] ? 'Fechar substituições' : `Ver ${al.subs.length} substituições`}
                   </button>
                   {openSubs[`${ri}-${ai}`] && (() => {
-                    const kcalAlvo = al.kcal ?? kcalDoAlimento(al.nome, al.qty ?? al.quantidade) ?? null;
+                    const qtyStr = al.qty ?? al.quantidade;
+                    const kcalAlvo = al.kcal ?? kcalDoAlimento(al.nome, qtyStr) ?? null;
+                    const gramasOrig = parseGramas(qtyStr);
                     return (
                       <div className="subs-list">
                         {al.subs.map((s, si) => {
                           const nomeS = typeof s === 'object' ? (s.nome ?? '') : String(s);
                           const eq = kcalAlvo ? kcalEquivalente(kcalAlvo, nomeS) : null;
                           let textoEquiv = null;
-                          if (eq) {
+                          if (
+                            eq &&
+                            gramasOrig != null &&
+                            eq.gramas >= gramasOrig * 0.2 &&
+                            eq.gramas <= gramasOrig * 5
+                          ) {
                             textoEquiv = `≈ ${eq.gramas} g${eq.medida ? ` · ${eq.medida}` : ''}`;
                           } else if (typeof s === 'object' && s.qty_equiv) {
                             textoEquiv = `≈ ${s.qty_equiv}`;

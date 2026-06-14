@@ -11,40 +11,57 @@ export function normalizar(nome) {
     .trim();
 }
 
+// Keywords que indicam alimento líquido/lácteo: evitam casar "leite de X" com o ingrediente sólido X.
+const LIQUID_CLASSES = ['leite', 'bebida', 'suco', 'cha', 'infusao', 'iogurte', 'queijo', 'requeijao', 'creme'];
+
+// Stop words de 3+ chars que não identificam alimentos (preposições/pronomes)
+const STOP_WORDS = new Set(['dos', 'das', 'nas', 'nos', 'por', 'para']);
+
 // Encontra o alimento na TACO por nome normalizado.
-// Ordem: 1) exato, 2) busca ⊂ norm, 3) norm ⊂ busca, 4) todas as palavras, 5) melhor parcial.
+// Ordem: 1) exato, 2) food.norm contém busca, 3) busca contém food.norm (≥8 chars),
+//        4) todas as content-words com checagem de classe líquida.
 export function buscarAlimento(nome) {
   if (!nome) return null;
   const n = normalizar(nome);
   if (!n) return null;
 
+  // 1) Exato
   let r = _lista.find(a => a.norm === n);
   if (r) return r;
 
-  r = _lista.find(a => a.norm.includes(n));
-  if (r) return r;
-
-  r = _lista.find(a => n.includes(a.norm));
-  if (r) return r;
-
-  const words = n.split(/\s+/).filter(w => w.length > 2);
-  if (words.length > 0) {
-    r = _lista.find(a => words.every(w => a.norm.includes(w)));
+  // 2) Nome do alimento contém o termo buscado (ex.: "aveia em flocos" ⊆ "aveia em flocos integral")
+  if (n.length >= 4) {
+    r = _lista.find(a => a.norm.includes(n));
     if (r) return r;
-
-    let best = null, bestScore = 0;
-    for (const a of _lista) {
-      const score = words.filter(w => a.norm.includes(w)).length;
-      if (score > bestScore) { bestScore = score; best = a; }
-    }
-    if (best && bestScore >= Math.ceil(words.length * 0.6)) return best;
   }
 
-  return null;
+  // 3) Busca contém o nome do alimento — exige ≥8 chars para evitar ingredientes curtos
+  //    (ex.: "amendoa" com 7 chars NÃO casa "leite vegetal de amendoas")
+  r = _lista.find(a => a.norm.length >= 8 && n.includes(a.norm));
+  if (r) return r;
+
+  // 4) Content-word match com verificação de coerência de classe
+  //    Remove qualificadores negativos "sem X" antes de extrair as palavras-chave
+  const stripped = n.replace(/\bsem\s+\w+/g, '').trim();
+  const words = stripped
+    .split(/\s+/)
+    .filter(w => w.length >= 3 && !STOP_WORDS.has(w));
+  if (words.length === 0) return null;
+
+  // Se a busca é de alimento líquido/lácteo, o resultado também deve sê-lo
+  const searchIsLiquid = LIQUID_CLASSES.some(kw => n.includes(kw));
+
+  r = _lista.find(a => {
+    if (!words.every(w => a.norm.includes(w))) return false;
+    if (searchIsLiquid && !LIQUID_CLASSES.some(kw => a.norm.includes(kw))) return false;
+    return true;
+  });
+  return r ?? null;
 }
 
 // Extrai gramas de uma string de quantidade ("150g", "200 ml", "100 g")
-function _parseGramas(qty) {
+// Trata ml como g para fins calóricos de alimentos líquidos.
+export function parseGramas(qty) {
   if (!qty) return null;
   const m = String(qty).match(/(\d+(?:[,.]\d+)?)\s*(?:g(?:r(?:ama?s?)?)?\b|ml\b)/i);
   if (!m) return null;
@@ -55,7 +72,7 @@ function _parseGramas(qty) {
 export function kcalDoAlimento(nomeAlimento, qtyStr) {
   const al = buscarAlimento(nomeAlimento);
   if (!al || !al.kcal || al.kcal <= 0) return null;
-  const g = _parseGramas(qtyStr);
+  const g = parseGramas(qtyStr);
   if (!g || g <= 0) return null;
   return (al.kcal * g) / 100;
 }
