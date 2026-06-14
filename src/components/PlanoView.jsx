@@ -112,7 +112,7 @@ export default function PlanoView({ dados, validade, readOnly = false }) {
                             eq.gramas >= gramasOrig * 0.2 &&
                             eq.gramas <= gramasOrig * 5
                           ) {
-                            textoEquiv = `≈ ${eq.gramas} g${eq.medida ? ` · ${eq.medida}` : ''}`;
+                            textoEquiv = `≈ ${eq.gramas} ${eq.liquido ? 'ml' : 'g'}${eq.medida ? ` · ${eq.medida}` : ''}`;
                           } else if (typeof s === 'object' && s.qty_equiv) {
                             textoEquiv = `≈ ${s.qty_equiv}`;
                           }

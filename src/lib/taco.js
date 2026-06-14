@@ -14,6 +14,17 @@ export function normalizar(nome) {
 // Keywords que indicam alimento líquido/lácteo: evitam casar "leite de X" com o ingrediente sólido X.
 const LIQUID_CLASSES = ['leite', 'bebida', 'suco', 'cha', 'infusao', 'iogurte', 'queijo', 'requeijao', 'creme'];
 
+// Termos no norm que identificam bebidas/líquidos (além do grupo "Bebidas")
+const LIQUID_TERMS = ['leite', 'bebida', 'suco', 'agua', 'caldo', 'cha', 'cafe', 'refrigerante', 'isotonico', 'iogurte', 'kefir', 'vitamina', 'smoothie'];
+
+// Retorna true se o alimento TACO for uma bebida/líquido.
+export function ehLiquido(alimento) {
+  if (!alimento) return false;
+  if (alimento.grupo === 'Bebidas') return true;
+  const n = alimento.norm ?? normalizar(alimento.nome ?? '');
+  return LIQUID_TERMS.some(t => n.includes(t));
+}
+
 // Stop words de 3+ chars que não identificam alimentos (preposições/pronomes)
 const STOP_WORDS = new Set(['dos', 'das', 'nas', 'nos', 'por', 'para']);
 
@@ -108,6 +119,7 @@ export function kcalEquivalente(kcalAlvo, nomeSubstituto) {
 
   const gramas = Math.round((kcalAlvo * 100) / al.kcal);
   const medida = medidaCaseira(gramas, al);
+  const liquido = ehLiquido(al);
 
-  return { gramas, medida };
+  return { gramas, medida, liquido };
 }
