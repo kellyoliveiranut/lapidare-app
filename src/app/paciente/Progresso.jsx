@@ -50,7 +50,7 @@ export default function Progresso() {
       if (!pacienteId) return;
       const { data } = await supabase
         .from('peso_registros')
-        .select('id, data, kg, altura_cm, cintura_cm, quadril_cm, abdome_cm, braco_cm, braco_dir_cm, braco_esq_cm, coxa_cm, coxa_dir_cm, coxa_esq_cm, panturrilha_cm, pgc, mm_kg, obs')
+        .select('id, data, kg, cintura_cm, quadril_cm, braco_cm, coxa_cm, pgc, mm_kg, obs')
         .eq('paciente_id', pacienteId)
         .order('data', { ascending: true });
       if (!active) return;
@@ -119,15 +119,6 @@ export default function Progresso() {
   const atual   = dadosMetrica.length > 0 ? dadosMetrica[dadosMetrica.length - 1] : null;
   const inicial = dadosMetrica.length > 0 ? dadosMetrica[0] : null;
 
-  // Registro mais recente para a figura de perímetros
-  const maisRecente = registros.length > 0 ? registros[registros.length - 1] : null;
-  const temPerimetros = maisRecente != null && (
-    maisRecente.cintura_cm != null ||
-    maisRecente.quadril_cm != null ||
-    (maisRecente.braco_dir_cm ?? maisRecente.braco_esq_cm ?? maisRecente.braco_cm) != null ||
-    (maisRecente.coxa_dir_cm ?? maisRecente.coxa_esq_cm ?? maisRecente.coxa_cm) != null ||
-    maisRecente.panturrilha_cm != null
-  );
   const dif = (atual && inicial && dadosMetrica.length > 1)
     ? (atual.valor - inicial.valor)
     : 0;
@@ -241,24 +232,6 @@ export default function Progresso() {
         </div>
       )}
 
-      {/* ─── PERÍMETROS ──────────────────────────────────────── */}
-      <div style={{ margin: '14px 0 0' }}>
-        <div style={{ fontSize: 10, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--muted)', fontWeight: 500, marginBottom: 10 }}>
-          Perímetros corporais
-        </div>
-        {temPerimetros ? (
-          <div className="card" style={{ padding: '16px 10px 12px' }}>
-            <PeriMetrosFigura reg={maisRecente} metrica={metrica} />
-          </div>
-        ) : (
-          <div className="card" style={{ padding: '16px', textAlign: 'center' }}>
-            <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.6 }}>
-              Suas medidas corporais aparecerão aqui após a avaliação com a nutricionista.
-            </div>
-          </div>
-        )}
-      </div>
-
       {/* ─── HISTÓRICO ────────────────────────────────────────── */}
       <div style={{ margin: '14px 0 8px', fontSize: 10, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--muted)', fontWeight: 500 }}>
         Histórico de avaliações ({registros.length})
@@ -309,168 +282,6 @@ export default function Progresso() {
       </div>
 
       <FotosEvolucao />
-    </>
-  );
-}
-
-/* ============================================================
-   FIGURA DE PERÍMETROS — silhueta com medidas mais recentes
-   ============================================================ */
-function PeriMetrosFigura({ reg, metrica }) {
-  const braco = reg.braco_dir_cm ?? reg.braco_esq_cm ?? reg.braco_cm;
-  const coxa  = reg.coxa_dir_cm  ?? reg.coxa_esq_cm  ?? reg.coxa_cm;
-  const { cintura_cm, quadril_cm, abdome_cm, panturrilha_cm, kg, altura_cm } = reg;
-
-  // Índice de Conicidade: IC = (cintura_m) / (0.109 × √(peso_kg / altura_m))
-  const ic = (cintura_cm && kg && altura_cm)
-    ? (cintura_cm / 100) / (0.109 * Math.sqrt(kg / (altura_cm / 100)))
-    : null;
-
-  const f = v => v != null ? Number(v).toFixed(1) : null;
-
-  // Paleta Essentia
-  const FOREST  = '#2C3A30';
-  const GOLD    = '#C4A882';
-  const GOLD_DK = '#9A7B3F';
-  const MUTED   = '#8a7a6a';
-
-  // Métrica selecionada → região do corpo a destacar
-  const METRIC_REGION = { cintura_cm: 'Cintura', quadril_cm: 'Quadril' };
-  const activeLabel = METRIC_REGION[metrica] ?? null;
-
-  // viewBox 680×560.  bodyX/bodyY: ponto-âncora na silhueta.
-  // nameY/valY: baseline dos textos na margem.
-  // lineX: x onde a linha lateral inicia (esq) ou termina (dir).
-  // tx: x de âncora do texto (textAnchor end para L, start para R).
-  const linhas = [
-    { label: 'Braço',       val: f(braco),         side: 'L', bodyX: 282, bodyY: 198, nameY: 195, valY: 211, lineX: 246, tx: 240 },
-    { label: 'Cintura',     val: f(cintura_cm),     side: 'L', bodyX: 300, bodyY: 236, nameY: 247, valY: 263, lineX: 246, tx: 240 },
-    { label: 'Abdome',      val: f(abdome_cm),      side: 'L', bodyX: 288, bodyY: 295, nameY: 308, valY: 328, lineX: 246, tx: 240 },
-    { label: 'Quadril',     val: f(quadril_cm),     side: 'R', bodyX: 392, bodyY: 300, nameY: 297, valY: 313, lineX: 438, tx: 444 },
-    { label: 'Coxa',        val: f(coxa),           side: 'R', bodyX: 384, bodyY: 362, nameY: 359, valY: 375, lineX: 438, tx: 444 },
-    { label: 'Panturrilha', val: f(panturrilha_cm), side: 'R', bodyX: 380, bodyY: 442, nameY: 439, valY: 455, lineX: 438, tx: 444 },
-  ];
-
-  return (
-    <>
-      <svg
-        viewBox="0 0 680 560"
-        style={{ width: '100%', maxWidth: 440, display: 'block', margin: '0 auto' }}
-        aria-hidden="true"
-      >
-        <defs>
-          <linearGradient id="pf-body" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%"   stopColor="#faf8f5" />
-            <stop offset="100%" stopColor="#ede8e0" />
-          </linearGradient>
-          <filter id="pf-shadow" x="-10%" y="-4%" width="120%" height="116%">
-            <feDropShadow dx="0" dy="3" stdDeviation="5"
-              floodColor="#2C3A30" floodOpacity="0.07" />
-          </filter>
-        </defs>
-
-        {/* ── Silhueta ── */}
-        <ellipse cx="340" cy="72" rx="26" ry="31"
-          fill="url(#pf-body)" stroke="#2C3A30" strokeWidth="1.3"
-          filter="url(#pf-shadow)" />
-
-        {/* Corpo (tronco + pernas) */}
-        <path fill="url(#pf-body)" stroke="#2C3A30" strokeWidth="1.3"
-          filter="url(#pf-shadow)"
-          d="M326 100 C324 110 322 114 316 118 C305 122 298 128 296 140
-             C292 165 292 200 298 235 C293 260 286 285 288 305
-             C290 320 296 380 300 440 C301 470 302 495 303 508
-             C304 514 314 515 319 511 C322 505 323 460 324 410
-             C325 375 326 340 327 312 C328 318 335 320 340 320
-             C345 320 352 318 353 312 C354 340 355 375 356 410
-             C357 460 358 505 361 511 C366 515 376 514 377 508
-             C378 495 379 470 380 440 C384 380 390 320 392 305
-             C394 285 387 260 382 235 C388 200 388 165 384 140
-             C382 128 375 122 364 118 C358 114 356 110 354 100
-             C348 98 332 98 326 100 Z" />
-
-        {/* Braço esquerdo */}
-        <path fill="url(#pf-body)" stroke="#2C3A30" strokeWidth="1.3"
-          d="M296 138 C287 145 281 175 279 215 C277 245 278 272 282 288
-             C284 293 288 293 290 288 C292 265 294 220 299 178
-             C301 160 302 145 300 135 C299 133 297 134 296 138 Z" />
-
-        {/* Braço direito */}
-        <path fill="url(#pf-body)" stroke="#2C3A30" strokeWidth="1.3"
-          d="M384 138 C393 145 399 175 401 215 C403 245 402 272 398 288
-             C396 293 392 293 390 288 C388 265 386 220 381 178
-             C379 160 378 145 380 135 C381 133 383 134 384 138 Z" />
-
-        {/* ── Linhas de medida + rótulos ── */}
-        {linhas.map(({ label, val, side, bodyX, bodyY, nameY, valY, lineX, tx }) => {
-          const isL      = side === 'L';
-          const isActive = activeLabel === label;
-          const isDimmed = activeLabel !== null && !isActive;
-          const opacity  = isDimmed ? 0.18 : 1;
-          const lineClr  = isActive ? GOLD_DK : GOLD;
-          const lineW    = isActive ? 1.8 : 1.0;
-          const valClr   = val ? (isActive ? GOLD_DK : GOLD) : MUTED;
-          const labClr   = isActive ? FOREST : MUTED;
-          // ponto lateral da linha: na altura média do rótulo
-          const midY     = (nameY + valY) / 2;
-
-          return (
-            <g key={label} style={{ transition: 'opacity 0.35s ease', opacity }}>
-              {/* Linha diagonal da margem até o corpo */}
-              <line
-                x1={isL ? lineX : bodyX} y1={isL ? midY : bodyY}
-                x2={isL ? bodyX : lineX} y2={isL ? bodyY : midY}
-                stroke={lineClr} strokeWidth={lineW}
-              />
-              {/* Tick na borda do corpo */}
-              <line x1={bodyX} y1={bodyY - 7} x2={bodyX} y2={bodyY + 7}
-                stroke={lineClr} strokeWidth={isActive ? 2.8 : 1.8} />
-              {/* Nome — Cormorant Garamond, versalete */}
-              <text x={tx} y={nameY}
-                textAnchor={isL ? 'end' : 'start'}
-                fontSize="16" fill={labClr}
-                style={{
-                  fontFamily: 'var(--font-serif)',
-                  fontWeight: isActive ? 600 : 500,
-                  letterSpacing: '0.09em',
-                }}>
-                {label.toUpperCase()}
-              </text>
-              {/* Valor — Jost */}
-              <text x={tx} y={valY}
-                textAnchor={isL ? 'end' : 'start'}
-                fontSize={isActive ? 28 : 24}
-                fill={valClr}
-                style={{
-                  fontFamily: "'Jost', var(--font-sans)",
-                  fontWeight: isActive ? 700 : 600,
-                }}>
-                {val != null ? `${val} cm` : '—'}
-              </text>
-            </g>
-          );
-        })}
-      </svg>
-
-      {/* Índice de Conicidade */}
-      {ic != null && (
-        <div style={{
-          display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 10,
-          marginTop: 10, padding: '7px 16px',
-          background: 'var(--bg-soft,#f5f0eb)', borderRadius: 20,
-          border: '0.5px solid var(--hair,#e0d8cc)',
-        }}>
-          <span style={{ fontSize: 10, color: MUTED, letterSpacing: '.05em', textTransform: 'uppercase' }}>
-            Índice de conicidade
-          </span>
-          <span style={{ fontSize: 17, fontWeight: 700, color: FOREST, fontFamily: 'var(--font-serif,serif)' }}>
-            {ic.toFixed(2)}
-          </span>
-          <span style={{ fontSize: 10, color: ic > 1.25 ? '#c0392b' : MUTED }}>
-            {ic > 1.25 ? '↑ atenção' : '✓ ok'}
-          </span>
-        </div>
-      )}
     </>
   );
 }
