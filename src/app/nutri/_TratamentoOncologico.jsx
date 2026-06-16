@@ -20,7 +20,7 @@ const TIPO_TRAT = [
   { v: 'combinado',      l: 'Combinado' },
 ];
 
-const INTERVALOS = [7, 14, 21, 28];
+const INTERVALOS = [7, 14, 15, 21, 28];
 
 const ESTADIAMENTOS = ['I', 'II', 'III', 'IV', 'IA', 'IB', 'IIA', 'IIB', 'IIIA', 'IIIB', 'IIIC'];
 
