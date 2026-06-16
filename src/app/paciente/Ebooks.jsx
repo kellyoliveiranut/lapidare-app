@@ -33,7 +33,7 @@ export default function Ebooks() {
         .from('ebooks')
         .select('*')
         .in('id', ids)
-        .not('tag', 'in', '("manipulados","suplementacao")') // ambas as tags aparecem em Suplementação
+        .not('tag', 'in', '("manipulados","suplementacao","formulacoes")')
         .order('created_at', { ascending: false });
       setEbooks(data ?? []);
     })();

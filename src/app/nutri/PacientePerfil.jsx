@@ -4276,10 +4276,10 @@ function EbooksDaPaciente({ pacienteId, nutriId, pacienteNome }) {
     window.open(data.publicUrl, '_blank', 'noopener');
   }
 
-  const TAGS_SUPLEMENTO = new Set(['manipulados', 'suplementacao']);
+  const TAGS_SUPLEMENTO = new Set(['manipulados', 'suplementacao', 'formulacoes']);
   const atribuidos = todos.filter(e => atribuidosIds.has(e.id) && !TAGS_SUPLEMENTO.has(e.tag));
-  const disponiveis = todos.filter(e => !atribuidosIds.has(e.id))
-    .filter(e => {
+  const disponivelBase = todos.filter(e => !atribuidosIds.has(e.id) && !TAGS_SUPLEMENTO.has(e.tag));
+  const disponiveis = disponivelBase.filter(e => {
       if (acervo !== 'todas' && secaoEbook(e.tag) !== acervo) return false;
       if (!busca.trim()) return true;
       const q = busca.trim().toLowerCase();
@@ -4352,7 +4352,7 @@ function EbooksDaPaciente({ pacienteId, nutriId, pacienteNome }) {
               fontSize: 10, letterSpacing: 1, color: 'var(--text3)',
               textTransform: 'uppercase', fontWeight: 500,
             }}>
-              Disponíveis na biblioteca ({todos.length - atribuidos.length})
+              Disponíveis na biblioteca ({disponivelBase.length})
             </div>
             <input
               value={busca} onChange={e => setBusca(e.target.value)}
@@ -4369,8 +4369,8 @@ function EbooksDaPaciente({ pacienteId, nutriId, pacienteNome }) {
           }}>
             {ACERVOS.map(a => {
               const count = a.id === 'todas'
-                ? todos.length - atribuidos.length
-                : todos.filter(e => !atribuidosIds.has(e.id) && secaoEbook(e.tag) === a.id).length;
+                ? disponivelBase.length
+                : disponivelBase.filter(e => secaoEbook(e.tag) === a.id).length;
               return (
                 <button key={a.id} onClick={() => { setAcervo(a.id); setBusca(''); }}
                   style={{
