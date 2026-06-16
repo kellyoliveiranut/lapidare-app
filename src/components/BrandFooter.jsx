@@ -5,6 +5,8 @@
  * Variante `compact` é pra ficar logo acima da tab bar do app da paciente.
  */
 
+const APP_VERSION = '1.0'
+
 const buildLabel = (() => {
   try {
     return new Date(__BUILD_TIME__).toLocaleString('pt-BR', {
@@ -27,12 +29,10 @@ export default function BrandFooter({ compact = false }) {
       fontFamily: 'var(--font-sans)',
       userSelect: 'none',
     }}>
-      Desenvolvido por <strong style={{ fontWeight: 600 }}>DS EMPREENDEDORISMO DIGITAL</strong>
-      {buildLabel && (
-        <span style={{ display: 'block', fontSize: compact ? 8 : 9, marginTop: 2, opacity: 0.7 }}>
-          build {buildLabel}
-        </span>
-      )}
+      Desenvolvido por <strong style={{ fontWeight: 600 }}>Equipe Kelly Oliveira</strong>
+      <span style={{ display: 'block', fontSize: compact ? 8 : 9, marginTop: 2, opacity: 0.7 }}>
+        Versão {APP_VERSION}{buildLabel ? ` · build ${buildLabel}` : ''}
+      </span>
     </div>
   )
 }
