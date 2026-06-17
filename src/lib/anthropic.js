@@ -14,8 +14,9 @@ export async function callAnthropic(messages, { model = 'claude-sonnet-4-6', max
   });
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error?.message ?? `Erro ${res.status}`);
+    const body = await res.json().catch(() => ({}));
+    const msg = body.error?.message ?? body.error?.type ?? res.statusText ?? 'sem detalhes';
+    throw new Error(`${res.status}: ${msg}`);
   }
 
   const data = await res.json();

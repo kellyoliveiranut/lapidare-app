@@ -1935,8 +1935,13 @@ Liste TODOS os alimentos fornecidos, um objeto por alimento.`;
           } : {}),
         };
       }));
-    } catch {
-      setErroSubs('Não consegui gerar agora, tente novamente.');
+    } catch (err) {
+      console.error('[gerarSubstituicoesIA]', err);
+      if (err.message === 'formato-invalido') {
+        setErroSubs('A IA retornou um formato inesperado. Tente novamente.');
+      } else {
+        setErroSubs(`Falha (${err.message ?? 'erro desconhecido'})`);
+      }
     } finally {
       setGerandoSubs(false);
     }
