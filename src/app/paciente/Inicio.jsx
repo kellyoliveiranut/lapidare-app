@@ -53,7 +53,7 @@ export default function Inicio() {
         supabase.from('planos').select('dados, publicado_em')
           .eq('paciente_id', pacienteId).order('publicado_em', { ascending: false }).limit(1).maybeSingle(),
         supabase.from('dietas_pdf').select('id, titulo, created_at')
-          .eq('paciente_id', pacienteId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+          .eq('paciente_id', pacienteId).eq('tipo', 'dieta').order('created_at', { ascending: false }).limit(1).maybeSingle(),
         supabase.from('listas_compras').select('dados, publicado_em')
           .eq('paciente_id', pacienteId).order('publicado_em', { ascending: false }).limit(1).maybeSingle(),
         supabase.from('consultas').select('id, data_hora, tipo, duracao_min, meet_link, links_extras')

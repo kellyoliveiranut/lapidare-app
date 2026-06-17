@@ -1808,6 +1808,9 @@ function PublicarPlano({ pacienteId, nutriId, calculosImportados, onLimparImport
   const [uploadandoDieta, setUploadandoDieta] = useState(false);
   const [feedbackDieta, setFeedbackDieta]     = useState(null);
   const dietaPdfRef = useRef(null);
+  const [uploadandoSubs, setUploadandoSubs]   = useState(false);
+  const [feedbackSubs, setFeedbackSubs]       = useState(null);
+  const subsPdfRef = useRef(null);
 
   useEffect(() => { carregar(); }, [pacienteId]);
 
@@ -2394,6 +2397,7 @@ DIRETRIZES:
         nutri_id: nutriId,
         storage_path: path,
         titulo: arquivo.name.replace(/\.[^.]+$/, ''),
+        tipo: 'dieta',
       });
       if (insErr) {
         await supabase.storage.from('prescricoes').remove([path]);
@@ -2405,6 +2409,35 @@ DIRETRIZES:
     } finally {
       setUploadandoDieta(false);
       if (dietaPdfRef.current) dietaPdfRef.current.value = '';
+    }
+  }
+
+  async function enviarSubstituicoesPdf(arquivo) {
+    setFeedbackSubs(null);
+    setUploadandoSubs(true);
+    const path = `${pacienteId}/substituicoes-${Date.now()}.pdf`;
+    try {
+      const { error: upErr } = await supabase.storage
+        .from('prescricoes')
+        .upload(path, arquivo, { contentType: arquivo.type });
+      if (upErr) throw new Error('Upload falhou: ' + upErr.message);
+      const { error: insErr } = await supabase.from('dietas_pdf').insert({
+        paciente_id: pacienteId,
+        nutri_id: nutriId,
+        storage_path: path,
+        titulo: arquivo.name.replace(/\.[^.]+$/, ''),
+        tipo: 'substituicoes',
+      });
+      if (insErr) {
+        await supabase.storage.from('prescricoes').remove([path]);
+        throw new Error('Erro ao registrar: ' + insErr.message);
+      }
+      setFeedbackSubs({ tipo: 'ok', msg: 'Lista de substituições enviada! A paciente já pode visualizar.' });
+    } catch (e) {
+      setFeedbackSubs({ tipo: 'erro', msg: e.message ?? 'Erro ao enviar PDF.' });
+    } finally {
+      setUploadandoSubs(false);
+      if (subsPdfRef.current) subsPdfRef.current.value = '';
     }
   }
 
@@ -3131,6 +3164,40 @@ DIRETRIZES:
         {feedbackDieta && (
           <div style={{ padding: '0 16px 12px' }}>
             <FeedbackInline f={feedbackDieta} />
+          </div>
+        )}
+      </div>
+
+      {/* ── Lista de substituições em PDF ── */}
+      <div className="card">
+        <div className="card-header">
+          <div>
+            <div className="card-title">Lista de substituições (PDF)</div>
+            <div className="card-sub">O PDF mais recente aparece para a paciente na área do Plano</div>
+          </div>
+          <input
+            ref={subsPdfRef}
+            type="file"
+            accept=".pdf,application/pdf"
+            style={{ display: 'none' }}
+            onChange={e => { const f = e.target.files?.[0]; if (f) enviarSubstituicoesPdf(f); }}
+          />
+          <button
+            className="btn"
+            onClick={() => subsPdfRef.current?.click()}
+            disabled={uploadandoSubs}
+          >
+            <i
+              className={`ti ti-${uploadandoSubs ? 'loader-2' : 'file-upload'}`}
+              style={uploadandoSubs ? { animation: 'lapidare-spin .75s linear infinite' } : {}}
+              aria-hidden="true"
+            />
+            {uploadandoSubs ? 'Enviando...' : 'Enviar lista de substituições (PDF)'}
+          </button>
+        </div>
+        {feedbackSubs && (
+          <div style={{ padding: '0 16px 12px' }}>
+            <FeedbackInline f={feedbackSubs} />
           </div>
         )}
       </div>
