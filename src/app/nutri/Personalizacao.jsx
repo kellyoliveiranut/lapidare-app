@@ -10,7 +10,7 @@ const TIPOGRAFIAS = [
 ];
 
 const PALETAS_PRONTAS = [
-  { nome: 'Dourado Lapidare', primaria: '#a08456', secundaria: '#c9a96e' },
+  { nome: 'Dourado Essentia', primaria: '#a08456', secundaria: '#c9a96e' },
   { nome: 'Rose Gold',        primaria: '#b76e79', secundaria: '#d4a5a5' },
   { nome: 'Verde Sálvia',     primaria: '#5e7a6b', secundaria: '#9bb19f' },
   { nome: 'Terracota',        primaria: '#a0613f', secundaria: '#d4926a' },
@@ -21,7 +21,7 @@ const PALETAS_PRONTAS = [
 export default function Personalizacao() {
   const { user, profile } = useSession();
   const [form, setForm] = useState({
-    marca_nome: 'Lapidare',
+    marca_nome: 'Essentia',
     marca_subtitulo: '',
     logo_url: null,
     cor_texto_sidebar: '',  // vazio = auto-calcula contraste
@@ -39,7 +39,7 @@ export default function Personalizacao() {
   useEffect(() => {
     if (!profile) return;
     setForm({
-      marca_nome: profile.marca_nome ?? 'Lapidare',
+      marca_nome: profile.marca_nome ?? 'Essentia',
       marca_subtitulo: profile.marca_subtitulo ?? '',
       logo_url: profile.logo_url ?? null,
       cor_texto_sidebar: profile.cor_texto_sidebar ?? '',
@@ -170,9 +170,9 @@ export default function Personalizacao() {
 
             <label className="form-lbl">Nome da marca · aparece em CIMA da sidebar e na tela de Login</label>
             <input value={form.marca_nome} onChange={e => setForm(f => ({ ...f, marca_nome: e.target.value }))}
-              placeholder="Ex: Lapidare, Nutri Ana, Sara Dias..." />
+              placeholder="Ex: Essentia, Nutri Ana, Sara Dias..." />
             <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4, fontStyle: 'italic' }}>
-              Substitui o "LAPIDARE" no topo da sidebar e na tela de Login das suas pacientes.
+              Substitui o "ESSENTIA" no topo da sidebar e na tela de Login das suas pacientes.
             </div>
 
             <label className="form-lbl" style={{ marginTop: 14 }}>Subtítulo · aparece EMBAIXO do nome na sidebar</label>

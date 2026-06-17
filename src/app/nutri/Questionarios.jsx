@@ -759,7 +759,7 @@ function RespostaModal({ envio, onClose }) {
   </div>
   ${linhas}
   <div style="margin-top: 30px; font-size: 10px; color: #aaa; text-align: center;">
-    Gerado pela Lapidare
+    Gerado pela Essentia
   </div>
   <script>window.onload = () => setTimeout(() => window.print(), 400);</script>
 </body>

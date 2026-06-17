@@ -14,8 +14,8 @@
  */
 
 export const ANAMNESE_LAPIDARE = {
-  nome: 'Anamnese Clínica Lapidare',
-  descricao: 'Modelo completo padrão Lapidare',
+  nome: 'Anamnese Clínica Essentia',
+  descricao: 'Modelo completo padrão Essentia',
   estrutura: {
     secoes: [
       {
