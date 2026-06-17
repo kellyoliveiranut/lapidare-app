@@ -1781,6 +1781,89 @@ function novoAlimento() {
   return { _id: Math.random().toString(36).slice(2), nome: '', quantidade: '', subs: '' };
 }
 
+function PdfListSection({ itens, excluindoId, onAbrir, onExcluir }) {
+  const btnBase = {
+    display: 'inline-flex', alignItems: 'center', gap: 4,
+    padding: '5px 10px', borderRadius: 6,
+    fontSize: 11, fontWeight: 600,
+    fontFamily: 'var(--font-sans)', cursor: 'pointer',
+    border: 'none',
+  };
+  return (
+    <div style={{ borderTop: '1px solid var(--border)' }}>
+      {itens.length === 0 ? (
+        <div style={{ padding: '11px 16px', fontSize: 13, color: 'var(--text3)' }}>
+          Nenhum enviado ainda.
+        </div>
+      ) : itens.map((pdf, idx) => {
+        const excluindo = excluindoId === pdf.id;
+        const dataFmt   = pdf.created_at
+          ? new Date(pdf.created_at).toLocaleDateString('pt-BR')
+          : '';
+        return (
+          <div
+            key={pdf.id}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '10px 16px',
+              borderBottom: idx < itens.length - 1 ? '1px solid var(--border)' : 'none',
+              background: idx === 0 ? '#FAFAF8' : undefined,
+            }}
+          >
+            <div style={{
+              flexShrink: 0, width: 32, height: 32, borderRadius: 8,
+              background: '#F4ECDD', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <i className="ti ti-file-type-pdf" style={{ fontSize: 16, color: '#9A7B3F' }} aria-hidden="true" />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                <span style={{
+                  fontSize: 13, fontWeight: 500, color: 'var(--dark)',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>
+                  {pdf.titulo || '(sem título)'}
+                </span>
+                {idx === 0 && (
+                  <span style={{
+                    flexShrink: 0, fontSize: 10, fontWeight: 700,
+                    padding: '1px 7px', borderRadius: 10,
+                    background: '#2C3A30', color: '#FDFBF8', letterSpacing: '.02em',
+                  }}>atual</span>
+                )}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 1 }}>{dataFmt}</div>
+            </div>
+            <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+              <button
+                onClick={() => onAbrir(pdf.storage_path)}
+                style={{ ...btnBase, border: '1px solid var(--border)', background: 'var(--bg2)', color: 'var(--dark)' }}
+              >
+                <i className="ti ti-external-link" style={{ fontSize: 12 }} aria-hidden="true" />
+                Abrir
+              </button>
+              <button
+                onClick={() => onExcluir(pdf)}
+                disabled={excluindo}
+                style={{
+                  ...btnBase,
+                  border: '1px solid #fca5a5',
+                  background: excluindo ? '#fef2f2' : '#fff',
+                  color: '#dc2626',
+                  cursor: excluindo ? 'default' : 'pointer',
+                }}
+              >
+                <i className="ti ti-trash" style={{ fontSize: 12 }} aria-hidden="true" />
+                {excluindo ? '…' : 'Excluir'}
+              </button>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function PublicarPlano({ pacienteId, nutriId, calculosImportados, onLimparImportados }) {
   const [macros, setMacros]       = useState({ kcal: '', proteinas_g: '', carbo_g: '', gorduras_g: '', agua_l: '' });
   const [refeicoes, setRefeicoes] = useState([]);
@@ -1856,7 +1939,7 @@ function PublicarPlano({ pacienteId, nutriId, calculosImportados, onLimparImport
   }
 
   async function excluirPdf(item) {
-    if (!window.confirm('Tem certeza? Esta ação é permanente.')) return;
+    if (!window.confirm('Excluir este arquivo? Esta ação é permanente.')) return;
     setExcluindoPdfId(item.id);
     try {
       await supabase.storage.from('prescricoes').remove([item.storage_path]);
@@ -3228,10 +3311,16 @@ DIRETRIZES:
           </button>
         </div>
         {feedbackDieta && (
-          <div style={{ padding: '0 16px 12px' }}>
+          <div style={{ padding: '0 16px 8px' }}>
             <FeedbackInline f={feedbackDieta} />
           </div>
         )}
+        <PdfListSection
+          itens={pdfsList.filter(p => p.tipo === 'dieta')}
+          excluindoId={excluindoPdfId}
+          onAbrir={abrirPdf}
+          onExcluir={excluirPdf}
+        />
       </div>
 
       {/* ── Lista de substituições em PDF ── */}
@@ -3262,97 +3351,17 @@ DIRETRIZES:
           </button>
         </div>
         {feedbackSubs && (
-          <div style={{ padding: '0 16px 12px' }}>
+          <div style={{ padding: '0 16px 8px' }}>
             <FeedbackInline f={feedbackSubs} />
           </div>
         )}
+        <PdfListSection
+          itens={pdfsList.filter(p => p.tipo === 'substituicoes')}
+          excluindoId={excluindoPdfId}
+          onAbrir={abrirPdf}
+          onExcluir={excluirPdf}
+        />
       </div>
-
-      {/* ── Histórico de PDFs enviados ── */}
-      {pdfsList.length > 0 && (
-        <div className="card">
-          <div className="card-header">
-            <div>
-              <div className="card-title">PDFs enviados</div>
-              <div className="card-sub">O mais recente de cada tipo é o que a paciente visualiza</div>
-            </div>
-          </div>
-          <div style={{ padding: 0 }}>
-            {pdfsList.map((pdf, idx) => {
-              const isAtual = idx === pdfsList.findIndex(p => p.tipo === pdf.tipo);
-              const rotulo  = pdf.tipo === 'dieta' ? 'Dieta' : 'Substituições';
-              const dataFmt = pdf.created_at
-                ? new Date(pdf.created_at).toLocaleDateString('pt-BR')
-                : '';
-              const excluindo = excluindoPdfId === pdf.id;
-              return (
-                <div key={pdf.id} style={{
-                  display: 'flex', alignItems: 'center', gap: 12,
-                  padding: '11px 16px',
-                  borderBottom: idx < pdfsList.length - 1 ? '1px solid var(--border)' : 'none',
-                }}>
-                  <div style={{
-                    flexShrink: 0, width: 36, height: 36, borderRadius: 10,
-                    background: '#F4ECDD', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>
-                    <i className="ti ti-file-type-pdf" style={{ fontSize: 18, color: '#9A7B3F' }} aria-hidden="true" />
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3, flexWrap: 'wrap' }}>
-                      <span style={{
-                        fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 10,
-                        background: pdf.tipo === 'dieta' ? '#dbeafe' : '#fef9c3',
-                        color: pdf.tipo === 'dieta' ? '#1d4ed8' : '#854d0e',
-                        letterSpacing: '.02em',
-                      }}>{rotulo}</span>
-                      {isAtual && (
-                        <span style={{
-                          fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 10,
-                          background: '#2C3A30', color: '#FDFBF8', letterSpacing: '.02em',
-                        }}>atual</span>
-                      )}
-                    </div>
-                    <div style={{ fontSize: 13, color: 'var(--dark)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {pdf.titulo || '(sem título)'}
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 1 }}>{dataFmt}</div>
-                  </div>
-                  <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                    <button
-                      onClick={() => abrirPdf(pdf.storage_path)}
-                      style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 4,
-                        padding: '5px 10px', borderRadius: 6,
-                        border: '1px solid var(--border)', background: 'var(--bg2)',
-                        color: 'var(--dark)', fontSize: 11, fontWeight: 600,
-                        fontFamily: 'var(--font-sans)', cursor: 'pointer',
-                      }}
-                    >
-                      <i className="ti ti-external-link" style={{ fontSize: 12 }} aria-hidden="true" />
-                      Abrir
-                    </button>
-                    <button
-                      onClick={() => excluirPdf(pdf)}
-                      disabled={excluindo}
-                      style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 4,
-                        padding: '5px 10px', borderRadius: 6,
-                        border: '1px solid #fca5a5',
-                        background: excluindo ? '#fef2f2' : '#fff',
-                        color: '#dc2626', fontSize: 11, fontWeight: 600,
-                        fontFamily: 'var(--font-sans)', cursor: excluindo ? 'default' : 'pointer',
-                      }}
-                    >
-                      <i className="ti ti-trash" style={{ fontSize: 12 }} aria-hidden="true" />
-                      {excluindo ? '…' : 'Excluir'}
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       <HistoricoLista
         titulo="Planos publicados"
