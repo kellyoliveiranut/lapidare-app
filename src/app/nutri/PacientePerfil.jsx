@@ -1811,8 +1811,10 @@ function PublicarPlano({ pacienteId, nutriId, calculosImportados, onLimparImport
   const [uploadandoSubs, setUploadandoSubs]   = useState(false);
   const [feedbackSubs, setFeedbackSubs]       = useState(null);
   const subsPdfRef = useRef(null);
+  const [pdfsList, setPdfsList]               = useState([]);
+  const [excluindoPdfId, setExcluindoPdfId]   = useState(null);
 
-  useEffect(() => { carregar(); }, [pacienteId]);
+  useEffect(() => { carregar(); carregarPdfs(); }, [pacienteId]);
 
   // Preenche macros quando vêm dos Cálculos
   useEffect(() => {
@@ -1834,6 +1836,35 @@ function PublicarPlano({ pacienteId, nutriId, calculosImportados, onLimparImport
       .eq('paciente_id', pacienteId)
       .order('publicado_em', { ascending: false });
     setHistorico(data ?? []);
+  }
+
+  async function carregarPdfs() {
+    const { data } = await supabase
+      .from('dietas_pdf')
+      .select('id, tipo, titulo, storage_path, created_at')
+      .eq('paciente_id', pacienteId)
+      .order('created_at', { ascending: false });
+    setPdfsList(data ?? []);
+  }
+
+  async function abrirPdf(storagePath) {
+    const { data, error } = await supabase.storage
+      .from('prescricoes')
+      .createSignedUrl(storagePath, 60);
+    if (error || !data?.signedUrl) return alert('Não foi possível abrir o PDF.');
+    window.open(data.signedUrl, '_blank');
+  }
+
+  async function excluirPdf(item) {
+    if (!window.confirm('Tem certeza? Esta ação é permanente.')) return;
+    setExcluindoPdfId(item.id);
+    try {
+      await supabase.storage.from('prescricoes').remove([item.storage_path]);
+      await supabase.from('dietas_pdf').delete().eq('id', item.id);
+      await carregarPdfs();
+    } finally {
+      setExcluindoPdfId(null);
+    }
   }
 
   /* ── mutações de refeições ── */
@@ -2409,6 +2440,7 @@ DIRETRIZES:
         throw new Error('Erro ao registrar: ' + insErr.message);
       }
       setFeedbackDieta({ tipo: 'ok', msg: 'Dieta PDF enviada! A paciente já pode visualizar.' });
+      carregarPdfs();
     } catch (e) {
       setFeedbackDieta({ tipo: 'erro', msg: e.message ?? 'Erro ao enviar PDF.' });
     } finally {
@@ -2438,6 +2470,7 @@ DIRETRIZES:
         throw new Error('Erro ao registrar: ' + insErr.message);
       }
       setFeedbackSubs({ tipo: 'ok', msg: 'Lista de substituições enviada! A paciente já pode visualizar.' });
+      carregarPdfs();
     } catch (e) {
       setFeedbackSubs({ tipo: 'erro', msg: e.message ?? 'Erro ao enviar PDF.' });
     } finally {
@@ -3234,6 +3267,92 @@ DIRETRIZES:
           </div>
         )}
       </div>
+
+      {/* ── Histórico de PDFs enviados ── */}
+      {pdfsList.length > 0 && (
+        <div className="card">
+          <div className="card-header">
+            <div>
+              <div className="card-title">PDFs enviados</div>
+              <div className="card-sub">O mais recente de cada tipo é o que a paciente visualiza</div>
+            </div>
+          </div>
+          <div style={{ padding: 0 }}>
+            {pdfsList.map((pdf, idx) => {
+              const isAtual = idx === pdfsList.findIndex(p => p.tipo === pdf.tipo);
+              const rotulo  = pdf.tipo === 'dieta' ? 'Dieta' : 'Substituições';
+              const dataFmt = pdf.created_at
+                ? new Date(pdf.created_at).toLocaleDateString('pt-BR')
+                : '';
+              const excluindo = excluindoPdfId === pdf.id;
+              return (
+                <div key={pdf.id} style={{
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  padding: '11px 16px',
+                  borderBottom: idx < pdfsList.length - 1 ? '1px solid var(--border)' : 'none',
+                }}>
+                  <div style={{
+                    flexShrink: 0, width: 36, height: 36, borderRadius: 10,
+                    background: '#F4ECDD', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <i className="ti ti-file-type-pdf" style={{ fontSize: 18, color: '#9A7B3F' }} aria-hidden="true" />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3, flexWrap: 'wrap' }}>
+                      <span style={{
+                        fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 10,
+                        background: pdf.tipo === 'dieta' ? '#dbeafe' : '#fef9c3',
+                        color: pdf.tipo === 'dieta' ? '#1d4ed8' : '#854d0e',
+                        letterSpacing: '.02em',
+                      }}>{rotulo}</span>
+                      {isAtual && (
+                        <span style={{
+                          fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 10,
+                          background: '#2C3A30', color: '#FDFBF8', letterSpacing: '.02em',
+                        }}>atual</span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 13, color: 'var(--dark)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {pdf.titulo || '(sem título)'}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 1 }}>{dataFmt}</div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                    <button
+                      onClick={() => abrirPdf(pdf.storage_path)}
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 4,
+                        padding: '5px 10px', borderRadius: 6,
+                        border: '1px solid var(--border)', background: 'var(--bg2)',
+                        color: 'var(--dark)', fontSize: 11, fontWeight: 600,
+                        fontFamily: 'var(--font-sans)', cursor: 'pointer',
+                      }}
+                    >
+                      <i className="ti ti-external-link" style={{ fontSize: 12 }} aria-hidden="true" />
+                      Abrir
+                    </button>
+                    <button
+                      onClick={() => excluirPdf(pdf)}
+                      disabled={excluindo}
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 4,
+                        padding: '5px 10px', borderRadius: 6,
+                        border: '1px solid #fca5a5',
+                        background: excluindo ? '#fef2f2' : '#fff',
+                        color: '#dc2626', fontSize: 11, fontWeight: 600,
+                        fontFamily: 'var(--font-sans)', cursor: excluindo ? 'default' : 'pointer',
+                      }}
+                    >
+                      <i className="ti ti-trash" style={{ fontSize: 12 }} aria-hidden="true" />
+                      {excluindo ? '…' : 'Excluir'}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <HistoricoLista
         titulo="Planos publicados"
