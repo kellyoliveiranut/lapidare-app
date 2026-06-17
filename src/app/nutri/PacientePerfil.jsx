@@ -1805,6 +1805,9 @@ function PublicarPlano({ pacienteId, nutriId, calculosImportados, onLimparImport
   const [previewOpen, setPreviewOpen]     = useState(false);
   const [dadosPreview, setDadosPreview]   = useState(null);
   const [verPlano, setVerPlano]           = useState(null); // plano publicado sendo visualizado
+  const [uploadandoDieta, setUploadandoDieta] = useState(false);
+  const [feedbackDieta, setFeedbackDieta]     = useState(null);
+  const dietaPdfRef = useRef(null);
 
   useEffect(() => { carregar(); }, [pacienteId]);
 
@@ -2375,6 +2378,34 @@ DIRETRIZES:
     if (!v.ok) return setFeedback({ tipo: 'erro', msg: v.erro });
     setDadosPreview(dados);
     setPreviewOpen(true);
+  }
+
+  async function enviarDietaPdf(arquivo) {
+    setFeedbackDieta(null);
+    setUploadandoDieta(true);
+    const path = `${pacienteId}/dieta-${Date.now()}.pdf`;
+    try {
+      const { error: upErr } = await supabase.storage
+        .from('prescricoes')
+        .upload(path, arquivo, { contentType: arquivo.type });
+      if (upErr) throw new Error('Upload falhou: ' + upErr.message);
+      const { error: insErr } = await supabase.from('dietas_pdf').insert({
+        paciente_id: pacienteId,
+        nutri_id: nutriId,
+        storage_path: path,
+        titulo: arquivo.name.replace(/\.[^.]+$/, ''),
+      });
+      if (insErr) {
+        await supabase.storage.from('prescricoes').remove([path]);
+        throw new Error('Erro ao registrar: ' + insErr.message);
+      }
+      setFeedbackDieta({ tipo: 'ok', msg: 'Dieta PDF enviada! A paciente já pode visualizar.' });
+    } catch (e) {
+      setFeedbackDieta({ tipo: 'erro', msg: e.message ?? 'Erro ao enviar PDF.' });
+    } finally {
+      setUploadandoDieta(false);
+      if (dietaPdfRef.current) dietaPdfRef.current.value = '';
+    }
   }
 
   return (
@@ -3068,6 +3099,40 @@ DIRETRIZES:
 
           {feedback && feedback.tipo !== 'importado' && <FeedbackInline f={feedback} />}
         </div>
+      </div>
+
+      {/* ── Dieta atual em PDF ── */}
+      <div className="card">
+        <div className="card-header">
+          <div>
+            <div className="card-title">Dieta atual (PDF)</div>
+            <div className="card-sub">O PDF mais recente aparece para a paciente na área do Plano</div>
+          </div>
+          <input
+            ref={dietaPdfRef}
+            type="file"
+            accept=".pdf,application/pdf"
+            style={{ display: 'none' }}
+            onChange={e => { const f = e.target.files?.[0]; if (f) enviarDietaPdf(f); }}
+          />
+          <button
+            className="btn"
+            onClick={() => dietaPdfRef.current?.click()}
+            disabled={uploadandoDieta}
+          >
+            <i
+              className={`ti ti-${uploadandoDieta ? 'loader-2' : 'file-upload'}`}
+              style={uploadandoDieta ? { animation: 'lapidare-spin .75s linear infinite' } : {}}
+              aria-hidden="true"
+            />
+            {uploadandoDieta ? 'Enviando...' : 'Enviar dieta (PDF)'}
+          </button>
+        </div>
+        {feedbackDieta && (
+          <div style={{ padding: '0 16px 12px' }}>
+            <FeedbackInline f={feedbackDieta} />
+          </div>
+        )}
       </div>
 
       <HistoricoLista
