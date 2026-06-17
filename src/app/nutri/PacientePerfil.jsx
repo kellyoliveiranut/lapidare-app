@@ -1896,6 +1896,7 @@ function PublicarPlano({ pacienteId, nutriId, calculosImportados, onLimparImport
   const subsPdfRef = useRef(null);
   const [pdfsList, setPdfsList]               = useState([]);
   const [excluindoPdfId, setExcluindoPdfId]   = useState(null);
+  const editorPreenchido = useRef(false);
 
   useEffect(() => { carregar(); carregarPdfs(); }, [pacienteId]);
 
@@ -1919,6 +1920,39 @@ function PublicarPlano({ pacienteId, nutriId, calculosImportados, onLimparImport
       .eq('paciente_id', pacienteId)
       .order('publicado_em', { ascending: false });
     setHistorico(data ?? []);
+    if (!editorPreenchido.current && data?.length) {
+      editorPreenchido.current = true;
+      carregarEditor(data[0].dados, data[0].validade ?? '');
+    }
+  }
+
+  function carregarEditor(dados, validadeStr) {
+    const m = dados?.macros ?? {};
+    setMacros({
+      kcal:        m.kcal   != null ? String(m.kcal)   : '',
+      proteinas_g: m.prot_g != null ? String(m.prot_g) : '',
+      carbo_g:     m.cho_g  != null ? String(m.cho_g)  : '',
+      gorduras_g:  m.lip_g  != null ? String(m.lip_g)  : '',
+      agua_l:      m.agua_l != null ? String(m.agua_l) : '',
+    });
+    setRefeicoes((dados?.refeicoes ?? []).map(r => ({
+      _id: Math.random().toString(36).slice(2),
+      nome:    r.nome    ?? '',
+      horario: r.horario ?? '',
+      alimentos: (r.alimentos ?? []).map(a => ({
+        _id: Math.random().toString(36).slice(2),
+        nome:       a.nome ?? '',
+        quantidade: a.qty  ?? a.quantidade ?? '',
+        subs: Array.isArray(a.subs) ? a.subs.join(', ') : String(a.subs ?? ''),
+      })).filter(a => a.nome.trim()),
+    })));
+    setObs(dados?.obs ?? '');
+    setValidade(validadeStr ?? '');
+    setSubstituicoes((dados?.substituicoes ?? []).map(s => ({
+      _id: Math.random().toString(36).slice(2),
+      original: s.original ?? '',
+      subs: Array.isArray(s.subs) ? s.subs.join(', ') : String(s.subs ?? ''),
+    })));
   }
 
   async function carregarPdfs() {
@@ -2318,12 +2352,7 @@ Estrutura JSON obrigatória:
         dados, validade: validade || null,
       });
       if (error) throw error;
-      setFeedback({ tipo: 'ok', msg: 'Plano publicado! A paciente já pode visualizar.' });
-      setMacros({ kcal: '', proteinas_g: '', carbo_g: '', gorduras_g: '', agua_l: '' });
-      setRefeicoes([]);
-      setObs('');
-      setValidade('');
-      setSubstituicoes([]);
+      setFeedback({ tipo: 'ok', msg: 'Plano publicado! A paciente já pode visualizar. Continue editando e republique para atualizar.' });
       carregar();
     } catch (err) {
       setFeedback({ tipo: 'erro', msg: err?.message || 'Erro ao publicar plano' });
