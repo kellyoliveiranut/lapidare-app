@@ -9,6 +9,8 @@ export default function Plano() {
   const [plano, setPlano]       = useState(undefined); // undefined=loading, null=vazio
   const [validade, setValidade] = useState(null);
   const [dietaPdf, setDietaPdf] = useState(undefined); // undefined=loading, null=sem dieta
+  const [dietaUrl, setDietaUrl]   = useState(null);    // signed URL gerada no load
+  const [dietaErro, setDietaErro] = useState(null);    // mensagem de erro da geração
 
   useEffect(() => {
     let active = true;
@@ -37,30 +39,22 @@ export default function Plano() {
       if (!active) return;
       setPlano(planoRes.data?.dados ?? null);
       setValidade(planoRes.data?.validade ?? null);
-      setDietaPdf(dietaRes.data ?? null);
+      const dieta = dietaRes.data ?? null;
+      setDietaPdf(dieta);
+
+      // Gera signed URL imediatamente — link nativo <a> abre sem bloqueio no iOS
+      if (dieta?.storage_path) {
+        const { data: urlData, error: urlErr } = await supabase.storage
+          .from('prescricoes')
+          .createSignedUrl(dieta.storage_path, 3600);
+        if (!active) return;
+        if (urlErr) setDietaErro(urlErr.message);
+        else setDietaUrl(urlData.signedUrl);
+      }
     }
     load();
     return () => { active = false; };
   }, [user, profile]);
-
-  async function abrirDieta() {
-    if (!dietaPdf?.storage_path) return;
-    // Abre janela sincronamente (antes do await) para não ser bloqueada pelo iOS/Safari PWA
-    const win = window.open('', '_blank');
-    const { data, error } = await supabase.storage
-      .from('prescricoes')
-      .createSignedUrl(dietaPdf.storage_path, 60);
-    if (error) {
-      if (win) win.close();
-      alert('Não foi possível abrir a dieta.');
-      return;
-    }
-    if (win) {
-      win.location = data.signedUrl;
-    } else {
-      window.location.href = data.signedUrl;
-    }
-  }
 
   // aguarda ambas as queries terminarem
   if (plano === undefined || dietaPdf === undefined) {
@@ -111,19 +105,41 @@ export default function Plano() {
           Enviada em {dataBR(dietaPdf.created_at)}
         </div>
       </div>
-      <button
-        onClick={abrirDieta}
-        style={{
-          display: 'inline-flex', alignItems: 'center', gap: 6,
-          padding: '8px 14px', borderRadius: 8, border: 'none',
-          background: '#2C3A30', color: '#fff',
-          fontSize: 13, fontWeight: 600, cursor: 'pointer',
-          fontFamily: 'var(--font-sans)', flexShrink: 0,
-        }}
-      >
-        <i className="ti ti-external-link" style={{ fontSize: 14 }} aria-hidden="true" />
-        Abrir dieta
-      </button>
+      {dietaErro ? (
+        <div style={{ fontSize: 11, color: '#b91c1c', maxWidth: 150, lineHeight: 1.3 }}>
+          Erro: {dietaErro}
+        </div>
+      ) : dietaUrl ? (
+        <a
+          href={dietaUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            padding: '8px 14px', borderRadius: 8,
+            background: '#2C3A30', color: '#fff',
+            fontSize: 13, fontWeight: 600,
+            fontFamily: 'var(--font-sans)', flexShrink: 0,
+            textDecoration: 'none',
+          }}
+        >
+          <i className="ti ti-external-link" style={{ fontSize: 14 }} aria-hidden="true" />
+          Abrir dieta
+        </a>
+      ) : (
+        <button
+          disabled
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            padding: '8px 14px', borderRadius: 8, border: 'none',
+            background: '#9A9A9A', color: '#fff',
+            fontSize: 13, fontWeight: 600,
+            fontFamily: 'var(--font-sans)', flexShrink: 0, opacity: 0.7,
+          }}
+        >
+          Preparando…
+        </button>
+      )}
     </div>
   );
 
