@@ -3,6 +3,12 @@ import { dataBR } from '../lib/utils.js';
 import { kcalDoAlimento, kcalEquivalente, parseGramas } from '../lib/taco.js';
 import './PlanoView.css';
 
+// Retorna true quando o texto do substituto já contém quantidade ou é uma combinação.
+// Nesse caso o chip de equivalência não deve ser exibido.
+function substitutoTemQuantidade(texto) {
+  return /\+/.test(texto) || /\d/.test(texto);
+}
+
 /**
  * Renderiza o conteúdo de um plano alimentar publicado.
  * Props:
@@ -103,18 +109,21 @@ export default function PlanoView({ dados, validade, readOnly = false }) {
                     return (
                       <div className="subs-list">
                         {al.subs.map((s, si) => {
-                          const nomeS = typeof s === 'object' ? (s.nome ?? '') : String(s);
-                          const eq = kcalAlvo ? kcalEquivalente(kcalAlvo, nomeS) : null;
+                          const nomeS   = typeof s === 'object' ? (s.nome ?? '') : String(s);
+                          const semChip = substitutoTemQuantidade(nomeS);
+                          const eq      = (!semChip && kcalAlvo) ? kcalEquivalente(kcalAlvo, nomeS) : null;
                           let textoEquiv = null;
-                          if (
-                            eq &&
-                            gramasOrig != null &&
-                            eq.gramas >= gramasOrig * 0.2 &&
-                            eq.gramas <= gramasOrig * 5
-                          ) {
-                            textoEquiv = `≈ ${eq.gramas} ${eq.liquido ? 'ml' : 'g'}${eq.medida ? ` · ${eq.medida}` : ''}`;
-                          } else if (typeof s === 'object' && s.qty_equiv) {
-                            textoEquiv = `≈ ${s.qty_equiv}`;
+                          if (!semChip) {
+                            if (
+                              eq &&
+                              gramasOrig != null &&
+                              eq.gramas >= gramasOrig * 0.2 &&
+                              eq.gramas <= gramasOrig * 5
+                            ) {
+                              textoEquiv = `≈ ${eq.gramas} ${eq.liquido ? 'ml' : 'g'}${eq.medida ? ` · ${eq.medida}` : ''}`;
+                            } else if (typeof s === 'object' && s.qty_equiv) {
+                              textoEquiv = `≈ ${s.qty_equiv}`;
+                            }
                           }
                           return (
                             <div key={si} className="sub-item">
@@ -159,7 +168,8 @@ export default function PlanoView({ dados, validade, readOnly = false }) {
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
                   {s.subs.map((sub, j) => {
                     const nome = typeof sub === 'object' ? (sub.nome ?? '') : String(sub);
-                    const qe   = typeof sub === 'object' ? sub.qty_equiv : null;
+                    const qe   = (typeof sub === 'object' && sub.qty_equiv && !substitutoTemQuantidade(nome))
+                      ? sub.qty_equiv : null;
                     return (
                       <div key={j} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <span style={{ color: 'var(--ink)' }}>{nome}</span>

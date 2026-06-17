@@ -1781,6 +1781,10 @@ function novoAlimento() {
   return { _id: Math.random().toString(36).slice(2), nome: '', quantidade: '', subs: '' };
 }
 
+function substitutoTemQuantidade(texto) {
+  return /\+/.test(texto) || /\d/.test(texto);
+}
+
 function PdfListSection({ itens, excluindoId, onAbrir, onExcluir }) {
   const btnBase = {
     display: 'inline-flex', alignItems: 'center', gap: 4,
@@ -2687,7 +2691,8 @@ DIRETRIZES:
                         {al.subs?.length > 0 && (
                           <div style={{ padding: '3px 12px 8px 20px', display: 'flex', flexDirection: 'column', gap: 3, background: 'var(--bg2)' }}>
                             {al.subs.map((subNome, si) => {
-                              const eq = kcalAlvo ? kcalEquivalente(kcalAlvo, subNome) : null;
+                              const eq = (!substitutoTemQuantidade(subNome) && kcalAlvo)
+                                ? kcalEquivalente(kcalAlvo, subNome) : null;
                               const textoEquiv = eq ? `≈ ${eq.gramas} g${eq.medida ? ` · ${eq.medida}` : ''}` : null;
                               return (
                                 <div key={si} style={{ fontSize: 11, color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
