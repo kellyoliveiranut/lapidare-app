@@ -1798,6 +1798,7 @@ function PublicarPlano({ pacienteId, nutriId, calculosImportados, onLimparImport
   const [jsonInput, setJsonInput]         = useState('');
   const [erroJson, setErroJson]           = useState(null);
   const [jsonOpen, setJsonOpen]           = useState(false);
+  const [metaKcal, setMetaKcal]           = useState('');
   const [substituicoes, setSubstituicoes] = useState([]);
   const [gerandoSubs, setGerandoSubs]     = useState(false);
   const [erroSubs, setErroSubs]           = useState(null);
@@ -2012,7 +2013,7 @@ Liste TODOS os alimentos fornecidos, um objeto por alimento.`;
           .join('; ') || 'Não informadas';
       }
 
-      const kcal  = macros.kcal        || '—';
+      const kcal  = metaKcal.trim()     || '—';
       const prot  = macros.proteinas_g || '—';
       const carbo = macros.carbo_g     || '—';
       const gord  = macros.gorduras_g  || '—';
@@ -2725,11 +2726,29 @@ DIRETRIZES:
             margin: '0 16px 4px', padding: '14px', borderRadius: 8,
             background: '#fdf8ee', border: '1px solid var(--amber, #c9a96e)',
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--dark)' }}>
                 📋 Prompt para Claude / ChatGPT
               </div>
               <button onClick={() => setPromptVisivel(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', fontSize: 16 }}>×</button>
+            </div>
+
+            {/* Meta de calorias — preenchida aqui, injetada na linha "Calorias calculadas" do prompt */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+              <label style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 500, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                Meta de calorias (kcal/dia):
+              </label>
+              <input
+                type="text"
+                inputMode="decimal"
+                placeholder="ex: 1500"
+                value={metaKcal}
+                onChange={e => setMetaKcal(e.target.value)}
+                style={{ width: 130, flexShrink: 0 }}
+              />
+              <span style={{ fontSize: 11, color: 'var(--text3)' }}>
+                Preencha e clique em "Atualizar prompt" para refletir no texto.
+              </span>
             </div>
 
             {gerandoPrompt ? (
@@ -2782,20 +2801,20 @@ DIRETRIZES:
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8 }}>
               {[
-                { k: 'kcal',        l: 'Calorias',   u: 'kcal', t: 'number' },
-                { k: 'proteinas_g', l: 'Proteínas',  u: 'g',    t: 'number' },
-                { k: 'carbo_g',     l: 'Carboidratos', u: 'g',  t: 'number' },
-                { k: 'gorduras_g',  l: 'Gorduras',   u: 'g',    t: 'number' },
-                { k: 'agua_l',      l: 'Água',        u: 'L',   t: 'number', step: '0.1' },
-              ].map(({ k, l, u, t, step }) => (
+                { k: 'kcal',        l: 'Calorias',     u: 'kcal', t: 'text',   ph: 'ex: 1500' },
+                { k: 'proteinas_g', l: 'Proteínas',    u: 'g',    t: 'number', ph: '—' },
+                { k: 'carbo_g',     l: 'Carboidratos', u: 'g',    t: 'number', ph: '—' },
+                { k: 'gorduras_g',  l: 'Gorduras',     u: 'g',    t: 'number', ph: '—' },
+                { k: 'agua_l',      l: 'Água',         u: 'L',    t: 'number', ph: '—', step: '0.1' },
+              ].map(({ k, l, u, t, ph, step }) => (
                 <div key={k}>
                   <label className="field-label">{l}</label>
                   <div style={{ position: 'relative' }}>
                     <input
-                      type={t} inputMode="decimal" step={step || '1'}
+                      type={t} inputMode="decimal" step={t === 'number' ? (step || '1') : undefined}
                       value={macros[k]}
                       onChange={e => setMacros(m => ({ ...m, [k]: e.target.value }))}
-                      placeholder="—"
+                      placeholder={ph}
                       style={{ paddingRight: 28 }}
                     />
                     <span style={{
