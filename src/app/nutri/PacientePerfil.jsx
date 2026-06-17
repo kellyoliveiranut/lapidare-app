@@ -2758,11 +2758,39 @@ DIRETRIZES:
             margin: '0 16px 4px', padding: '8px 12px', borderRadius: 6,
             background: '#f0fdf4', border: '1px solid #86efac',
             color: '#15803d', fontSize: 12,
-            display: 'flex', alignItems: 'center', gap: 8,
+            display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
           }}>
             <i className="ti ti-circle-check-filled" />
-            {feedback.msg}
-            <button onClick={() => setFeedback(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#15803d', fontSize: 14 }}>×</button>
+            <span style={{ flex: 1 }}>{feedback.msg}</span>
+            <button
+              onClick={abrirPreview}
+              disabled={refeicoes.length === 0}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+                padding: '5px 10px', borderRadius: 6, cursor: 'pointer',
+                border: '1px solid #86efac', background: '#dcfce7',
+                color: '#15803d', fontSize: 11, fontWeight: 600,
+                fontFamily: 'var(--font-sans)',
+              }}
+            >
+              <i className="ti ti-eye" aria-hidden="true" />
+              Pré-visualizar
+            </button>
+            <button
+              onClick={publicar}
+              disabled={busy || refeicoes.length === 0}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+                padding: '5px 10px', borderRadius: 6, cursor: busy ? 'default' : 'pointer',
+                border: 'none', background: '#15803d',
+                color: '#fff', fontSize: 11, fontWeight: 600,
+                fontFamily: 'var(--font-sans)',
+              }}
+            >
+              <i className="ti ti-send" aria-hidden="true" />
+              {busy ? 'Publicando...' : 'Publicar plano'}
+            </button>
+            <button onClick={() => setFeedback(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#15803d', fontSize: 14 }}>×</button>
           </div>
         )}
 
