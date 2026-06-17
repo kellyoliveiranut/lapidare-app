@@ -2044,11 +2044,14 @@ Para cada substituto, forneça a gramagem (qty_equiv) que equivale caloricamente
 Regras:
 - Priorize alimentos regionais brasileiros e acessíveis.
 - Responda em português do Brasil.
-- Responda APENAS em JSON válido, sem texto antes ou depois e sem markdown.
-- Formato exato (array JSON):
-[{"original": "Arroz branco", "substitutos": [{"nome": "batata doce", "qty_equiv": "95g"}, {"nome": "mandioca cozida", "qty_equiv": "105g"}]}]
+- Liste TODOS os ${alimentosUnicos.length} alimentos fornecidos, um objeto por alimento.
 
-Liste TODOS os alimentos fornecidos, um objeto por alimento.`;
+FORMATO DA RESPOSTA — CRÍTICO:
+- Responda SOMENTE com o JSON puro. Nenhum texto antes, nenhum texto depois.
+- NÃO use markdown, NÃO use cercas de código (\`\`\`), NÃO escreva explicações.
+- Sua resposta deve começar exatamente com o caractere "[" e terminar com "]".
+- Formato exato de cada elemento:
+{"original": "Arroz branco", "substitutos": [{"nome": "batata doce", "qty_equiv": "95g"}, {"nome": "mandioca cozida", "qty_equiv": "105g"}]}`;
 
     try {
       const resposta = await callAnthropic(
@@ -2056,14 +2059,27 @@ Liste TODOS os alimentos fornecidos, um objeto por alimento.`;
         { model: 'claude-sonnet-4-6', maxTokens: 2000 }
       );
 
+      console.log('[gerarSubstituicoesIA] resposta bruta:', resposta);
+
       let parsed;
       try {
-        parsed = JSON.parse(resposta.replace(/```json\n?|\n?```/g, '').trim());
-      } catch {
-        throw new Error('formato-invalido');
+        // Remove cercas de markdown (```json, ```, variações com/sem espaço)
+        let raw = resposta.replace(/```(?:json)?/gi, '').trim();
+        // Extrai do primeiro "[" até o último "]" para ignorar texto antes/depois
+        const ini = raw.indexOf('[');
+        const fim = raw.lastIndexOf(']');
+        if (ini !== -1 && fim > ini) raw = raw.slice(ini, fim + 1);
+        parsed = JSON.parse(raw);
+      } catch (parseErr) {
+        console.error('[gerarSubstituicoesIA] parse falhou:', parseErr, '\nResposta bruta:', resposta);
+        const trecho = resposta.slice(0, 150).replace(/\n/g, ' ');
+        throw new Error(`formato-invalido:${trecho}`);
       }
 
-      if (!Array.isArray(parsed) || parsed.length === 0) throw new Error('formato-invalido');
+      if (!Array.isArray(parsed) || parsed.length === 0) {
+        const trecho = resposta.slice(0, 150).replace(/\n/g, ' ');
+        throw new Error(`formato-invalido:${trecho}`);
+      }
 
       setSubstituicoes(parsed.map(item => {
         const subsArr = Array.isArray(item.substitutos)
@@ -2085,8 +2101,11 @@ Liste TODOS os alimentos fornecidos, um objeto por alimento.`;
       }));
     } catch (err) {
       console.error('[gerarSubstituicoesIA]', err);
-      if (err.message === 'formato-invalido') {
-        setErroSubs('A IA retornou um formato inesperado. Tente novamente.');
+      if (err.message.startsWith('formato-invalido')) {
+        const trecho = err.message.slice('formato-invalido:'.length).trim();
+        setErroSubs(
+          `A IA retornou um formato inesperado. Tente novamente.${trecho ? ` (recebido: "${trecho}")` : ''}`
+        );
       } else {
         setErroSubs(`Falha (${err.message ?? 'erro desconhecido'})`);
       }
