@@ -2048,14 +2048,15 @@ Para cada substituto, forneça a gramagem (qty_equiv) que equivale caloricamente
 Regras:
 - Priorize alimentos regionais brasileiros e acessíveis.
 - Responda em português do Brasil.
-- Liste TODOS os ${alimentosUnicos.length} alimentos fornecidos, um objeto por alimento.
+- Inclua TODOS os ${alimentosUnicos.length} alimentos listados acima, um objeto por alimento.
 
 FORMATO DA RESPOSTA — CRÍTICO:
 - Responda SOMENTE com o JSON puro. Nenhum texto antes, nenhum texto depois.
 - NÃO use markdown, NÃO use cercas de código (\`\`\`), NÃO escreva explicações.
-- Sua resposta deve começar exatamente com o caractere "[" e terminar com "]".
-- Formato exato de cada elemento:
-{"original": "Arroz branco", "substitutos": [{"nome": "batata doce", "qty_equiv": "95g"}, {"nome": "mandioca cozida", "qty_equiv": "105g"}]}`;
+- A resposta começa com "[" e termina com "]" — nada mais.
+- O campo "original" deve conter o nome exatamente como foi fornecido acima (incluindo a quantidade entre parênteses se houver).
+- Formato obrigatório de cada elemento do array:
+{"original": "<nome exato do alimento>", "substitutos": [{"nome": "batata doce", "qty_equiv": "95g"}, {"nome": "mandioca cozida", "qty_equiv": "105g"}]}`;
 
     try {
       const resposta = await callAnthropic(
@@ -2085,24 +2086,76 @@ FORMATO DA RESPOSTA — CRÍTICO:
         throw new Error(`formato-invalido:${trecho}`);
       }
 
-      setSubstituicoes(parsed.map(item => {
-        const subsArr = Array.isArray(item.substitutos)
-          ? item.substitutos
-          : String(item.substitutos ?? item.subs ?? '').split(',').map(s => ({ nome: s.trim() }));
-        const temQtyEquiv = subsArr.some(s => typeof s === 'object' && s.qty_equiv);
-        return {
-          _id: Math.random().toString(36).slice(2),
-          original: String(item.original ?? '').trim(),
-          subs: subsArr.map(s => (typeof s === 'object' ? s.nome : String(s)).trim()).filter(Boolean).join(', '),
-          ...(temQtyEquiv ? {
-            _subsObj: subsArr.map(s =>
-              typeof s === 'object'
-                ? { nome: (s.nome ?? '').trim(), qty_equiv: s.qty_equiv ?? null }
-                : { nome: String(s).trim() }
-            ),
-          } : {}),
-        };
-      }));
+      // Normaliza nome: remove acentos, parênteses (2 passes p/ aninhados), minúsculas
+      const normName = s => String(s ?? '')
+        .normalize('NFD').replace(/[̀-ͯ]/g, '')
+        .replace(/\s*\([^)]*\)/g, '').replace(/\s*\([^)]*\)/g, '')
+        .trim().toLowerCase();
+
+      // Detecta formato: AGRUPADO ({original, substitutos[]}) ou PLANO (flat)
+      const isAgrupado = typeof parsed[0] === 'object' &&
+        'original' in parsed[0] &&
+        Array.isArray(parsed[0].substitutos);
+
+      if (isAgrupado) {
+        // Monta índice: nome normalizado → {ri, ai} no state de refeições
+        const foodMap = {};
+        refeicoes.forEach((r, ri) => {
+          r.alimentos.forEach((a, ai) => {
+            const key = normName(a.nome);
+            if (key) foodMap[key] = { ri, ai };
+          });
+        });
+
+        // Cópia profunda das refeições para atualizar subs por alimento
+        const copia = refeicoes.map(r => ({
+          ...r,
+          alimentos: r.alimentos.map(a => ({ ...a })),
+        }));
+
+        for (const item of parsed) {
+          const origNorm = normName(item.original ?? '');
+          // Casa quando um é prefixo/sufixo do outro (lida com qty entre parênteses)
+          const entrada = Object.entries(foodMap).find(([key]) =>
+            origNorm === key || origNorm.includes(key) || key.includes(origNorm)
+          );
+          if (!entrada) continue;
+          const { ri, ai } = entrada[1];
+          const subsArr = Array.isArray(item.substitutos) ? item.substitutos : [];
+          copia[ri].alimentos[ai] = {
+            ...copia[ri].alimentos[ai],
+            subs: subsArr
+              .map(s => (typeof s === 'object' ? (s.nome ?? '') : String(s)).trim())
+              .filter(Boolean)
+              .join(', '),
+            _subsObj: undefined,
+          };
+        }
+
+        setRefeicoes(copia);
+      } else {
+        // Formato plano (compatibilidade): popula lista global de substituições
+        setSubstituicoes(parsed.map(item => {
+          const subsArr = Array.isArray(item.substitutos)
+            ? item.substitutos
+            : Array.isArray(item.subs)
+            ? item.subs
+            : String(item.subs ?? item.nome ?? '').split(',').map(s => ({ nome: s.trim() }));
+          const temQtyEquiv = subsArr.some(s => typeof s === 'object' && s.qty_equiv);
+          return {
+            _id: Math.random().toString(36).slice(2),
+            original: String(item.original ?? item.nome ?? '').trim(),
+            subs: subsArr.map(s => (typeof s === 'object' ? s.nome : String(s)).trim()).filter(Boolean).join(', '),
+            ...(temQtyEquiv ? {
+              _subsObj: subsArr.map(s =>
+                typeof s === 'object'
+                  ? { nome: (s.nome ?? '').trim(), qty_equiv: s.qty_equiv ?? null }
+                  : { nome: String(s).trim() }
+              ),
+            } : {}),
+          };
+        }));
+      }
     } catch (err) {
       console.error('[gerarSubstituicoesIA]', err);
       if (err.message.startsWith('formato-invalido')) {
