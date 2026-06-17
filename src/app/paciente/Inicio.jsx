@@ -33,6 +33,7 @@ export default function Inicio() {
   const { user, profile } = useSession();
   const pacienteId = profile?.id ?? user?.id;
   const [plano, setPlano] = useState(null);
+  const [dietaPdf, setDietaPdf] = useState(null);
   const [compras, setCompras] = useState(null);
   const [proximaConsulta, setProximaConsulta] = useState(null);
   const [checkinPendente, setCheckinPendente] = useState(null);
@@ -48,9 +49,11 @@ export default function Inicio() {
       if (!pacienteId) return;
       const agora = new Date().toISOString();
       const hoje  = new Date().toISOString().slice(0, 10);
-      const [planoRes, comprasRes, consultaRes, checkinRes, habitosRes, logsHojeRes, monRes] = await Promise.all([
+      const [planoRes, dietaPdfRes, comprasRes, consultaRes, checkinRes, habitosRes, logsHojeRes, monRes] = await Promise.all([
         supabase.from('planos').select('dados, publicado_em')
           .eq('paciente_id', pacienteId).order('publicado_em', { ascending: false }).limit(1).maybeSingle(),
+        supabase.from('dietas_pdf').select('id, titulo, created_at')
+          .eq('paciente_id', pacienteId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
         supabase.from('listas_compras').select('dados, publicado_em')
           .eq('paciente_id', pacienteId).order('publicado_em', { ascending: false }).limit(1).maybeSingle(),
         supabase.from('consultas').select('id, data_hora, tipo, duracao_min, meet_link, links_extras')
@@ -72,6 +75,7 @@ export default function Inicio() {
       ]);
       if (!active) return;
       setPlano(planoRes.data?.dados ?? null);
+      setDietaPdf(dietaPdfRes.data ?? null);
       setCompras(comprasRes.data?.dados ?? null);
       setProximaConsulta(consultaRes.data ?? null);
       setCheckinPendente(checkinRes.data ?? null);
@@ -411,6 +415,12 @@ export default function Inicio() {
           </div>
           <button className="btn gold sm" onClick={() => navigate('/paciente/plano')}>Ver plano completo</button>
         </div>
+      ) : dietaPdf ? (
+        <div className="card" style={{ padding: '20px 18px', textAlign: 'center' }}>
+          <i className="ti ti-file-type-pdf" style={{ fontSize: 28, color: 'var(--gold-deep)', display: 'block', marginBottom: 8 }}></i>
+          <div className="serif" style={{ fontSize: 18, marginBottom: 10 }}>Sua dieta está disponível.</div>
+          <button className="btn gold sm" onClick={() => navigate('/paciente/plano')}>Ver dieta</button>
+        </div>
       ) : (
         <div className="card" style={{ padding: '20px 18px', textAlign: 'center' }}>
           <i className="ti ti-sparkles" style={{ fontSize: 28, color: 'var(--gold-deep)', display: 'block', marginBottom: 8 }}></i>
@@ -532,7 +542,11 @@ export default function Inicio() {
                 P {plano.macros?.prot_g}g · C {plano.macros?.cho_g}g · G {plano.macros?.lip_g}g
               </div>
             </>
-          ) : <div style={{ fontSize: 12, color: 'var(--muted)' }}>Aguardando plano</div>}
+          ) : dietaPdf ? (
+            <div style={{ fontSize: 12, color: 'var(--green, #2C7A3E)', fontWeight: 600 }}>Plano disponível</div>
+          ) : (
+            <div style={{ fontSize: 12, color: 'var(--muted)' }}>Aguardando plano</div>
+          )}
         </div>
 
         <div className="card" style={{ margin: 0, padding: '12px 14px', cursor: 'pointer' }} onClick={() => navigate('/paciente/compras')}>

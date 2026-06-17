@@ -45,11 +45,21 @@ export default function Plano() {
 
   async function abrirDieta() {
     if (!dietaPdf?.storage_path) return;
+    // Abre janela sincronamente (antes do await) para não ser bloqueada pelo iOS/Safari PWA
+    const win = window.open('', '_blank');
     const { data, error } = await supabase.storage
       .from('prescricoes')
       .createSignedUrl(dietaPdf.storage_path, 60);
-    if (error) { alert('Não foi possível abrir a dieta: ' + error.message); return; }
-    window.open(data.signedUrl, '_blank', 'noopener');
+    if (error) {
+      if (win) win.close();
+      alert('Não foi possível abrir a dieta.');
+      return;
+    }
+    if (win) {
+      win.location = data.signedUrl;
+    } else {
+      window.location.href = data.signedUrl;
+    }
   }
 
   // aguarda ambas as queries terminarem
