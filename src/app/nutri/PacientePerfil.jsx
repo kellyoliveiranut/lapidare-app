@@ -1568,16 +1568,16 @@ Retorne SOMENTE o JSON.`;
           {/* Circunferências */}
           <div className="section-label" style={{ marginTop: 14, marginBottom: 6 }}>Circunferências (cm)</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 8 }}>
-            <div><label className="field-label">Cintura</label><input inputMode="decimal" value={form.cintura_cm} onChange={set('cintura_cm')} /></div>
-            <div><label className="field-label">Quadril</label><input inputMode="decimal" value={form.quadril_cm} onChange={set('quadril_cm')} /></div>
-            <div><label className="field-label">Abdome</label><input inputMode="decimal" value={form.abdome_cm} onChange={set('abdome_cm')} /></div>
-            <div><label className="field-label">Panturrilha</label><input inputMode="decimal" value={form.panturrilha_cm} onChange={set('panturrilha_cm')} /></div>
+            <div><label className="field-label">Cintura</label><input type="text" inputMode="decimal" placeholder="0,0" value={form.cintura_cm} onChange={set('cintura_cm')} /></div>
+            <div><label className="field-label">Quadril</label><input type="text" inputMode="decimal" placeholder="0,0" value={form.quadril_cm} onChange={set('quadril_cm')} /></div>
+            <div><label className="field-label">Abdome</label><input type="text" inputMode="decimal" placeholder="0,0" value={form.abdome_cm} onChange={set('abdome_cm')} /></div>
+            <div><label className="field-label">Panturrilha</label><input type="text" inputMode="decimal" placeholder="0,0" value={form.panturrilha_cm} onChange={set('panturrilha_cm')} /></div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
-            <div><label className="field-label">Braço D</label><input inputMode="decimal" value={form.braco_dir_cm} onChange={set('braco_dir_cm')} /></div>
-            <div><label className="field-label">Braço E</label><input inputMode="decimal" value={form.braco_esq_cm} onChange={set('braco_esq_cm')} /></div>
-            <div><label className="field-label">Coxa D</label><input inputMode="decimal" value={form.coxa_dir_cm} onChange={set('coxa_dir_cm')} /></div>
-            <div><label className="field-label">Coxa E</label><input inputMode="decimal" value={form.coxa_esq_cm} onChange={set('coxa_esq_cm')} /></div>
+            <div><label className="field-label">Braço D</label><input type="text" inputMode="decimal" placeholder="0,0" value={form.braco_dir_cm} onChange={set('braco_dir_cm')} /></div>
+            <div><label className="field-label">Braço E</label><input type="text" inputMode="decimal" placeholder="0,0" value={form.braco_esq_cm} onChange={set('braco_esq_cm')} /></div>
+            <div><label className="field-label">Coxa D</label><input type="text" inputMode="decimal" placeholder="0,0" value={form.coxa_dir_cm} onChange={set('coxa_dir_cm')} /></div>
+            <div><label className="field-label">Coxa E</label><input type="text" inputMode="decimal" placeholder="0,0" value={form.coxa_esq_cm} onChange={set('coxa_esq_cm')} /></div>
           </div>
 
           {/* Composição corporal */}
