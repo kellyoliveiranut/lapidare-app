@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { useTheme } from '../../lib/theme.jsx';
-import { textoDias, dataConsultaBR, diasAte, linkCall, consultaEmBreve, gerarGoogleCalendarUrl } from '../../lib/utils.js';
+import { textoDias, dataConsultaBR, diasAte, linkCall, consultaEmBreve, gerarGoogleCalendarUrl, dataBR } from '../../lib/utils.js';
 import { cumpriuHabito } from './_HabitosHoje.jsx';
 
 
@@ -416,10 +416,35 @@ export default function Inicio() {
           <button className="btn gold sm" onClick={() => navigate('/paciente/plano')}>Ver plano completo</button>
         </div>
       ) : dietaPdf ? (
-        <div className="card" style={{ padding: '20px 18px', textAlign: 'center' }}>
-          <i className="ti ti-file-type-pdf" style={{ fontSize: 28, color: 'var(--gold-deep)', display: 'block', marginBottom: 8 }}></i>
-          <div className="serif" style={{ fontSize: 18, marginBottom: 10 }}>Sua dieta está disponível.</div>
-          <button className="btn gold sm" onClick={() => navigate('/paciente/plano')}>Ver dieta</button>
+        <div className="card" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{
+            width: 48, height: 48, borderRadius: 16, flexShrink: 0,
+            background: '#F4ECDD',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <i className="ti ti-file-type-pdf" style={{ fontSize: 22, color: '#9A7B3F' }} aria-hidden="true" />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="serif" style={{ fontSize: 17, color: '#2C3A30', lineHeight: 1.2, marginBottom: 3 }}>
+              Sua dieta está disponível
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+              enviada em {dataBR(dietaPdf.created_at)}
+            </div>
+          </div>
+          <button
+            onClick={() => navigate('/paciente/plano')}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              padding: '8px 14px', borderRadius: 20, border: 'none',
+              background: '#2C3A30', color: '#FDFBF8',
+              fontSize: 12, fontWeight: 600, cursor: 'pointer',
+              fontFamily: 'var(--font-sans)', flexShrink: 0,
+            }}
+          >
+            <i className="ti ti-external-link" style={{ fontSize: 13 }} aria-hidden="true" />
+            Ver dieta
+          </button>
         </div>
       ) : (
         <div className="card" style={{ padding: '20px 18px', textAlign: 'center' }}>

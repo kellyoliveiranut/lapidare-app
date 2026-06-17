@@ -97,65 +97,52 @@ export default function Plano() {
   }
 
   function BotaoAbrir({ url, erro, label }) {
+    const pilula = {
+      display: 'inline-flex', alignItems: 'center', gap: 5,
+      padding: '8px 14px', borderRadius: 20, border: 'none',
+      background: '#2C3A30', color: '#FDFBF8',
+      fontSize: 12, fontWeight: 600, cursor: 'pointer',
+      fontFamily: 'var(--font-sans)', flexShrink: 0,
+      textDecoration: 'none',
+    };
     if (erro) return (
       <div style={{ fontSize: 11, color: '#b91c1c', maxWidth: 150, lineHeight: 1.3 }}>
         Erro: {erro}
       </div>
     );
     if (url) return (
-      <a
-        href={url}
-        target="_blank"
-        rel="noopener noreferrer"
-        style={{
-          display: 'inline-flex', alignItems: 'center', gap: 6,
-          padding: '8px 14px', borderRadius: 8,
-          background: '#2C3A30', color: '#fff',
-          fontSize: 13, fontWeight: 600,
-          fontFamily: 'var(--font-sans)', flexShrink: 0,
-          textDecoration: 'none',
-        }}
-      >
-        <i className="ti ti-external-link" style={{ fontSize: 14 }} aria-hidden="true" />
+      <a href={url} target="_blank" rel="noopener noreferrer" style={pilula}>
+        <i className="ti ti-external-link" style={{ fontSize: 13 }} aria-hidden="true" />
         {label}
       </a>
     );
     return (
-      <button disabled style={{
-        display: 'inline-flex', alignItems: 'center', gap: 6,
-        padding: '8px 14px', borderRadius: 8, border: 'none',
-        background: '#9A9A9A', color: '#fff',
-        fontSize: 13, fontWeight: 600,
-        fontFamily: 'var(--font-sans)', flexShrink: 0, opacity: 0.7,
-      }}>
+      <button disabled style={{ ...pilula, background: '#9A9A9A', opacity: 0.7, cursor: 'default' }}>
         Preparando…
       </button>
     );
   }
 
-  function CardPdf({ pdf, titulo, url, erro, labelBotao }) {
+  function CardPdf({ pdf, label, url, erro, labelBotao }) {
     if (!pdf) return null;
     return (
       <div style={{
         background: '#F4F1EB', border: '1px solid #DDD5C4',
-        borderRadius: 12, padding: '14px 16px', marginBottom: 14,
-        display: 'flex', alignItems: 'center', gap: 12,
+        borderRadius: 14, padding: '14px 16px', marginBottom: 14,
+        display: 'flex', alignItems: 'center', gap: 14,
       }}>
         <div style={{
-          width: 40, height: 40, borderRadius: 10, flexShrink: 0,
-          background: '#EDE5D8', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          width: 48, height: 48, borderRadius: 16, flexShrink: 0,
+          background: '#F4ECDD', display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
-          <i className="ti ti-file-type-pdf" style={{ fontSize: 20, color: '#9A7B3F' }} aria-hidden="true" />
+          <i className="ti ti-file-type-pdf" style={{ fontSize: 22, color: '#9A7B3F' }} aria-hidden="true" />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{
-            fontSize: 13, fontWeight: 600, color: '#2C3A30',
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          }}>
-            {titulo}
+          <div className="serif" style={{ fontSize: 15, color: '#2C3A30', lineHeight: 1.2, marginBottom: 3 }}>
+            {label}
           </div>
-          <div style={{ fontSize: 11, color: '#7A6E60', marginTop: 1 }}>
-            Enviada em {dataBR(pdf.created_at)}
+          <div style={{ fontSize: 11, color: '#7A6E60' }}>
+            enviada em {dataBR(pdf.created_at)}
           </div>
         </div>
         <BotaoAbrir url={url} erro={erro} label={labelBotao} />
@@ -167,14 +154,14 @@ export default function Plano() {
     <>
       <CardPdf
         pdf={dietaPdf}
-        titulo={dietaPdf?.titulo || 'Dieta atual'}
+        label="Dieta atual (PDF)"
         url={dietaUrl}
         erro={dietaErro}
         labelBotao="Abrir dieta"
       />
       <CardPdf
         pdf={subsPdf}
-        titulo={subsPdf?.titulo || 'Lista de substituições'}
+        label="Lista de substituições (PDF)"
         url={subsUrl}
         erro={subsErro}
         labelBotao="Abrir lista"
