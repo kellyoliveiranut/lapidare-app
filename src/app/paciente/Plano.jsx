@@ -52,11 +52,13 @@ export default function Plano() {
     window.open(data.signedUrl, '_blank', 'noopener');
   }
 
-  if (plano === undefined) {
+  // aguarda ambas as queries terminarem
+  if (plano === undefined || dietaPdf === undefined) {
     return <div className="empty-state"><div className="empty-sub">Carregando…</div></div>;
   }
 
-  if (!plano) {
+  // sem nada para mostrar
+  if (!plano && !dietaPdf) {
     return (
       <div className="empty-state">
         <i className="ti ti-salad empty-icon" aria-hidden="true"></i>
@@ -68,55 +70,57 @@ export default function Plano() {
     );
   }
 
+  const cardDieta = dietaPdf && (
+    <div style={{
+      background: '#F4F1EB',
+      border: '1px solid #DDD5C4',
+      borderRadius: 12,
+      padding: '14px 16px',
+      marginBottom: 14,
+      display: 'flex',
+      alignItems: 'center',
+      gap: 12,
+    }}>
+      <div style={{
+        width: 40, height: 40, borderRadius: 10, flexShrink: 0,
+        background: '#EDE5D8',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <i className="ti ti-file-type-pdf"
+           style={{ fontSize: 20, color: '#9A7B3F' }}
+           aria-hidden="true" />
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{
+          fontSize: 13, fontWeight: 600, color: '#2C3A30',
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}>
+          {dietaPdf.titulo || 'Dieta atual'}
+        </div>
+        <div style={{ fontSize: 11, color: '#7A6E60', marginTop: 1 }}>
+          Enviada em {dataBR(dietaPdf.created_at)}
+        </div>
+      </div>
+      <button
+        onClick={abrirDieta}
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          padding: '8px 14px', borderRadius: 8, border: 'none',
+          background: '#2C3A30', color: '#fff',
+          fontSize: 13, fontWeight: 600, cursor: 'pointer',
+          fontFamily: 'var(--font-sans)', flexShrink: 0,
+        }}
+      >
+        <i className="ti ti-external-link" style={{ fontSize: 14 }} aria-hidden="true" />
+        Abrir dieta
+      </button>
+    </div>
+  );
+
   return (
     <>
-      {dietaPdf && (
-        <div style={{
-          background: '#F4F1EB',
-          border: '1px solid #DDD5C4',
-          borderRadius: 12,
-          padding: '14px 16px',
-          marginBottom: 14,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 12,
-        }}>
-          <div style={{
-            width: 40, height: 40, borderRadius: 10, flexShrink: 0,
-            background: '#EDE5D8',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <i className="ti ti-file-type-pdf"
-               style={{ fontSize: 20, color: '#9A7B3F' }}
-               aria-hidden="true" />
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{
-              fontSize: 13, fontWeight: 600, color: '#2C3A30',
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            }}>
-              {dietaPdf.titulo || 'Dieta atual'}
-            </div>
-            <div style={{ fontSize: 11, color: '#7A6E60', marginTop: 1 }}>
-              Enviada em {dataBR(dietaPdf.created_at)}
-            </div>
-          </div>
-          <button
-            onClick={abrirDieta}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              padding: '8px 14px', borderRadius: 8, border: 'none',
-              background: '#2C3A30', color: '#fff',
-              fontSize: 13, fontWeight: 600, cursor: 'pointer',
-              fontFamily: 'var(--font-sans)', flexShrink: 0,
-            }}
-          >
-            <i className="ti ti-external-link" style={{ fontSize: 14 }} aria-hidden="true" />
-            Abrir dieta
-          </button>
-        </div>
-      )}
-      <PlanoView dados={plano} validade={validade} />
+      {cardDieta}
+      {plano && <PlanoView dados={plano} validade={validade} />}
     </>
   );
 }
