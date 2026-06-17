@@ -8,7 +8,7 @@ import {
 } from '../../lib/utils.js';
 import { TEMPLATE_PADRAO } from '../../lib/checkinDefault.js';
 import { callAnthropic } from '../../lib/anthropic.js';
-import { kcalDoAlimento, kcalEquivalente } from '../../lib/taco.js';
+import { buscarAlimento, kcalDoAlimento, kcalEquivalente, parseGramas } from '../../lib/taco.js';
 import DateInput from '../../components/DateInput.jsx';
 import CheckinForm from '../../components/CheckinForm.jsx';
 const Evolucao             = lazy(() => import('./_Evolucao.jsx'));
@@ -2049,6 +2049,8 @@ Regras:
 - Priorize alimentos regionais brasileiros e acessíveis.
 - Responda em português do Brasil.
 - Inclua TODOS os ${alimentosUnicos.length} alimentos listados acima, um objeto por alimento.
+- Sugira 2 a 3 substitutos por alimento.
+- CADA substituto deve ser UM ÚNICO ALIMENTO simples (ex.: "sardinha fresca", "inhame cozido", "abóbora assada"). NUNCA combine vários alimentos com "+". NUNCA sugira uma refeição, preparação completa ou cardápio.
 
 FORMATO DA RESPOSTA — CRÍTICO:
 - Responda SOMENTE com o JSON puro. Nenhum texto antes, nenhum texto depois.
@@ -2121,13 +2123,54 @@ FORMATO DA RESPOSTA — CRÍTICO:
           );
           if (!entrada) continue;
           const { ri, ai } = entrada[1];
+          const alOrig     = copia[ri].alimentos[ai];
+          const gramasOrig = parseGramas(alOrig.quantidade);
+
+          // Busca o alimento original na TACO; tenta nome completo, depois só
+          // a parte antes de conjunção ("ou", "e", "com") ou a 1ª palavra —
+          // para lidar com modos de preparo ("Salmão assado ou cozido no vapor").
+          let alOrigTaco = buscarAlimento(alOrig.nome);
+          if (!alOrigTaco) {
+            const seg = alOrig.nome.split(/\s+(?:ou|e|com)\s+/i)[0].trim();
+            alOrigTaco = buscarAlimento(seg) ?? buscarAlimento(alOrig.nome.split(/\s+/)[0]);
+          }
+          const kcalAlvo =
+            alOrig.kcal ??
+            (alOrigTaco?.kcal && gramasOrig ? (alOrigTaco.kcal * gramasOrig) / 100 : null) ??
+            null;
+
           const subsArr = Array.isArray(item.substitutos) ? item.substitutos : [];
+          const subsFormatados = subsArr.map(s => {
+            const nome = (typeof s === 'object' ? (s.nome ?? '') : String(s)).trim();
+            if (!nome) return null;
+
+            // Calcula quantidade via TACO com trava de plausibilidade (igual ao chip)
+            let textoQty = null;
+            if (kcalAlvo && kcalAlvo > 0) {
+              const eq = kcalEquivalente(kcalAlvo, nome);
+              if (
+                eq &&
+                gramasOrig != null &&
+                eq.gramas >= gramasOrig * 0.2 &&
+                eq.gramas <= gramasOrig * 5
+              ) {
+                const unid = eq.liquido ? 'ml' : 'g';
+                textoQty = eq.medida
+                  ? `≈ ${eq.gramas} ${unid} · ${eq.medida}`
+                  : `≈ ${eq.gramas} ${unid}`;
+              }
+            }
+            // Fallback: qty_equiv enviado pela IA
+            if (!textoQty && typeof s === 'object' && s.qty_equiv) {
+              textoQty = `≈ ${s.qty_equiv}`;
+            }
+
+            return textoQty ? `${nome} (${textoQty})` : nome;
+          }).filter(Boolean);
+
           copia[ri].alimentos[ai] = {
-            ...copia[ri].alimentos[ai],
-            subs: subsArr
-              .map(s => (typeof s === 'object' ? (s.nome ?? '') : String(s)).trim())
-              .filter(Boolean)
-              .join(', '),
+            ...alOrig,
+            subs: subsFormatados.join(', '),
             _subsObj: undefined,
           };
         }
