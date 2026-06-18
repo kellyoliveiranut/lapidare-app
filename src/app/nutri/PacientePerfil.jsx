@@ -1991,7 +1991,16 @@ function PublicarPlano({ pacienteId, nutriId, calculosImportados, onLimparImport
     setHistorico(data ?? []);
     if (!editorPreenchido.current && data?.length) {
       editorPreenchido.current = true;
-      carregarEditor(data[0].dados, data[0].validade ?? '');
+      const dadosBase = data[0].dados;
+      // Se o plano mais recente não tem substituições, recupera do plano anterior que tenha
+      if (!dadosBase?.substituicoes?.length) {
+        const planComSubs = data.find(p => p.dados?.substituicoes?.length > 0);
+        if (planComSubs) {
+          carregarEditor({ ...dadosBase, substituicoes: planComSubs.dados.substituicoes }, data[0].validade ?? '');
+          return;
+        }
+      }
+      carregarEditor(dadosBase, data[0].validade ?? '');
     }
   }
 
@@ -2020,7 +2029,9 @@ function PublicarPlano({ pacienteId, nutriId, calculosImportados, onLimparImport
     setSubstituicoes((dados?.substituicoes ?? []).map(s => ({
       _id: Math.random().toString(36).slice(2),
       original: s.original ?? '',
-      subs: Array.isArray(s.subs) ? s.subs.join(', ') : String(s.subs ?? ''),
+      subs: Array.isArray(s.subs)
+        ? s.subs.map(sub => typeof sub === 'object' ? (sub.nome ?? '').trim() : String(sub).trim()).filter(Boolean).join(', ')
+        : String(s.subs ?? ''),
     })));
   }
 
@@ -2247,7 +2258,7 @@ A resposta começa com "[" e termina com "]" — nada mais. "original" é sempre
           const o = { nome: a.nome.trim() };
           if (a.quantidade.trim()) o.qty = a.quantidade.trim();
           // subs como array de strings simples (como Plano.jsx espera)
-          const subsArr = a.subs.split(',').map(s => s.trim()).filter(Boolean);
+          const subsArr = (a.subs ?? '').split(',').map(s => s.trim()).filter(Boolean);
           if (subsArr.length) o.subs = subsArr;
           return o;
         });
