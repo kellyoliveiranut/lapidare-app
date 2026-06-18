@@ -3054,10 +3054,9 @@ Estrutura JSON obrigatória:
                   <div style={{ padding: '10px 12px' }}>
                     {r.alimentos.length > 0 && (
                       <div style={{ marginBottom: 8 }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 2fr auto', gap: 6, marginBottom: 4 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr auto', gap: 6, marginBottom: 4 }}>
                           <span style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: .5 }}>Alimento</span>
                           <span style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: .5 }}>Qtd.</span>
-                          <span style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: .5 }}>Substitutos (vírgula)</span>
                           <span />
                         </div>
                         {r.alimentos.map(a => (
@@ -5061,7 +5060,7 @@ function normalizarTelefone(raw) {
 const AlimentoLinha = memo(function AlimentoLinha({ alimento: a, refId, onSetAlim, onRemove }) {
   return (
     <div style={{
-      display: 'grid', gridTemplateColumns: '2fr 1fr 2fr auto',
+      display: 'grid', gridTemplateColumns: '2fr 1fr auto',
       gap: 6, marginBottom: 5, alignItems: 'center',
     }}>
       <input
@@ -5073,11 +5072,6 @@ const AlimentoLinha = memo(function AlimentoLinha({ alimento: a, refId, onSetAli
         value={a.quantidade}
         onChange={e => onSetAlim(refId, a._id, 'quantidade', e.target.value)}
         placeholder="2 un."
-      />
-      <input
-        value={a.subs}
-        onChange={e => onSetAlim(refId, a._id, 'subs', e.target.value)}
-        placeholder="Omelete, tofu mexido"
       />
       <button
         onClick={() => onRemove(refId, a._id)}
