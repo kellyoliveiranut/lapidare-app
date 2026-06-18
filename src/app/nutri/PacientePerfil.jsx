@@ -1876,8 +1876,6 @@ function PublicarPlano({ pacienteId, nutriId, calculosImportados, onLimparImport
   const [historico, setHistorico] = useState([]);
   const [busy, setBusy]           = useState(false);
   const [feedback, setFeedback]   = useState(null);
-  const [gerando, setGerando]     = useState(false);
-  const [erroIA, setErroIA]       = useState(null);
   const [promptVisivel, setPromptVisivel] = useState(false);
   const [promptTexto, setPromptTexto]     = useState('');
   const [gerandoPrompt, setGerandoPrompt] = useState(false);
@@ -1887,8 +1885,12 @@ function PublicarPlano({ pacienteId, nutriId, calculosImportados, onLimparImport
   const [jsonOpen, setJsonOpen]           = useState(false);
   const [metaKcal, setMetaKcal]           = useState('');
   const [substituicoes, setSubstituicoes] = useState([]);
-  const [gerandoSubs, setGerandoSubs]     = useState(false);
-  const [erroSubs, setErroSubs]           = useState(null);
+  const [promptSubsVisivel, setPromptSubsVisivel] = useState(false);
+  const [promptSubsTexto, setPromptSubsTexto]     = useState('');
+  const [promptSubsCopiado, setPromptSubsCopiado] = useState(false);
+  const [jsonSubsOpen, setJsonSubsOpen]           = useState(false);
+  const [jsonSubsInput, setJsonSubsInput]         = useState('');
+  const [erroJsonSubs, setErroJsonSubs]           = useState(null);
   const [previewOpen, setPreviewOpen]     = useState(false);
   const [dadosPreview, setDadosPreview]   = useState(null);
   const [verPlano, setVerPlano]           = useState(null); // plano publicado sendo visualizado
@@ -2022,8 +2024,7 @@ function PublicarPlano({ pacienteId, nutriId, calculosImportados, onLimparImport
       : s
   ));
 
-  async function gerarSubstituicoesIA() {
-    // Inclui quantidade quando disponível para que a IA estime a equivalência calórica
+  function gerarPromptSubs() {
     const alimentosList = refeicoes.flatMap(r =>
       r.alimentos
         .filter(a => a.nome.trim())
@@ -2032,14 +2033,11 @@ function PublicarPlano({ pacienteId, nutriId, calculosImportados, onLimparImport
     const alimentosUnicos = [...new Set(alimentosList)];
 
     if (alimentosUnicos.length === 0) {
-      setErroSubs('Adicione alimentos ao plano antes de gerar substituições.');
+      setErroJsonSubs('Adicione alimentos ao plano antes de gerar o prompt.');
       return;
     }
 
-    setGerandoSubs(true);
-    setErroSubs(null);
-
-    const prompt = `Você é uma nutricionista clínica especialista em oncologia.
+    setPromptSubsTexto(`Você é uma nutricionista clínica especialista em oncologia.
 Plano alimentar com os seguintes alimentos: ${alimentosUnicos.join(', ')}.
 
 Para cada alimento, sugira substituições por equivalência de grupo alimentar.
@@ -2058,160 +2056,115 @@ FORMATO DA RESPOSTA — CRÍTICO:
 - A resposta começa com "[" e termina com "]" — nada mais.
 - O campo "original" deve conter o nome exatamente como foi fornecido acima (incluindo a quantidade entre parênteses se houver).
 - Formato obrigatório de cada elemento do array:
-{"original": "<nome exato do alimento>", "substitutos": [{"nome": "batata doce", "qty_equiv": "95g"}, {"nome": "mandioca cozida", "qty_equiv": "105g"}]}`;
+{"original": "<nome exato do alimento>", "substitutos": [{"nome": "batata doce", "qty_equiv": "95g"}, {"nome": "mandioca cozida", "qty_equiv": "105g"}]}`);
+    setPromptSubsVisivel(true);
+  }
 
+  function copiarPromptSubs() {
+    navigator.clipboard.writeText(promptSubsTexto).then(() => {
+      setPromptSubsCopiado(true);
+      setTimeout(() => setPromptSubsCopiado(false), 2000);
+    });
+  }
+
+  function importarJsonSubs() {
+    setErroJsonSubs(null);
+    const raw0 = jsonSubsInput.replace(/```(?:json)?/gi, '').trim();
+    const ini  = raw0.indexOf('[');
+    const fim  = raw0.lastIndexOf(']');
+    const raw  = (ini !== -1 && fim > ini) ? raw0.slice(ini, fim + 1) : raw0;
+
+    let parsed;
     try {
-      const resposta = await callAnthropic(
-        [{ role: 'user', content: prompt }],
-        { model: 'claude-sonnet-4-6', maxTokens: 2000 }
-      );
-
-      console.log('[gerarSubstituicoesIA] resposta bruta:', resposta);
-
-      let parsed;
-      try {
-        // Remove cercas de markdown (```json, ```, variações com/sem espaço)
-        let raw = resposta.replace(/```(?:json)?/gi, '').trim();
-        // Extrai do primeiro "[" até o último "]" para ignorar texto antes/depois
-        const ini = raw.indexOf('[');
-        const fim = raw.lastIndexOf(']');
-        if (ini !== -1 && fim > ini) raw = raw.slice(ini, fim + 1);
-        parsed = JSON.parse(raw);
-      } catch (parseErr) {
-        console.error('[gerarSubstituicoesIA] parse falhou:', parseErr, '\nResposta bruta:', resposta);
-        const trecho = resposta.slice(0, 150).replace(/\n/g, ' ');
-        throw new Error(`formato-invalido:${trecho}`);
-      }
-
-      if (!Array.isArray(parsed) || parsed.length === 0) {
-        const trecho = resposta.slice(0, 150).replace(/\n/g, ' ');
-        throw new Error(`formato-invalido:${trecho}`);
-      }
-
-      // Normaliza nome: remove acentos, parênteses (2 passes p/ aninhados), minúsculas
-      const normName = s => String(s ?? '')
-        .normalize('NFD').replace(/[̀-ͯ]/g, '')
-        .replace(/\s*\([^)]*\)/g, '').replace(/\s*\([^)]*\)/g, '')
-        .trim().toLowerCase();
-
-      // Detecta formato: AGRUPADO ({original, substitutos[]}) ou PLANO (flat)
-      const isAgrupado = typeof parsed[0] === 'object' &&
-        'original' in parsed[0] &&
-        Array.isArray(parsed[0].substitutos);
-
-      if (isAgrupado) {
-        // Monta índice: nome normalizado → {ri, ai} no state de refeições
-        const foodMap = {};
-        refeicoes.forEach((r, ri) => {
-          r.alimentos.forEach((a, ai) => {
-            const key = normName(a.nome);
-            if (key) foodMap[key] = { ri, ai };
-          });
-        });
-
-        // Cópia profunda das refeições para atualizar subs por alimento
-        const copia = refeicoes.map(r => ({
-          ...r,
-          alimentos: r.alimentos.map(a => ({ ...a })),
-        }));
-
-        for (const item of parsed) {
-          const origNorm = normName(item.original ?? '');
-          // Casa quando um é prefixo/sufixo do outro (lida com qty entre parênteses)
-          const entrada = Object.entries(foodMap).find(([key]) =>
-            origNorm === key || origNorm.includes(key) || key.includes(origNorm)
-          );
-          if (!entrada) continue;
-          const { ri, ai } = entrada[1];
-          const alOrig     = copia[ri].alimentos[ai];
-          const gramasOrig = parseGramas(alOrig.quantidade);
-
-          // Busca o alimento original na TACO; tenta nome completo, depois só
-          // a parte antes de conjunção ("ou", "e", "com") ou a 1ª palavra —
-          // para lidar com modos de preparo ("Salmão assado ou cozido no vapor").
-          let alOrigTaco = buscarAlimento(alOrig.nome);
-          if (!alOrigTaco) {
-            const seg = alOrig.nome.split(/\s+(?:ou|e|com)\s+/i)[0].trim();
-            alOrigTaco = buscarAlimento(seg) ?? buscarAlimento(alOrig.nome.split(/\s+/)[0]);
-          }
-          const kcalAlvo =
-            alOrig.kcal ??
-            (alOrigTaco?.kcal && gramasOrig ? (alOrigTaco.kcal * gramasOrig) / 100 : null) ??
-            null;
-
-          const subsArr = Array.isArray(item.substitutos) ? item.substitutos : [];
-          const subsFormatados = subsArr.map(s => {
-            const nome = (typeof s === 'object' ? (s.nome ?? '') : String(s)).trim();
-            if (!nome) return null;
-
-            // Calcula quantidade via TACO com trava de plausibilidade (igual ao chip)
-            let textoQty = null;
-            if (kcalAlvo && kcalAlvo > 0) {
-              const eq = kcalEquivalente(kcalAlvo, nome);
-              if (
-                eq &&
-                gramasOrig != null &&
-                eq.gramas >= gramasOrig * 0.2 &&
-                eq.gramas <= gramasOrig * 5
-              ) {
-                const unid = eq.liquido ? 'ml' : 'g';
-                textoQty = eq.medida
-                  ? `≈ ${eq.gramas} ${unid} · ${eq.medida}`
-                  : `≈ ${eq.gramas} ${unid}`;
-              }
-            }
-            // Fallback: qty_equiv enviado pela IA
-            if (!textoQty && typeof s === 'object' && s.qty_equiv) {
-              textoQty = `≈ ${s.qty_equiv}`;
-            }
-
-            return textoQty ? `${nome} (${textoQty})` : nome;
-          }).filter(Boolean);
-
-          copia[ri].alimentos[ai] = {
-            ...alOrig,
-            subs: subsFormatados.join(', '),
-            _subsObj: undefined,
-          };
-        }
-
-        setRefeicoes(copia);
-      } else {
-        // Formato plano (compatibilidade): popula lista global de substituições
-        setSubstituicoes(parsed.map(item => {
-          const subsArr = Array.isArray(item.substitutos)
-            ? item.substitutos
-            : Array.isArray(item.subs)
-            ? item.subs
-            : String(item.subs ?? item.nome ?? '').split(',').map(s => ({ nome: s.trim() }));
-          const temQtyEquiv = subsArr.some(s => typeof s === 'object' && s.qty_equiv);
-          return {
-            _id: Math.random().toString(36).slice(2),
-            original: String(item.original ?? item.nome ?? '').trim(),
-            subs: subsArr.map(s => (typeof s === 'object' ? s.nome : String(s)).trim()).filter(Boolean).join(', '),
-            ...(temQtyEquiv ? {
-              _subsObj: subsArr.map(s =>
-                typeof s === 'object'
-                  ? { nome: (s.nome ?? '').trim(), qty_equiv: s.qty_equiv ?? null }
-                  : { nome: String(s).trim() }
-              ),
-            } : {}),
-          };
-        }));
-      }
-    } catch (err) {
-      console.error('[gerarSubstituicoesIA]', err);
-      if (err.message.startsWith('formato-invalido')) {
-        const trecho = err.message.slice('formato-invalido:'.length).trim();
-        setErroSubs(
-          `A IA retornou um formato inesperado. Tente novamente.${trecho ? ` (recebido: "${trecho}")` : ''}`
-        );
-      } else {
-        setErroSubs(`Falha (${err.message ?? 'erro desconhecido'})`);
-      }
-    } finally {
-      setGerandoSubs(false);
+      parsed = JSON.parse(raw);
+    } catch {
+      return setErroJsonSubs('JSON inválido. Verifique o formato e tente novamente.');
     }
+
+    if (!Array.isArray(parsed) || parsed.length === 0)
+      return setErroJsonSubs('O JSON precisa ser um array [ ] de substituições.');
+
+    const normName = s => String(s ?? '')
+      .normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/\s*\([^)]*\)/g, '').replace(/\s*\([^)]*\)/g, '')
+      .trim().toLowerCase();
+
+    const isAgrupado = typeof parsed[0] === 'object' &&
+      'original' in parsed[0] &&
+      Array.isArray(parsed[0].substitutos);
+
+    if (isAgrupado) {
+      const foodMap = {};
+      refeicoes.forEach((r, ri) => {
+        r.alimentos.forEach((a, ai) => {
+          const key = normName(a.nome);
+          if (key) foodMap[key] = { ri, ai };
+        });
+      });
+
+      const copia = refeicoes.map(r => ({
+        ...r,
+        alimentos: r.alimentos.map(a => ({ ...a })),
+      }));
+
+      for (const item of parsed) {
+        const origNorm = normName(item.original ?? '');
+        const entrada  = Object.entries(foodMap).find(([key]) =>
+          origNorm === key || origNorm.includes(key) || key.includes(origNorm)
+        );
+        if (!entrada) continue;
+        const { ri, ai } = entrada[1];
+        const alOrig     = copia[ri].alimentos[ai];
+        const gramasOrig = parseGramas(alOrig.quantidade);
+
+        let alOrigTaco = buscarAlimento(alOrig.nome);
+        if (!alOrigTaco) {
+          const seg = alOrig.nome.split(/\s+(?:ou|e|com)\s+/i)[0].trim();
+          alOrigTaco = buscarAlimento(seg) ?? buscarAlimento(alOrig.nome.split(/\s+/)[0]);
+        }
+        const kcalAlvo =
+          alOrig.kcal ??
+          (alOrigTaco?.kcal && gramasOrig ? (alOrigTaco.kcal * gramasOrig) / 100 : null) ??
+          null;
+
+        const subsArr      = Array.isArray(item.substitutos) ? item.substitutos : [];
+        const subsFormatados = subsArr.map(s => {
+          const nome = (typeof s === 'object' ? (s.nome ?? '') : String(s)).trim();
+          if (!nome) return null;
+          let textoQty = null;
+          if (kcalAlvo && kcalAlvo > 0) {
+            const eq = kcalEquivalente(kcalAlvo, nome);
+            if (eq && gramasOrig != null && eq.gramas >= gramasOrig * 0.2 && eq.gramas <= gramasOrig * 5) {
+              const unid = eq.liquido ? 'ml' : 'g';
+              textoQty = eq.medida ? `≈ ${eq.gramas} ${unid} · ${eq.medida}` : `≈ ${eq.gramas} ${unid}`;
+            }
+          }
+          if (!textoQty && typeof s === 'object' && s.qty_equiv) textoQty = `≈ ${s.qty_equiv}`;
+          return textoQty ? `${nome} (${textoQty})` : nome;
+        }).filter(Boolean);
+
+        copia[ri].alimentos[ai] = { ...alOrig, subs: subsFormatados.join(', '), _subsObj: undefined };
+      }
+
+      setRefeicoes(copia);
+    } else {
+      setSubstituicoes(parsed.map(item => {
+        const subsArr = Array.isArray(item.substitutos)
+          ? item.substitutos
+          : Array.isArray(item.subs)
+          ? item.subs
+          : String(item.subs ?? item.nome ?? '').split(',').map(s => ({ nome: s.trim() }));
+        return {
+          _id: Math.random().toString(36).slice(2),
+          original: String(item.original ?? item.nome ?? '').trim(),
+          subs: subsArr.map(s => (typeof s === 'object' ? s.nome : String(s)).trim()).filter(Boolean).join(', '),
+        };
+      }));
+    }
+
+    setJsonSubsInput('');
+    setErroJsonSubs(null);
+    setJsonSubsOpen(false);
   }
 
   /* ── build dados ── */
@@ -2486,156 +2439,6 @@ Estrutura JSON obrigatória:
     if (error) return setFeedback({ tipo: 'erro', msg: error.message });
     setFeedback({ tipo: 'ok', msg: 'Plano excluído.' });
     carregar();
-  }
-
-  async function gerarComIA() {
-    setGerando(true);
-    setErroIA(null);
-
-    try {
-      // Busca paralela de todos os dados clínicos
-      const [pacRes, pesoRes, tratRes, anamRes, sintRes] = await Promise.all([
-        supabase.from('pacientes').select('nome, nascimento, objetivo, tipo_plano').eq('id', pacienteId).maybeSingle(),
-        supabase.from('peso_registros').select('*').eq('paciente_id', pacienteId).order('data', { ascending: false }).limit(1).maybeSingle(),
-        supabase.from('tratamentos_oncologicos').select('tipo_cancer, intencao, tipo_trat_sistemico, protocolo, medicamentos').eq('paciente_id', pacienteId).maybeSingle(),
-        supabase.from('anamneses').select('estrutura, respostas').eq('paciente_id', pacienteId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
-        supabase.from('emagrecimento_sintomas').select('sintoma, categoria').eq('paciente_id', pacienteId).eq('presente', true),
-      ]);
-
-      const pac  = pacRes.data;
-      const peso = pesoRes.data;
-      const trat = tratRes.data;
-      const anam = anamRes.data;
-      const sint = sintRes.data ?? [];
-
-      // Calcula idade
-      let idade = null;
-      if (pac?.nascimento) {
-        const hoje = new Date();
-        const nasc = new Date(pac.nascimento + 'T00:00:00');
-        idade = hoje.getFullYear() - nasc.getFullYear();
-        if (hoje.getMonth() < nasc.getMonth() || (hoje.getMonth() === nasc.getMonth() && hoje.getDate() < nasc.getDate())) idade--;
-      }
-
-      // Extrai respostas de anamnese como texto
-      let anamTexto = '';
-      if (anam?.estrutura && anam?.respostas) {
-        const perguntas = Array.isArray(anam.estrutura)
-          ? anam.estrutura
-          : (anam.estrutura?.secoes ?? []).flatMap(s => s.perguntas ?? []);
-        const pares = perguntas
-          .map(p => {
-            const r = anam.respostas[p.id];
-            return r != null && r !== '' ? `${p.texto || p.label || p.id}: ${r}` : null;
-          })
-          .filter(Boolean);
-        anamTexto = pares.slice(0, 30).join('\n');
-      }
-
-      // Sintomas de emagrecimento presentes
-      const sintomasPresentes = sint.map(s => s.sintoma.replace(/_/g, ' ')).join(', ');
-
-      const prompt = `Você é uma nutricionista clínica especializada em oncologia e emagrecimento.
-Crie um plano alimentar personalizado baseado nos dados clínicos abaixo.
-
-RETORNE APENAS JSON puro sem texto adicional, sem markdown, sem explicações.
-Formato exato:
-{
-  "macros": {
-    "kcal": número,
-    "proteinas_g": número,
-    "carbo_g": número,
-    "gorduras_g": número,
-    "agua_l": número com uma casa decimal
-  },
-  "refeicoes": [
-    {
-      "nome": "nome da refeição",
-      "horario": "HH:MM",
-      "alimentos": [
-        { "nome": "alimento", "quantidade": "ex: 100g", "subs": "substituto1, substituto2" }
-      ]
-    }
-  ],
-  "obs": "orientações clínicas personalizadas em 2-3 parágrafos"
-}
-
-DADOS DA PACIENTE
-Nome: ${pac?.nome ?? '—'}
-Idade: ${idade != null ? idade + ' anos' : '—'}
-Objetivo: ${pac?.objetivo ?? '—'}
-Plano: ${pac?.tipo_plano ?? '—'}
-${peso ? `Peso atual: ${peso.kg} kg | Altura: ${peso.altura_cm ?? '—'} cm | %Gordura: ${peso.pgc ?? '—'}% | Massa magra: ${peso.mm_kg ?? '—'} kg` : 'Sem dados antropométricos'}
-
-DIAGNÓSTICO ONCOLÓGICO
-${trat ? `Tipo de câncer: ${trat.tipo_cancer ?? '—'}
-Intenção: ${trat.intencao ?? '—'}
-Tratamento: ${trat.tipo_trat_sistemico ?? '—'}
-Protocolo: ${trat.protocolo ?? '—'}
-Medicamentos: ${(trat.medicamentos ?? []).join(', ') || '—'}` : 'Não informado'}
-
-SINTOMAS PRESENTES (emagrecimento/menopausa)
-${sintomasPresentes || 'Nenhum registrado'}
-
-ANAMNESE CLÍNICA (principais respostas)
-${anamTexto || 'Não preenchida'}
-
-DIRETRIZES:
-- Priorize proteína adequada para preservação de massa muscular (mínimo 1,2g/kg)
-- Considere efeitos colaterais do tratamento oncológico
-- Prefira alimentos anti-inflamatórios e de fácil digestão
-- Se houver fadiga ou náusea: refeições menores e mais frequentes
-- Indique 5-6 refeições com horários práticos
-- Para cada alimento, ofereça 1-2 substitutos práticos`;
-
-      const resposta = await callAnthropic(
-        [{ role: 'user', content: prompt }],
-        { model: 'claude-sonnet-4-6', maxTokens: 3000 }
-      );
-
-      // Extrai JSON da resposta (remove possível markdown)
-      const jsonStr = resposta.replace(/```json\n?|\n?```/g, '').trim();
-      let planoIA;
-      try {
-        planoIA = JSON.parse(jsonStr);
-      } catch {
-        throw new Error('A IA retornou um formato inesperado. Tente novamente.');
-      }
-
-      // Preenche macros
-      const m = planoIA.macros ?? {};
-      setMacros({
-        kcal:        m.kcal        != null ? String(m.kcal)        : '',
-        proteinas_g: m.proteinas_g != null ? String(m.proteinas_g) : '',
-        carbo_g:     m.carbo_g     != null ? String(m.carbo_g)     : '',
-        gorduras_g:  m.gorduras_g  != null ? String(m.gorduras_g)  : '',
-        agua_l:      m.agua_l      != null ? String(m.agua_l)      : '',
-      });
-
-      // Preenche refeições convertendo para o formato interno do formulário
-      const refs = (planoIA.refeicoes ?? []).map(r => ({
-        _id: Math.random().toString(36).slice(2),
-        nome:     r.nome     ?? '',
-        horario:  r.horario  ?? '',
-        alimentos: (r.alimentos ?? []).map(a => ({
-          _id:        Math.random().toString(36).slice(2),
-          nome:       a.nome       ?? '',
-          quantidade: a.quantidade ?? '',
-          subs:       Array.isArray(a.subs)
-            ? a.subs.map(s => (typeof s === 'object' ? s.nome : s)).join(', ')
-            : (a.subs ?? ''),
-        })),
-      }));
-      setRefeicoes(refs);
-
-      // Preenche observações
-      if (planoIA.obs) setObs(planoIA.obs);
-
-    } catch (e) {
-      setErroIA(e.message || 'Erro ao gerar plano com IA.');
-    }
-
-    setGerando(false);
   }
 
   function abrirPreview() {
@@ -2961,7 +2764,7 @@ DIRETRIZES:
         <div className="card-header">
           <div>
             <div className="card-title">Novo plano alimentar</div>
-            <div className="card-sub">Preencha manualmente, gere com IA ou via prompt para Claude/ChatGPT</div>
+            <div className="card-sub">Preencha manualmente ou use o prompt para Claude/ChatGPT</div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
             <button
@@ -2992,27 +2795,6 @@ DIRETRIZES:
             >
               <i className="ti ti-clipboard-text" aria-hidden="true" />
               {promptVisivel ? 'Atualizar prompt' : '📋 Gerar via prompt'}
-            </button>
-            <button
-              onClick={gerarComIA}
-              disabled={gerando}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                padding: '7px 14px', borderRadius: 8, cursor: gerando ? 'default' : 'pointer',
-                border: 'none',
-                background: 'linear-gradient(135deg, #7c3aed, #a08456)',
-                color: '#fff', fontSize: 13, fontWeight: 600,
-                fontFamily: 'var(--font-sans)',
-                opacity: gerando ? 0.75 : 1,
-                boxShadow: '0 2px 8px rgba(124,58,237,.25)',
-              }}
-            >
-              <i
-                className={`ti ti-${gerando ? 'loader-2' : 'sparkles'}`}
-                style={gerando ? { animation: 'lapidare-spin .75s linear infinite' } : {}}
-                aria-hidden="true"
-              />
-              {gerando ? 'Gerando...' : 'Gerar'}
             </button>
           </div>
         </div>
@@ -3056,29 +2838,6 @@ DIRETRIZES:
               {busy ? 'Publicando...' : 'Publicar plano'}
             </button>
             <button onClick={() => setFeedback(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#15803d', fontSize: 14 }}>×</button>
-          </div>
-        )}
-
-        {erroIA && (
-          <div style={{
-            margin: '0 16px', padding: '8px 12px', borderRadius: 6,
-            background: 'var(--red-bg)', color: 'var(--red)', fontSize: 12,
-            display: 'flex', alignItems: 'center', gap: 8,
-          }}>
-            <i className="ti ti-alert-triangle" />
-            {erroIA}
-          </div>
-        )}
-
-        {gerando && (
-          <div style={{
-            margin: '0 16px', padding: '10px 14px', borderRadius: 8,
-            background: 'linear-gradient(135deg, #f5f0ff, #fdf8ee)',
-            border: '1px solid #e9d5ff', fontSize: 12, color: '#7c3aed',
-            display: 'flex', alignItems: 'center', gap: 8,
-          }}>
-            <i className="ti ti-loader-2" style={{ animation: 'lapidare-spin .75s linear infinite' }} />
-            A IA está analisando os dados clínicos e gerando o plano personalizado...
           </div>
         )}
 
@@ -3352,12 +3111,19 @@ DIRETRIZES:
               <div style={{ display: 'flex', gap: 6 }}>
                 <button
                   className="btn-outline"
-                  style={{ fontSize: 11, padding: '3px 8px', gap: 4, opacity: gerandoSubs ? 0.6 : 1 }}
-                  onClick={gerarSubstituicoesIA}
-                  disabled={gerandoSubs}
+                  style={{ fontSize: 11, padding: '3px 8px', gap: 4 }}
+                  onClick={gerarPromptSubs}
                 >
-                  <i className={`ti ${gerandoSubs ? 'ti-loader-2' : 'ti-sparkles'}`} style={{ fontSize: 12, animation: gerandoSubs ? 'spin 1s linear infinite' : 'none' }} aria-hidden="true" />
-                  {gerandoSubs ? 'Gerando...' : 'Gerar com IA'}
+                  <i className="ti ti-clipboard-text" style={{ fontSize: 12 }} aria-hidden="true" />
+                  📋 Copiar prompt
+                </button>
+                <button
+                  className="btn-outline"
+                  style={{ fontSize: 11, padding: '3px 8px', gap: 4 }}
+                  onClick={() => setJsonSubsOpen(o => !o)}
+                >
+                  <i className="ti ti-code" style={{ fontSize: 12 }} aria-hidden="true" />
+                  {'{ }'} Colar JSON
                 </button>
                 <button className="btn-outline" style={{ fontSize: 11, padding: '3px 8px', gap: 4 }} onClick={addSubstituicao}>
                   <i className="ti ti-plus" style={{ fontSize: 12 }} aria-hidden="true" />
@@ -3365,21 +3131,82 @@ DIRETRIZES:
                 </button>
               </div>
             </div>
-            {erroSubs && (
+
+            {/* Prompt panel para substituições */}
+            {promptSubsVisivel && (
+              <div style={{ marginBottom: 12, padding: '12px 14px', borderRadius: 8, background: '#fdf8ee', border: '1px solid var(--amber, #c9a96e)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--dark)' }}>📋 Prompt para Claude / ChatGPT</div>
+                  <button onClick={() => setPromptSubsVisivel(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', fontSize: 16 }}>×</button>
+                </div>
+                <textarea
+                  readOnly
+                  value={promptSubsTexto}
+                  rows={8}
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '8px 10px', fontSize: 11, lineHeight: 1.5, borderRadius: 6, border: '1px solid var(--border)', background: 'var(--white)', fontFamily: 'var(--font-sans)', resize: 'vertical', color: 'var(--dark)' }}
+                />
+                <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <button
+                    onClick={copiarPromptSubs}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8, cursor: 'pointer', border: 'none', background: promptSubsCopiado ? '#16a34a' : 'var(--dark)', color: '#fff', fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-sans)', transition: 'background .2s' }}
+                  >
+                    <i className={`ti ti-${promptSubsCopiado ? 'check' : 'copy'}`} />
+                    {promptSubsCopiado ? 'Copiado!' : 'Copiar prompt'}
+                  </button>
+                  <div style={{ fontSize: 11, color: 'var(--text3)', lineHeight: 1.4, flex: 1 }}>
+                    Cole no Claude ou ChatGPT, copie o JSON gerado e cole em "{'{ }'} Colar JSON" para importar.
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* JSON modal para substituições */}
+            {jsonSubsOpen && (
+              <div style={{ marginBottom: 12, padding: '12px 14px', borderRadius: 8, background: 'var(--bg2)', border: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--dark)' }}>{'{ }'} Colar JSON de substituições</div>
+                  <button onClick={() => { setJsonSubsOpen(false); setErroJsonSubs(null); setJsonSubsInput(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', fontSize: 16 }}>×</button>
+                </div>
+                <textarea
+                  value={jsonSubsInput}
+                  onChange={e => setJsonSubsInput(e.target.value)}
+                  rows={6}
+                  placeholder='Cole aqui o JSON gerado pela IA. Formato esperado: [{"original": "frango", "substitutos": [{"nome": "sardinha fresca", "qty_equiv": "90g"}]}]'
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '8px 10px', fontSize: 11, lineHeight: 1.5, borderRadius: 6, border: '1px solid var(--border)', background: 'var(--white)', fontFamily: 'var(--font-sans)', resize: 'vertical', color: 'var(--dark)' }}
+                />
+                {erroJsonSubs && (
+                  <div style={{ marginTop: 6, padding: '6px 10px', borderRadius: 6, background: 'var(--red-bg)', color: 'var(--red)', fontSize: 11, display: 'flex', gap: 6 }}>
+                    <i className="ti ti-alert-triangle" style={{ flexShrink: 0 }} /> {erroJsonSubs}
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                  <button className="btn-outline" style={{ flex: 1, justifyContent: 'center', fontSize: 12 }}
+                    onClick={() => { setJsonSubsOpen(false); setErroJsonSubs(null); setJsonSubsInput(''); }}>
+                    Cancelar
+                  </button>
+                  <button className="btn" style={{ flex: 2, justifyContent: 'center', fontSize: 12 }}
+                    onClick={importarJsonSubs} disabled={!jsonSubsInput.trim()}>
+                    <i className="ti ti-file-import" aria-hidden="true" /> Importar substituições
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {erroJsonSubs && !jsonSubsOpen && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--red, #e05252)', background: 'color-mix(in srgb, var(--red, #e05252) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--red, #e05252) 25%, transparent)', borderRadius: 6, padding: '6px 10px', marginBottom: 8 }}>
                 <i className="ti ti-alert-circle" style={{ fontSize: 13, flexShrink: 0 }} aria-hidden="true" />
-                <span style={{ flex: 1 }}>{erroSubs}</span>
-                <button onClick={() => setErroSubs(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: 0, lineHeight: 1 }}>
+                <span style={{ flex: 1 }}>{erroJsonSubs}</span>
+                <button onClick={() => setErroJsonSubs(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: 0, lineHeight: 1 }}>
                   <i className="ti ti-x" style={{ fontSize: 12 }} aria-hidden="true" />
                 </button>
               </div>
             )}
             {substituicoes.length === 0 ? (
               <div style={{ fontSize: 12, color: 'var(--text3)', lineHeight: 1.5 }}>
-                Adicione substituições por grupo alimentar ou clique em "Gerar com IA" para sugestões automáticas.
+                Adicione substituições manualmente ou copie o prompt para gerar com Claude/ChatGPT e cole o JSON aqui.
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 7, opacity: gerandoSubs ? 0.4 : 1, transition: 'opacity 0.2s' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
                 {substituicoes.map(s => (
                   <div key={s._id} style={{ display: 'grid', gridTemplateColumns: '2fr 3fr auto', gap: 6, alignItems: 'center' }}>
                     <input
@@ -3633,6 +3460,9 @@ function PublicarLista({ pacienteId, nutriId }) {
   const [jsonOpen, setJsonOpen]       = useState(false);
   const [jsonInput, setJsonInput]     = useState('');
   const [erroJson, setErroJson]       = useState(null);
+  const [promptComprasVisivel, setPromptComprasVisivel] = useState(false);
+  const [promptComprasTexto, setPromptComprasTexto]     = useState('');
+  const [promptComprasCopiado, setPromptComprasCopiado] = useState(false);
 
   useEffect(() => { carregar(); }, [pacienteId]);
 
@@ -3644,20 +3474,17 @@ function PublicarLista({ pacienteId, nutriId }) {
     setHistorico(data ?? []);
   }
 
-  async function gerarComIA() {
-    setGerando(true);
-    setErroIA(null);
-    setPreview(null);
-    setMarcados({});
-
+  async function gerarPromptCompras() {
     try {
       const { data: plano } = await supabase
         .from('planos').select('dados')
         .eq('paciente_id', pacienteId)
         .order('publicado_em', { ascending: false }).limit(1).maybeSingle();
 
-      if (!plano?.dados?.refeicoes?.length)
-        throw new Error('Nenhum plano alimentar publicado. Publique um plano primeiro na aba Plano.');
+      if (!plano?.dados?.refeicoes?.length) {
+        setErroIA('Nenhum plano alimentar publicado. Publique um plano primeiro na aba Plano.');
+        return;
+      }
 
       const alimentos = [];
       for (const ref of plano.dados.refeicoes) {
@@ -3665,10 +3492,12 @@ function PublicarLista({ pacienteId, nutriId }) {
           if (alim.nome) alimentos.push(`${alim.nome}${alim.quantidade ? ` (${alim.quantidade})` : ''}`);
         }
       }
-      if (!alimentos.length)
-        throw new Error('O plano alimentar não possui alimentos cadastrados.');
+      if (!alimentos.length) {
+        setErroIA('O plano alimentar não possui alimentos cadastrados.');
+        return;
+      }
 
-      const prompt = `Você é uma nutricionista. Com base nos alimentos do plano abaixo, crie uma lista de compras organizada por categoria para 7 dias.
+      setPromptComprasTexto(`Você é uma nutricionista. Com base nos alimentos do plano abaixo, crie uma lista de compras organizada por categoria para 7 dias.
 
 ALIMENTOS DO PLANO:
 ${alimentos.join('\n')}
@@ -3689,33 +3518,18 @@ RETORNE APENAS JSON puro sem markdown, sem texto adicional:
 Use APENAS as categorias que tiverem itens:
 🥩 Proteínas | 🥦 Vegetais e Legumes | 🍎 Frutas | 🌾 Cereais e Grãos | 🥛 Laticínios | 🫙 Temperos e Condimentos | 🧴 Outros
 
-Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (ex: "Frango"), formato de quantidade: "500g", "1 dúzia", "2 potes".`;
-
-      const resposta = await callAnthropic(
-        [{ role: 'user', content: prompt }],
-        { model: 'claude-sonnet-4-6', maxTokens: 2000 }
-      );
-
-      let listaIA;
-      try { listaIA = JSON.parse(resposta.replace(/```json\n?|\n?```/g, '').trim()); }
-      catch { throw new Error('A IA retornou um formato inesperado. Tente novamente.'); }
-
-      if (!listaIA?.lista?.length)
-        throw new Error('A IA não gerou categorias. Tente novamente.');
-
-      setPreview({
-        lista: listaIA.lista.map(cat => ({
-          ...cat,
-          itens: (cat.itens ?? []).map(item => ({
-            ...item,
-            _id: Math.random().toString(36).slice(2),
-          })),
-        })),
-      });
+Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (ex: "Frango"), formato de quantidade: "500g", "1 dúzia", "2 potes".`);
+      setPromptComprasVisivel(true);
     } catch (e) {
-      setErroIA(e.message || 'Erro ao gerar lista.');
+      setErroIA(e.message || 'Erro ao buscar plano.');
     }
-    setGerando(false);
+  }
+
+  function copiarPromptCompras() {
+    navigator.clipboard.writeText(promptComprasTexto).then(() => {
+      setPromptComprasCopiado(true);
+      setTimeout(() => setPromptComprasCopiado(false), 2000);
+    });
   }
 
   async function publicar() {
@@ -4126,7 +3940,20 @@ Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (e
                 background: 'var(--bg2)', color: 'var(--dark)',
                 fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-sans)',
               }}>
-              {'{ }'} JSON
+              <i className="ti ti-code" aria-hidden="true" />
+              {'{ }'} Colar JSON
+            </button>
+            <button
+              onClick={gerarPromptCompras}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '7px 12px', borderRadius: 8, cursor: 'pointer',
+                border: '1px solid var(--border)',
+                background: 'var(--bg2)', color: 'var(--dark)',
+                fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-sans)',
+              }}>
+              <i className="ti ti-clipboard-text" aria-hidden="true" />
+              📋 Copiar prompt
             </button>
             <button
               onClick={gerarDoPlano}
@@ -4141,23 +3968,6 @@ Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (e
                 opacity: gerando ? 0.75 : 1,
               }}>
               📋 Gerar lista do plano
-            </button>
-            <button
-              onClick={gerarComIA}
-              disabled={gerando}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                padding: '7px 14px', borderRadius: 8,
-                border: 'none', cursor: gerando ? 'default' : 'pointer',
-                background: 'linear-gradient(135deg, #16a34a, #15803d)',
-                color: '#fff', fontSize: 13, fontWeight: 600,
-                fontFamily: 'var(--font-sans)',
-                opacity: gerando ? 0.75 : 1,
-              }}>
-              <i className={`ti ti-${gerando ? 'loader-2' : 'sparkles'}`}
-                 style={gerando ? { animation: 'lapidare-spin .75s linear infinite' } : {}}
-                 aria-hidden="true" />
-              {gerando ? 'Gerando...' : 'Gerar'}
             </button>
           </div>
         </div>
@@ -4175,6 +3985,34 @@ Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (e
           </div>
         )}
 
+        {/* Painel: Copiar prompt para compras */}
+        {promptComprasVisivel && (
+          <div style={{ margin: '0 16px 12px', padding: '14px', borderRadius: 8, background: '#fdf8ee', border: '1px solid var(--amber, #c9a96e)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--dark)' }}>📋 Prompt para Claude / ChatGPT</div>
+              <button onClick={() => setPromptComprasVisivel(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', fontSize: 16 }}>×</button>
+            </div>
+            <textarea
+              readOnly
+              value={promptComprasTexto}
+              rows={10}
+              style={{ width: '100%', boxSizing: 'border-box', padding: '10px', fontSize: 12, lineHeight: 1.5, borderRadius: 6, border: '1px solid var(--border)', background: 'var(--white)', fontFamily: 'var(--font-sans)', resize: 'vertical', color: 'var(--dark)' }}
+            />
+            <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <button
+                onClick={copiarPromptCompras}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 8, cursor: 'pointer', border: 'none', background: promptComprasCopiado ? '#16a34a' : 'var(--dark)', color: '#fff', fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-sans)', transition: 'background .2s' }}
+              >
+                <i className={`ti ti-${promptComprasCopiado ? 'check' : 'copy'}`} />
+                {promptComprasCopiado ? 'Copiado!' : 'Copiar prompt'}
+              </button>
+              <div style={{ fontSize: 11, color: 'var(--text3)', lineHeight: 1.4, flex: 1 }}>
+                Cole no Claude ou ChatGPT, copie o JSON gerado e cole em "{'{ }'} Colar JSON" para importar.
+              </div>
+            </div>
+          </div>
+        )}
+
         {!preview && !gerando && (
           <div style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text3)' }}>
             <i className="ti ti-shopping-cart" style={{ fontSize: 28, marginBottom: 12, display: 'block', opacity: .35 }} />
@@ -4183,7 +4021,7 @@ Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (e
               <strong>📋 Gerar lista do plano</strong> — extrai automaticamente os alimentos do plano publicado e organiza por categoria, sem usar IA.
             </div>
             <div style={{ fontSize: 12, textAlign: 'left', maxWidth: 340, margin: '0 auto' }}>
-              <strong>Gerar (IA)</strong> — a IA analisa o plano, agrupa por categoria e sugere quantidades para 7 dias.
+              <strong>📋 Copiar prompt</strong> — gera um prompt com os alimentos do plano para você colar no Claude ou ChatGPT e importar o JSON.
             </div>
           </div>
         )}
