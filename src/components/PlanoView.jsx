@@ -1,5 +1,5 @@
 import { dataBR } from '../lib/utils.js';
-import { buscarAlimento, medidaCaseira, parseGramas } from '../lib/taco.js';
+import { buscarAlimento, medidaCaseira, parseGramas, useTacoReady } from '../lib/taco.js';
 import './PlanoView.css';
 
 // Retorna true quando o texto do substituto já contém quantidade ou é uma combinação.
@@ -18,6 +18,10 @@ function substitutoTemQuantidade(texto) {
  * CSS isolado sob .plano-view-scope — não vaza para o painel da nutri.
  */
 export default function PlanoView({ dados, validade, readOnly = false }) {
+  // Força re-render quando taco_app.json termina de carregar.
+  // medidaSalva (al.medida etc.) aparece imediatamente; medidaTaco preenche logo depois.
+  useTacoReady();
+
   const macros = dados?.macros ?? {};
   const refeicoes = dados?.refeicoes ?? [];
   const substituicoes = dados?.substituicoes ?? [];

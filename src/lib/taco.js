@@ -1,6 +1,51 @@
-import tacoData from '../data/taco_app.json';
+import { useState, useEffect } from 'react';
 
-const _lista = tacoData.alimentos;
+// ── Cache de módulo ──────────────────────────────────────────────────────────
+// _lista fica null até o JSON carregar. Todas as funções de lookup retornam
+// null/vazio enquanto _lista for null — sem quebrar nada na tela.
+let _lista = null;
+const _readyCbs = new Set();
+
+// Dispara o download assim que o módulo é importado pela primeira vez.
+// O import() dinâmico faz o Vite criar um chunk separado para taco_app.json
+// em vez de embutir os dados em PlanoView ou PacientePerfil.
+import('../data/taco_app.json')
+  .then(m => {
+    _lista = (m.default ?? m).alimentos ?? [];
+    _readyCbs.forEach(fn => fn());
+    _readyCbs.clear();
+  })
+  .catch(() => {
+    // Falha de rede: funções continuam retornando null — sem crash.
+    _readyCbs.clear();
+  });
+
+/**
+ * Assina o evento "TACO pronto". Chama cb() imediatamente se já carregou.
+ * Retorna função de cancelamento.
+ */
+export function _subscribeTaco(cb) {
+  if (_lista !== null) { cb(); return () => {}; }
+  _readyCbs.add(cb);
+  return () => _readyCbs.delete(cb);
+}
+
+/**
+ * Hook React — força re-render quando taco_app.json termina de carregar.
+ * Chame uma vez no topo de qualquer componente que exiba valores derivados do TACO.
+ * Medidas já salvas (al.medida etc.) aparecem ANTES do TACO carregar;
+ * o fallback TACO preenche logo depois.
+ */
+export function useTacoReady() {
+  const [ready, setReady] = useState(() => _lista !== null);
+  useEffect(() => {
+    if (_lista !== null) return;
+    return _subscribeTaco(() => setReady(true));
+  }, []);
+  return ready;
+}
+
+// ── Utilitários ──────────────────────────────────────────────────────────────
 
 // Remove acentos e coloca em minúsculo — idêntico ao campo "norm" do JSON
 export function normalizar(nome) {
@@ -29,10 +74,9 @@ export function ehLiquido(alimento) {
 const STOP_WORDS = new Set(['dos', 'das', 'nas', 'nos', 'por', 'para']);
 
 // Encontra o alimento na TACO por nome normalizado.
-// Ordem: 1) exato, 2) food.norm contém busca, 3) busca contém food.norm (≥8 chars),
-//        4) todas as content-words com checagem de classe líquida.
+// Retorna null se _lista ainda não carregou OU se não encontrar.
 export function buscarAlimento(nome) {
-  if (!nome) return null;
+  if (!_lista || !nome) return null;
   const n = normalizar(nome);
   if (!n) return null;
 
@@ -40,28 +84,24 @@ export function buscarAlimento(nome) {
   let r = _lista.find(a => a.norm === n);
   if (r) return r;
 
-  // 2) Nome do alimento contém o termo buscado (ex.: "aveia em flocos" ⊆ "aveia em flocos integral")
+  // 2) Nome do alimento contém o termo buscado
   if (n.length >= 4) {
     r = _lista.find(a => a.norm.includes(n));
     if (r) return r;
   }
 
   // 3) Busca contém o nome do alimento — exige ≥8 chars para evitar ingredientes curtos
-  //    (ex.: "amendoa" com 7 chars NÃO casa "leite vegetal de amendoas")
   r = _lista.find(a => a.norm.length >= 8 && n.includes(a.norm));
   if (r) return r;
 
   // 4) Content-word match com verificação de coerência de classe
-  //    Remove qualificadores negativos "sem X" antes de extrair as palavras-chave
   const stripped = n.replace(/\bsem\s+\w+/g, '').trim();
   const words = stripped
     .split(/\s+/)
     .filter(w => w.length >= 3 && !STOP_WORDS.has(w));
   if (words.length === 0) return null;
 
-  // Se a busca é de alimento líquido/lácteo, o resultado também deve sê-lo
   const searchIsLiquid = LIQUID_CLASSES.some(kw => n.includes(kw));
-
   r = _lista.find(a => {
     if (!words.every(w => a.norm.includes(w))) return false;
     if (searchIsLiquid && !LIQUID_CLASSES.some(kw => a.norm.includes(kw))) return false;
@@ -71,7 +111,6 @@ export function buscarAlimento(nome) {
 }
 
 // Extrai gramas de uma string de quantidade ("150g", "200 ml", "100 g")
-// Trata ml como g para fins calóricos de alimentos líquidos.
 export function parseGramas(qty) {
   if (!qty) return null;
   const m = String(qty).match(/(\d+(?:[,.]\d+)?)\s*(?:g(?:r(?:ama?s?)?)?\b|ml\b)/i);
@@ -89,7 +128,7 @@ export function kcalDoAlimento(nomeAlimento, qtyStr) {
 }
 
 // Retorna a medida caseira humanizada para {gramas} do {alimento} TACO.
-// Ex.: "1,3 colher de sopa", "2,0 unidade". Null se porcao_g ausente.
+// Null se porcao_g ausente, contagem fora de [0,5–6] ou TACO não carregado.
 export function medidaCaseira(gramas, alimento) {
   if (!alimento?.porcao_g || alimento.porcao_g <= 0) return null;
 
@@ -119,7 +158,7 @@ export function medidaCaseira(gramas, alimento) {
 }
 
 // Retorna { gramas, medida } — gramagem do substituto que equivale a kcalAlvo.
-// medida é a medida caseira humanizada via TACO (ex.: "1,3 colher de sopa").
+// Retorna null se TACO não carregou ainda.
 export function kcalEquivalente(kcalAlvo, nomeSubstituto) {
   if (!kcalAlvo || kcalAlvo <= 0) return null;
   const al = buscarAlimento(nomeSubstituto);

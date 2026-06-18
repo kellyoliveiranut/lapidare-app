@@ -83,17 +83,8 @@ export default function PacientePerfil() {
     setPaciente(data);
   }
 
-  useEffect(() => {
-    let active = true;
-    async function load() {
-      const { data } = await supabase
-        .from('pacientes').select('*').eq('id', id).maybeSingle();
-      if (!active) return;
-      setPaciente(data);
-    }
-    load();
-    return () => { active = false; };
-  }, [id]);
+  // Carregamento inicial — reutiliza carregar() em vez de duplicar a query
+  useEffect(() => { carregar(); }, [id]);
 
   useEffect(() => {
     if (!user?.id) return;
