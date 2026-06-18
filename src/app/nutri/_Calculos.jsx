@@ -253,9 +253,12 @@ function NRS2002({ imc, idade, pacienteId, nutriId }) {
 }
 
 /* ── MUST ─────────────────────────────────────────── */
-function MUST({ imc }) {
+function MUST({ imc, pacienteId, nutriId }) {
   const [perdaScore, setPerdaScore] = useState('');
   const [doencaAguda, setDoencaAguda] = useState(false);
+  const [salvando, setSalvando] = useState(false);
+  const [msgSalvo, setMsgSalvo] = useState(null);
+  const [erroSalvo, setErroSalvo] = useState(null);
 
   const imcScore = imc == null ? null : imc > 20 ? 0 : imc >= 18.5 ? 1 : 2;
   const doencaScore = doencaAguda ? 2 : 0;
@@ -266,6 +269,45 @@ function MUST({ imc }) {
     : total === 0 ? { label: 'Baixo risco', cor: '#16a34a', acao: 'Rotina clínica. Reavaliação semanal hospitalar / mensal comunitário.' }
     : total === 1 ? { label: 'Risco intermediário', cor: '#d97706', acao: 'Monitorar ingestão por 3 dias. Intervir se necessário.' }
     : { label: 'Alto risco', cor: '#dc2626', acao: 'Encaminhar ao nutricionista. Iniciar suporte nutricional.' };
+
+  useEffect(() => {
+    if (!pacienteId) return;
+    supabase
+      .from('rastreios_nutricionais')
+      .select('respostas')
+      .eq('paciente_id', pacienteId)
+      .eq('tipo', 'must')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!data) return;
+        const r = data.respostas;
+        if (r.perdaScore  != null) setPerdaScore(r.perdaScore);
+        if (r.doencaAguda != null) setDoencaAguda(r.doencaAguda);
+      });
+  }, [pacienteId]);
+
+  async function salvar() {
+    setSalvando(true);
+    setMsgSalvo(null);
+    setErroSalvo(null);
+    const { error } = await supabase.from('rastreios_nutricionais').insert({
+      paciente_id: pacienteId,
+      nutri_id:    nutriId,
+      tipo:        'must',
+      data:        new Date().toISOString().slice(0, 10),
+      respostas:   {
+        imc,        imcScore,
+        perdaScore, perdaScoreNum: perdaScore !== '' ? parseInt(perdaScore) : null,
+        doencaAguda, doencaScore,
+      },
+      resultado:   { total, risco: risco ? { label: risco.label, acao: risco.acao } : null },
+    });
+    setSalvando(false);
+    if (error) { setErroSalvo('Erro ao salvar: ' + error.message); return; }
+    setMsgSalvo('Salvo!');
+  }
 
   return (
     <div className="card">
@@ -312,6 +354,18 @@ function MUST({ imc }) {
             <div style={{ fontSize: 12, marginTop: 6, color: 'var(--text3)' }}>{risco.acao}</div>
           </div>
         )}
+
+        {erroSalvo && (
+          <div style={{ marginTop: 10, padding: '8px 12px', borderRadius: 8, background: '#fef2f2', color: '#dc2626', fontSize: 13 }}>
+            {erroSalvo}
+          </div>
+        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12 }}>
+          <button className="btn" onClick={salvar} disabled={salvando || !podeCalc}>
+            {salvando ? 'Salvando...' : 'Salvar avaliação'}
+          </button>
+          {msgSalvo && <span style={{ fontSize: 12, color: '#16a34a' }}>{msgSalvo}</span>}
+        </div>
       </div>
     </div>
   );
@@ -975,7 +1029,7 @@ export default function Calculos({ pacienteId, nutriId, paciente, onUsarNaDieta 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <NRS2002 imc={imc} idade={idade ?? 0} pacienteId={pacienteId} nutriId={nutriId} />
               <PGSGA pacienteId={pacienteId} nutriId={nutriId} />
-              <MUST imc={imc} />
+              <MUST imc={imc} pacienteId={pacienteId} nutriId={nutriId} />
             </div>
           )}
         </>

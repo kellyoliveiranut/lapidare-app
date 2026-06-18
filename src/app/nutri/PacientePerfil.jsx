@@ -44,6 +44,8 @@ export default function PacientePerfil() {
   const [consultaAtiva, setConsultaAtiva] = useState(undefined);
   const [busyConsulta, setBusyConsulta] = useState(false);
   const [agendarAcompOpen, setAgendarAcompOpen] = useState(false);
+  const [acompList, setAcompList] = useState(null);
+  const [erroAcomp, setErroAcomp] = useState(null);
   const [erroCarregar, setErroCarregar] = useState(false);
 
   function labelTipoConsulta(tipo) {
@@ -111,6 +113,42 @@ export default function PacientePerfil() {
     loadConsulta();
     return () => { active = false; };
   }, [id, user?.id]);
+
+  async function loadAcompConsultas() {
+    if (!user?.id) return;
+    const { data, error } = await supabase
+      .from('consultas')
+      .select('id, data_hora, tipo, status, encerrada_em')
+      .eq('paciente_id', id)
+      .eq('nutri_id', user.id)
+      .neq('status', 'cancelada')
+      .order('data_hora', { ascending: true });
+    if (!error) setAcompList(data ?? []);
+  }
+
+  useEffect(() => { loadAcompConsultas(); }, [id, user?.id]);
+
+  async function reloadConsultaAtiva() {
+    const hoje0 = new Date(); hoje0.setHours(0, 0, 0, 0);
+    const { data } = await supabase
+      .from('consultas')
+      .select('id, data_hora, tipo, status, duracao_min, iniciada_em, encerrada_em')
+      .eq('paciente_id', id).eq('nutri_id', user?.id)
+      .neq('status', 'cancelada')
+      .gte('data_hora', hoje0.toISOString())
+      .order('data_hora', { ascending: true }).limit(1).maybeSingle();
+    setConsultaAtiva(data ?? null);
+  }
+
+  async function marcarAcomp(consultaId, realizada) {
+    setErroAcomp(null);
+    const payload = realizada
+      ? { status: 'realizada', encerrada_em: new Date().toISOString(), lembrete_ativo: false }
+      : { status: 'agendada',  encerrada_em: null,                     lembrete_ativo: true  };
+    const { error } = await supabase.from('consultas').update(payload).eq('id', consultaId);
+    if (error) { setErroAcomp('Erro ao atualizar: ' + error.message); return; }
+    await Promise.all([loadAcompConsultas(), reloadConsultaAtiva()]);
+  }
 
   async function enviarRedefinicaoSenha() {
     if (!paciente?.email) return;
@@ -471,15 +509,7 @@ export default function PacientePerfil() {
           onClose={() => setAgendarAcompOpen(false)}
           onSalvo={() => {
             setAgendarAcompOpen(false);
-            // Recarrega consultaAtiva para refletir a 1ª consulta agendada
-            const hoje0 = new Date(); hoje0.setHours(0, 0, 0, 0);
-            supabase.from('consultas')
-              .select('id, data_hora, tipo, status, duracao_min, iniciada_em, encerrada_em')
-              .eq('paciente_id', id).eq('nutri_id', user?.id)
-              .neq('status', 'cancelada')
-              .gte('data_hora', hoje0.toISOString())
-              .order('data_hora', { ascending: true }).limit(1).maybeSingle()
-              .then(({ data }) => setConsultaAtiva(data ?? null));
+            Promise.all([reloadConsultaAtiva(), loadAcompConsultas()]);
           }}
         />
       )}
@@ -584,6 +614,83 @@ export default function PacientePerfil() {
           Agendar acompanhamento (6 consultas)
         </button>
       </div>
+
+      {/* Lista de consultas do acompanhamento */}
+      {acompList && acompList.length > 0 && (
+        <div style={{
+          background: 'var(--white)', border: '0.5px solid var(--hair)',
+          borderRadius: 12, marginBottom: 14, overflow: 'hidden',
+        }}>
+          <div style={{
+            fontSize: 10, letterSpacing: '.18em', textTransform: 'uppercase',
+            color: 'var(--muted)', fontWeight: 500,
+            padding: '10px 14px 8px',
+            borderBottom: '0.5px solid var(--hair)',
+          }}>
+            Consultas agendadas
+          </div>
+          {erroAcomp && (
+            <div style={{
+              margin: '8px 14px', padding: '8px 12px', borderRadius: 8,
+              background: 'var(--red-bg, #fef2f2)', color: 'var(--red, #dc2626)', fontSize: 13,
+            }}>
+              {erroAcomp}
+            </div>
+          )}
+          {acompList.map((c, idx) => {
+            const realizada = c.status === 'realizada';
+            const dt = new Date(c.data_hora);
+            const dataStr = dt.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit', year: '2-digit' });
+            const horaStr = dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+            return (
+              <div key={c.id} style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '10px 14px',
+                borderBottom: idx < acompList.length - 1 ? '0.5px solid var(--hair)' : 'none',
+                opacity: realizada ? 0.65 : 1,
+              }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{
+                    fontSize: 13, fontWeight: 500, color: 'var(--ink)',
+                    textDecoration: realizada ? 'line-through' : 'none',
+                  }}>
+                    {labelTipoConsulta(c.tipo)}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 1 }}>
+                    {dataStr} às {horaStr}
+                  </div>
+                </div>
+                <span style={{
+                  fontSize: 10, fontWeight: 600, letterSpacing: '.06em',
+                  textTransform: 'uppercase',
+                  color: realizada ? 'var(--green, #3a7a46)' : 'var(--gold-deep, #a08456)',
+                  flexShrink: 0,
+                }}>
+                  {realizada ? '✓ Realizada' : 'Agendada'}
+                </span>
+                <button
+                  onClick={() => marcarAcomp(c.id, !realizada)}
+                  style={{
+                    flexShrink: 0, padding: '5px 10px', borderRadius: 8,
+                    border: realizada
+                      ? '1px solid var(--hair)' : '1px solid var(--green, #3a7a46)',
+                    background: realizada ? 'transparent' : 'var(--green-soft, #f0fdf4)',
+                    color: realizada ? 'var(--muted)' : 'var(--green, #3a7a46)',
+                    fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                    fontFamily: 'var(--font-sans)',
+                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                  }}
+                >
+                  {realizada
+                    ? <><i className="ti ti-rotate-left" aria-hidden="true" /> Desfazer</>
+                    : <><i className="ti ti-check" aria-hidden="true" /> Marcar realizada</>
+                  }
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="tabs-scroll" style={{
