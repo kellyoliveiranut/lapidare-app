@@ -2615,12 +2615,6 @@ Estrutura JSON obrigatória:
                 </div>
               ))}
 
-              {dadosPreview.obs && (
-                <div style={{ padding: '10px 14px', background: 'var(--bg2)', borderRadius: 8, fontSize: 12, color: 'var(--text2)', lineHeight: 1.5, marginBottom: 10 }}>
-                  <strong>Orientações:</strong> {dadosPreview.obs}
-                </div>
-              )}
-
               {dadosPreview.substituicoes?.length > 0 && (
                 <div style={{ padding: '10px 14px', background: 'var(--bg2)', borderRadius: 8 }}>
                   <div style={{ fontSize: 10, letterSpacing: '.15em', textTransform: 'uppercase', color: 'var(--muted)', fontWeight: 500, marginBottom: 8 }}>
