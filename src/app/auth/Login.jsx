@@ -11,11 +11,9 @@ export default function Login() {
   const { session, role, loading: sessionLoading } = useSession();
   const tema = useTheme();
 
-  const [mode, setMode] = useState('signin'); // 'signin' | 'signup' | 'forgot'
+  const [mode, setMode] = useState('signin'); // 'signin' | 'forgot'
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
-  const [nome, setNome] = useState('');
-  const [crn, setCrn] = useState('');
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState(null);
   const [aviso, setAviso] = useState(null);
@@ -83,54 +81,22 @@ export default function Login() {
 
       const parecePhone = !emailFinal.includes('@') && emailFinal.replace(/\D/g, '').length >= 8;
       if (parecePhone) {
-        const digitsOnly = emailFinal.replace(/\D/g, '');
-        const { data: pacientes, error: lookupErr } = await supabase
-          .from('pacientes')
-          .select('email, telefone');
+        const { data: emailEncontrado, error: lookupErr } = await supabase
+          .rpc('buscar_email_por_telefone', { p_telefone: emailFinal });
         if (lookupErr) {
           setBusy(false);
           return setErro('Não foi possível buscar pelo telefone. Tente usar o email.');
         }
-        const match = (pacientes ?? []).find(p => {
-          const d = (p.telefone ?? '').replace(/\D/g, '');
-          return d === digitsOnly || d.endsWith(digitsOnly) || digitsOnly.endsWith(d);
-        });
-        if (!match) {
+        if (!emailEncontrado) {
           setBusy(false);
           return setErro('Telefone não encontrado. Verifique o número ou use seu email.');
         }
-        emailFinal = match.email;
+        emailFinal = emailEncontrado;
       }
 
       const { error } = await supabase.auth.signInWithPassword({ email: emailFinal, password: senha });
       setBusy(false);
       if (error) setErro(mensagemAmigavel(error));
-    } catch (err) {
-      setBusy(false);
-      setErro(mensagemAmigavel(err));
-    }
-  }
-
-  async function handleSignUp(e) {
-    e.preventDefault();
-    setErro(null);
-    setAviso(null);
-    if (!nome.trim()) return setErro('Informe o nome completo.');
-    setBusy(true);
-    try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password: senha,
-        options: {
-          data: { role: 'nutri', nome: nome.trim(), crn: crn.trim() },
-        },
-      });
-      setBusy(false);
-      if (error) return setErro(mensagemAmigavel(error));
-      if (!data.session) {
-        setAviso('Conta criada. Verifique seu email para confirmar e depois faça login.');
-        setMode('signin');
-      }
     } catch (err) {
       setBusy(false);
       setErro(mensagemAmigavel(err));
@@ -176,61 +142,23 @@ export default function Login() {
             fontFamily: 'var(--font-serif)', fontWeight: 500, fontSize: 28,
             letterSpacing: '-0.02em', color: 'var(--ink)'
           }}>
-            {mode === 'signin' ? 'Entrar' : mode === 'signup' ? 'Criar conta' : 'Recuperar senha'}
+            {mode === 'signin' ? 'Entrar' : 'Recuperar senha'}
           </h1>
           <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>
             {mode === 'signin'
               ? (tema.mensagem_login ?? 'Acesse seu painel ou app')
-              : mode === 'signup'
-                ? 'Cadastro de nutricionista'
-                : 'Esqueceu? A gente te ajuda 💛'}
+              : 'Esqueceu? A gente te ajuda 💛'}
           </p>
         </div>
 
-        {/* Tabs — escondidas no modo forgot pra focar a UX */}
-        <div style={{
-          display: mode === 'forgot' ? 'none' : 'flex',
-          gap: 2, background: 'var(--bg-deep)',
-          borderRadius: 10, padding: 3, marginBottom: 18
-        }}>
-          {[
-            { id: 'signin', label: 'Entrar' },
-            { id: 'signup', label: 'Criar conta' },
-          ].map(t => (
-            <button
-              key={t.id}
-              onClick={() => { setMode(t.id); setErro(null); setAviso(null); }}
-              style={{
-                flex: 1, padding: '7px 4px', fontSize: 12, fontWeight: 500,
-                borderRadius: 8,
-                color: mode === t.id ? 'var(--ink)' : 'var(--muted)',
-                background: mode === t.id ? 'var(--paper)' : 'transparent',
-                boxShadow: mode === t.id ? 'var(--shadow-sm)' : 'none',
-                transition: 'all .2s'
-              }}>
-              {t.label}
-            </button>
-          ))}
-        </div>
-
-        <form onSubmit={
-          mode === 'signin' ? handleSignIn :
-          mode === 'signup' ? handleSignUp :
-          handleForgotPassword
-        }>
-          {mode === 'signup' && (
-            <>
-              <Field label="Nome completo" value={nome} onChange={setNome} required autoFocus />
-              <Field label="CRN" value={crn} onChange={setCrn} placeholder="opcional" />
-            </>
-          )}
+        <form onSubmit={mode === 'signin' ? handleSignIn : handleForgotPassword}>
           <Field
             label={mode === 'signin' ? 'Email ou telefone' : 'Email'}
             type={mode === 'signin' ? 'text' : 'email'}
             value={email}
             onChange={setEmail}
             required
-            autoFocus={mode === 'signin' || mode === 'forgot'}
+            autoFocus
           />
           {mode !== 'forgot' && (
             <Field label="Senha" type="password" value={senha} onChange={setSenha} required minLength={6} />
@@ -251,7 +179,7 @@ export default function Login() {
             </div>
           )}
 
-          {/* Link "voltar pro login" no modo forgot */}
+          {/* Instrução no modo forgot */}
           {mode === 'forgot' && (
             <div style={{ marginTop: -6, marginBottom: 12, fontSize: 11, color: 'var(--muted)', lineHeight: 1.5 }}>
               Digite seu email cadastrado. Vamos te enviar um link pra criar uma nova senha.
@@ -284,11 +212,7 @@ export default function Login() {
               borderRadius: 12, fontSize: 13, fontWeight: 500,
               opacity: busy ? .6 : 1, transition: 'opacity .15s'
             }}>
-            {busy ? '...' : (
-              mode === 'signin' ? 'Entrar' :
-              mode === 'signup' ? 'Criar conta de nutri' :
-              'Enviar link de recuperação'
-            )}
+            {busy ? '...' : (mode === 'signin' ? 'Entrar' : 'Enviar link de recuperação')}
           </button>
 
           {mode === 'forgot' && (

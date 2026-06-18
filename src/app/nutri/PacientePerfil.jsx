@@ -139,11 +139,11 @@ export default function PacientePerfil() {
     const tel = normalizarTelefone(paciente.telefone);
     const primeiroNome = paciente.nome?.split(' ')[0] ?? '';
     const msg =
-      `Olá, ${primeiroNome}! 🌿 Aqui é a Kelly, sua nutricionista. Preparei o seu espaço no app da Essentia, onde você vai acompanhar seu plano alimentar e seu cuidado de pertinho.\n\n` +
-      `Para acessar: ${window.location.origin}\n` +
-      `Entre com o seu e-mail: ${paciente.email}\n` +
-      `No primeiro acesso, toque em "Esqueci minha senha", informe seu email e siga o link que vai chegar na sua caixa de entrada para criar sua senha.\n\n` +
-      `Qualquer dúvida, é só me chamar por aqui. 💛`;
+      `Olá, ${primeiroNome}! Aqui é a Kelly, sua nutricionista. Preparei o seu espaço no app do Essentia, onde você vai acompanhar seu plano alimentar e seu cuidado de pertinho.\n\n` +
+      `Para acessar, clique neste link: ${window.location.origin}\n` +
+      `Entre com o seu e-mail ou o número do telefone: ${paciente.email}\n` +
+      `No primeiro acesso, toque em "Atualizar senha" para criar sua senha.\n\n` +
+      `Qualquer dúvida, é só me chamar por aqui.`;
     window.open(`https://wa.me/${tel}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
   }
 
