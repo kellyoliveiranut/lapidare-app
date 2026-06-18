@@ -103,9 +103,8 @@ export default function Previsibilidade() {
   async function zerarPlanejamento() {
     if (!window.confirm('Zerar o planejamento de todos os serviços?')) return;
     setSalvando(true);
-    await Promise.all(servicos.map(s =>
-      supabase.from('servicos').update({ vendas_planejadas: 0 }).eq('id', s.id)
-    ));
+    const ids = servicos.map(s => s.id);
+    await supabase.from('servicos').update({ vendas_planejadas: 0 }).in('id', ids);
     setServicos(curr => curr.map(s => ({ ...s, vendas_planejadas: 0 })));
     marcarSalvo();
   }

@@ -22,9 +22,9 @@ export default function Habitos({ pacienteId, nutriId, pacienteNome }) {
 
   async function carregar(signal = { cancelled: false }) {
     const [hRes, lRes] = await Promise.all([
-      supabase.from('habitos').select('*')
+      supabase.from('habitos').select('id, nome, emoji, tipo, meta, unidade, ativo')
         .eq('paciente_id', pacienteId).order('ordem'),
-      supabase.from('habitos_logs').select('*')
+      supabase.from('habitos_logs').select('habito_id, data, valor')
         .eq('paciente_id', pacienteId)
         .gte('data', new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10))
         .order('data', { ascending: false }),

@@ -23,8 +23,8 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
 
   async function carregar(signal = { cancelled: false }) {
     const [supRes, logRes, pdfRes] = await Promise.all([
-      supabase.from('suplementos').select('*').eq('paciente_id', pacienteId).order('ordem'),
-      supabase.from('suplementos_logs').select('*')
+      supabase.from('suplementos').select('id, nome, dose, horario, obs, foto_url, ativo, data_inicio').eq('paciente_id', pacienteId).order('ordem'),
+      supabase.from('suplementos_logs').select('tomado, data, suplemento_id')
         .eq('paciente_id', pacienteId)
         .gte('data', new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10))
         .order('data', { ascending: false }),
@@ -41,7 +41,7 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
   async function carregarFavoritos() {
     if (!nutriId) return;
     const { data } = await supabase
-      .from('ebooks').select('*')
+      .from('ebooks').select('id, titulo, descricao, storage_path')
       .eq('nutri_id', nutriId)
       .eq('tag', 'manipulados')
       .order('titulo');

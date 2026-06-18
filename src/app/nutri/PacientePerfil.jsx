@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, lazy, Suspense } from 'react';
+import { useEffect, useState, useRef, lazy, Suspense, memo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
@@ -135,6 +135,18 @@ export default function PacientePerfil() {
     }
   }
 
+  function enviarAcessoWhatsApp() {
+    const tel = normalizarTelefone(paciente.telefone);
+    const primeiroNome = paciente.nome?.split(' ')[0] ?? '';
+    const msg =
+      `Olá, ${primeiroNome}! 🌿 Aqui é a Kelly, sua nutricionista. Preparei o seu espaço no app da Essentia, onde você vai acompanhar seu plano alimentar e seu cuidado de pertinho.\n\n` +
+      `Para acessar: ${window.location.origin}\n` +
+      `Entre com o seu e-mail: ${paciente.email}\n` +
+      `No primeiro acesso, toque em "Atualizar senha" para criar sua senha.\n\n` +
+      `Qualquer dúvida, é só me chamar por aqui. 💛`;
+    window.open(`https://wa.me/${tel}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
+  }
+
   async function salvarCampo() {
     setSalvandoCampo(true);
     try {
@@ -240,6 +252,21 @@ export default function PacientePerfil() {
               }}>
               <i className="ti ti-key" aria-hidden="true" style={{ fontSize: 13 }}></i>
               Enviar redefinição de senha
+            </button>
+            <button onClick={enviarAcessoWhatsApp}
+              disabled={!paciente.telefone?.trim()}
+              title={!paciente.telefone?.trim() ? 'Cadastre o telefone da paciente para enviar o acesso' : 'Abre WhatsApp com mensagem de boas-vindas ao app'}
+              style={{
+                background: 'transparent', border: '0.5px solid var(--border)',
+                borderRadius: 6, padding: '3px 9px', fontSize: 11,
+                color: !paciente.telefone?.trim() ? 'var(--text3)' : '#25D366',
+                cursor: !paciente.telefone?.trim() ? 'default' : 'pointer',
+                fontFamily: 'var(--font-sans)',
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                opacity: !paciente.telefone?.trim() ? 0.45 : 1,
+              }}>
+              <i className="ti ti-brand-whatsapp" aria-hidden="true" style={{ fontSize: 13 }}></i>
+              Enviar acesso ao app
             </button>
           </div>
           {editandoNasc ? (
@@ -952,7 +979,7 @@ function CheckinPersonalizado({ pacienteId, nutriId, pacienteNome }) {
 
   async function carregar() {
     const [tplRes, envRes] = await Promise.all([
-      supabase.from('checkin_templates').select('*')
+      supabase.from('checkin_templates').select('id, nome, perguntas')
         .eq('nutri_id', nutriId)
         .or(`paciente_id.is.null,paciente_id.eq.${pacienteId}`)
         .order('created_at'),
@@ -1995,17 +2022,17 @@ function PublicarPlano({ pacienteId, nutriId, calculosImportados, onLimparImport
       r._id === rid ? { ...r, alimentos: [...r.alimentos, novoAlimento()] } : r
     ));
 
-  const removeAlimento = (rid, aid) =>
+  const removeAlimento = useCallback((rid, aid) =>
     setRefeicoes(p => p.map(r =>
       r._id === rid ? { ...r, alimentos: r.alimentos.filter(a => a._id !== aid) } : r
-    ));
+    )), []);
 
-  const setAlim = (rid, aid, key, val) =>
+  const setAlim = useCallback((rid, aid, key, val) =>
     setRefeicoes(p => p.map(r =>
       r._id === rid
         ? { ...r, alimentos: r.alimentos.map(a => a._id === aid ? { ...a, [key]: val } : a) }
         : r
-    ));
+    )), []);
 
   const addSubstituicao = () => setSubstituicoes(p => [...p, { _id: Math.random().toString(36).slice(2), original: '', subs: '' }]);
   const removeSubstituicao = id => setSubstituicoes(p => p.filter(s => s._id !== id));
@@ -3029,32 +3056,13 @@ Estrutura JSON obrigatória:
                           <span />
                         </div>
                         {r.alimentos.map(a => (
-                          <div key={a._id} style={{
-                            display: 'grid', gridTemplateColumns: '2fr 1fr 2fr auto',
-                            gap: 6, marginBottom: 5, alignItems: 'center',
-                          }}>
-                            <input
-                              value={a.nome}
-                              onChange={e => setAlim(r._id, a._id, 'nome', e.target.value)}
-                              placeholder="ex: Ovo mexido"
-                            />
-                            <input
-                              value={a.quantidade}
-                              onChange={e => setAlim(r._id, a._id, 'quantidade', e.target.value)}
-                              placeholder="2 un."
-                            />
-                            <input
-                              value={a.subs}
-                              onChange={e => setAlim(r._id, a._id, 'subs', e.target.value)}
-                              placeholder="Omelete, tofu mexido"
-                            />
-                            <button
-                              onClick={() => removeAlimento(r._id, a._id)}
-                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 2 }}
-                            >
-                              <i className="ti ti-x" style={{ fontSize: 13 }} />
-                            </button>
-                          </div>
+                          <AlimentoLinha
+                            key={a._id}
+                            alimento={a}
+                            refId={r._id}
+                            onSetAlim={setAlim}
+                            onRemove={removeAlimento}
+                          />
                         ))}
                       </div>
                     )}
@@ -5037,3 +5045,41 @@ function GraficosEvolucao({ historico }) {
     </div>
   );
 }
+
+function normalizarTelefone(raw) {
+  let n = (raw ?? '').replace(/\D/g, '');
+  if (n.startsWith('0')) n = n.slice(1);
+  if (n.startsWith('55') && n.length >= 12) return n;
+  return '55' + n;
+}
+
+const AlimentoLinha = memo(function AlimentoLinha({ alimento: a, refId, onSetAlim, onRemove }) {
+  return (
+    <div style={{
+      display: 'grid', gridTemplateColumns: '2fr 1fr 2fr auto',
+      gap: 6, marginBottom: 5, alignItems: 'center',
+    }}>
+      <input
+        value={a.nome}
+        onChange={e => onSetAlim(refId, a._id, 'nome', e.target.value)}
+        placeholder="ex: Ovo mexido"
+      />
+      <input
+        value={a.quantidade}
+        onChange={e => onSetAlim(refId, a._id, 'quantidade', e.target.value)}
+        placeholder="2 un."
+      />
+      <input
+        value={a.subs}
+        onChange={e => onSetAlim(refId, a._id, 'subs', e.target.value)}
+        placeholder="Omelete, tofu mexido"
+      />
+      <button
+        onClick={() => onRemove(refId, a._id)}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 2 }}
+      >
+        <i className="ti ti-x" style={{ fontSize: 13 }} />
+      </button>
+    </div>
+  );
+});

@@ -14,11 +14,11 @@ export default function Anamnese({ pacienteId, nutriId, pacienteNome }) {
 
   async function carregar() {
     const [aRes, tRes] = await Promise.all([
-      supabase.from('anamneses').select('*')
+      supabase.from('anamneses').select('id, titulo, data, estrutura, respostas, template_id')
         .eq('paciente_id', pacienteId)
         .order('data', { ascending: false })
         .order('created_at', { ascending: false }),
-      supabase.from('anamnese_templates').select('*')
+      supabase.from('anamnese_templates').select('id, nome, descricao, estrutura')
         .eq('nutri_id', nutriId).order('created_at'),
     ]);
     setAnamneses(aRes.data ?? []);

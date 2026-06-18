@@ -52,7 +52,7 @@ export default function Checkins() {
         .select('id, paciente_id, perguntas, enviado_em, respondido_em, respostas, lembrete_enviado_em, paciente:pacientes(id, nome)')
         .eq('nutri_id', user.id)
         .order('enviado_em', { ascending: false }),
-      supabase.from('checkin_templates').select('*').eq('nutri_id', user.id)
+      supabase.from('checkin_templates').select('id, nome, perguntas, is_padrao, paciente_id, created_at').eq('nutri_id', user.id)
         .or('tipo.eq.recorrente,tipo.is.null')
         .order('created_at'),
       supabase.from('checkin_agendamentos')
