@@ -142,7 +142,7 @@ export default function PacientePerfil() {
       `Olá, ${primeiroNome}! 🌿 Aqui é a Kelly, sua nutricionista. Preparei o seu espaço no app da Essentia, onde você vai acompanhar seu plano alimentar e seu cuidado de pertinho.\n\n` +
       `Para acessar: ${window.location.origin}\n` +
       `Entre com o seu e-mail: ${paciente.email}\n` +
-      `No primeiro acesso, toque em "Atualizar senha" para criar sua senha.\n\n` +
+      `No primeiro acesso, toque em "Esqueci minha senha", informe seu email e siga o link que vai chegar na sua caixa de entrada para criar sua senha.\n\n` +
       `Qualquer dúvida, é só me chamar por aqui. 💛`;
     window.open(`https://wa.me/${tel}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
   }
