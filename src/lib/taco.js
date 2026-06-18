@@ -107,7 +107,15 @@ export function medidaCaseira(gramas, alimento) {
   const qtd = (quantidadeInicial * gramas) / alimento.porcao_g;
   if (qtd <= 0) return null;
 
-  return `${qtd.toFixed(1).replace('.', ',')} ${unidade}`;
+  // Arredonda para múltiplo de 0,5 mais próximo
+  const qtdArred = Math.round(qtd * 2) / 2;
+  // Esconde medida se a contagem ficou fora do intervalo razoável
+  if (qtdArred < 0.5 || qtdArred > 6) return null;
+  // Remove o ",0" desnecessário (2,0 → "2")
+  const qtdStr = qtdArred % 1 === 0
+    ? String(Math.round(qtdArred))
+    : qtdArred.toFixed(1).replace('.', ',');
+  return `${qtdStr} ${unidade}`;
 }
 
 // Retorna { gramas, medida } — gramagem do substituto que equivale a kcalAlvo.
@@ -117,7 +125,10 @@ export function kcalEquivalente(kcalAlvo, nomeSubstituto) {
   const al = buscarAlimento(nomeSubstituto);
   if (!al || !al.kcal || al.kcal <= 0) return null;
 
-  const gramas = Math.round((kcalAlvo * 100) / al.kcal);
+  const gramasRaw = (kcalAlvo * 100) / al.kcal;
+  const gramas = gramasRaw > 20
+    ? Math.round(gramasRaw / 5) * 5
+    : Math.round(gramasRaw);
   const medida = medidaCaseira(gramas, al);
   const liquido = ehLiquido(al);
 
