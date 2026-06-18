@@ -4,6 +4,14 @@
    Mobile-first; no desktop centraliza em 430px de largura.
    ============================================================= */
 
+/* Fundo do body acompanha a cor do header quando o app da paciente está montado.
+   Isso preenche a faixa da status bar (safe-area-inset-top) e qualquer gap
+   residual no rodapé com a mesma cor escura do header, sem creme vazar.
+   :has() é suportado no Safari 15.4+, Chrome 105+, Firefox 121+. */
+body:has(.paciente-app) {
+  background: var(--ink);
+}
+
 .paciente-app {
   /* Cores principais (--ink, --gold, --gold-deep, --bg, --bg-soft, --bg-deep)
      herdam do :root em tokens.css — assim o ThemeProvider consegue
@@ -25,7 +33,8 @@
 
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  min-height: 100vh;   /* fallback para browsers sem suporte a dvh */
+  min-height: 100dvh;  /* preenche o viewport dinâmico real (Android Chrome, iOS Safari) */
   max-width: 430px;
   margin: 0 auto;
   background: var(--bg);
@@ -36,10 +45,12 @@
 }
 
 @media (min-width: 600px) {
-  body { background: linear-gradient(180deg, var(--bg-soft) 0%, var(--bg-deep) 100%); }
+  body:has(.paciente-app) { background: var(--ink); } /* mantém escuro mesmo em desktop */
+  body:not(:has(.paciente-app)) { background: linear-gradient(180deg, var(--bg-soft) 0%, var(--bg-deep) 100%); }
   .paciente-app {
     box-shadow: 0 0 32px rgba(28,23,18,.08);
     min-height: 100vh;
+    min-height: 100dvh;
   }
 }
 
@@ -49,7 +60,9 @@
   padding-top: calc(env(safe-area-inset-top, 0px) + 18px);
   display: flex; justify-content: space-between; align-items: flex-end;
   flex-shrink: 0; gap: 10px;
-  background: var(--bg);
+  /* background escuro: blenda com o body:has(.paciente-app) { background: var(--ink) }
+     cobrindo a faixa da status bar sem nenhum filete creme */
+  background: var(--ink);
   position: sticky; top: 0; z-index: 10;
 }
 .paciente-app .app-header > div:first-child { min-width: 0; flex: 1; }
@@ -57,7 +70,7 @@
   font-size: 9px;
   letter-spacing: .22em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--dark-muted); /* legível sobre fundo escuro (calculado por luminância no ThemeProvider) */
   margin-bottom: 2px;
   font-weight: 500;
 }
@@ -67,14 +80,14 @@
   font-weight: 500;
   letter-spacing: -0.02em;
   line-height: 1.05;
-  color: var(--ink);
+  color: var(--dark-text); /* texto claro garantido pelo ThemeProvider */
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .paciente-app .app-subtitle {
   font-size: 12px;
-  color: var(--muted);
+  color: var(--dark-muted);
   margin-top: 3px;
 }
 .paciente-app .header-right {

@@ -333,7 +333,7 @@ export default function PacienteLayout() {
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               padding: 0, flexShrink: 0, marginBottom: 4,
             }}>
-            <i className="ti ti-chevron-left" style={{ fontSize: 22, color: 'var(--ink)' }} aria-hidden="true"></i>
+            <i className="ti ti-chevron-left" style={{ fontSize: 22, color: 'var(--dark-text)' }} aria-hidden="true"></i>
           </button>
         )}
         <div style={{ flex: 1, minWidth: 0 }}>
