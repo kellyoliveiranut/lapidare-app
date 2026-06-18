@@ -2105,12 +2105,16 @@ A resposta começa com "[" e termina com "]" — nada mais. "original" é sempre
       const originalNome = String(item.original ?? item.nome ?? '').trim();
       if (!originalNome) return null;
 
-      // Accept substitutos as string[] or {nome,qty_equiv}[]
+      // Accept substitutos/subs as string[], comma-separated string, or {nome,qty_equiv}[]
       const subsRaw = Array.isArray(item.substitutos)
         ? item.substitutos
+        : typeof item.substitutos === 'string' && item.substitutos.trim()
+        ? item.substitutos.split(',').map(s => s.trim()).filter(Boolean)
         : Array.isArray(item.subs)
         ? item.subs
-        : String(item.subs ?? '').split(',').map(s => s.trim()).filter(Boolean);
+        : typeof item.subs === 'string' && item.subs.trim()
+        ? item.subs.split(',').map(s => s.trim()).filter(Boolean)
+        : [];
 
       // Locate the original food for TACO caloric lookup
       const origNorm = normName(originalNome);
@@ -2361,9 +2365,11 @@ Estrutura JSON obrigatória:
     });
 
     const refs = refeicoesBruto.map(r => {
-      // alimentos: aceita "alimentos", "foods", "itens", "items"
-      const alimentosBruto =
-        r.alimentos ?? r.foods ?? r.itens ?? r.items ?? r.food ?? r.alimento ?? [];
+      // Suporta refeições fracionadas em etapas — achata todos os alimentos de todas as etapas
+      const etapasBruto = r.etapas ?? r.steps ?? r.fases ?? r.partes ?? null;
+      const alimentosBruto = (Array.isArray(etapasBruto) && etapasBruto.length > 0)
+        ? etapasBruto.flatMap(e => e.alimentos ?? e.foods ?? e.itens ?? e.items ?? e.food ?? e.alimento ?? [])
+        : (r.alimentos ?? r.foods ?? r.itens ?? r.items ?? r.food ?? r.alimento ?? []);
 
       return {
         _id: Math.random().toString(36).slice(2),

@@ -1,6 +1,5 @@
-import { useState } from 'react';
 import { dataBR } from '../lib/utils.js';
-import { kcalDoAlimento, kcalEquivalente, parseGramas } from '../lib/taco.js';
+import { buscarAlimento, medidaCaseira, parseGramas } from '../lib/taco.js';
 import './PlanoView.css';
 
 // Retorna true quando o texto do substituto já contém quantidade ou é uma combinação.
@@ -19,9 +18,6 @@ function substitutoTemQuantidade(texto) {
  * CSS isolado sob .plano-view-scope — não vaza para o painel da nutri.
  */
 export default function PlanoView({ dados, validade, readOnly = false }) {
-  const [openSubs, setOpenSubs] = useState({});
-  const toggleSubs = (key) => setOpenSubs(s => ({ ...s, [key]: !s[key] }));
-
   const macros = dados?.macros ?? {};
   const refeicoes = dados?.refeicoes ?? [];
   const substituicoes = dados?.substituicoes ?? [];
@@ -82,63 +78,29 @@ export default function PlanoView({ dados, validade, readOnly = false }) {
             {ref.kcal && <span className="refeicao-kcal">{ref.kcal} kcal</span>}
           </div>
 
-          {(ref.alimentos ?? []).map((al, ai) => (
-            <div key={ai}>
-              <div className="alimento-row" style={{ background: ai % 2 === 0 ? 'var(--paper)' : 'var(--bg-soft)' }}>
-                <div>
-                  <div className="alimento-nome">{al.nome}</div>
-                  {(al.qty || al.quantidade) && (
-                    <div className="alimento-qty">
-                      {al.qty ?? al.quantidade}{al.prot_g ? ` · ${al.prot_g}g prot` : ''}
-                    </div>
-                  )}
-                </div>
-                {al.kcal && <span className="alimento-kcal">{al.kcal} kcal</span>}
-              </div>
-
-              {al.subs?.length > 0 && (
-                <>
-                  <button className="subs-toggle" onClick={() => toggleSubs(`${ri}-${ai}`)}>
-                    <i className={`ti ti-${openSubs[`${ri}-${ai}`] ? 'chevron-up' : 'chevron-down'}`} style={{ fontSize: 12 }} aria-hidden="true"></i>
-                    {openSubs[`${ri}-${ai}`] ? 'Fechar substituições' : `Ver ${al.subs.length} substituições`}
-                  </button>
-                  {openSubs[`${ri}-${ai}`] && (() => {
-                    const qtyStr = al.qty ?? al.quantidade;
-                    const kcalAlvo = al.kcal ?? kcalDoAlimento(al.nome, qtyStr) ?? null;
-                    const gramasOrig = parseGramas(qtyStr);
-                    return (
-                      <div className="subs-list">
-                        {al.subs.map((s, si) => {
-                          const nomeS   = typeof s === 'object' ? (s.nome ?? '') : String(s);
-                          const semChip = substitutoTemQuantidade(nomeS);
-                          const eq      = (!semChip && kcalAlvo) ? kcalEquivalente(kcalAlvo, nomeS) : null;
-                          let textoEquiv = null;
-                          if (!semChip) {
-                            if (
-                              eq &&
-                              gramasOrig != null &&
-                              eq.gramas >= gramasOrig * 0.2 &&
-                              eq.gramas <= gramasOrig * 5
-                            ) {
-                              textoEquiv = `≈ ${eq.gramas} ${eq.liquido ? 'ml' : 'g'}${eq.medida ? ` · ${eq.medida}` : ''}`;
-                            } else if (typeof s === 'object' && s.qty_equiv) {
-                              textoEquiv = `≈ ${s.qty_equiv}`;
-                            }
-                          }
-                          return (
-                            <div key={si} className="sub-item">
-                              <span>→ {nomeS}</span>
-                              {textoEquiv && <span className="sub-equiv">{textoEquiv}</span>}
-                            </div>
-                          );
-                        })}
+          {(ref.alimentos ?? []).map((al, ai) => {
+            const qtyStr = al.qty ?? al.quantidade ?? '';
+            const medidaSalva = al.medida || al.medida_caseira || al.medidaCaseira || al.medidaCasaira || al.casa || null;
+            const medidaTaco = (!medidaSalva && qtyStr)
+              ? medidaCaseira(parseGramas(qtyStr), buscarAlimento(al.nome))
+              : null;
+            const medidaExibir = medidaSalva ?? medidaTaco;
+            return (
+              <div key={ai}>
+                <div className="alimento-row" style={{ background: ai % 2 === 0 ? 'var(--paper)' : 'var(--bg-soft)' }}>
+                  <div>
+                    <div className="alimento-nome">{al.nome}</div>
+                    {qtyStr && (
+                      <div className="alimento-qty">
+                        {qtyStr}{medidaExibir ? ` · ${medidaExibir}` : ''}{al.prot_g ? ` · ${al.prot_g}g prot` : ''}
                       </div>
-                    );
-                  })()}
-                </>
-              )}
-            </div>
-          ))}
+                    )}
+                  </div>
+                  {al.kcal && <span className="alimento-kcal">{al.kcal} kcal</span>}
+                </div>
+              </div>
+            );
+          })}
 
           {ref.obs && (
             <div className="refeicao-obs">
