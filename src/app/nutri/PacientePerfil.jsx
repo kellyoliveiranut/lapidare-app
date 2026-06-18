@@ -3427,6 +3427,23 @@ const ORDEM_CATEGORIAS = [
   'Cereais e Grãos','Laticínios','Temperos e Condimentos','Outros',
 ];
 
+// Palavras-chave que identificam suplementos — normalized (sem acento, minúsculo)
+const PALAVRAS_SUPLEMENTO = [
+  'body protein','whey','proteina em po','proteina isolada','proteina concentrada',
+  'suplemento','creatina','colageno','glutamina','bcaa','maltodextrina',
+  'caseina','albumina','omega','hipercalorico',
+];
+
+function normalizarNome(s) {
+  return String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+}
+
+function ehSuplemento(nome, supsSet) {
+  const n = normalizarNome(nome);
+  if (supsSet.has(n)) return true;
+  return PALAVRAS_SUPLEMENTO.some(p => n.includes(p));
+}
+
 const REGEX_PREPARO = /\b(bem\s+passados?|bem\s+passadas?|cozidos?|cozidas?|amassados?|amassadas?|grelhados?|grelhadas?|assados?|assadas?|refogados?|refogadas?|picados?|picadas?|fatiados?|fatiadas?|batidos?|batidas?|triturados?|trituradas?|mexidos?|mexidas?|escaldados?|escaldadas?|temperados?|temperadas?|misturados?|misturadas?|passados?|passadas?|crus?|cruas?)\b/gi;
 
 function limparNomeAlimento(nome) {
@@ -3463,6 +3480,7 @@ function PublicarLista({ pacienteId, nutriId }) {
   const [promptComprasVisivel, setPromptComprasVisivel] = useState(false);
   const [promptComprasTexto, setPromptComprasTexto]     = useState('');
   const [promptComprasCopiado, setPromptComprasCopiado] = useState(false);
+  const [supsExcluidos, setSupsExcluidos]               = useState([]);
 
   useEffect(() => { carregar(); }, [pacienteId]);
 
@@ -3667,30 +3685,42 @@ Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (e
     setErroIA(null);
     setPreview(null);
     setMarcados({});
+    setSupsExcluidos([]);
     try {
-      const { data: plano } = await supabase
-        .from('planos').select('dados')
-        .eq('paciente_id', pacienteId)
-        .order('publicado_em', { ascending: false }).limit(1).maybeSingle();
+      // Busca plano e suplementos em paralelo
+      const [planoRes, supsRes] = await Promise.all([
+        supabase.from('planos').select('dados')
+          .eq('paciente_id', pacienteId)
+          .order('publicado_em', { ascending: false }).limit(1).maybeSingle(),
+        supabase.from('suplementos').select('nome').eq('paciente_id', pacienteId),
+      ]);
 
-      if (!plano?.dados?.refeicoes?.length)
+      if (!planoRes.data?.dados?.refeicoes?.length)
         throw new Error('Nenhum plano alimentar publicado. Publique um plano primeiro na aba Plano.');
 
-      // Extrai todos os alimentos, remove palavras de preparo, deduplica pelo nome limpo
+      const supsSet = new Set((supsRes.data ?? []).map(s => normalizarNome(s.nome)));
+
+      // Extrai alimentos, filtra suplementos, remove preparo, deduplica
       const vistos = new Map();
-      for (const ref of plano.dados.refeicoes) {
+      const excluidos = [];
+      for (const ref of planoRes.data.dados.refeicoes) {
         for (const alim of ref.alimentos ?? []) {
           if (!alim.nome?.trim()) continue;
+          if (ehSuplemento(alim.nome, supsSet)) {
+            excluidos.push(alim.nome.trim());
+            continue;
+          }
           const nomeLimpo = limparNomeAlimento(alim.nome.trim());
           if (!nomeLimpo) continue;
-          const chave = nomeLimpo.toLowerCase()
-            .normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+          const chave = normalizarNome(nomeLimpo);
           if (!vistos.has(chave)) vistos.set(chave, nomeLimpo);
         }
       }
 
+      if (excluidos.length) setSupsExcluidos([...new Set(excluidos)]);
+
       if (vistos.size === 0)
-        throw new Error('O plano alimentar não possui alimentos cadastrados.');
+        throw new Error('O plano alimentar não possui alimentos de compra (todos os itens são suplementos).');
 
       // Categoriza e agrupa
       const grupos = {};
@@ -3975,6 +4005,16 @@ Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (e
         {erroIA && (
           <div style={{ margin: '0 16px 12px', padding: '8px 12px', borderRadius: 6, background: 'var(--red-bg)', color: 'var(--red)', fontSize: 12, display: 'flex', gap: 8 }}>
             <i className="ti ti-alert-triangle" /> {erroIA}
+          </div>
+        )}
+
+        {supsExcluidos.length > 0 && (
+          <div style={{ margin: '0 16px 12px', padding: '8px 12px', borderRadius: 6, background: '#fefce8', border: '1px solid #fde68a', color: '#92400e', fontSize: 12, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+            <i className="ti ti-pill" style={{ flexShrink: 0, marginTop: 1 }} />
+            <span>
+              <strong>{supsExcluidos.length} suplemento{supsExcluidos.length > 1 ? 's excluídos' : ' excluído'} da lista:</strong>{' '}
+              {supsExcluidos.join(', ')}
+            </span>
           </div>
         )}
 
