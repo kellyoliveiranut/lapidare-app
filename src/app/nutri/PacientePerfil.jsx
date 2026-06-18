@@ -3562,10 +3562,16 @@ function ehSuplemento(nome, supsSet) {
   return PALAVRAS_SUPLEMENTO.some(p => n.includes(p));
 }
 
-const REGEX_PREPARO = /\b(bem\s+passados?|bem\s+passadas?|cozidos?|cozidas?|amassados?|amassadas?|grelhados?|grelhadas?|assados?|assadas?|refogados?|refogadas?|picados?|picadas?|fatiados?|fatiadas?|batidos?|batidas?|triturados?|trituradas?|mexidos?|mexidas?|escaldados?|escaldadas?|temperados?|temperadas?|misturados?|misturadas?|passados?|passadas?|crus?|cruas?)\b/gi;
+const REGEX_PREPARO = /\b(bem\s+passados?|bem\s+passadas?|cozidos?|cozidas?|amassados?|amassadas?|grelhados?|grelhadas?|assados?|assadas?|refogados?|refogadas?|picados?|picadas?|fatiados?|fatiadas?|batidos?|batidas?|triturados?|trituradas?|mexidos?|mexidas?|escaldados?|escaldadas?|temperados?|temperadas?|misturados?|misturadas?|passados?|passadas?|crus?|cruas?|inteiros?|inteiras?)\b/gi;
 
 function limparNomeAlimento(nome) {
-  return nome.replace(REGEX_PREPARO, '').replace(/\s+/g, ' ').trim();
+  return nome
+    .replace(/\(\s*a\s+gosto\s*\)/gi, '')
+    .replace(/\ba\s+gosto\b/gi, '')
+    .replace(REGEX_PREPARO, '')
+    .replace(/\(\s*\)/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function categorizarAlimento(nome) {
@@ -4641,7 +4647,7 @@ function ModalVerLista({ lista, onClose }) {
                 {(cat.itens ?? []).map((item, ii) => {
                   const str = typeof item === 'string' ? item : (item.nome ?? '');
                   const partes = str.split(/\s+[—–]\s+/);
-                  const nome = partes[0]?.trim() ?? str;
+                  const nome = limparNomeAlimento(partes[0]?.trim() ?? str);
                   const qty = partes[1]?.trim() ?? (typeof item === 'object' ? item.quantidade : null) ?? null;
                   return (
                     <div key={ii} style={{
