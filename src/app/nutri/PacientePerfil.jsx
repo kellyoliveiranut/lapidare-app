@@ -2038,25 +2038,28 @@ function PublicarPlano({ pacienteId, nutriId, calculosImportados, onLimparImport
     }
 
     setPromptSubsTexto(`Você é uma nutricionista clínica especialista em oncologia.
-Plano alimentar com os seguintes alimentos: ${alimentosUnicos.join(', ')}.
 
-Para cada alimento, sugira substituições por equivalência de grupo alimentar.
-Para cada substituto, forneça a gramagem (qty_equiv) que equivale caloricamente à porção original, com base nos valores da TACO 4.1.
+Abaixo está a lista de ALIMENTOS INDIVIDUAIS do plano alimentar (${alimentosUnicos.length} alimentos):
+${alimentosUnicos.map((a, i) => `${i + 1}. ${a}`).join('\n')}
 
-Regras:
+TAREFA: Para CADA ALIMENTO da lista acima, sugira 2 a 3 substitutos.
+
+REGRAS OBRIGATÓRIAS:
+- Cada substituto deve ser UM ÚNICO ALIMENTO avulso e simples (ex.: "sardinha fresca", "inhame cozido", "abóbora assada"). NUNCA use "+". NUNCA sugira refeição, preparação completa ou cardápio.
+- NÃO agrupe por refeição. IGNORE completamente os nomes das refeições (Café da Manhã, Almoço, Jantar etc.). Isso não é uma lista de refeições — é uma lista de alimentos avulsos.
+- O campo "original" deve conter EXATAMENTE o nome do alimento como aparece na lista acima. NUNCA coloque nome de refeição em "original".
+- Inclua TODOS os ${alimentosUnicos.length} alimentos, um objeto por alimento.
 - Priorize alimentos regionais brasileiros e acessíveis.
 - Responda em português do Brasil.
-- Inclua TODOS os ${alimentosUnicos.length} alimentos listados acima, um objeto por alimento.
-- Sugira 2 a 3 substitutos por alimento.
-- CADA substituto deve ser UM ÚNICO ALIMENTO simples (ex.: "sardinha fresca", "inhame cozido", "abóbora assada"). NUNCA combine vários alimentos com "+". NUNCA sugira uma refeição, preparação completa ou cardápio.
 
-FORMATO DA RESPOSTA — CRÍTICO:
-- Responda SOMENTE com o JSON puro. Nenhum texto antes, nenhum texto depois.
-- NÃO use markdown, NÃO use cercas de código (\`\`\`), NÃO escreva explicações.
-- A resposta começa com "[" e termina com "]" — nada mais.
-- O campo "original" deve conter o nome exatamente como foi fornecido acima (incluindo a quantidade entre parênteses se houver).
-- Formato obrigatório de cada elemento do array:
-{"original": "<nome exato do alimento>", "substitutos": [{"nome": "batata doce", "qty_equiv": "95g"}, {"nome": "mandioca cozida", "qty_equiv": "105g"}]}`);
+FORMATO OBRIGATÓRIO — responda SOMENTE com JSON puro, sem nenhum texto antes ou depois, sem markdown, sem \`\`\`:
+
+[
+  {"original":"Tapioca (goma hidratada)","substitutos":["Beiju de tapioca","Mandioca cozida"]},
+  {"original":"Ovo inteiro","substitutos":["Clara de ovo","Tofu mexido"]}
+]
+
+A resposta começa com "[" e termina com "]" — nada mais. "original" é sempre o NOME DO ALIMENTO, NUNCA o nome da refeição.`);
     setPromptSubsVisivel(true);
   }
 
@@ -2089,78 +2092,69 @@ FORMATO DA RESPOSTA — CRÍTICO:
       .replace(/\s*\([^)]*\)/g, '').replace(/\s*\([^)]*\)/g, '')
       .trim().toLowerCase();
 
-    const isAgrupado = typeof parsed[0] === 'object' &&
-      'original' in parsed[0] &&
-      Array.isArray(parsed[0].substitutos);
-
-    if (isAgrupado) {
-      const foodMap = {};
-      refeicoes.forEach((r, ri) => {
-        r.alimentos.forEach((a, ai) => {
-          const key = normName(a.nome);
-          if (key) foodMap[key] = { ri, ai };
-        });
+    // Build food map for TACO calc (key = normalized food name → food object)
+    const foodMap = {};
+    refeicoes.forEach(r => {
+      r.alimentos.forEach(a => {
+        const key = normName(a.nome);
+        if (key) foodMap[key] = a;
       });
+    });
 
-      const copia = refeicoes.map(r => ({
-        ...r,
-        alimentos: r.alimentos.map(a => ({ ...a })),
-      }));
+    const novasLinhas = parsed.map(item => {
+      const originalNome = String(item.original ?? item.nome ?? '').trim();
+      if (!originalNome) return null;
 
-      for (const item of parsed) {
-        const origNorm = normName(item.original ?? '');
-        const entrada  = Object.entries(foodMap).find(([key]) =>
-          origNorm === key || origNorm.includes(key) || key.includes(origNorm)
-        );
-        if (!entrada) continue;
-        const { ri, ai } = entrada[1];
-        const alOrig     = copia[ri].alimentos[ai];
-        const gramasOrig = parseGramas(alOrig.quantidade);
+      // Accept substitutos as string[] or {nome,qty_equiv}[]
+      const subsRaw = Array.isArray(item.substitutos)
+        ? item.substitutos
+        : Array.isArray(item.subs)
+        ? item.subs
+        : String(item.subs ?? '').split(',').map(s => s.trim()).filter(Boolean);
 
-        let alOrigTaco = buscarAlimento(alOrig.nome);
-        if (!alOrigTaco) {
-          const seg = alOrig.nome.split(/\s+(?:ou|e|com)\s+/i)[0].trim();
-          alOrigTaco = buscarAlimento(seg) ?? buscarAlimento(alOrig.nome.split(/\s+/)[0]);
-        }
-        const kcalAlvo =
-          alOrig.kcal ??
-          (alOrigTaco?.kcal && gramasOrig ? (alOrigTaco.kcal * gramasOrig) / 100 : null) ??
-          null;
+      // Locate the original food for TACO caloric lookup
+      const origNorm = normName(originalNome);
+      const alOrigEntry = Object.entries(foodMap).find(([key]) =>
+        origNorm === key || origNorm.includes(key) || key.includes(origNorm)
+      );
+      const alOrig     = alOrigEntry?.[1];
+      const gramasOrig = alOrig ? parseGramas(alOrig.quantidade) : null;
 
-        const subsArr      = Array.isArray(item.substitutos) ? item.substitutos : [];
-        const subsFormatados = subsArr.map(s => {
-          const nome = (typeof s === 'object' ? (s.nome ?? '') : String(s)).trim();
-          if (!nome) return null;
-          let textoQty = null;
-          if (kcalAlvo && kcalAlvo > 0) {
-            const eq = kcalEquivalente(kcalAlvo, nome);
-            if (eq && gramasOrig != null && eq.gramas >= gramasOrig * 0.2 && eq.gramas <= gramasOrig * 5) {
-              const unid = eq.liquido ? 'ml' : 'g';
-              textoQty = eq.medida ? `≈ ${eq.gramas} ${unid} · ${eq.medida}` : `≈ ${eq.gramas} ${unid}`;
-            }
-          }
-          if (!textoQty && typeof s === 'object' && s.qty_equiv) textoQty = `≈ ${s.qty_equiv}`;
-          return textoQty ? `${nome} (${textoQty})` : nome;
-        }).filter(Boolean);
-
-        copia[ri].alimentos[ai] = { ...alOrig, subs: subsFormatados.join(', '), _subsObj: undefined };
+      let alOrigTaco = alOrig ? buscarAlimento(alOrig.nome) : null;
+      if (!alOrigTaco && alOrig) {
+        const seg = alOrig.nome.split(/\s+(?:ou|e|com)\s+/i)[0].trim();
+        alOrigTaco = buscarAlimento(seg) ?? buscarAlimento(alOrig.nome.split(/\s+/)[0]);
       }
+      const kcalAlvo =
+        (alOrig?.kcal ?? null) ??
+        (alOrigTaco?.kcal && gramasOrig ? (alOrigTaco.kcal * gramasOrig) / 100 : null);
 
-      setRefeicoes(copia);
-    } else {
-      setSubstituicoes(parsed.map(item => {
-        const subsArr = Array.isArray(item.substitutos)
-          ? item.substitutos
-          : Array.isArray(item.subs)
-          ? item.subs
-          : String(item.subs ?? item.nome ?? '').split(',').map(s => ({ nome: s.trim() }));
-        return {
-          _id: Math.random().toString(36).slice(2),
-          original: String(item.original ?? item.nome ?? '').trim(),
-          subs: subsArr.map(s => (typeof s === 'object' ? s.nome : String(s)).trim()).filter(Boolean).join(', '),
-        };
-      }));
-    }
+      const subsFormatados = subsRaw.map(s => {
+        const nome = (typeof s === 'object' ? (s.nome ?? '') : String(s)).trim();
+        if (!nome) return null;
+        let textoQty = null;
+        if (kcalAlvo && kcalAlvo > 0) {
+          const eq = kcalEquivalente(kcalAlvo, nome);
+          if (eq && gramasOrig != null && eq.gramas >= gramasOrig * 0.2 && eq.gramas <= gramasOrig * 5) {
+            const unid = eq.liquido ? 'ml' : 'g';
+            textoQty = eq.medida ? `≈ ${eq.gramas} ${unid} · ${eq.medida}` : `≈ ${eq.gramas} ${unid}`;
+          }
+        }
+        if (!textoQty && typeof s === 'object' && s.qty_equiv) textoQty = `≈ ${s.qty_equiv}`;
+        return textoQty ? `${nome} (${textoQty})` : nome;
+      }).filter(Boolean);
+
+      return {
+        _id: Math.random().toString(36).slice(2),
+        original: originalNome,
+        subs: subsFormatados.join(', '),
+      };
+    }).filter(Boolean);
+
+    if (novasLinhas.length === 0)
+      return setErroJsonSubs('Nenhuma substituição encontrada no JSON. Verifique o formato.');
+
+    setSubstituicoes(novasLinhas);
 
     setJsonSubsInput('');
     setErroJsonSubs(null);
@@ -3165,7 +3159,7 @@ Estrutura JSON obrigatória:
                   value={jsonSubsInput}
                   onChange={e => setJsonSubsInput(e.target.value)}
                   rows={6}
-                  placeholder='Cole aqui o JSON gerado pela IA. Formato esperado: [{"original": "frango", "substitutos": [{"nome": "sardinha fresca", "qty_equiv": "90g"}]}]'
+                  placeholder='Cole aqui o JSON gerado pela IA. Formato esperado: [{"original":"Frango grelhado","substitutos":["Sardinha fresca","Atum em água"]},{"original":"Arroz branco","substitutos":["Batata doce","Mandioca cozida"]}]'
                   style={{ width: '100%', boxSizing: 'border-box', padding: '8px 10px', fontSize: 11, lineHeight: 1.5, borderRadius: 6, border: '1px solid var(--border)', background: 'var(--white)', fontFamily: 'var(--font-sans)', resize: 'vertical', color: 'var(--dark)' }}
                 />
                 {erroJsonSubs && (
