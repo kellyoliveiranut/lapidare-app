@@ -24,6 +24,7 @@ export default function Suplementos() {
   const [suplementos, setSuplementos] = useState(null);
   const [logs, setLogs] = useState([]);
   const [biblioItems, setBiblioItems] = useState([]);
+  const [erro, setErro] = useState(null);
 
   async function carregar(signal) {
     if (!pacienteId) return;
@@ -68,12 +69,18 @@ export default function Suplementos() {
   async function toggle(s) {
     const hoje = HOJE();
     const ja = logs.find(l => l.suplemento_id === s.id && l.data === hoje);
+    let err;
     if (ja) {
-      await supabase.from('suplementos_logs').delete().eq('id', ja.id);
+      ({ error: err } = await supabase.from('suplementos_logs').delete().eq('id', ja.id));
     } else {
-      await supabase.from('suplementos_logs').insert({
+      ({ error: err } = await supabase.from('suplementos_logs').insert({
         suplemento_id: s.id, paciente_id: pacienteId, data: hoje, tomado: true,
-      });
+      }));
+    }
+    if (err) {
+      setErro('Não consegui salvar, tente novamente');
+      setTimeout(() => setErro(null), 4000);
+      return;
     }
     carregar({ cancelled: false });
   }
@@ -81,7 +88,12 @@ export default function Suplementos() {
   async function abrirBiblio(item) {
     const { data } = await supabase.storage.from('ebooks')
       .createSignedUrl(item.storage_path, 3600);
-    if (data?.signedUrl) window.open(data.signedUrl, '_blank', 'noopener');
+    if (data?.signedUrl) {
+      window.open(data.signedUrl, '_blank', 'noopener');
+    } else {
+      setErro('Não consegui abrir o arquivo, tente novamente');
+      setTimeout(() => setErro(null), 4000);
+    }
   }
 
   const logMap = useMemo(() => {
@@ -126,6 +138,16 @@ export default function Suplementos() {
 
   return (
     <div style={{ padding: '0' }}>
+      {erro && (
+        <div style={{
+          background: 'var(--red-bg, #fef2f2)', color: 'var(--red, #dc2626)',
+          padding: '10px 14px', borderRadius: 10, marginBottom: 12,
+          fontSize: 13, display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          <i className="ti ti-alert-circle" aria-hidden="true" />
+          {erro}
+        </div>
+      )}
       {/* Seção de suplementos prescritos */}
       {suplementos.length > 0 && (
         <>

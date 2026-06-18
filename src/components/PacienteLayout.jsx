@@ -273,6 +273,16 @@ export default function PacienteLayout() {
     };
   }, [pacienteId]);
 
+  // Bloqueia acesso direto por URL para paciente Avulsa (mesma regra do menu)
+  useEffect(() => {
+    if (!profile) return;
+    if (isBlocked(location.pathname)) {
+      navigate('/paciente/inicio', { replace: true });
+      setLockToast(true);
+      setTimeout(() => setLockToast(false), 3000);
+    }
+  }, [location.pathname, profile?.tipo_plano]);
+
   // mostrarBanner: reavalia a cada tick de minuto e a cada mudança de proximaBanner
   const mostrarBanner = useMemo(() => {
     if (!proximaBanner) return false;

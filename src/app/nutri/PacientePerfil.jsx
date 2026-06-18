@@ -43,6 +43,7 @@ export default function PacientePerfil() {
   const [excluirOpen, setExcluirOpen] = useState(false);
   const [consultaAtiva, setConsultaAtiva] = useState(undefined);
   const [busyConsulta, setBusyConsulta] = useState(false);
+  const [erroCarregar, setErroCarregar] = useState(false);
 
   function labelTipoConsulta(tipo) {
     if (!tipo) return 'Consulta';
@@ -78,8 +79,9 @@ export default function PacientePerfil() {
   }
 
   async function carregar() {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('pacientes').select('*').eq('id', id).maybeSingle();
+    if (error) { setErroCarregar(true); return; }
     setPaciente(data);
   }
 
@@ -215,6 +217,15 @@ export default function PacientePerfil() {
     const m = h.getMonth() - n.getMonth();
     if (m < 0 || (m === 0 && h.getDate() < n.getDate())) idade--;
     return idade;
+  }
+
+  if (erroCarregar) {
+    return (
+      <div className="card empty-card">
+        <div className="empty-sub">Não consegui carregar os dados, tente recarregar.</div>
+        <button className="btn" style={{ marginTop: 12 }} onClick={() => { setErroCarregar(false); carregar(); }}>Recarregar</button>
+      </div>
+    );
   }
 
   if (paciente === null) {

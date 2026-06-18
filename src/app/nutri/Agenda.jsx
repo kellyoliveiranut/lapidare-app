@@ -67,6 +67,7 @@ export default function Agenda() {
   const [diaSelecionado, setDiaSelecionado] = useState(() => new Date());
   const [lembretes, setLembretes] = useState([]);
   const [enviadosLocais, setEnviadosLocais] = useState(new Map()); // consultaId → ISO timestamp do envio
+  const [erroLembrete, setErroLembrete] = useState(null);
 
   async function carregar() {
     if (!user) return;
@@ -108,9 +109,14 @@ export default function Agenda() {
   // Só é chamado ao clicar no botão — NUNCA automaticamente ao exibir o painel.
   async function marcarEnviado(consultaId) {
     const agora = new Date().toISOString();
-    await supabase.from('consultas')
+    const { error } = await supabase.from('consultas')
       .update({ lembrete_enviado: true, lembrete_enviado_em: agora })
       .eq('id', consultaId);
+    if (error) {
+      setErroLembrete('Não consegui salvar, tente novamente');
+      setTimeout(() => setErroLembrete(null), 4000);
+      return;
+    }
     setEnviadosLocais(prev => new Map([...prev, [consultaId, agora]]));
     // Atualiza o dado do DB na lista local sem re-fetch completo
     setLembretes(prev => prev.map(l =>
@@ -119,9 +125,14 @@ export default function Agenda() {
   }
 
   async function desfazerEnvio(consultaId) {
-    await supabase.from('consultas')
+    const { error } = await supabase.from('consultas')
       .update({ lembrete_enviado: false, lembrete_enviado_em: null })
       .eq('id', consultaId);
+    if (error) {
+      setErroLembrete('Não consegui salvar, tente novamente');
+      setTimeout(() => setErroLembrete(null), 4000);
+      return;
+    }
     setEnviadosLocais(prev => { const m = new Map(prev); m.delete(consultaId); return m; });
     setLembretes(prev => prev.map(l =>
       l.id === consultaId ? { ...l, lembrete_enviado: false, lembrete_enviado_em: null } : l
@@ -176,6 +187,17 @@ export default function Agenda() {
             <div className="al-t" style={{ color: 'var(--blue)' }}>Cadastre uma paciente primeiro</div>
             <div className="al-d">A agenda precisa de pelo menos uma paciente para você poder marcar consultas.</div>
           </div>
+        </div>
+      )}
+
+      {erroLembrete && (
+        <div style={{
+          background: 'var(--red-bg)', color: 'var(--red)',
+          padding: '8px 12px', borderRadius: 8, marginBottom: 12,
+          fontSize: 13, display: 'flex', alignItems: 'center', gap: 6,
+        }}>
+          <i className="ti ti-alert-circle" aria-hidden="true" />
+          {erroLembrete}
         </div>
       )}
 

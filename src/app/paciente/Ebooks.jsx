@@ -15,6 +15,7 @@ const TAG_LABEL = {
 export default function Ebooks() {
   const { user, profile } = useSession();
   const [ebooks, setEbooks] = useState(null);
+  const [erroAbrir, setErroAbrir] = useState(null);
 
   useEffect(() => {
     if (!user) return;
@@ -42,11 +43,26 @@ export default function Ebooks() {
   async function abrir(eb) {
     const { data } = await supabase.storage.from('ebooks')
       .createSignedUrl(eb.storage_path, 3600);
-    if (data?.signedUrl) window.open(data.signedUrl, '_blank', 'noopener');
+    if (data?.signedUrl) {
+      window.open(data.signedUrl, '_blank', 'noopener');
+    } else {
+      setErroAbrir('Não consegui abrir o arquivo, tente novamente');
+      setTimeout(() => setErroAbrir(null), 4000);
+    }
   }
 
   return (
     <>
+      {erroAbrir && (
+        <div style={{
+          background: 'var(--red-bg, #fef2f2)', color: 'var(--red, #dc2626)',
+          padding: '10px 14px', borderRadius: 10, marginBottom: 12,
+          fontSize: 13, display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          <i className="ti ti-alert-circle" aria-hidden="true" />
+          {erroAbrir}
+        </div>
+      )}
       {ebooks === null ? (
         <div style={{ padding: 24, textAlign: 'center', color: 'var(--muted)' }}>
           Carregando...
