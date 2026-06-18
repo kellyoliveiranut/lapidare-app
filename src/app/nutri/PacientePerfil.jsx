@@ -1270,7 +1270,7 @@ function CheckinPersonalizado({ pacienteId, nutriId, pacienteNome }) {
                     {respondeu ? `Respondeu em ${dataBR(e.respondido_em)}` : (lembrado ? 'Lembrete enviado' : 'Aguardando resposta')}
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>
-                    Enviado em {dataBR(e.enviado_em)} · {e.perguntas?.length ?? 0} perguntas
+                    Enviado em {dataBR(e.enviado_em)} · {e.perguntas?.length ?? 0} pergunta{(e.perguntas?.length ?? 0) !== 1 ? 's' : ''}
                   </div>
                 </div>
                 {!respondeu && !lembrado && (

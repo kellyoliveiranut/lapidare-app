@@ -532,7 +532,7 @@ function SelecionarEnviarTemplate({ templates, padrao, onEscolher }) {
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 500 }}>{t.nome}</div>
                     <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
-                      {t.perguntas?.length ?? 0} perguntas
+                      {t.perguntas?.length ?? 0} pergunta{(t.perguntas?.length ?? 0) !== 1 ? 's' : ''}
                       {t.paciente_id && ' · personalizado'}
                     </div>
                   </div>
@@ -576,7 +576,7 @@ function SelecionarTemplateModal({ templates, onClose, onEscolher, title, action
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 14, fontWeight: 500 }}>{t.nome}</div>
                   <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>
-                    {t.perguntas?.length ?? 0} perguntas
+                    {t.perguntas?.length ?? 0} pergunta{(t.perguntas?.length ?? 0) !== 1 ? 's' : ''}
                   </div>
                 </div>
                 {t.is_padrao && <span style={{
@@ -711,7 +711,7 @@ function TemplatesTab({ templates, pacientes, nutriId, onRecarregar, mostraToast
                     )}
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>
-                    {t.perguntas?.length ?? 0} perguntas · criado em {dataBR(t.created_at)}
+                    {t.perguntas?.length ?? 0} pergunta{(t.perguntas?.length ?? 0) !== 1 ? 's' : ''} · criado em {dataBR(t.created_at)}
                   </div>
                 </div>
                 <div style={{ display: 'inline-flex', gap: 6 }}>
@@ -1010,7 +1010,7 @@ function AgendamentoEditor({ agendamento, templates, pacientes, nutriId, onClose
       <select value={templateId} onChange={e => setTemplateId(e.target.value)}>
         {templates.map(t => (
           <option key={t.id} value={t.id}>
-            {t.nome} ({t.perguntas?.length ?? 0} perguntas){t.is_padrao ? ' · padrão' : ''}
+            {t.nome} ({t.perguntas?.length ?? 0} pergunta{(t.perguntas?.length ?? 0) !== 1 ? 's' : ''}){t.is_padrao ? ' · padrão' : ''}
           </option>
         ))}
       </select>
