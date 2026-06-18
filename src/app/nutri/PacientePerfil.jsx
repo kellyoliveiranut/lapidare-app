@@ -135,16 +135,37 @@ export default function PacientePerfil() {
     }
   }
 
-  function enviarAcessoWhatsApp() {
+  async function enviarAcessoWhatsApp() {
     if (!paciente.email?.trim()) return;
     const tel = normalizarTelefone(paciente.telefone);
     const primeiroNome = paciente.nome?.split(' ')[0] ?? '';
-    const msg =
-      `Olá, ${primeiroNome}! Aqui é a Kelly, sua nutricionista. Preparei o seu espaço no app do Essentia, onde você vai acompanhar seu plano alimentar e seu cuidado de pertinho.\n\n` +
-      `Para acessar, clique neste link: ${window.location.origin}\n` +
-      `Entre com o seu e-mail ou o número do telefone: ${paciente.email}\n` +
-      `No primeiro acesso, toque em "Atualizar senha" para criar sua senha.\n\n` +
-      `Qualquer dúvida, é só me chamar por aqui.`;
+
+    let msg;
+    if (!paciente.user_id) {
+      // Caso A: sem conta — busca token de signup pendente
+      const { data: pendente } = await supabase
+        .from('pacientes_pendentes')
+        .select('token')
+        .eq('nutri_id', user.id)
+        .eq('email', paciente.email.trim())
+        .eq('status', 'pendente')
+        .maybeSingle();
+      if (!pendente?.token) {
+        alert('Não encontrei o link de cadastro deste paciente. Vá em Cadastrar → Pendentes para gerar um novo link.');
+        return;
+      }
+      const linkSignup = `${window.location.origin}/signup-paciente/${user.id}/${pendente.token}`;
+      msg =
+        `Olá, ${primeiroNome}! Aqui é a Kelly, sua nutricionista. Preparei o seu espaço no app do Essentia, onde você vai acompanhar seu plano alimentar e seu cuidado de pertinho.\n\n` +
+        `Para criar o seu acesso, clique neste link e escolha a sua senha: ${linkSignup}\n\n` +
+        `Qualquer dúvida, é só me chamar por aqui.`;
+    } else {
+      // Caso B: já tem conta — link de login
+      msg =
+        `Olá, ${primeiroNome}! Para entrar no app do Essentia, acesse: ${window.location.origin}\n\n` +
+        `Use o seu e-mail ou o número do telefone e a senha que você criou. Se esquecer a senha, toque em "Esqueci minha senha".`;
+    }
+
     window.open(`https://wa.me/${tel}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
   }
 
