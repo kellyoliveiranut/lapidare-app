@@ -142,16 +142,24 @@ export default function PacientePerfil() {
 
     let msg;
     if (!paciente.user_id) {
-      // Caso A: sem conta — busca token de signup pendente
-      const { data: pendente } = await supabase
+      // Caso A: sem conta — upsert preserva token existente ou banco gera um novo
+      const { data: pendente, error } = await supabase
         .from('pacientes_pendentes')
+        .upsert({
+          nutri_id:   user.id,
+          nome:       paciente.nome?.trim() ?? '',
+          email:      paciente.email.trim().toLowerCase(),
+          telefone:   paciente.telefone?.trim() ?? '',
+          nascimento: paciente.nascimento || null,
+          objetivo:   paciente.objetivo   || 'Outro',
+          tipo_plano: paciente.tipo_plano || 'avulsa',
+          modalidade: paciente.modalidade || 'Online',
+          status:     'pendente',
+        }, { onConflict: 'nutri_id,email' })
         .select('token')
-        .eq('nutri_id', user.id)
-        .eq('email', paciente.email.trim())
-        .eq('status', 'pendente')
-        .maybeSingle();
-      if (!pendente?.token) {
-        alert('Não encontrei o link de cadastro deste paciente. Vá em Cadastrar → Pendentes para gerar um novo link.');
+        .single();
+      if (error || !pendente?.token) {
+        alert('Não consegui gerar o link agora, tente novamente.');
         return;
       }
       const linkSignup = `${window.location.origin}/signup-paciente/${user.id}/${pendente.token}`;
