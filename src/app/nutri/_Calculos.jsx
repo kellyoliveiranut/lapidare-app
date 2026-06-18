@@ -93,22 +93,60 @@ function EmptyMsg() {
 }
 
 /* ── NRS-2002 ─────────────────────────────────────── */
-function NRS2002({ imc, idade }) {
+function NRS2002({ imc, idade, pacienteId, nutriId }) {
   const [step, setStep] = useState('pre');
   const [pre, setPre] = useState({ q1: false, q2: false, q3: false, q4: false });
   const [scoreNutri, setScoreNutri] = useState('');
   const [scoreDoenca, setScoreDoenca] = useState('');
+  const [salvando, setSalvando] = useState(false);
+  const [msgSalvo, setMsgSalvo] = useState(null);
 
   const prePositivo = pre.q1 || pre.q2 || pre.q3 || pre.q4;
   const correcaoIdade = (idade >= 70) ? 1 : 0;
   const total = (parseInt(scoreNutri) || 0) + (parseInt(scoreDoenca) || 0) + correcaoIdade;
   const emRisco = total >= 3;
 
+  useEffect(() => {
+    if (!pacienteId) return;
+    supabase
+      .from('rastreios_nutricionais')
+      .select('respostas')
+      .eq('paciente_id', pacienteId)
+      .eq('tipo', 'nrs2002')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!data) return;
+        const r = data.respostas;
+        if (r.pre)         setPre(r.pre);
+        if (r.scoreNutri)  setScoreNutri(r.scoreNutri);
+        if (r.scoreDoenca) setScoreDoenca(r.scoreDoenca);
+        if (r.step)        setStep(r.step);
+      });
+  }, [pacienteId]);
+
+  async function salvar() {
+    setSalvando(true);
+    setMsgSalvo(null);
+    const { error } = await supabase.from('rastreios_nutricionais').insert({
+      paciente_id: pacienteId,
+      nutri_id:    nutriId,
+      tipo:        'nrs2002',
+      data:        new Date().toISOString().slice(0, 10),
+      respostas:   { step, pre, scoreNutri, scoreDoenca },
+      resultado:   { total, emRisco, prePositivo },
+    });
+    setSalvando(false);
+    if (!error) setMsgSalvo('Salvo!');
+  }
+
   function reset() {
     setStep('pre');
     setPre({ q1: false, q2: false, q3: false, q4: false });
     setScoreNutri('');
     setScoreDoenca('');
+    setMsgSalvo(null);
   }
 
   return (
@@ -202,7 +240,11 @@ function NRS2002({ imc, idade }) {
                 <div style={{ fontSize: 13, color: 'var(--text3)', marginTop: 4 }}>Reavaliação semanal recomendada.</div>
               </div>
             )}
-            <button className="btn" style={{ background: 'var(--bg2)', color: 'var(--dark)' }} onClick={reset}>Nova triagem</button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
+              <button className="btn" style={{ background: 'var(--bg2)', color: 'var(--dark)' }} onClick={reset}>Nova triagem</button>
+              <button className="btn" onClick={salvar} disabled={salvando}>{salvando ? 'Salvando...' : 'Salvar triagem'}</button>
+              {msgSalvo && <span style={{ fontSize: 12, color: '#16a34a' }}>{msgSalvo}</span>}
+            </div>
           </>
         )}
       </div>
@@ -309,7 +351,7 @@ const BOX4_OPT = [
   { l: 'Acamado, raramente sai da cama',                       pts: 3 },
 ];
 
-function PGSGA() {
+function PGSGA({ pacienteId, nutriId }) {
   const [pesAtual, setPesAtual] = useState('');
   const [pes1mes, setPes1mes] = useState('');
   const [recMudanca, setRecMudanca] = useState('');
@@ -319,6 +361,33 @@ function PGSGA() {
   const [scoreDoenca, setScoreDoenca] = useState('0');
   const [scoreMetab, setScoreMetab] = useState('0');
   const [scoreExame, setScoreExame] = useState('0');
+  const [salvando, setSalvando] = useState(false);
+  const [msgSalvo, setMsgSalvo] = useState(null);
+
+  useEffect(() => {
+    if (!pacienteId) return;
+    supabase
+      .from('rastreios_nutricionais')
+      .select('respostas')
+      .eq('paciente_id', pacienteId)
+      .eq('tipo', 'pgsga')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!data) return;
+        const r = data.respostas;
+        if (r.pesAtual    != null) setPesAtual(r.pesAtual);
+        if (r.pes1mes     != null) setPes1mes(r.pes1mes);
+        if (r.recMudanca)          setRecMudanca(r.recMudanca);
+        if (r.box2Idx     != null) setBox2Idx(r.box2Idx);
+        if (r.sintomas)            setSintomas(r.sintomas);
+        if (r.box4Idx     != null) setBox4Idx(r.box4Idx);
+        if (r.scoreDoenca != null) setScoreDoenca(r.scoreDoenca);
+        if (r.scoreMetab  != null) setScoreMetab(r.scoreMetab);
+        if (r.scoreExame  != null) setScoreExame(r.scoreExame);
+      });
+  }, [pacienteId]);
 
   const box1Score = (() => {
     let s = recMudanca === 'diminuiu' ? 1 : 0;
@@ -346,6 +415,23 @@ function PGSGA() {
     : total <= 8
     ? { cat: 'B', label: 'Desnutrição moderada suspeita/em curso', cor: '#d97706', bg: '#fffbeb' }
     : { cat: 'C', label: 'Desnutrição grave',                     cor: '#dc2626', bg: '#fee2e2' };
+
+  async function salvar() {
+    setSalvando(true);
+    setMsgSalvo(null);
+    const { error } = await supabase.from('rastreios_nutricionais').insert({
+      paciente_id: pacienteId,
+      nutri_id:    nutriId,
+      tipo:        'pgsga',
+      data:        new Date().toISOString().slice(0, 10),
+      respostas:   { pesAtual, pes1mes, recMudanca, box2Idx, sintomas,
+                     box4Idx, scoreDoenca, scoreMetab, scoreExame },
+      resultado:   { total, pacienteScore, clinicoScore,
+                     categoria: classif.cat, label: classif.label },
+    });
+    setSalvando(false);
+    if (!error) setMsgSalvo('Salvo!');
+  }
 
   return (
     <div className="card">
@@ -469,6 +555,10 @@ function PGSGA() {
             </div>
           )}
         </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12 }}>
+          <button className="btn" onClick={salvar} disabled={salvando}>{salvando ? 'Salvando...' : 'Salvar avaliação'}</button>
+          {msgSalvo && <span style={{ fontSize: 12, color: '#16a34a' }}>{msgSalvo}</span>}
+        </div>
       </div>
     </div>
   );
@@ -490,7 +580,7 @@ const PROT_EMAG = {
 };
 
 /* ── main component ──────────────────────────────── */
-export default function Calculos({ pacienteId, paciente, onUsarNaDieta }) {
+export default function Calculos({ pacienteId, nutriId, paciente, onUsarNaDieta }) {
   const [secao, setSecao] = useState('oncologia');
   const [subOnco, setSubOnco] = useState('energia');
   const [subEmag, setSubEmag] = useState('energia');
@@ -883,8 +973,8 @@ export default function Calculos({ pacienteId, paciente, onUsarNaDieta }) {
           {/* Rastreio Nutricional */}
           {subOnco === 'rastreio' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <NRS2002 imc={imc} idade={idade ?? 0} />
-              <PGSGA />
+              <NRS2002 imc={imc} idade={idade ?? 0} pacienteId={pacienteId} nutriId={nutriId} />
+              <PGSGA pacienteId={pacienteId} nutriId={nutriId} />
               <MUST imc={imc} />
             </div>
           )}
