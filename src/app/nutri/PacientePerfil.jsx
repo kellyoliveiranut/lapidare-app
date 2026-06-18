@@ -136,6 +136,7 @@ export default function PacientePerfil() {
   }
 
   function enviarAcessoWhatsApp() {
+    if (!paciente.email?.trim()) return;
     const tel = normalizarTelefone(paciente.telefone);
     const primeiroNome = paciente.nome?.split(' ')[0] ?? '';
     const msg =
@@ -254,16 +255,20 @@ export default function PacientePerfil() {
               Enviar redefinição de senha
             </button>
             <button onClick={enviarAcessoWhatsApp}
-              disabled={!paciente.telefone?.trim()}
-              title={!paciente.telefone?.trim() ? 'Cadastre o telefone da paciente para enviar o acesso' : 'Abre WhatsApp com mensagem de boas-vindas ao app'}
+              disabled={!paciente.telefone?.trim() || !paciente.email?.trim()}
+              title={
+                !paciente.telefone?.trim() ? 'Cadastre o telefone da paciente para enviar o acesso' :
+                !paciente.email?.trim() ? 'Cadastre o e-mail da paciente antes de enviar o acesso' :
+                'Abre WhatsApp com mensagem de boas-vindas ao app'
+              }
               style={{
                 background: 'transparent', border: '0.5px solid var(--border)',
                 borderRadius: 6, padding: '3px 9px', fontSize: 11,
-                color: !paciente.telefone?.trim() ? 'var(--text3)' : '#25D366',
-                cursor: !paciente.telefone?.trim() ? 'default' : 'pointer',
+                color: (!paciente.telefone?.trim() || !paciente.email?.trim()) ? 'var(--text3)' : '#25D366',
+                cursor: (!paciente.telefone?.trim() || !paciente.email?.trim()) ? 'default' : 'pointer',
                 fontFamily: 'var(--font-sans)',
                 display: 'inline-flex', alignItems: 'center', gap: 4,
-                opacity: !paciente.telefone?.trim() ? 0.45 : 1,
+                opacity: (!paciente.telefone?.trim() || !paciente.email?.trim()) ? 0.45 : 1,
               }}>
               <i className="ti ti-brand-whatsapp" aria-hidden="true" style={{ fontSize: 13 }}></i>
               Enviar acesso ao app
