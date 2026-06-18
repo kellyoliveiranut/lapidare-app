@@ -3599,6 +3599,7 @@ function PublicarLista({ pacienteId, nutriId }) {
   const [promptComprasTexto, setPromptComprasTexto]     = useState('');
   const [promptComprasCopiado, setPromptComprasCopiado] = useState(false);
   const [supsExcluidos, setSupsExcluidos]               = useState([]);
+  const [verLista, setVerLista]                         = useState(null);
 
   useEffect(() => { carregar(); }, [pacienteId]);
 
@@ -4274,6 +4275,7 @@ Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (e
         titulo="Listas publicadas"
         items={historico}
         onDelete={excluirLista}
+        onView={(l) => setVerLista(l)}
         renderItem={(l) => (
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 14, fontWeight: 500 }}>
@@ -4285,6 +4287,8 @@ Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (e
           </div>
         )}
       />
+
+      {verLista && <ModalVerLista lista={verLista} onClose={() => setVerLista(null)} />}
 
     </>
   );
@@ -4575,6 +4579,85 @@ function ModalVerPlano({ plano, onClose }) {
         </div>
 
         {/* Rodapé */}
+        <div style={{ padding: '12px 20px', borderTop: '0.5px solid var(--border)' }}>
+          <button className="btn-outline" style={{ width: '100%', justifyContent: 'center', minHeight: 44 }} onClick={onClose}>
+            Fechar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ModalVerLista({ lista, onClose }) {
+  const cats = lista.dados?.lista ?? [];
+  const totalItens = cats.reduce((a, c) => a + (c.itens?.length ?? 0), 0);
+  return (
+    <div onClick={onClose} style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)',
+      display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+      zIndex: 400, padding: '24px 16px', overflowY: 'auto',
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: 'var(--white)', borderRadius: 14,
+        width: '100%', maxWidth: 480,
+        boxShadow: '0 8px 32px rgba(0,0,0,.18)',
+        overflow: 'hidden', marginBottom: 24,
+      }}>
+        <div style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          padding: '16px 20px', borderBottom: '0.5px solid var(--border)',
+        }}>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 600 }}>Lista de compras</div>
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 1 }}>
+              Publicada em {dataBR(lista.publicado_em)} · {totalItens} itens
+            </div>
+          </div>
+          <button onClick={onClose} style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            fontSize: 20, color: 'var(--text3)', padding: 4,
+            minWidth: 44, minHeight: 44,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <i className="ti ti-x" aria-hidden="true" />
+          </button>
+        </div>
+        <div style={{ padding: '16px 20px', maxHeight: '70dvh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {cats.map((cat, ci) => (
+            <div key={ci}>
+              <div style={{
+                fontSize: 11, fontWeight: 600, color: 'var(--amber)',
+                letterSpacing: 1.2, textTransform: 'uppercase',
+                marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6,
+              }}>
+                {cat.emoji && <span>{cat.emoji}</span>}
+                <span>{cat.categoria}</span>
+                <span style={{ marginLeft: 'auto', fontWeight: 400, color: 'var(--text3)', letterSpacing: 0, textTransform: 'none' }}>
+                  {cat.itens?.length ?? 0} itens
+                </span>
+              </div>
+              <div>
+                {(cat.itens ?? []).map((item, ii) => {
+                  const str = typeof item === 'string' ? item : (item.nome ?? '');
+                  const partes = str.split(/\s+[—–]\s+/);
+                  const nome = partes[0]?.trim() ?? str;
+                  const qty = partes[1]?.trim() ?? (typeof item === 'object' ? item.quantidade : null) ?? null;
+                  return (
+                    <div key={ii} style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      padding: '7px 4px', fontSize: 13,
+                      borderBottom: ii < (cat.itens?.length ?? 0) - 1 ? '0.5px solid var(--border-soft, #f5f0e8)' : 'none',
+                    }}>
+                      <span style={{ flex: 1, color: 'var(--dark)' }}>{nome}</span>
+                      {qty && <span style={{ fontSize: 11, color: 'var(--text3)', flexShrink: 0 }}>{qty}</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
         <div style={{ padding: '12px 20px', borderTop: '0.5px solid var(--border)' }}>
           <button className="btn-outline" style={{ width: '100%', justifyContent: 'center', minHeight: 44 }} onClick={onClose}>
             Fechar
