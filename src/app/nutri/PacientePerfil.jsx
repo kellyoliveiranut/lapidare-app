@@ -8,7 +8,7 @@ import {
 } from '../../lib/utils.js';
 import { TEMPLATE_PADRAO } from '../../lib/checkinDefault.js';
 import { callAnthropic } from '../../lib/anthropic.js';
-import { buscarAlimento, kcalDoAlimento, kcalEquivalente, parseGramas } from '../../lib/taco.js';
+import { buscarAlimento, medidaCaseira, kcalDoAlimento, kcalEquivalente, parseGramas } from '../../lib/taco.js';
 import DateInput from '../../components/DateInput.jsx';
 import CheckinForm from '../../components/CheckinForm.jsx';
 const Evolucao             = lazy(() => import('./_Evolucao.jsx'));
@@ -1848,6 +1848,36 @@ function substitutoTemQuantidade(texto) {
   return /\+/.test(texto) || /\d/.test(texto);
 }
 
+function parseSubs(subs) {
+  if (!subs) return [];
+  const parseOne = (txt) => {
+    const nome = txt.replace(/\s*\(≈[^)]*\)/, '').trim();
+    const m = txt.match(/≈\s*([\d.,]+)\s*(g|ml)/);
+    return { nome, gramas: m ? parseFloat(m[1].replace(',', '.')) : null, liquido: m ? m[2] === 'ml' : false };
+  };
+  if (Array.isArray(subs)) {
+    return subs.map(sub => {
+      if (typeof sub === 'object') {
+        const raw = String(sub.qty_equiv ?? '');
+        const m = raw.match(/([\d.,]+)\s*(g|ml)/);
+        return { nome: (sub.nome ?? '').trim(), gramas: m ? parseFloat(m[1].replace(',', '.')) : null, liquido: m ? m[2] === 'ml' : false };
+      }
+      return parseOne(String(sub));
+    }).filter(s => s.nome);
+  }
+  if (typeof subs !== 'string' || !subs.trim()) return [];
+  const items = [];
+  let depth = 0, cur = '';
+  for (const ch of subs) {
+    if (ch === '(') depth++;
+    else if (ch === ')') depth--;
+    else if (ch === ',' && depth === 0) { if (cur.trim()) items.push(parseOne(cur.trim())); cur = ''; continue; }
+    cur += ch;
+  }
+  if (cur.trim()) items.push(parseOne(cur.trim()));
+  return items.filter(s => s.nome);
+}
+
 function PdfListSection({ itens, excluindoId, onAbrir, onExcluir }) {
   const btnBase = {
     display: 'inline-flex', alignItems: 'center', gap: 4,
@@ -1954,8 +1984,9 @@ function PublicarPlano({ pacienteId, nutriId, calculosImportados, onLimparImport
   const [jsonSubsOpen, setJsonSubsOpen]           = useState(false);
   const [jsonSubsInput, setJsonSubsInput]         = useState('');
   const [erroJsonSubs, setErroJsonSubs]           = useState(null);
-  const [previewOpen, setPreviewOpen]     = useState(false);
-  const [dadosPreview, setDadosPreview]   = useState(null);
+  const [previewOpen, setPreviewOpen]         = useState(false);
+  const [dadosPreview, setDadosPreview]       = useState(null);
+  const [previewSubsOpen, setPreviewSubsOpen] = useState({});
   const [verPlano, setVerPlano]           = useState(null); // plano publicado sendo visualizado
   const [uploadandoDieta, setUploadandoDieta] = useState(false);
   const [feedbackDieta, setFeedbackDieta]     = useState(null);
@@ -2524,6 +2555,7 @@ Estrutura JSON obrigatória:
     const v = validarPlano(dados);
     if (!v.ok) return setFeedback({ tipo: 'erro', msg: v.erro });
     setDadosPreview(dados);
+    setPreviewSubsOpen({});
     setPreviewOpen(true);
   }
 
@@ -2690,21 +2722,59 @@ Estrutura JSON obrigatória:
               ))}
 
               {dadosPreview.substituicoes?.length > 0 && (
-                <div style={{ padding: '10px 14px', background: 'var(--bg2)', borderRadius: 8 }}>
-                  <div style={{ fontSize: 10, letterSpacing: '.15em', textTransform: 'uppercase', color: 'var(--muted)', fontWeight: 500, marginBottom: 8 }}>
-                    Substituições
+                <div style={{ background: 'var(--bg2)', borderRadius: 8, overflow: 'hidden' }}>
+                  <div style={{ padding: '10px 14px 6px', fontSize: 10, letterSpacing: '.15em', textTransform: 'uppercase', color: 'var(--muted)', fontWeight: 500 }}>
+                    Substituições por grupo
                   </div>
-                  {dadosPreview.substituicoes.map((s, i) => (
-                    <div key={i} style={{ fontSize: 12, color: 'var(--dark)', marginBottom: 5, display: 'flex', gap: 6, alignItems: 'flex-start' }}>
-                      <span style={{ fontWeight: 600, minWidth: 0 }}>{s.original}</span>
-                      {s.subs && (
-                        <>
-                          <span style={{ color: 'var(--text3)', flexShrink: 0 }}>→</span>
-                          <span style={{ color: 'var(--text2)', minWidth: 0 }}>{s.subs}</span>
-                        </>
-                      )}
-                    </div>
-                  ))}
+                  {dadosPreview.substituicoes.map((s, i) => {
+                    const isOpen = !!previewSubsOpen[i];
+                    const subsItems = parseSubs(s.subs);
+                    return (
+                      <div key={i} style={{ borderTop: i > 0 ? '0.5px solid var(--border, var(--hair))' : 'none' }}>
+                        <button
+                          aria-expanded={isOpen}
+                          onClick={() => setPreviewSubsOpen(prev => ({ ...prev, [i]: !prev[i] }))}
+                          style={{
+                            width: '100%', background: 'none', border: 'none', cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            padding: '9px 14px', textAlign: 'left', gap: 8, fontFamily: 'inherit',
+                          }}
+                        >
+                          <span style={{ fontFamily: 'var(--font-serif)', fontSize: 13, color: 'var(--dark)', fontWeight: 500, flex: 1, minWidth: 0 }}>
+                            {s.original}
+                          </span>
+                          <i className={`ti ti-chevron-${isOpen ? 'up' : 'down'}`}
+                            style={{ fontSize: 12, color: 'var(--gold-deep)', flexShrink: 0 }}
+                            aria-hidden="true"
+                          />
+                        </button>
+                        {isOpen && (
+                          <div style={{ paddingBottom: 8, paddingLeft: 14, paddingRight: 14 }}>
+                            {subsItems.map((sub, j) => {
+                              const alTaco = buscarAlimento(sub.nome);
+                              const medida = (sub.gramas && alTaco) ? medidaCaseira(sub.gramas, alTaco) : null;
+                              return (
+                                <div key={j} style={{ display: 'flex', alignItems: 'baseline', gap: 5, padding: '3px 0', fontSize: 12 }}>
+                                  <span style={{ color: 'var(--gold-deep)', fontSize: 10, flexShrink: 0 }}>→</span>
+                                  <span style={{ color: 'var(--dark)' }}>
+                                    {sub.nome}
+                                    {(medida || sub.gramas) && (
+                                      <span style={{ color: 'var(--text3)', fontSize: 11 }}>
+                                        {medida ? ` · ${medida}` : ''}{sub.gramas ? ` (≈ ${sub.gramas} ${sub.liquido ? 'ml' : 'g'})` : ''}
+                                      </span>
+                                    )}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                            {subsItems.length === 0 && s.subs && (
+                              <span style={{ fontSize: 12, color: 'var(--dark)' }}>{String(s.subs)}</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
 
