@@ -43,6 +43,7 @@ export default function PacientePerfil() {
   const [excluirOpen, setExcluirOpen] = useState(false);
   const [consultaAtiva, setConsultaAtiva] = useState(undefined);
   const [busyConsulta, setBusyConsulta] = useState(false);
+  const [agendarAcompOpen, setAgendarAcompOpen] = useState(false);
   const [erroCarregar, setErroCarregar] = useState(false);
 
   function labelTipoConsulta(tipo) {
@@ -461,6 +462,28 @@ export default function PacientePerfil() {
         </div>
       )}
 
+      {/* Agendar acompanhamento */}
+      {agendarAcompOpen && (
+        <ModalAgendarAcompanhamento
+          pacienteId={id}
+          nutriId={user?.id}
+          consultaAtiva={consultaAtiva}
+          onClose={() => setAgendarAcompOpen(false)}
+          onSalvo={() => {
+            setAgendarAcompOpen(false);
+            // Recarrega consultaAtiva para refletir a 1ª consulta agendada
+            const hoje0 = new Date(); hoje0.setHours(0, 0, 0, 0);
+            supabase.from('consultas')
+              .select('id, data_hora, tipo, status, duracao_min, iniciada_em, encerrada_em')
+              .eq('paciente_id', id).eq('nutri_id', user?.id)
+              .neq('status', 'cancelada')
+              .gte('data_hora', hoje0.toISOString())
+              .order('data_hora', { ascending: true }).limit(1).maybeSingle()
+              .then(({ data }) => setConsultaAtiva(data ?? null));
+          }}
+        />
+      )}
+
       {/* Card de consulta ativa */}
       {consultaAtiva && (() => {
         const finalizada = consultaAtiva.status === 'realizada';
@@ -543,6 +566,24 @@ export default function PacientePerfil() {
           </div>
         );
       })()}
+
+      {/* Botão agendar acompanhamento */}
+      <div style={{ marginBottom: 14 }}>
+        <button
+          onClick={() => setAgendarAcompOpen(true)}
+          style={{
+            width: '100%', padding: '9px 14px', borderRadius: 10,
+            border: '1px dashed var(--gold-deep, #a08456)',
+            background: 'transparent', color: 'var(--gold-deep, #a08456)',
+            fontSize: 13, fontWeight: 500, cursor: 'pointer',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            gap: 6, fontFamily: 'var(--font-sans)',
+          }}
+        >
+          <i className="ti ti-calendar-plus" aria-hidden="true" />
+          Agendar acompanhamento (6 consultas)
+        </button>
+      </div>
 
       {/* Tabs */}
       <div className="tabs-scroll" style={{
@@ -5292,3 +5333,175 @@ const AlimentoLinha = memo(function AlimentoLinha({ alimento: a, refId, onSetAli
     </div>
   );
 });
+
+// ─── Modal: Agendar acompanhamento (6 consultas) ─────────────────────────────
+function gerarDatas(primeira, intervaloDias, qtd) {
+  const datas = [];
+  const base = new Date(primeira);
+  for (let i = 0; i < qtd; i++) {
+    const d = new Date(base);
+    d.setDate(d.getDate() + i * intervaloDias);
+    datas.push(d.toISOString().slice(0, 16)); // "YYYY-MM-DDTHH:mm"
+  }
+  return datas;
+}
+
+function tipoConsulta(idx) {
+  if (idx === 0) return 'primeira';
+  return `consulta_${idx + 1}`;
+}
+
+function ModalAgendarAcompanhamento({ pacienteId, nutriId, consultaAtiva, onClose, onSalvo }) {
+  const hoje = new Date();
+  const defaultDate = consultaAtiva
+    ? new Date(consultaAtiva.data_hora)
+    : (() => { hoje.setDate(hoje.getDate() + 15); return hoje; })();
+  const defaultStr = defaultDate.toISOString().slice(0, 16);
+
+  const [primeira, setPrimeira] = useState(defaultStr);
+  const [intervalo, setIntervalo] = useState(15);
+  const [duracao, setDuracao] = useState(50);
+  const [datas, setDatas] = useState(() => gerarDatas(defaultStr, 15, 6));
+  const [salvando, setSalvando] = useState(false);
+  const [erro, setErro] = useState(null);
+
+  function recalcular(novaPrimeira, novoIntervalo) {
+    setDatas(gerarDatas(novaPrimeira, Number(novoIntervalo), 6));
+  }
+
+  function handlePrimeira(v) {
+    setPrimeira(v);
+    recalcular(v, intervalo);
+  }
+
+  function handleIntervalo(v) {
+    const n = Math.max(1, Number(v) || 1);
+    setIntervalo(n);
+    recalcular(primeira, n);
+  }
+
+  function handleData(idx, v) {
+    setDatas(prev => prev.map((d, i) => i === idx ? v : d));
+  }
+
+  async function salvar() {
+    const invalidas = datas.filter(d => !d);
+    if (invalidas.length > 0) { setErro('Preencha todas as datas.'); return; }
+    setSalvando(true);
+    setErro(null);
+    const payload = datas.map((dt, i) => ({
+      paciente_id:   pacienteId,
+      nutri_id:      nutriId,
+      data_hora:     new Date(dt).toISOString(),
+      duracao_min:   duracao,
+      tipo:          tipoConsulta(i),
+      status:        'agendada',
+      lembrete_ativo: true,
+    }));
+    const { error } = await supabase.from('consultas').insert(payload);
+    setSalvando(false);
+    if (error) { setErro('Erro ao salvar: ' + error.message); return; }
+    onSalvo();
+  }
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 1100,
+      background: 'rgba(0,0,0,.45)', display: 'flex',
+      alignItems: 'flex-end', justifyContent: 'center',
+    }} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{
+        background: 'var(--paper, #faf7f2)', borderRadius: '20px 20px 0 0',
+        padding: '24px 20px 32px', width: '100%', maxWidth: 540,
+        maxHeight: '90vh', overflowY: 'auto',
+        boxShadow: '0 -4px 30px rgba(0,0,0,.15)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+          <span style={{ fontFamily: 'var(--font-serif)', fontSize: 18, color: 'var(--ink)' }}>
+            Agendar acompanhamento
+          </span>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: 'var(--muted)', padding: 4 }}>
+            <i className="ti ti-x" aria-hidden="true" />
+          </button>
+        </div>
+
+        {/* Configuração */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.1em', fontWeight: 500 }}>1ª consulta</span>
+            <input
+              type="datetime-local"
+              value={primeira}
+              onChange={e => handlePrimeira(e.target.value)}
+              style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid var(--hair)', fontSize: 13, background: 'var(--white)', fontFamily: 'var(--font-sans)' }}
+            />
+          </label>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.1em', fontWeight: 500 }}>Intervalo (dias)</span>
+            <input
+              type="number" min="1" max="90"
+              value={intervalo}
+              onChange={e => handleIntervalo(e.target.value)}
+              style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid var(--hair)', fontSize: 13, background: 'var(--white)', fontFamily: 'var(--font-sans)' }}
+            />
+          </label>
+        </div>
+
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 18 }}>
+          <span style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.1em', fontWeight: 500 }}>Duração (min)</span>
+          <select
+            value={duracao}
+            onChange={e => setDuracao(Number(e.target.value))}
+            style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid var(--hair)', fontSize: 13, background: 'var(--white)', fontFamily: 'var(--font-sans)' }}
+          >
+            {[30, 45, 50, 60, 90].map(m => <option key={m} value={m}>{m} min</option>)}
+          </select>
+        </label>
+
+        {/* Tabela de 6 datas */}
+        <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.1em', fontWeight: 500, marginBottom: 8 }}>
+          Confirme as datas
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 20 }}>
+          {datas.map((dt, i) => (
+            <div key={i} style={{ display: 'grid', gridTemplateColumns: '80px 1fr', gap: 8, alignItems: 'center' }}>
+              <span style={{
+                fontSize: 12, fontWeight: 600, color: 'var(--gold-deep)',
+                textAlign: 'right', paddingRight: 4,
+              }}>
+                Consulta {i + 1}
+              </span>
+              <input
+                type="datetime-local"
+                value={dt}
+                onChange={e => handleData(i, e.target.value)}
+                style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid var(--hair)', fontSize: 13, background: 'var(--white)', fontFamily: 'var(--font-sans)' }}
+              />
+            </div>
+          ))}
+        </div>
+
+        {erro && (
+          <div style={{ color: 'var(--red, #dc2626)', fontSize: 13, marginBottom: 12, padding: '8px 12px', background: 'var(--red-bg, #fef2f2)', borderRadius: 8 }}>
+            {erro}
+          </div>
+        )}
+
+        <button
+          onClick={salvar}
+          disabled={salvando}
+          style={{
+            width: '100%', padding: '13px', borderRadius: 12,
+            background: 'var(--gold-deep, #a08456)', color: '#fff',
+            border: 'none', fontSize: 14, fontWeight: 600,
+            cursor: salvando ? 'default' : 'pointer',
+            opacity: salvando ? 0.7 : 1,
+            fontFamily: 'var(--font-sans)',
+          }}
+        >
+          {salvando ? 'Salvando…' : 'Salvar 6 consultas'}
+        </button>
+      </div>
+    </div>
+  );
+}

@@ -264,6 +264,9 @@ export default function Inicio() {
 
   // ─── Helpers de exibição ─────────────────────────────────────────────────
   const mostrarHumor = habiToHumor != null || !!profile?.nutri_id;
+  // Ocultar card quando o banner de lembrete já está visível (consulta dentro de 48h)
+  const dentroJanelaBanner = proximaConsulta != null &&
+    (new Date(proximaConsulta.data_hora) - Date.now()) <= 48 * 3600 * 1000;
 
   function fmtNum(v, unidade) {
     const s = Number.isInteger(v) ? String(v) : v.toFixed(1).replace('.', ',');
@@ -272,8 +275,8 @@ export default function Inicio() {
 
   return (
     <>
-      {/* 1 — Próxima consulta — sempre estilo creme claro */}
-      {proximaConsulta && (
+      {/* 1 — Próxima consulta — oculto quando banner 48h já aparece no layout */}
+      {proximaConsulta && !dentroJanelaBanner && (
         <div style={{
           margin: '0 0 12px',
           background: '#E6DBC8',
