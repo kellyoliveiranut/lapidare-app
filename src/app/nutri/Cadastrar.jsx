@@ -25,6 +25,9 @@ export default function Cadastrar() {
   const [endereco, setEndereco] = useState('');
   const [obs, setObs] = useState('');
 
+  const [preConsultaId, setPreConsultaId] = useState('');
+  const [templatesPreConsulta, setTemplatesPreConsulta] = useState([]);
+
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState(null);
   const [sucesso, setSucesso] = useState(null);   // pendente criado (objeto)
@@ -40,12 +43,25 @@ export default function Cadastrar() {
       .order('created_at', { ascending: false });
     setPendentes(data ?? []);
   }
-  useEffect(() => { carregarPendentes(); }, [user]);
+
+  async function carregarTemplatesPreConsulta() {
+    if (!user) return;
+    const { data } = await supabase
+      .from('checkin_templates')
+      .select('id, nome, perguntas')
+      .eq('nutri_id', user.id)
+      .eq('tipo', 'pre_consulta')
+      .order('created_at');
+    setTemplatesPreConsulta(data ?? []);
+  }
+
+  useEffect(() => { carregarPendentes(); carregarTemplatesPreConsulta(); }, [user]);
 
   function resetForm() {
     setNome(''); setEmail(''); setTelefone(''); setNascimento('');
     setObjetivo('Emagrecimento'); setTipoPlano('avulsa');
     setModalidade('Online'); setEndereco(''); setObs('');
+    setPreConsultaId('');
   }
 
   async function salvar(e) {
@@ -75,6 +91,19 @@ export default function Cadastrar() {
       .select('id, nome, email')
       .single();
     if (pacienteError) { setBusy(false); return setErro('Erro ao cadastrar: ' + pacienteError.message); }
+
+    if (preConsultaId) {
+      const tpl = templatesPreConsulta.find(t => t.id === preConsultaId);
+      if (tpl) {
+        await supabase.from('checkin_envios').insert({
+          nutri_id: user.id,
+          paciente_id: pacienteData.id,
+          nome: tpl.nome,
+          tipo: 'pre_consulta',
+          perguntas: tpl.perguntas,
+        });
+      }
+    }
 
     let pendente = null;
     if (emailVal) {
@@ -170,6 +199,40 @@ export default function Cadastrar() {
                 outline: 'none', fontFamily: 'var(--font-sans)',
                 resize: 'vertical', boxSizing: 'border-box',
               }} />
+          </label>
+
+          <label style={{ display: 'block', marginBottom: 12 }}>
+            <span style={{
+              display: 'block', fontSize: 11, color: 'var(--text3)',
+              marginBottom: 5, fontWeight: 500,
+            }}>Questionário de pré-consulta</span>
+            <select
+              value={preConsultaId}
+              onChange={e => setPreConsultaId(e.target.value)}
+              disabled={templatesPreConsulta.length === 0}
+              style={{
+                width: '100%', padding: '10px 12px', fontSize: 13,
+                border: '0.5px solid var(--border)', borderRadius: 8,
+                outline: 'none', fontFamily: 'var(--font-sans)',
+                boxSizing: 'border-box', minHeight: 44,
+                opacity: templatesPreConsulta.length === 0 ? 0.55 : 1,
+              }}>
+              {templatesPreConsulta.length === 0 ? (
+                <option value="">Nenhum modelo cadastrado</option>
+              ) : (
+                <>
+                  <option value="">Nenhum</option>
+                  {templatesPreConsulta.map(t => (
+                    <option key={t.id} value={t.id}>{t.nome}</option>
+                  ))}
+                </>
+              )}
+            </select>
+            {templatesPreConsulta.length === 0 && (
+              <span style={{ display: 'block', fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>
+                Crie um modelo em <strong>Questionários</strong> para habilitar esta opção.
+              </span>
+            )}
           </label>
 
           {erro && (
