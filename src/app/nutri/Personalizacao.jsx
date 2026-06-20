@@ -160,10 +160,22 @@ export default function Personalizacao() {
 
   return (
     <>
+      <style>{`
+        .personalizacao-grid {
+          display: grid;
+          grid-template-columns: minmax(0,1fr) 320px;
+          gap: 20px;
+        }
+        @media (max-width: 768px) {
+          .personalizacao-grid {
+            grid-template-columns: 1fr;
+          }
+        }
+      `}</style>
       <div className="page-title">Personalização</div>
       <div className="page-sub">Deixe o app com a cara da sua marca — sem mexer em código</div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 320px', gap: 20 }}>
+      <div className="personalizacao-grid">
         <div>
           {/* Marca */}
           <div className="card" style={{ padding: 18, marginBottom: 14 }}>
