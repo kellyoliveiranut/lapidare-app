@@ -2,6 +2,16 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { dataBR } from '../../lib/utils.js';
 import DateInput from '../../components/DateInput.jsx';
+import protocolosEfeitosData from '../../data/protocolos_efeitos.json';
+
+const GRUPOS_EFEITOS = (() => {
+  const groups = {};
+  for (const p of protocolosEfeitosData.protocolos) {
+    if (!groups[p.indicacao]) groups[p.indicacao] = [];
+    groups[p.indicacao].push(p);
+  }
+  return Object.entries(groups);
+})();
 
 const INTENCOES = [
   { v: 'neoadjuvante', l: 'Neoadjuvante' },
@@ -33,6 +43,7 @@ const SECOES = [
   { id: 'radio',       label: 'Radioterapia',        icon: 'radioactive' },
   { id: 'cirurgia',    label: 'Cirurgia',            icon: 'face-mask' },
   { id: 'exames',      label: 'Exames Laboratoriais', icon: 'microscope' },
+  { id: 'efeitos',     label: 'Ref. Efeitos',        icon: 'notes' },
 ];
 
 function dadosDefault() {
@@ -75,6 +86,7 @@ export default function TratamentoOncologico({ pacienteId, nutriId }) {
   const [feedback, setFeedback] = useState(null);
   const [comparar, setComparar] = useState(false);
   const [lendoPdf, setLendoPdf] = useState(false);
+  const [efeitoProtocolo, setEfeitoProtocolo] = useState('');
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -676,6 +688,98 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
             {dados.cirurgia_preparo_nutricional && (
               <ProtocoloImunonutricao pacienteId={pacienteId} nutriId={nutriId} />
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Referência de Efeitos Colaterais por Protocolo ── */}
+      {secao === 'efeitos' && (
+        <div className="card" style={{ overflow: 'hidden' }}>
+          {/* Banner interno */}
+          <div style={{
+            padding: '7px 16px',
+            background: 'var(--amber-bg, #fdf8ee)',
+            borderBottom: '0.5px solid var(--border)',
+            display: 'flex', alignItems: 'center', gap: 6,
+            fontSize: 11, color: 'var(--gold-deep, #a08456)',
+            fontFamily: 'var(--font-sans)',
+          }}>
+            <i className="ti ti-lock" style={{ fontSize: 12 }} aria-hidden="true" />
+            Visível apenas para a nutri — revise antes de usar
+          </div>
+
+          <div className="card-header">
+            <div>
+              <div className="card-title">Efeitos colaterais do protocolo</div>
+              <div className="card-sub">Referência nutricional interna · {protocolosEfeitosData.meta.aviso}</div>
+            </div>
+          </div>
+
+          <div className="card-body">
+            <div style={{ marginBottom: 16 }}>
+              <label className="field-label">Protocolo</label>
+              <select
+                value={efeitoProtocolo}
+                onChange={e => setEfeitoProtocolo(e.target.value)}
+                style={{ fontFamily: 'var(--font-sans)' }}
+              >
+                <option value="">— selecione um protocolo —</option>
+                {GRUPOS_EFEITOS.map(([indicacao, protos]) => (
+                  <optgroup key={indicacao} label={indicacao}>
+                    {protos.map(p => (
+                      <option key={p.nome} value={p.nome}>{p.nome}</option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </div>
+
+            {!efeitoProtocolo && (
+              <div style={{ fontSize: 13, color: 'var(--text3)', fontFamily: 'var(--font-sans)' }}>
+                Selecione um protocolo para ver os efeitos colaterais e orientações nutricionais.
+              </div>
+            )}
+
+            {efeitoProtocolo && (() => {
+              const proto = protocolosEfeitosData.protocolos.find(p => p.nome === efeitoProtocolo);
+              if (!proto) return null;
+              if (!proto.efeitos || proto.efeitos.length === 0) return (
+                <div style={{ fontSize: 13, color: 'var(--text3)', fontFamily: 'var(--font-sans)' }}>
+                  Nenhum efeito registrado para este protocolo no momento.
+                </div>
+              );
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {proto.efeitos.map((ef, i) => (
+                    <div key={i} style={{
+                      padding: '11px 14px',
+                      borderRadius: 8,
+                      border: '0.5px solid var(--border)',
+                      background: 'var(--bg2)',
+                    }}>
+                      <div style={{
+                        fontSize: 13.5, fontWeight: 600,
+                        color: 'var(--dark)',
+                        marginBottom: 4,
+                        fontFamily: 'var(--font-sans)',
+                        display: 'flex', alignItems: 'center', gap: 6,
+                      }}>
+                        <i className="ti ti-alert-circle" style={{ fontSize: 13, color: 'var(--gold-deep, #a08456)', flexShrink: 0 }} aria-hidden="true" />
+                        {ef.efeito}
+                      </div>
+                      <div style={{
+                        fontSize: 12.5, color: 'var(--text2)',
+                        lineHeight: 1.55,
+                        fontFamily: 'var(--font-sans)',
+                        paddingLeft: 19,
+                      }}>
+                        {ef.manejo}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}

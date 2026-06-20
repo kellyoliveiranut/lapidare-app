@@ -1,0 +1,172 @@
+{
+  "meta": {
+    "titulo": "Efeitos colaterais por protocolo (foco nutricional)",
+    "uso": "Referencia interna da nutricionista — NAO exibir para a paciente",
+    "aviso": "Rascunho para revisao e validacao clinica. Editar conforme a pratica e as diretrizes vigentes antes de usar.",
+    "versao": "0.1"
+  },
+  "protocolos": [
+    {
+      "nome": "AC-T",
+      "aliases": ["AC seguido de taxano", "doxorrubicina ciclofosfamida paclitaxel", "doxorrubicina ciclofosfamida docetaxel"],
+      "indicacao": "Cancer de mama",
+      "efeitos": [
+        {"efeito": "Nausea e vomito", "manejo": "Fracionar em 5-6 refeicoes pequenas; alimentos secos e em temperatura ambiente; evitar odores fortes; gengibre conforme tolerancia"},
+        {"efeito": "Mucosite / estomatite", "manejo": "Texturas macias e umidas; evitar acidos, picantes e muito quentes; bochechos conforme orientacao medica"},
+        {"efeito": "Alteracao de paladar (disgeusia)", "manejo": "Realcar sabor com ervas; usar talheres plasticos se gosto metalico; servir frio quando aversao a quente"},
+        {"efeito": "Hiporexia / perda de apetite", "manejo": "Refeicoes pequenas e densas em energia/proteina; aproveitar janelas de melhor apetite"},
+        {"efeito": "Constipacao", "manejo": "Aumentar fibras conforme tolerancia e hidratacao; atividade leve se possivel"},
+        {"efeito": "Neutropenia", "manejo": "Cuidados de seguranca alimentar; evitar crus/mal lavados em periodos de risco"},
+        {"efeito": "Neuropatia periferica (taxano)", "manejo": "Atencao a manuseio de alimentos quentes/cortantes; adaptar preparo se necessario"}
+      ]
+    },
+    {
+      "nome": "AC",
+      "aliases": ["doxorrubicina ciclofosfamida", "adriamicina ciclofosfamida"],
+      "indicacao": "Cancer de mama",
+      "efeitos": [
+        {"efeito": "Nausea e vomito (alto potencial emetogenico)", "manejo": "Antiemese conforme prescricao; fracionar; alimentos secos e frios; hidratacao em pequenos goles"},
+        {"efeito": "Mucosite / estomatite", "manejo": "Texturas macias; evitar acidos e picantes"},
+        {"efeito": "Alteracao de paladar", "manejo": "Ervas e temperos suaves; evitar gosto metalico com talher plastico"},
+        {"efeito": "Hiporexia", "manejo": "Refeicoes densas em energia/proteina, pequenas e frequentes"},
+        {"efeito": "Fadiga", "manejo": "Refeicoes praticas; suporte energetico-proteico"},
+        {"efeito": "Neutropenia", "manejo": "Seguranca alimentar em periodos de risco"}
+      ]
+    },
+    {
+      "nome": "TC",
+      "aliases": ["docetaxel ciclofosfamida"],
+      "indicacao": "Cancer de mama",
+      "efeitos": [
+        {"efeito": "Nausea e vomito", "manejo": "Fracionar; alimentos secos/frios; evitar odores fortes"},
+        {"efeito": "Neutropenia (risco de neutropenia febril)", "manejo": "Reforcar seguranca alimentar; atencao a sinais de infeccao"},
+        {"efeito": "Neuropatia periferica (docetaxel)", "manejo": "Adaptar manuseio de utensilios e alimentos quentes/cortantes"},
+        {"efeito": "Retencao hidrica / edema (docetaxel)", "manejo": "Atencao a ingestao de sodio; monitorar peso/edema"},
+        {"efeito": "Mucosite", "manejo": "Texturas macias; evitar irritantes"},
+        {"efeito": "Alteracao de paladar e fadiga", "manejo": "Realcar sabores; refeicoes praticas e densas"}
+      ]
+    },
+    {
+      "nome": "TCHP",
+      "aliases": ["docetaxel carboplatina trastuzumabe pertuzumabe", "TCH+P", "docetaxel carbo trastuzumab pertuzumab"],
+      "indicacao": "Cancer de mama HER2+",
+      "efeitos": [
+        {"efeito": "Diarreia (pertuzumabe/trastuzumabe — frequente)", "manejo": "Hidratacao com reposicao; alimentos de baixa fibra insoluvel na fase aguda; evitar lactose/cafeina/gordura em excesso se piorar; atencao a perdas eletroliticas"},
+        {"efeito": "Nausea e vomito", "manejo": "Fracionar; alimentos secos/frios; evitar odores"},
+        {"efeito": "Mucosite / estomatite", "manejo": "Texturas macias e umidas; evitar acidos e picantes"},
+        {"efeito": "Neutropenia", "manejo": "Seguranca alimentar em periodos de risco"},
+        {"efeito": "Alteracao de paladar e hiporexia", "manejo": "Realcar sabores; refeicoes pequenas e densas em energia/proteina"},
+        {"efeito": "Neuropatia periferica (docetaxel)", "manejo": "Adaptar manuseio de alimentos quentes/cortantes"},
+        {"efeito": "Fadiga", "manejo": "Refeicoes praticas; suporte energetico-proteico"}
+      ]
+    },
+    {
+      "nome": "TH (Paclitaxel + Trastuzumabe)",
+      "aliases": ["paclitaxel trastuzumabe", "paclitaxel trastuzumab"],
+      "indicacao": "Cancer de mama HER2+",
+      "efeitos": [
+        {"efeito": "Neuropatia periferica (paclitaxel)", "manejo": "Adaptar manuseio de utensilios e alimentos quentes/cortantes"},
+        {"efeito": "Diarreia (trastuzumabe)", "manejo": "Hidratacao com reposicao; reduzir fibra insoluvel/lactose/gordura na fase aguda"},
+        {"efeito": "Mialgia / artralgia", "manejo": "Suporte geral; hidratacao; alimentacao anti-inflamatoria conforme conduta"},
+        {"efeito": "Mucosite leve", "manejo": "Texturas macias; evitar irritantes"},
+        {"efeito": "Fadiga", "manejo": "Refeicoes praticas e densas"}
+      ]
+    },
+    {
+      "nome": "FOLFOX",
+      "aliases": ["5-FU leucovorina oxaliplatina", "fluorouracil oxaliplatina"],
+      "indicacao": "Cancer colorretal / TGI",
+      "efeitos": [
+        {"efeito": "Neuropatia ao frio (oxaliplatina)", "manejo": "EVITAR alimentos e bebidas geladas nos primeiros dias do ciclo; servir tudo morno/temperatura ambiente; cuidado ao pegar itens gelados"},
+        {"efeito": "Nausea e vomito", "manejo": "Fracionar; alimentos secos/frios conforme tolerancia (respeitando o frio); evitar odores"},
+        {"efeito": "Diarreia", "manejo": "Hidratacao com reposicao; baixa fibra insoluvel na fase aguda; evitar lactose/cafeina/gordura em excesso"},
+        {"efeito": "Mucosite", "manejo": "Texturas macias; evitar acidos e picantes"},
+        {"efeito": "Neutropenia", "manejo": "Seguranca alimentar em periodos de risco"},
+        {"efeito": "Alteracao de paladar e fadiga", "manejo": "Realcar sabores; refeicoes praticas e densas"}
+      ]
+    },
+    {
+      "nome": "FOLFIRI",
+      "aliases": ["5-FU leucovorina irinotecano", "fluorouracil irinotecano"],
+      "indicacao": "Cancer colorretal / TGI",
+      "efeitos": [
+        {"efeito": "Diarreia (irinotecano — precoce e tardia, pode ser intensa)", "manejo": "Hidratacao com reposicao de eletrolitos; baixa fibra insoluvel; evitar lactose/cafeina/gordura na fase aguda; comunicar equipe medica se grave"},
+        {"efeito": "Sindrome colinergica aguda", "manejo": "Manejo medico; suporte de hidratacao"},
+        {"efeito": "Nausea e vomito", "manejo": "Fracionar; alimentos secos/frios; evitar odores"},
+        {"efeito": "Mucosite", "manejo": "Texturas macias; evitar irritantes"},
+        {"efeito": "Neutropenia", "manejo": "Seguranca alimentar em periodos de risco"},
+        {"efeito": "Fadiga e hiporexia", "manejo": "Refeicoes pequenas, densas e praticas"}
+      ]
+    },
+    {
+      "nome": "CAPOX / XELOX",
+      "aliases": ["capecitabina oxaliplatina", "xelox"],
+      "indicacao": "Cancer colorretal / gastrico",
+      "efeitos": [
+        {"efeito": "Neuropatia ao frio (oxaliplatina)", "manejo": "Evitar gelados nos primeiros dias; servir morno/temperatura ambiente"},
+        {"efeito": "Sindrome mao-pe (capecitabina)", "manejo": "Atencao ao autocuidado e ao preparo de alimentos; pode dificultar manuseio de utensilios"},
+        {"efeito": "Diarreia (capecitabina)", "manejo": "Hidratacao com reposicao; baixa fibra insoluvel na fase aguda"},
+        {"efeito": "Nausea", "manejo": "Fracionar; alimentos secos; evitar odores"},
+        {"efeito": "Mucosite e fadiga", "manejo": "Texturas macias; refeicoes praticas e densas"}
+      ]
+    },
+    {
+      "nome": "Capecitabina",
+      "aliases": ["xeloda", "capecitabina oral"],
+      "indicacao": "Varios (mama, TGI)",
+      "efeitos": [
+        {"efeito": "Sindrome mao-pe", "manejo": "Atencao ao preparo de alimentos e autocuidado; adaptar utensilios se necessario"},
+        {"efeito": "Diarreia", "manejo": "Hidratacao com reposicao; baixa fibra insoluvel; evitar lactose/cafeina/gordura na fase aguda"},
+        {"efeito": "Mucosite / estomatite", "manejo": "Texturas macias e umidas; evitar acidos e picantes"},
+        {"efeito": "Nausea e hiporexia", "manejo": "Fracionar; refeicoes pequenas e densas em energia/proteina"},
+        {"efeito": "Fadiga", "manejo": "Refeicoes praticas; suporte energetico-proteico"}
+      ]
+    },
+    {
+      "nome": "Cisplatina",
+      "aliases": ["cisplatina", "CDDP"],
+      "indicacao": "Varios",
+      "efeitos": [
+        {"efeito": "Nausea e vomito (alto potencial emetogenico)", "manejo": "Antiemese conforme prescricao; fracionar; alimentos secos/frios; hidratacao em pequenos goles"},
+        {"efeito": "Nefrotoxicidade / disturbios eletroliticos (Mg, K)", "manejo": "Reforcar hidratacao conforme conduta; atencao a fontes de magnesio e potassio conforme orientacao medica"},
+        {"efeito": "Disgeusia (gosto metalico)", "manejo": "Talheres plasticos; realcar sabor com ervas; servir frio quando aversao"},
+        {"efeito": "Hiporexia", "manejo": "Refeicoes pequenas e densas; aproveitar melhores horarios"},
+        {"efeito": "Fadiga", "manejo": "Refeicoes praticas e densas"}
+      ]
+    },
+    {
+      "nome": "Carboplatina",
+      "aliases": ["carboplatina", "CBDCA"],
+      "indicacao": "Varios",
+      "efeitos": [
+        {"efeito": "Nausea e vomito (moderado)", "manejo": "Fracionar; alimentos secos/frios; evitar odores"},
+        {"efeito": "Mielossupressao (atencao a trombocitopenia)", "manejo": "Seguranca alimentar; suporte nutricional geral"},
+        {"efeito": "Hiporexia e disgeusia", "manejo": "Refeicoes densas e pequenas; realcar sabores"},
+        {"efeito": "Fadiga", "manejo": "Refeicoes praticas e densas"}
+      ]
+    },
+    {
+      "nome": "Tamoxifeno",
+      "aliases": ["tamoxifeno"],
+      "indicacao": "Cancer de mama (hormonioterapia)",
+      "efeitos": [
+        {"efeito": "Possivel ganho de peso", "manejo": "Suporte a controle de peso; padrao alimentar equilibrado e atividade fisica conforme tolerancia"},
+        {"efeito": "Nausea leve", "manejo": "Tomar conforme orientacao; fracionar refeicoes se necessario"},
+        {"efeito": "Fogachos", "manejo": "Reduzir gatilhos (cafeina, alcool, alimentos muito quentes) conforme tolerancia"},
+        {"efeito": "Saude metabolica / hepatica", "manejo": "Atencao ao perfil metabolico; padrao alimentar equilibrado"}
+      ]
+    },
+    {
+      "nome": "Inibidores de aromatase (Anastrozol / Letrozol)",
+      "aliases": ["anastrozol", "letrozol", "inibidor de aromatase"],
+      "indicacao": "Cancer de mama (hormonioterapia)",
+      "efeitos": [
+        {"efeito": "Artralgia / dores articulares", "manejo": "Padrao alimentar anti-inflamatorio conforme conduta; suporte geral"},
+        {"efeito": "Perda de densidade ossea", "manejo": "Reforcar calcio e vitamina D conforme avaliacao; atencao a saude ossea"},
+        {"efeito": "Dislipidemia", "manejo": "Acompanhar perfil lipidico; padrao alimentar cardioprotetor"},
+        {"efeito": "Possivel ganho de peso", "manejo": "Suporte a controle de peso; atividade fisica conforme tolerancia"},
+        {"efeito": "Fogachos e fadiga", "manejo": "Reduzir gatilhos; refeicoes praticas e equilibradas"}
+      ]
+    }
+  ]
+}
