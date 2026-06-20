@@ -9,6 +9,13 @@ createRoot(document.getElementById('root')).render(
   </StrictMode>
 );
 
+// Registra o service worker (push notifications + futuro cache offline)
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}
+
 // Auto-update: quando o app volta do background após ≥5 min, busca o index.html
 // fresco e recarrega se uma nova build foi publicada no Netlify.
 let hiddenAt = 0;

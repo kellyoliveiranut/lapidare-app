@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
+import { ativarNotificacoes, desativarNotificacoes } from '../../lib/push.js';
 
 const TIPOGRAFIAS = [
   { id: 'classica',  nome: 'Clássica',  desc: 'Cormorant + Inter — elegante e atemporal' },
@@ -450,6 +451,8 @@ export default function Personalizacao() {
         </div>
       </div>
 
+      <NotificacoesCard />
+
       {/* Banner GRANDE de sucesso (aparece após salvar) */}
       {feedback && (
         <div style={{
@@ -507,6 +510,194 @@ export default function Personalizacao() {
         </button>
       </div>
     </>
+  );
+}
+
+/* ────────────────────────────────────────────
+   Card de notificações push (somente nutri)
+   ──────────────────────────────────────────── */
+function NotificacoesCard() {
+  const suporte =
+    typeof window !== 'undefined' &&
+    'serviceWorker' in navigator &&
+    'PushManager' in window;
+
+  const [ativo, setAtivo] = useState(false);
+  const [permissao, setPermissao] = useState(suporte ? Notification.permission : 'unsupported');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState(null);
+
+  useEffect(() => {
+    if (!suporte) return;
+    navigator.serviceWorker.ready
+      .then((reg) => reg.pushManager.getSubscription())
+      .then((sub) => setAtivo(!!sub))
+      .catch(() => {});
+  }, [suporte]);
+
+  async function handleAtivar() {
+    setMsg(null);
+    setBusy(true);
+    try {
+      await ativarNotificacoes();
+      setAtivo(true);
+      setPermissao('granted');
+      setMsg({ tipo: 'ok', texto: 'Notificações ativadas neste dispositivo!' });
+    } catch (err) {
+      setMsg({ tipo: 'erro', texto: err.message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleDesativar() {
+    setMsg(null);
+    setBusy(true);
+    try {
+      await desativarNotificacoes();
+      setAtivo(false);
+      setMsg({ tipo: 'ok', texto: 'Notificações desativadas.' });
+    } catch (err) {
+      setMsg({ tipo: 'erro', texto: err.message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const corBorda = ativo ? 'var(--green, #3a7a46)' : 'var(--border)';
+  const bgTopo   = ativo ? '#f0fdf4' : 'var(--bg2)';
+
+  return (
+    <div style={{
+      marginTop: 20,
+      border: `1px solid ${corBorda}`,
+      borderRadius: 12,
+      overflow: 'hidden',
+      background: 'var(--white)',
+    }}>
+      {/* Topo colorido */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 12,
+        padding: '12px 18px',
+        background: bgTopo,
+        borderBottom: `0.5px solid ${corBorda}`,
+      }}>
+        <div style={{
+          width: 36, height: 36, borderRadius: 9, flexShrink: 0,
+          background: ativo ? 'var(--green, #3a7a46)' : 'var(--bg)',
+          border: `1px solid ${corBorda}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <i
+            className={`ti ti-${ativo ? 'bell-ringing' : 'bell-off'}`}
+            style={{ fontSize: 17, color: ativo ? '#fff' : 'var(--text3)' }}
+            aria-hidden="true"
+          />
+        </div>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--dark)', lineHeight: 1.2 }}>
+            Notificações push
+          </div>
+          <div style={{ fontSize: 11, color: ativo ? 'var(--green, #3a7a46)' : 'var(--text3)', marginTop: 2 }}>
+            {!suporte
+              ? 'Não suportado neste navegador'
+              : ativo
+              ? 'Ativas neste dispositivo'
+              : 'Desativadas neste dispositivo'}
+          </div>
+        </div>
+        {ativo && (
+          <span style={{
+            marginLeft: 'auto', fontSize: 10, fontWeight: 700,
+            letterSpacing: '.06em', textTransform: 'uppercase',
+            color: 'var(--green, #3a7a46)',
+            background: '#dcfce7', borderRadius: 6, padding: '3px 8px',
+          }}>
+            Ativo
+          </span>
+        )}
+      </div>
+
+      {/* Corpo */}
+      <div style={{ padding: '14px 18px' }}>
+        <div style={{ fontSize: 12.5, color: 'var(--text2)', marginBottom: 14, lineHeight: 1.6 }}>
+          Receba notificações push neste navegador — avisos de mensagens de pacientes,
+          ciclos de quimio e lembretes da agenda, mesmo com o app em segundo plano.
+        </div>
+
+        {!suporte ? (
+          <div style={{
+            padding: '9px 12px', borderRadius: 7, fontSize: 13,
+            background: 'var(--bg2)', color: 'var(--text3)',
+            border: '0.5px solid var(--border)',
+          }}>
+            <i className="ti ti-alert-circle" style={{ marginRight: 5 }} />
+            Seu navegador não suporta notificações push. Tente Chrome, Edge ou Firefox.
+          </div>
+        ) : permissao === 'denied' ? (
+          <div style={{
+            padding: '9px 12px', borderRadius: 7, fontSize: 13,
+            background: 'var(--red-bg, #fef2f2)', color: 'var(--red, #dc2626)',
+            border: '0.5px solid var(--red, #dc2626)',
+          }}>
+            <i className="ti ti-alert-triangle" style={{ marginRight: 5 }} />
+            Notificações bloqueadas. Para ativar, clique no cadeado na barra de endereço
+            e permita notificações para este site.
+          </div>
+        ) : ativo ? (
+          <button
+            onClick={handleDesativar}
+            disabled={busy}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              padding: '8px 16px', borderRadius: 8, cursor: busy ? 'default' : 'pointer',
+              border: '1px solid var(--border)',
+              background: 'var(--bg2)', color: 'var(--text2)',
+              fontSize: 13, fontWeight: 500,
+              fontFamily: 'var(--font-sans)',
+              opacity: busy ? 0.6 : 1,
+            }}
+          >
+            <i className="ti ti-bell-off" style={{ fontSize: 15 }} aria-hidden="true" />
+            {busy ? 'Aguarde…' : 'Desativar notificações'}
+          </button>
+        ) : (
+          <button
+            onClick={handleAtivar}
+            disabled={busy}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              padding: '8px 16px', borderRadius: 8, cursor: busy ? 'default' : 'pointer',
+              border: 'none',
+              background: 'var(--dark)',
+              color: '#fff',
+              fontSize: 13, fontWeight: 500,
+              fontFamily: 'var(--font-sans)',
+              opacity: busy ? 0.6 : 1,
+            }}
+          >
+            <i className="ti ti-bell-ringing" style={{ fontSize: 15 }} aria-hidden="true" />
+            {busy ? 'Ativando…' : 'Ativar notificações'}
+          </button>
+        )}
+
+        {msg && (
+          <div style={{
+            marginTop: 10, padding: '8px 12px', borderRadius: 7, fontSize: 13,
+            background: msg.tipo === 'ok' ? '#f0fdf4' : 'var(--red-bg, #fef2f2)',
+            color: msg.tipo === 'ok' ? 'var(--green, #166534)' : 'var(--red, #dc2626)',
+            border: `0.5px solid ${msg.tipo === 'ok' ? '#bbf7d0' : 'var(--red, #dc2626)'}`,
+            display: 'flex', alignItems: 'center', gap: 6,
+          }}>
+            <i
+              className={`ti ti-${msg.tipo === 'ok' ? 'check' : 'alert-circle'}`}
+              aria-hidden="true"
+            />
+            {msg.texto}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
