@@ -2,6 +2,9 @@
   command = "npm run build"
   publish = "dist"
 
+[functions]
+  directory = "netlify/functions"
+
 # Garante que o React Router funcione em qualquer rota direta
 [[redirects]]
   from = "/*"

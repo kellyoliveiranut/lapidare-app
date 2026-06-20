@@ -538,6 +538,8 @@ function NotificacoesCard() {
   const [permissao, setPermissao] = useState(suporte ? Notification.permission : 'unsupported');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState(null);
+  const [busyTeste, setBusyTeste] = useState(false);
+  const [msgTeste, setMsgTeste] = useState(null);
 
   useEffect(() => {
     if (!suporte) return;
@@ -573,6 +575,35 @@ function NotificacoesCard() {
       setMsg({ tipo: 'erro', texto: err.message });
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function enviarTeste() {
+    setMsgTeste(null);
+    setBusyTeste(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!session?.access_token || !user) throw new Error('Sessão não encontrada.');
+
+      const res = await fetch('/.netlify/functions/send-push', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          user_id: user.id,
+          payload: { title: 'Essentia', body: 'Notificação de teste funcionando 🌿', url: '/nutri/visao' },
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? `Erro ${res.status}`);
+      setMsgTeste({ tipo: 'ok', texto: `Enviada! (${json.enviados} dispositivo${json.enviados !== 1 ? 's' : ''})` });
+    } catch (err) {
+      setMsgTeste({ tipo: 'erro', texto: err.message });
+    } finally {
+      setBusyTeste(false);
     }
   }
 
@@ -657,22 +688,40 @@ function NotificacoesCard() {
             e permita notificações para este site.
           </div>
         ) : ativo ? (
-          <button
-            onClick={handleDesativar}
-            disabled={busy}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              padding: '8px 16px', borderRadius: 8, cursor: busy ? 'default' : 'pointer',
-              border: '1px solid var(--border)',
-              background: 'var(--bg2)', color: 'var(--text2)',
-              fontSize: 13, fontWeight: 500,
-              fontFamily: 'var(--font-sans)',
-              opacity: busy ? 0.6 : 1,
-            }}
-          >
-            <i className="ti ti-bell-off" style={{ fontSize: 15 }} aria-hidden="true" />
-            {busy ? 'Aguarde…' : 'Desativar notificações'}
-          </button>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button
+              onClick={handleDesativar}
+              disabled={busy || busyTeste}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '8px 16px', borderRadius: 8, cursor: busy ? 'default' : 'pointer',
+                border: '1px solid var(--border)',
+                background: 'var(--bg2)', color: 'var(--text2)',
+                fontSize: 13, fontWeight: 500,
+                fontFamily: 'var(--font-sans)',
+                opacity: busy ? 0.6 : 1,
+              }}
+            >
+              <i className="ti ti-bell-off" style={{ fontSize: 15 }} aria-hidden="true" />
+              {busy ? 'Aguarde…' : 'Desativar notificações'}
+            </button>
+            <button
+              onClick={enviarTeste}
+              disabled={busy || busyTeste}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '8px 16px', borderRadius: 8, cursor: busyTeste ? 'default' : 'pointer',
+                border: '1px solid var(--gold-deep, #a08456)',
+                background: 'var(--amber-bg, #fdf8ee)', color: 'var(--gold-deep, #a08456)',
+                fontSize: 13, fontWeight: 500,
+                fontFamily: 'var(--font-sans)',
+                opacity: busyTeste ? 0.6 : 1,
+              }}
+            >
+              <i className="ti ti-send" style={{ fontSize: 15 }} aria-hidden="true" />
+              {busyTeste ? 'Enviando…' : 'Enviar notificação de teste'}
+            </button>
+          </div>
         ) : (
           <button
             onClick={handleAtivar}
@@ -701,11 +750,20 @@ function NotificacoesCard() {
             border: `0.5px solid ${msg.tipo === 'ok' ? '#bbf7d0' : 'var(--red, #dc2626)'}`,
             display: 'flex', alignItems: 'center', gap: 6,
           }}>
-            <i
-              className={`ti ti-${msg.tipo === 'ok' ? 'check' : 'alert-circle'}`}
-              aria-hidden="true"
-            />
+            <i className={`ti ti-${msg.tipo === 'ok' ? 'check' : 'alert-circle'}`} aria-hidden="true" />
             {msg.texto}
+          </div>
+        )}
+        {msgTeste && (
+          <div style={{
+            marginTop: 8, padding: '8px 12px', borderRadius: 7, fontSize: 13,
+            background: msgTeste.tipo === 'ok' ? 'var(--amber-bg, #fdf8ee)' : 'var(--red-bg, #fef2f2)',
+            color: msgTeste.tipo === 'ok' ? 'var(--gold-deep, #a08456)' : 'var(--red, #dc2626)',
+            border: `0.5px solid ${msgTeste.tipo === 'ok' ? 'var(--amber, #c9a96e)' : 'var(--red, #dc2626)'}`,
+            display: 'flex', alignItems: 'center', gap: 6,
+          }}>
+            <i className={`ti ti-${msgTeste.tipo === 'ok' ? 'check' : 'alert-circle'}`} aria-hidden="true" />
+            {msgTeste.texto}
           </div>
         )}
       </div>
