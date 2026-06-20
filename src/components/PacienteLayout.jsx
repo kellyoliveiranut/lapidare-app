@@ -5,6 +5,7 @@ import { useSession, signOut } from '../lib/session.jsx';
 import { useTheme } from '../lib/theme.jsx';
 import { supabase } from '../lib/supabase.js';
 import { iniciais, diasAte } from '../lib/utils.js';
+import { ativarNotificacoes } from '../lib/push.js';
 import '../styles/paciente.css';
 
 const TABS = [
@@ -584,6 +585,139 @@ export default function PacienteLayout() {
           Esta área está disponível no plano Essentia.
         </div>
       )}
+
+      <AtivarNotificacoesPaciente />
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────
+   Banner de convite para ativar notificações push
+   Aparece apenas em modo standalone (PWA instalado),
+   permissão ainda não decidida, e se não foi dispensado.
+   ───────────────────────────────────────────────────────── */
+function AtivarNotificacoesPaciente() {
+  const [visivel, setVisivel] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [erro, setErro] = useState(null);
+
+  useEffect(() => {
+    const standalone =
+      window.matchMedia('(display-mode: standalone)').matches ||
+      window.navigator.standalone === true;
+    const suporte = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+    const dispensado = localStorage.getItem('push_convite_dispensado');
+    const permissao = suporte ? Notification.permission : null;
+
+    if (standalone && suporte && permissao === 'default' && !dispensado) {
+      // Pequeno delay para não disputar atenção com o carregamento inicial
+      const t = setTimeout(() => setVisivel(true), 1500);
+      return () => clearTimeout(t);
+    }
+  }, []);
+
+  if (!visivel) return null;
+
+  async function handleAtivar() {
+    setBusy(true);
+    setErro(null);
+    try {
+      await ativarNotificacoes();
+      setVisivel(false);
+    } catch (err) {
+      setErro(err.message);
+      setBusy(false);
+    }
+  }
+
+  function handleDispensado() {
+    localStorage.setItem('push_convite_dispensado', '1');
+    setVisivel(false);
+  }
+
+  return (
+    <div style={{
+      position: 'fixed',
+      bottom: 72,
+      left: 12,
+      right: 12,
+      zIndex: 590,
+      background: '#2C3A30',
+      borderRadius: 16,
+      padding: '14px 16px',
+      boxShadow: '0 8px 32px rgba(0,0,0,.32)',
+      animation: 'fadeInUp .25s ease',
+    }}>
+      {/* Ícone + texto */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 12 }}>
+        <div style={{
+          width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+          background: 'rgba(255,255,255,.1)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <i className="ti ti-bell-ringing" style={{ fontSize: 18, color: '#C9A96E' }} aria-hidden="true" />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{
+            fontSize: 13.5, fontWeight: 600, color: '#FDFBF8',
+            marginBottom: 3, fontFamily: 'var(--font-sans)',
+            lineHeight: 1.3,
+          }}>
+            Ativar avisos do app
+          </div>
+          <div style={{
+            fontSize: 12, color: 'rgba(253,251,248,.7)',
+            lineHeight: 1.5, fontFamily: 'var(--font-sans)',
+          }}>
+            Quer receber avisos quando sua nutri enviar seu plano, materiais e lembretes de consulta?
+          </div>
+        </div>
+      </div>
+
+      {/* Erro inline */}
+      {erro && (
+        <div style={{
+          fontSize: 11.5, color: '#fca5a5',
+          marginBottom: 10, lineHeight: 1.4,
+          fontFamily: 'var(--font-sans)',
+        }}>
+          {erro}
+        </div>
+      )}
+
+      {/* Botões */}
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button
+          onClick={handleAtivar}
+          disabled={busy}
+          style={{
+            flex: 1, padding: '10px 14px', borderRadius: 10,
+            background: '#C9A96E', border: 'none',
+            color: '#1a2318', fontSize: 13, fontWeight: 600,
+            cursor: busy ? 'default' : 'pointer',
+            fontFamily: 'var(--font-sans)',
+            opacity: busy ? 0.7 : 1,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+          }}
+        >
+          <i className="ti ti-bell" style={{ fontSize: 14 }} aria-hidden="true" />
+          {busy ? 'Ativando…' : 'Ativar avisos'}
+        </button>
+        <button
+          onClick={handleDispensado}
+          disabled={busy}
+          style={{
+            padding: '10px 14px', borderRadius: 10,
+            background: 'transparent',
+            border: '1px solid rgba(253,251,248,.2)',
+            color: 'rgba(253,251,248,.7)', fontSize: 13, fontWeight: 500,
+            cursor: 'pointer', fontFamily: 'var(--font-sans)',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          Agora não
+        </button>
+      </div>
     </div>
   );
 }

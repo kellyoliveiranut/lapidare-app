@@ -22,15 +22,23 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const url = event.notification.data?.url || '/nutri/visao';
+  const url = event.notification.data?.url || '/paciente/inicio';
 
   event.waitUntil(
     clients
       .matchAll({ type: 'window', includeUncontrolled: true })
       .then((windowClients) => {
-        for (const client of windowClients) {
-          if ('focus' in client) return client.focus();
+        // Prefere janela já na URL correta
+        const exact = windowClients.find((c) => c.url === url);
+        if (exact && 'focus' in exact) return exact.focus();
+        // Navega a primeira janela aberta para a URL
+        if (windowClients.length > 0) {
+          const first = windowClients[0];
+          return first.focus().then(() => {
+            if ('navigate' in first) return first.navigate(url);
+          });
         }
+        // Nenhuma janela aberta — abre uma nova
         if (clients.openWindow) return clients.openWindow(url);
       })
   );
