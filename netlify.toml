@@ -5,6 +5,9 @@
 [functions]
   directory = "netlify/functions"
 
+[functions."lembretes-consulta"]
+  schedule = "0 11 * * *"
+
 # Garante que o React Router funcione em qualquer rota direta
 [[redirects]]
   from = "/*"
