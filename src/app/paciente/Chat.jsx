@@ -91,7 +91,18 @@ export default function ChatPaciente() {
     if (error) {
       alert('Erro ao enviar: ' + error.message);
       setText(conteudo);
+      return;
     }
+    // Notifica a nutri via push (fire-and-forget — nunca bloqueia a UI)
+    supabase.auth.getSession().then(({ data }) => {
+      const accessToken = data.session?.access_token;
+      if (!accessToken) return;
+      fetch('/.netlify/functions/send-push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+        body: JSON.stringify({ mode: 'notify_nutri' }),
+      }).catch(() => {});
+    });
     // a UI atualiza via realtime — não precisa recarregar
   }
 

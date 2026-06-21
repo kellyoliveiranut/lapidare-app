@@ -7,7 +7,6 @@ exports.handler = async (event) => {
       return { statusCode: 405, body: 'Method Not Allowed' };
     }
 
-    // Setup VAPID e cliente Supabase (lazy — erros viram 500, não 502)
     webpush.setVapidDetails(
       process.env.VAPID_SUBJECT,
       process.env.VAPID_PUBLIC_KEY,
@@ -38,58 +37,40 @@ exports.handler = async (event) => {
       return { statusCode: 400, body: JSON.stringify({ error: 'Body JSON inválido.' }) };
     }
 
+    // === Modo: notify_nutri (paciente → nutri) ===
+    // O servidor resolve o nutri_id a partir do token da paciente — o frontend nunca passa user_id arbitrário.
+    if (body.mode === 'notify_nutri') {
+      const { data: paciente, error: pacienteError } = await supabase
+        .from('pacientes')
+        .select('nutri_id, nome')
+        .eq('user_id', caller.id)
+        .maybeSingle();
+
+      if (pacienteError || !paciente?.nutri_id) {
+        return { statusCode: 403, body: JSON.stringify({ error: 'Sem vínculo com nutricionista.' }) };
+      }
+
+      const primeiroNome = paciente.nome.trim().split(/\s+/)[0];
+      const payload = {
+        title: 'Essentia',
+        body: `Nova mensagem de ${primeiroNome}`,
+        url: '/nutri/chat',
+      };
+
+      return await enviarParaUsuario(supabase, paciente.nutri_id, payload);
+    }
+
+    // === Modo: self (teste/nutri envia pra si mesma) ===
     const { user_id, payload } = body;
     if (!user_id || !payload) {
       return { statusCode: 400, body: JSON.stringify({ error: 'user_id e payload são obrigatórios.' }) };
     }
 
-    // Fase 1: somente envio para si mesmo
     if (user_id !== caller.id) {
-      return { statusCode: 403, body: JSON.stringify({ error: 'Não autorizado a enviar para outro usuário nesta fase.' }) };
+      return { statusCode: 403, body: JSON.stringify({ error: 'Não autorizado a enviar para outro usuário.' }) };
     }
 
-    // Busca subscriptions do usuário
-    const { data: rows, error: dbError } = await supabase
-      .from('push_subscriptions')
-      .select('endpoint, subscription')
-      .eq('user_id', user_id);
-
-    if (dbError) {
-      return { statusCode: 500, body: JSON.stringify({ error: dbError.message }) };
-    }
-
-    if (!rows || rows.length === 0) {
-      return {
-        statusCode: 200,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enviados: 0, removidos: 0, falhas: 0 }),
-      };
-    }
-
-    let enviados = 0, removidos = 0, falhas = 0;
-
-    await Promise.all(
-      rows.map(async (row) => {
-        try {
-          await webpush.sendNotification(row.subscription, JSON.stringify(payload));
-          enviados++;
-        } catch (err) {
-          if (err.statusCode === 404 || err.statusCode === 410) {
-            await supabase.from('push_subscriptions').delete().eq('endpoint', row.endpoint);
-            removidos++;
-          } else {
-            falhas++;
-            console.error('sendNotification error:', err.statusCode, err.body);
-          }
-        }
-      }),
-    );
-
-    return {
-      statusCode: 200,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enviados, removidos, falhas }),
-    };
+    return await enviarParaUsuario(supabase, user_id, payload);
 
   } catch (err) {
     console.error('send-push unhandled error:', err);
@@ -103,3 +84,47 @@ exports.handler = async (event) => {
     };
   }
 };
+
+async function enviarParaUsuario(supabase, userId, payload) {
+  const { data: rows, error: dbError } = await supabase
+    .from('push_subscriptions')
+    .select('endpoint, subscription')
+    .eq('user_id', userId);
+
+  if (dbError) {
+    return { statusCode: 500, body: JSON.stringify({ error: dbError.message }) };
+  }
+
+  if (!rows || rows.length === 0) {
+    return {
+      statusCode: 200,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enviados: 0, removidos: 0, falhas: 0 }),
+    };
+  }
+
+  let enviados = 0, removidos = 0, falhas = 0;
+
+  await Promise.all(
+    rows.map(async (row) => {
+      try {
+        await webpush.sendNotification(row.subscription, JSON.stringify(payload));
+        enviados++;
+      } catch (err) {
+        if (err.statusCode === 404 || err.statusCode === 410) {
+          await supabase.from('push_subscriptions').delete().eq('endpoint', row.endpoint);
+          removidos++;
+        } else {
+          falhas++;
+          console.error('sendNotification error:', err.statusCode, err.body);
+        }
+      }
+    }),
+  );
+
+  return {
+    statusCode: 200,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enviados, removidos, falhas }),
+  };
+}
