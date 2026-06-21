@@ -788,7 +788,7 @@ function Concluido() {
         </div>
         <div style={{ fontSize: 14, color: 'var(--muted)', lineHeight: 1.7, maxWidth: 320, margin: '0 auto' }}>
           Suas respostas foram salvas e sua nutricionista já consegue acompanhar como você está.
-          Cada check-in faz diferença no seu cuidado. 🌿
+          Cada check-in faz diferença no seu cuidado.
         </div>
       </div>
     </Wrap>

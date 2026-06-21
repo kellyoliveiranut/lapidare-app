@@ -15,32 +15,32 @@ const GRUPOS = [
 const EXEMPLOS = {
   quimio: [
     '{nome}, hoje é dia de químio 💚 Vá com calma, capriche na hidratação e lembre: cada sessão é um passo. Estou com você.',
-    '{nome}, dia de tratamento hoje. Hidrate-se bem, coma algo leve antes e descanse depois. Você é mais forte do que imagina 🌿',
+    '{nome}, dia de tratamento hoje. Hidrate-se bem, coma algo leve antes e descanse depois. Você é mais forte do que imagina',
     'Força hoje, {nome}! 💚 Beba bastante água e respeite seu corpo. Qualquer sintoma, me conte pelo app.',
   ],
   inicio_piora: [
-    '{nome}, nos próximos dias seu corpo pode pedir mais descanso — tudo bem. Coma em pequenas porções e mantenha a hidratação 🌿',
+    '{nome}, nos próximos dias seu corpo pode pedir mais descanso — tudo bem. Coma em pequenas porções e mantenha a hidratação',
     'Se bater enjoo ou cansaço agora, {nome}, é esperado. Vá no seu ritmo, prefira alimentos leves e fracionados. Estou por aqui 💚',
     '{nome}, fase de adaptação. Hidrate-se, descanse e não se cobre demais. Pequenos passos contam.',
   ],
   janela_risco: [
     '{nome}, estamos na janela de maior atenção à imunidade. Capriche na higiene dos alimentos, evite aglomerações e, se tiver febre, avise sua equipe 💚',
     'Fase de cuidado redobrado, {nome}: alimentos bem cozidos, mãos higienizadas e hidratação em dia.',
-    '{nome}, atenção extra com a imunidade agora. Comida bem lavada e cozida, e bastante descanso 🌿',
+    '{nome}, atenção extra com a imunidade agora. Comida bem lavada e cozida, e bastante descanso',
   ],
   pico_risco: [
     '{nome}, este é o período de menor imunidade do ciclo. Redobre os cuidados com a alimentação e evite contato com pessoas doentes. Febre, contate sua equipe na hora 💚',
     'Cuidado máximo nesses dias, {nome}: alimentos seguros, ambientes arejados e muito repouso. Você está indo bem.',
-    '{nome}, fase mais sensível da imunidade. Hidrate, descanse e fique atenta a sinais como febre. Conte comigo 🌿',
+    '{nome}, fase mais sensível da imunidade. Hidrate, descanse e fique atenta a sinais como febre. Conte comigo',
   ],
   fim_janela: [
     '{nome}, o período mais sensível está passando 💚 Continue se cuidando e aos poucos retome o que te faz bem.',
-    'Você atravessou a parte mais difícil do ciclo, {nome}. Mantenha a alimentação e a hidratação — a recuperação está a caminho 🌿',
+    'Você atravessou a parte mais difícil do ciclo, {nome}. Mantenha a alimentação e a hidratação — a recuperação está a caminho',
     '{nome}, fase de recuperação. Capriche nas proteínas e no descanso pra repor as energias. Orgulho de você!',
   ],
   proximo_ciclo: [
     '{nome}, em breve um novo ciclo. Aproveite esses dias pra se fortalecer: alimentação caprichada, hidratação e descanso 💚',
-    'Reta final antes do próximo ciclo, {nome}. Vamos chegar bem preparadas — qualquer dúvida, me chama pelo app 🌿',
+    'Reta final antes do próximo ciclo, {nome}. Vamos chegar bem preparadas — qualquer dúvida, me chama pelo app',
     '{nome}, fase boa pra recuperar o pique antes da próxima sessão. Continue firme, você está mandando muito bem!',
   ],
 };

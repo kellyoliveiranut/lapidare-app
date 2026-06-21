@@ -61,7 +61,6 @@ export default class PacienteErrorBoundary extends Component {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: 28, marginBottom: 20,
         }}>
-          🌿
         </div>
         <div style={{
           fontFamily: 'var(--font-serif, serif)',

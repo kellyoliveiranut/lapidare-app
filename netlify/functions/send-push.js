@@ -80,9 +80,9 @@ exports.handler = async (event) => {
       }
 
       const PAYLOADS = {
-        mensagem: { title: 'Essentia', body: 'Sua nutri te enviou uma nova mensagem 🌿', url: '/paciente/chat' },
+        mensagem: { title: 'Essentia', body: 'Sua nutri te enviou uma nova mensagem', url: '/paciente/chat' },
         material: { title: 'Essentia', body: 'Sua nutri compartilhou um novo material', url: '/paciente/ebooks' },
-        plano:    { title: 'Essentia', body: 'Seu plano alimentar foi atualizado 🌿', url: '/paciente/plano' },
+        plano:    { title: 'Essentia', body: 'Seu plano alimentar foi atualizado', url: '/paciente/plano' },
       };
 
       const payload = PAYLOADS[kind] ?? PAYLOADS.mensagem;

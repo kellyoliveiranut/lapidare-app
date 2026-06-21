@@ -21,7 +21,7 @@ function normalizarTelefone(raw) {
 }
 
 function montarMsgCheckinWA(nomeP, linkCheckin, assinatura) {
-  return `Olá, ${nomeP}! 🌿\n\nVocê tem um check-in nutricional pendente. Leva uns 3 minutinhos para responder!\n\n👉 ${linkCheckin}\n\nQualquer dúvida, estou por aqui! — ${assinatura}`;
+  return `Olá, ${nomeP}!\n\nVocê tem um check-in nutricional pendente. Leva uns 3 minutinhos para responder!\n\n👉 ${linkCheckin}\n\nQualquer dúvida, estou por aqui! — ${assinatura}`;
 }
 
 export default function Checkins() {

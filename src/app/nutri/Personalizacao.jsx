@@ -594,7 +594,7 @@ function NotificacoesCard() {
         },
         body: JSON.stringify({
           user_id: user.id,
-          payload: { title: 'Essentia', body: 'Notificação de teste funcionando 🌿', url: '/nutri/visao' },
+          payload: { title: 'Essentia', body: 'Notificação de teste funcionando', url: '/nutri/visao' },
         }),
       });
       const json = await res.json();
