@@ -130,7 +130,7 @@ export default function Habitos({ pacienteId, nutriId, pacienteNome }) {
                 { emoji: '💧', nome: 'Hidratação', sub: 'Meta: 1,5 L/dia', pct: 71 },
                 { emoji: '😴', nome: 'Sono',       sub: '6h por noite',    pct: 57 },
                 { emoji: '🏃', nome: 'Atividade física', sub: 'Caminhada 3×/semana', pct: 43 },
-                { emoji: '🫁', nome: 'Intestino',  sub: 'Evacuação diária', pct: 86 },
+                { emoji: '💩', nome: 'Intestino',  sub: 'Evacuação diária', pct: 86 },
               ].map(ex => (
                 <div key={ex.nome} style={{
                   display: 'flex', gap: 10, alignItems: 'center',

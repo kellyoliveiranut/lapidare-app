@@ -56,13 +56,6 @@ export default class PacienteErrorBoundary extends Component {
         fontFamily: 'var(--font-sans)',
       }}>
         <div style={{
-          width: 64, height: 64, borderRadius: '50%',
-          background: 'var(--green-bg, #e8f5e9)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 28, marginBottom: 20,
-        }}>
-        </div>
-        <div style={{
           fontFamily: 'var(--font-serif, serif)',
           fontSize: 22, color: 'var(--ink, #2b2b2b)',
           marginBottom: 8, lineHeight: 1.2,
