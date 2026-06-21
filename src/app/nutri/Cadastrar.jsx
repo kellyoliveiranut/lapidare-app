@@ -141,7 +141,7 @@ export default function Cadastrar() {
     const link = linkDe(p);
     const primeiroNome = p.nome.split(' ')[0];
     return encodeURIComponent(
-      `Oi ${primeiroNome}! 😊\n\nPreparei seu acesso ao app de acompanhamento nutricional. Clica no link abaixo, cria sua senha e já entra:\n\n${link}\n\nQualquer dúvida, me chama por aqui!`
+      `Oi ${primeiroNome}! 😊\n\nPreparei seu acesso ao app de acompanhamento nutricional. Clica no link abaixo, cria sua senha e já entra:\n\n${link}\n\nQualquer dúvida, me chama por aqui!\n\n---\n\nPra instalar o app no seu celular:\n\nNo iPhone (precisa ser pelo Safari):\n1. Abra este link no Safari.\n2. Toque no botão de compartilhar (o quadradinho com a seta para cima, na barra de baixo).\n3. Role para baixo e toque em "Adicionar à Tela de Início".\n4. Toque em "Adicionar". Depois, abra o app pelo ícone que apareceu na tela.\n\nNo Android:\n1. Abra este link no Chrome.\n2. Toque no menu (os três pontinhos no canto superior direito).\n3. Toque em "Instalar app" (ou "Adicionar à tela inicial").\n4. Confirme. Depois, abra o app pelo ícone que apareceu na tela.\n\nInstalar assim deixa o app na sua tela como qualquer outro aplicativo — e é o que permite receber os avisos e lembretes direto no celular.`
     );
   }
 
