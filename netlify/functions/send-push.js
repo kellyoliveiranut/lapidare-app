@@ -60,6 +60,35 @@ exports.handler = async (event) => {
       return await enviarParaUsuario(supabase, paciente.nutri_id, payload);
     }
 
+    // === Modo: notify_paciente (nutri → paciente) ===
+    // Servidor verifica ownership (nutri_id = caller) antes de resolver o user_id da paciente.
+    if (body.mode === 'notify_paciente') {
+      const { paciente_id, kind } = body;
+      if (!paciente_id || !kind) {
+        return { statusCode: 400, body: JSON.stringify({ error: 'paciente_id e kind são obrigatórios.' }) };
+      }
+
+      const { data: paciente, error: pacienteError } = await supabase
+        .from('pacientes')
+        .select('user_id')
+        .eq('id', paciente_id)
+        .eq('nutri_id', caller.id)
+        .maybeSingle();
+
+      if (pacienteError || !paciente?.user_id) {
+        return { statusCode: 403, body: JSON.stringify({ error: 'Paciente não encontrada ou sem vínculo.' }) };
+      }
+
+      const PAYLOADS = {
+        mensagem: { title: 'Essentia', body: 'Sua nutri te enviou uma nova mensagem 🌿', url: '/paciente/chat' },
+        material: { title: 'Essentia', body: 'Sua nutri compartilhou um novo material', url: '/paciente/ebooks' },
+        plano:    { title: 'Essentia', body: 'Seu plano alimentar foi atualizado 🌿', url: '/paciente/plano' },
+      };
+
+      const payload = PAYLOADS[kind] ?? PAYLOADS.mensagem;
+      return await enviarParaUsuario(supabase, paciente.user_id, payload);
+    }
+
     // === Modo: self (teste/nutri envia pra si mesma) ===
     const { user_id, payload } = body;
     if (!user_id || !payload) {

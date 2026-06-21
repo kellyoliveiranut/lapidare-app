@@ -260,6 +260,16 @@ function ConversaPanel({ paciente, nutriId, onAfterAction }) {
       return;
     }
     onAfterAction?.();
+    // Notifica a paciente via push (fire-and-forget)
+    supabase.auth.getSession().then(({ data }) => {
+      const accessToken = data.session?.access_token;
+      if (!accessToken) return;
+      fetch('/.netlify/functions/send-push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+        body: JSON.stringify({ mode: 'notify_paciente', paciente_id: paciente.id, kind: 'mensagem' }),
+      }).catch(() => {});
+    });
   }
 
   return (

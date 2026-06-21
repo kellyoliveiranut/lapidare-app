@@ -2678,6 +2678,16 @@ Estrutura JSON obrigatória:
       });
       if (error) throw error;
       setFeedback({ tipo: 'ok', msg: 'Plano publicado! A paciente já pode visualizar. Continue editando e republique para atualizar.' });
+      // Notifica a paciente via push (fire-and-forget)
+      supabase.auth.getSession().then(({ data }) => {
+        const accessToken = data.session?.access_token;
+        if (!accessToken) return;
+        fetch('/.netlify/functions/send-push', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+          body: JSON.stringify({ mode: 'notify_paciente', paciente_id: pacienteId, kind: 'plano' }),
+        }).catch(() => {});
+      });
       carregar();
     } catch (err) {
       setFeedback({ tipo: 'erro', msg: err?.message || 'Erro ao publicar plano' });

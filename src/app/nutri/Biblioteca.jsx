@@ -554,9 +554,23 @@ function ModalAtribuir({ item, pacientes, atribuidos, onClose, onSaved }) {
     const adicionar = [...selecionadas].filter(id => !atual.has(id));
     const remover   = [...atual].filter(id => !selecionadas.has(id));
     if (adicionar.length > 0) {
-      await supabase.from('ebooks_pacientes').insert(
+      const { error: addErr } = await supabase.from('ebooks_pacientes').insert(
         adicionar.map(paciente_id => ({ ebook_id: item.id, paciente_id }))
       );
+      if (!addErr) {
+        // Notifica cada paciente nova via push (fire-and-forget)
+        supabase.auth.getSession().then(({ data }) => {
+          const accessToken = data.session?.access_token;
+          if (!accessToken) return;
+          adicionar.forEach(paciente_id => {
+            fetch('/.netlify/functions/send-push', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+              body: JSON.stringify({ mode: 'notify_paciente', paciente_id, kind: 'material' }),
+            }).catch(() => {});
+          });
+        });
+      }
     }
     if (remover.length > 0) {
       await supabase.from('ebooks_pacientes').delete()
