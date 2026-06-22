@@ -285,8 +285,10 @@ export default function PacienteLayout() {
   }, [location.pathname, profile?.tipo_plano]);
 
   // mostrarBanner: reavalia a cada tick de minuto e a cada mudança de proximaBanner
+  // Oculto em /paciente/inicio — o card grande do Inicio.jsx cobre este caso
   const mostrarBanner = useMemo(() => {
     if (!proximaBanner) return false;
+    if (location.pathname === '/paciente/inicio') return false;
     const agora = Date.now();
     const dh    = new Date(proximaBanner.data_hora).getTime();
     return (
@@ -295,7 +297,7 @@ export default function PacienteLayout() {
       agora < dh + 15 * 60 * 1000          // não passou 15min do horário
     );
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [proximaBanner, bannerTick]);
+  }, [proximaBanner, bannerTick, location.pathname]);
 
   const bannerDias = mostrarBanner ? diasAte(proximaBanner.data_hora) : null;
   const bannerHora = mostrarBanner

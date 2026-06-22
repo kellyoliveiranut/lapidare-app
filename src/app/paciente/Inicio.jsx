@@ -275,7 +275,7 @@ export default function Inicio() {
 
   return (
     <>
-      {/* 1 — Próxima consulta — oculto quando banner 48h já aparece no layout */}
+      {/* 1a — Próxima consulta > 48h: card creme (inalterado) */}
       {proximaConsulta && !dentroJanelaBanner && (
         <div style={{
           margin: '0 0 12px',
@@ -324,6 +324,84 @@ export default function Inicio() {
           </div>
         </div>
       )}
+
+      {/* 1b — Consulta hoje / amanhã: card grande (substitui a faixa fina do layout) */}
+      {proximaConsulta && dentroJanelaBanner && (() => {
+        const eHoje = dias === 0;
+        const hora  = new Date(proximaConsulta.data_hora)
+          .toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        const temLinks = gcalUrl ||
+          (Array.isArray(proximaConsulta.links_extras) && proximaConsulta.links_extras.length > 0);
+        return (
+          <div style={{
+            margin: '0 0 12px',
+            background: eHoje ? 'var(--green, #3a7a46)' : '#E6DBC8',
+            border:     eHoje ? 'none' : '0.5px solid var(--gold)',
+            borderRadius: 14,
+            padding: '18px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: temLinks ? 14 : 0 }}>
+              <div style={{
+                width: 56, height: 56, borderRadius: 14, flexShrink: 0,
+                background: eHoje ? 'rgba(255,255,255,.15)' : 'rgba(196,168,130,.25)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <i className="ti ti-calendar-event"
+                  style={{ fontSize: 26, color: eHoje ? '#fff' : 'var(--gold-deep)' }}
+                  aria-hidden="true" />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{
+                  fontSize: 9, letterSpacing: '.22em', textTransform: 'uppercase', fontWeight: 600,
+                  color: eHoje ? 'rgba(255,255,255,.65)' : 'var(--gold-deep)',
+                  marginBottom: 3,
+                }}>
+                  {eHoje ? 'Consulta hoje' : 'Consulta amanhã'}
+                </div>
+                <div className="serif" style={{
+                  fontSize: 28, lineHeight: 1.1, marginBottom: 3,
+                  color: eHoje ? '#fff' : 'var(--ink)',
+                }}>
+                  {hora}
+                </div>
+                <div style={{ fontSize: 12, color: eHoje ? 'rgba(255,255,255,.75)' : 'var(--muted)' }}>
+                  {labelTipo(proximaConsulta.tipo)} · com {nutriNome}
+                </div>
+              </div>
+            </div>
+            {temLinks && (
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {gcalUrl && (
+                  <a href={gcalUrl} target="_blank" rel="noreferrer"
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 5,
+                      background: eHoje ? 'rgba(255,255,255,.15)' : 'transparent',
+                      color: eHoje ? '#fff' : 'var(--muted)',
+                      border: eHoje ? '0.5px solid rgba(255,255,255,.3)' : '0.5px solid var(--hair)',
+                      padding: '6px 12px', borderRadius: 10, fontSize: 11, fontWeight: 500, textDecoration: 'none',
+                    }}>
+                    <i className="ti ti-calendar-plus" style={{ fontSize: 13 }} aria-hidden="true" />
+                    Adicionar à agenda
+                  </a>
+                )}
+                {Array.isArray(proximaConsulta.links_extras) && proximaConsulta.links_extras.map((link, i) => (
+                  <a key={i} href={link.url} target="_blank" rel="noreferrer"
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 5,
+                      background: 'transparent',
+                      color: eHoje ? '#fff' : 'var(--gold-deep)',
+                      border: eHoje ? '0.5px solid rgba(255,255,255,.4)' : '0.5px solid var(--gold)',
+                      padding: '5px 10px', borderRadius: 10, fontSize: 11, fontWeight: 500, textDecoration: 'none',
+                    }}>
+                    <i className="ti ti-external-link" style={{ fontSize: 12 }} aria-hidden="true" />
+                    {link.label || 'Link'}
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* 2 — Banner motivacional */}
       {mensagemCiclo && (
