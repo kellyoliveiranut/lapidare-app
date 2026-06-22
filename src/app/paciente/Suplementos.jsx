@@ -224,7 +224,12 @@ export default function Suplementos() {
                       </div>
                     )}
                   </div>
-                  <i className="ti ti-pill" style={{ fontSize: 18, color: 'var(--muted-2)' }} aria-hidden="true"></i>
+                  {s.foto_url ? (
+                    <img src={s.foto_url} alt={s.nome} loading="lazy" decoding="async"
+                      style={{ width: 36, height: 36, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
+                  ) : (
+                    <i className="ti ti-pill" style={{ fontSize: 18, color: 'var(--muted-2)', flexShrink: 0 }} aria-hidden="true"></i>
+                  )}
                 </button>
               );
             })}
