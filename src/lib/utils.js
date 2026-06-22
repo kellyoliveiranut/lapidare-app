@@ -146,7 +146,19 @@ export function gerarParcelas({ forma_pgto, valor_total, data_venda, n_parcelas,
     return `${yyyy}-${mm}-${dd}`;
   };
 
-  if (['pix', 'credito1x', 'dinheiro'].includes(forma_pgto)) {
+  if (['pix', 'dinheiro'].includes(forma_pgto)) {
+    const n = Math.max(1, Number(n_parcelas) || 1);
+    const base = Math.floor((valor * 100) / n) / 100;
+    return Array.from({ length: n }, (_, i) => ({
+      numero: i + 1,
+      valor: i === n - 1 ? Number((valor - base * (n - 1)).toFixed(2)) : base,
+      vencimento: fmtDate(addMonths(dv, i)),
+      status: i === 0 ? 'pago' : 'pendente',
+      ...(i === 0 && { data_pgto: fmtDate(dv) }),
+    }));
+  }
+
+  if (forma_pgto === 'credito1x') {
     return [{ numero: 1, valor, vencimento: fmtDate(dv) }];
   }
 

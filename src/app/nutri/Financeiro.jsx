@@ -430,13 +430,21 @@ function NovaVendaModal({ pacientes, servicos, nutriId, onClose, onSaved }) {
 
   const valorNum = Number(String(valor).replace(',', '.')) || 0;
 
+  function escolherForma(f) {
+    setForma(f);
+    if (f === 'pix' || f === 'dinheiro') setNParcelas(1);
+    else if (f === 'parcelado' && nParcelas < 2) setNParcelas(2);
+  }
+
   const parcelasPreview = useMemo(() => {
     if (!valorNum || !data) return [];
     return gerarParcelas({
       forma_pgto: forma,
       valor_total: valorNum,
       data_venda: data,
-      n_parcelas: forma === 'parcelado' ? nParcelas : (forma === 'asaas' ? nMeses : 1),
+      n_parcelas: forma === 'asaas' ? nMeses
+                : ['pix', 'dinheiro', 'parcelado'].includes(forma) ? nParcelas
+                : 1,
       dia_venc: diaVenc,
     });
   }, [forma, valorNum, data, nParcelas, nMeses, diaVenc]);
@@ -473,6 +481,8 @@ function NovaVendaModal({ pacientes, servicos, nutriId, onClose, onSaved }) {
       numero: p.numero,
       valor: p.valor,
       vencimento: p.vencimento,
+      status: p.status ?? 'pendente',
+      data_pgto: p.data_pgto ?? null,
     }));
     const { error: pErr } = await supabase.from('parcelas').insert(linhas);
     setBusy(false);
@@ -534,7 +544,7 @@ function NovaVendaModal({ pacientes, servicos, nutriId, onClose, onSaved }) {
           const ativo = forma === f.id;
           return (
             <button key={f.id} type="button"
-              onClick={() => setForma(f.id)}
+              onClick={() => escolherForma(f.id)}
               style={{
                 border: ativo ? 'none' : '0.5px solid var(--border)',
                 background: ativo ? 'var(--dark)' : 'var(--white)',
@@ -551,12 +561,15 @@ function NovaVendaModal({ pacientes, servicos, nutriId, onClose, onSaved }) {
         })}
       </div>
 
-      {forma === 'parcelado' && (
+      {['pix', 'dinheiro', 'parcelado'].includes(forma) && (
         <>
           <label className="form-lbl">Número de parcelas</label>
           <select value={nParcelas} onChange={e => setNParcelas(Number(e.target.value))}>
+            {(forma === 'pix' || forma === 'dinheiro') && (
+              <option value={1}>1x — à vista (entra como recebido)</option>
+            )}
             {Array.from({ length: 11 }, (_, i) => i + 2).map(n => (
-              <option key={n} value={n}>{n}x</option>
+              <option key={n} value={n}>{n}x (venc. mensais)</option>
             ))}
           </select>
         </>
