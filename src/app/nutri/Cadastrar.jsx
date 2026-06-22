@@ -314,7 +314,9 @@ export default function Cadastrar() {
                       <i className="ti ti-copy" aria-hidden="true"></i> Copiar link
                     </button>
                     <a className="btn-outline"
-                      href={`https://wa.me/?text=${mensagemWhats(p)}`}
+                      href={telefoneValido(p.telefone)
+                        ? `https://wa.me/${normalizarTelefone(p.telefone)}?text=${mensagemWhats(p)}`
+                        : `https://wa.me/?text=${mensagemWhats(p)}`}
                       target="_blank" rel="noreferrer"
                       onClick={async () => {
                         await supabase.from('pacientes_pendentes')
@@ -323,6 +325,9 @@ export default function Cadastrar() {
                       }}
                       style={{ fontSize: 11, padding: '4px 10px', textDecoration: 'none' }}>
                       <i className="ti ti-brand-whatsapp" aria-hidden="true"></i> WhatsApp
+                      {!telefoneValido(p.telefone) && (
+                        <span style={{ marginLeft: 4, fontSize: 10, opacity: 0.7 }}>sem número</span>
+                      )}
                     </a>
                     <button onClick={() => excluirPendente(p)}
                       style={{
@@ -343,6 +348,18 @@ export default function Cadastrar() {
   );
 }
 
+
+function normalizarTelefone(raw) {
+  let n = (raw ?? '').replace(/\D/g, '');
+  if (n.startsWith('0')) n = n.slice(1);
+  if (n.startsWith('55') && n.length >= 12) return n;
+  return '55' + n;
+}
+
+function telefoneValido(raw) {
+  const n = normalizarTelefone(raw);
+  return n.length === 12 || n.length === 13;
+}
 
 function CartaoSucesso({ pacienteId, nome, pendente, link, mensagemWhats, onCopiar, onDispensar, onIrPerfil }) {
   const primeiroNome = nome?.split(' ')[0] ?? '';
@@ -387,10 +404,15 @@ function CartaoSucesso({ pacienteId, nome, pendente, link, mensagemWhats, onCopi
               <i className="ti ti-copy" aria-hidden="true"></i> Copiar link
             </button>
             <a className="btn-outline"
-              href={`https://wa.me/?text=${mensagemWhats}`}
+              href={telefoneValido(pendente.telefone)
+                ? `https://wa.me/${normalizarTelefone(pendente.telefone)}?text=${mensagemWhats}`
+                : `https://wa.me/?text=${mensagemWhats}`}
               target="_blank" rel="noreferrer"
               style={{ flex: 1, justifyContent: 'center', fontSize: 12, textDecoration: 'none' }}>
               <i className="ti ti-brand-whatsapp" aria-hidden="true"></i> WhatsApp
+              {!telefoneValido(pendente.telefone) && (
+                <span style={{ marginLeft: 4, fontSize: 10, opacity: 0.7 }}>sem número</span>
+              )}
             </a>
           </div>
         </>
