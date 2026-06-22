@@ -335,6 +335,8 @@ export default function Inicio() {
         return (
           <div style={{
             margin: '0 0 12px',
+            width: '100%',
+            boxSizing: 'border-box',
             background: eHoje ? 'var(--green, #3a7a46)' : '#E6DBC8',
             border:     eHoje ? 'none' : '0.5px solid var(--gold)',
             borderRadius: 14,
