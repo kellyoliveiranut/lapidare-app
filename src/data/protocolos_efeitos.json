@@ -167,6 +167,30 @@
         {"efeito": "Possivel ganho de peso", "manejo": "Suporte a controle de peso; atividade fisica conforme tolerancia"},
         {"efeito": "Fogachos e fadiga", "manejo": "Reduzir gatilhos; refeicoes praticas e equilibradas"}
       ]
+    },
+    {
+      "nome": "BEP 1",
+      "indicacao": "Ovário / Testículo",
+      "aliases": ["bleomicina etoposido cisplatina", "bep 21 dias"],
+      "duracaoCiclo": 21,
+      "timeline": [
+        { "dia": 0,  "label": "D0",    "desc": "Quimio",                 "fase": "quimio" },
+        { "dia": 7,  "label": "D+7",   "desc": "Início da piora / pico", "fase": "risco"  },
+        { "dia": 11, "label": "D+11",  "desc": "Fim da janela de risco", "fase": "alerta" }
+      ],
+      "efeitos": []
+    },
+    {
+      "nome": "BEP 2",
+      "indicacao": "Ovário / Testículo",
+      "aliases": ["bep 15 dias"],
+      "duracaoCiclo": 15,
+      "timeline": [
+        { "dia": 0,  "label": "D0",    "desc": "Quimio",                 "fase": "quimio" },
+        { "dia": 7,  "label": "D+7",   "desc": "Início da piora / pico", "fase": "risco"  },
+        { "dia": 11, "label": "D+11",  "desc": "Fim da janela de risco", "fase": "alerta" }
+      ],
+      "efeitos": []
     }
   ]
 }

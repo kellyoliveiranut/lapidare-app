@@ -32,6 +32,20 @@ const TIPO_TRAT = [
 
 const INTERVALOS = [7, 14, 15, 21, 28];
 
+const COR_FASE = {
+  quimio: '#16a34a',
+  alerta: '#eab308',
+  risco:  '#dc2626',
+};
+
+const TIMELINE_FALLBACK = [
+  { dia: 0,  label: 'D0',    desc: 'Quimio',          fase: 'quimio' },
+  { dia: 3,  label: 'D+3',   desc: 'Início da piora', fase: 'alerta' },
+  { dia: 7,  label: 'D+7',   desc: 'Janela de risco', fase: 'risco'  },
+  { dia: 10, label: 'D+10',  desc: 'Pico de risco',   fase: 'risco'  },
+  { dia: 14, label: 'D+14',  desc: 'Fim da janela',   fase: 'alerta' },
+];
+
 const ESTADIAMENTOS = ['I', 'II', 'III', 'IV', 'IA', 'IB', 'IIA', 'IIB', 'IIIA', 'IIIB', 'IIIC'];
 
 const AREAS_RADIO = ['Mama', 'Pelve', 'Cabeça e pescoço', 'Abdome', 'Tórax', 'SNC', 'Outro'];
@@ -315,11 +329,21 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
     }
   }
 
+  // Resolve protocolo do JSON para timeline e janela de risco
+  const proto = protocolosEfeitosData.protocolos.find(p => p.nome === dados.protocolo);
+  const timelineBase = proto?.timeline?.length > 0 ? proto.timeline : TIMELINE_FALLBACK;
+  const duracaoCiclo = proto?.duracaoCiclo ?? num(dados.intervalo_ciclos) ?? 21;
+  const diasRisco     = timelineBase.filter(m => m.fase === 'risco').map(m => m.dia);
+  const inicioRisco   = diasRisco.length > 0 ? Math.min(...diasRisco) : 7;
+  const diasAlertaPos = timelineBase.filter(m => m.fase === 'alerta' && m.dia > inicioRisco).map(m => m.dia);
+  const fimRisco      = diasAlertaPos.length > 0 ? Math.max(...diasAlertaPos) : 14;
+
   // Janela de risco atual
   const hoje = new Date().toISOString().slice(0, 10);
   const ultimoCiclo = ciclos[0];
   const emJanelaRisco = ultimoCiclo &&
-    hoje >= ultimoCiclo.d7 && hoje <= ultimoCiclo.d14;
+    hoje >= addDays(ultimoCiclo.data_quimio, inicioRisco) &&
+    hoje <= addDays(ultimoCiclo.data_quimio, fimRisco);
 
   return (
     <div>
@@ -331,7 +355,7 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
           display: 'flex', alignItems: 'center', gap: 8,
         }}>
           <i className="ti ti-alert-triangle" style={{ fontSize: 16 }} />
-          ⚠️ Paciente em <strong>janela de risco imunológico</strong> (D+7 a D+14 do ciclo {ultimoCiclo.numero_ciclo}).
+          ⚠️ Paciente em <strong>janela de risco imunológico</strong> (D+{inicioRisco} a D+{fimRisco} do ciclo {ultimoCiclo.numero_ciclo}).
           Monitorar febre, neutropenia e sintomas.
         </div>
       )}
@@ -520,14 +544,19 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
 
           {ciclos.length > 0 && (() => {
             const uc = ciclos[0];
-            const intervalo = num(dados.intervalo_ciclos) || 21;
             const marcos = [
-              { d: uc.data_quimio,                   label: 'D0',          desc: 'Quimio',             cor: '#16a34a' },
-              { d: uc.d3,                             label: 'D+3',         desc: 'Início da piora',    cor: '#eab308' },
-              { d: uc.d7,                             label: 'D+7',         desc: 'Janela de risco',    cor: '#ef4444' },
-              { d: uc.d10,                            label: 'D+10',        desc: 'Pico de risco',      cor: '#dc2626' },
-              { d: uc.d14,                            label: 'D+14',        desc: 'Fim da janela',      cor: '#eab308' },
-              { d: addDays(uc.data_quimio, intervalo), label: `D+${intervalo}`, desc: 'Próximo ciclo', cor: '#16a34a' },
+              ...timelineBase.map(m => ({
+                d:     addDays(uc.data_quimio, m.dia),
+                label: m.label,
+                desc:  m.desc,
+                cor:   COR_FASE[m.fase] ?? '#6b7280',
+              })),
+              {
+                d:     addDays(uc.data_quimio, duracaoCiclo),
+                label: `D+${duracaoCiclo}`,
+                desc:  'Próximo ciclo',
+                cor:   '#16a34a',
+              },
             ];
             return (
               <div className="card" style={{ padding: 16, marginBottom: 12, overflow: 'hidden' }}>
