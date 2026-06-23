@@ -5,6 +5,16 @@ import { useSession } from '../../lib/session.jsx';
 import { useTheme } from '../../lib/theme.jsx';
 import BrandFooter from '../../components/BrandFooter.jsx';
 
+function signInComTimeout(email, password, ms = 15_000) {
+  const timeout = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('Não foi possível entrar. Verifique sua conexão e tente de novo.')), ms)
+  );
+  return Promise.race([
+    supabase.auth.signInWithPassword({ email, password }),
+    timeout,
+  ]);
+}
+
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -83,23 +93,17 @@ export default function Login() {
       if (parecePhone) {
         const { data: emailEncontrado, error: lookupErr } = await supabase
           .rpc('buscar_email_por_telefone', { p_telefone: emailFinal });
-        if (lookupErr) {
-          setBusy(false);
-          return setErro('Não foi possível buscar pelo telefone. Tente usar o email.');
-        }
-        if (!emailEncontrado) {
-          setBusy(false);
-          return setErro('Telefone não encontrado. Verifique o número ou use seu email.');
-        }
+        if (lookupErr) return setErro('Não foi possível buscar pelo telefone. Tente usar o email.');
+        if (!emailEncontrado) return setErro('Telefone não encontrado. Verifique o número ou use seu email.');
         emailFinal = emailEncontrado;
       }
 
-      const { error } = await supabase.auth.signInWithPassword({ email: emailFinal, password: senha });
-      setBusy(false);
+      const { error } = await signInComTimeout(emailFinal, senha);
       if (error) setErro(mensagemAmigavel(error));
     } catch (err) {
-      setBusy(false);
       setErro(mensagemAmigavel(err));
+    } finally {
+      setBusy(false);
     }
   }
 

@@ -58,6 +58,7 @@ export default function RedefinirSenha() {
         return setErro(error.message);
       }
       setSucesso(true);
+      await supabase.auth.signOut().catch(() => null);
       setTimeout(() => navigate('/login', { replace: true }), 2500);
     } catch (err) {
       setBusy(false);
@@ -96,11 +97,11 @@ export default function RedefinirSenha() {
             fontFamily: 'var(--font-serif)', fontWeight: 500, fontSize: 28,
             letterSpacing: '-0.02em', color: 'var(--ink)'
           }}>
-            {sucesso ? 'Senha atualizada ✓' : 'Nova senha'}
+            {sucesso ? 'Senha alterada!' : 'Nova senha'}
           </h1>
           <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>
             {sucesso
-              ? 'Redirecionando pra tela de Login...'
+              ? 'Faça login com sua nova senha.'
               : 'Crie uma nova senha pra entrar no app'}
           </p>
         </div>
