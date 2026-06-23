@@ -49,11 +49,14 @@ export default function Login() {
   // Redireciona automaticamente após login bem-sucedido
   useEffect(() => {
     if (sessionLoading || !session) return;
+    console.log('LOGIN_REDIRECT', { role, userId: session?.user?.id });
     const from = location.state?.from;
     if (role === 'nutri') {
       navigate(from?.startsWith('/nutri') ? from : '/nutri/visao', { replace: true });
     } else if (role === 'paciente') {
       navigate(from?.startsWith('/paciente') ? from : '/paciente/inicio', { replace: true });
+    } else if (role === null) {
+      console.log('LOGIN_REDIRECT_SEM_ROLE', { userId: session?.user?.id });
     }
   }, [session, role, sessionLoading, navigate, location.state]);
 
@@ -98,8 +101,17 @@ export default function Login() {
         emailFinal = emailEncontrado;
       }
 
-      const { error } = await signInComTimeout(emailFinal, senha);
-      if (error) setErro(mensagemAmigavel(error));
+      const { data, error } = await signInComTimeout(emailFinal, senha);
+      console.log('LOGIN_RESULT', {
+        erro: error?.message ?? null,
+        hasSession: !!data?.session,
+        userId: data?.user?.id ?? null,
+      });
+      if (error) {
+        setErro(mensagemAmigavel(error));
+      } else if (!data?.session) {
+        setErro('Login não completado — verifique email e senha e tente de novo.');
+      }
     } catch (err) {
       setErro(mensagemAmigavel(err));
     } finally {
