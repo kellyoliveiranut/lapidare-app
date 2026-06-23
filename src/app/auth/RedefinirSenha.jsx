@@ -24,16 +24,24 @@ export default function RedefinirSenha() {
   // hash da URL e dispara o evento PASSWORD_RECOVERY no client.
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('[RESET] onAuthStateChange', {
+        event,
+        userId: session?.user?.id ?? null,
+        expiresAt: session?.expires_at ?? null,
+      });
       if (event === 'PASSWORD_RECOVERY') {
         setTokenOk(true);
       } else if (event === 'SIGNED_IN' && session) {
-        // Token válido ativou a sessão temporária — pode alterar a senha
         setTokenOk(true);
       }
     });
 
-    // Fallback: se a página já tem sessão (token consumido), aceita
     supabase.auth.getSession().then(({ data }) => {
+      console.log('[RESET] getSession', {
+        temSessao: !!data.session,
+        userId: data.session?.user?.id ?? null,
+        expiresAt: data.session?.expires_at ?? null,
+      });
       if (data.session) setTokenOk(true);
       else setTokenOk((v) => v ?? false);
     });
@@ -47,9 +55,22 @@ export default function RedefinirSenha() {
     if (senha.length < 6) return setErro('A senha precisa de pelo menos 6 caracteres.');
     if (senha !== confirmaSenha) return setErro('As senhas não conferem.');
 
+    const { data: sessaoAtual } = await supabase.auth.getSession();
+    console.log('[RESET] PRE_UPDATE_SESSION', {
+      temSessao: !!sessaoAtual.session,
+      userId: sessaoAtual.session?.user?.id ?? null,
+      tokenType: sessaoAtual.session?.token_type ?? null,
+      expiresAt: sessaoAtual.session?.expires_at ?? null,
+    });
+
     setBusy(true);
     try {
-      const { error } = await supabase.auth.updateUser({ password: senha });
+      const { data: updateData, error } = await supabase.auth.updateUser({ password: senha });
+      console.log('[RESET] UPDATE_RESULT', {
+        erro: error?.message ?? null,
+        userId: updateData?.user?.id ?? null,
+        updatedAt: updateData?.user?.updated_at ?? null,
+      });
       setBusy(false);
       if (error) {
         if (/expired|invalid|token/i.test(error.message)) {
