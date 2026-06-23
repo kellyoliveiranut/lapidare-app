@@ -205,7 +205,7 @@ export default function PacientePerfil() {
       }
       const linkSignup = `${window.location.origin}/signup-paciente/${user.id}/${pendente.token}`;
       msg =
-        `Olá, ${primeiroNome}! Aqui é a Kelly, sua nutricionista. Preparei o seu espaço no app do Essentia, onde você vai acompanhar seu plano alimentar e seu cuidado de pertinho.\n\n` +
+        `Olá, ${primeiroNome}! Aqui é a Equipe da Dra Kelly Oliveira. Preparei o seu espaço no app do Essentia, onde você vai acompanhar seu plano alimentar e seu cuidado de pertinho.\n\n` +
         `Para criar o seu acesso, clique neste link e escolha a sua senha: ${linkSignup}\n\n` +
         `Qualquer dúvida, é só me chamar por aqui.\n\n` +
         `---\n\n` +
