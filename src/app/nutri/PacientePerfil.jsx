@@ -1039,6 +1039,7 @@ function ModalEditarDados({ paciente, onClose, onSaved }) {
   const [erro, setErro] = useState(null);
 
   const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
+  const emailJaCadastrado = !!paciente.email;
 
   async function salvar() {
     if (!form.nome.trim()) return setErro('Nome é obrigatório.');
@@ -1094,8 +1095,16 @@ function ModalEditarDados({ paciente, onClose, onSaved }) {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
               <label className="field-label">E-mail</label>
-              <input type="email" value={form.email} readOnly style={{ background: 'var(--bg2)', color: 'var(--text3)', cursor: 'default' }} />
-              <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 3 }}>Para alterar o e-mail de login, fale com o suporte.</div>
+              <input
+                type="email"
+                value={form.email}
+                readOnly={emailJaCadastrado}
+                onChange={emailJaCadastrado ? undefined : set('email')}
+                style={emailJaCadastrado ? { background: 'var(--bg2)', color: 'var(--text3)', cursor: 'default' } : {}}
+              />
+              {emailJaCadastrado && (
+                <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 3 }}>Para alterar o e-mail de login, fale com o suporte.</div>
+              )}
             </div>
             <div>
               <label className="field-label">Telefone</label>

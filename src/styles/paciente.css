@@ -107,6 +107,7 @@ body:has(.paciente-app) {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden; /* iOS Safari: overflow-y:auto tornaria overflow-x:auto sem isso */
+  padding-top: 14px;
   padding-left: max(16px, env(safe-area-inset-left));
   padding-right: max(16px, env(safe-area-inset-right));
   padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)); /* espaço para tab bar + gesto */
