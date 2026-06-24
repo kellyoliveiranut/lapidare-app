@@ -8,189 +8,569 @@
   "protocolos": [
     {
       "nome": "AC-T",
-      "aliases": ["AC seguido de taxano", "doxorrubicina ciclofosfamida paclitaxel", "doxorrubicina ciclofosfamida docetaxel"],
+      "aliases": [
+        "AC seguido de taxano",
+        "doxorrubicina ciclofosfamida paclitaxel",
+        "doxorrubicina ciclofosfamida docetaxel"
+      ],
       "indicacao": "Cancer de mama",
       "efeitos": [
-        {"efeito": "Nausea e vomito", "manejo": "Fracionar em 5-6 refeicoes pequenas; alimentos secos e em temperatura ambiente; evitar odores fortes; gengibre conforme tolerancia"},
-        {"efeito": "Mucosite / estomatite", "manejo": "Texturas macias e umidas; evitar acidos, picantes e muito quentes; bochechos conforme orientacao medica"},
-        {"efeito": "Alteracao de paladar (disgeusia)", "manejo": "Realcar sabor com ervas; usar talheres plasticos se gosto metalico; servir frio quando aversao a quente"},
-        {"efeito": "Hiporexia / perda de apetite", "manejo": "Refeicoes pequenas e densas em energia/proteina; aproveitar janelas de melhor apetite"},
-        {"efeito": "Constipacao", "manejo": "Aumentar fibras conforme tolerancia e hidratacao; atividade leve se possivel"},
-        {"efeito": "Neutropenia", "manejo": "Cuidados de seguranca alimentar; evitar crus/mal lavados em periodos de risco"},
-        {"efeito": "Neuropatia periferica (taxano)", "manejo": "Atencao a manuseio de alimentos quentes/cortantes; adaptar preparo se necessario"}
+        {
+          "efeito": "Nausea e vomito",
+          "manejo": "Fracionar em 5-6 refeicoes pequenas; alimentos secos e em temperatura ambiente; evitar odores fortes; gengibre conforme tolerancia"
+        },
+        {
+          "efeito": "Mucosite / estomatite",
+          "manejo": "Texturas macias e umidas; evitar acidos, picantes e muito quentes; bochechos conforme orientacao medica"
+        },
+        {
+          "efeito": "Alteracao de paladar (disgeusia)",
+          "manejo": "Realcar sabor com ervas; usar talheres plasticos se gosto metalico; servir frio quando aversao a quente"
+        },
+        {
+          "efeito": "Hiporexia / perda de apetite",
+          "manejo": "Refeicoes pequenas e densas em energia/proteina; aproveitar janelas de melhor apetite"
+        },
+        {
+          "efeito": "Constipacao",
+          "manejo": "Aumentar fibras conforme tolerancia e hidratacao; atividade leve se possivel"
+        },
+        {
+          "efeito": "Neutropenia",
+          "manejo": "Cuidados de seguranca alimentar; evitar crus/mal lavados em periodos de risco"
+        },
+        {
+          "efeito": "Neuropatia periferica (taxano)",
+          "manejo": "Atencao a manuseio de alimentos quentes/cortantes; adaptar preparo se necessario"
+        }
       ]
     },
     {
       "nome": "AC",
-      "aliases": ["doxorrubicina ciclofosfamida", "adriamicina ciclofosfamida"],
+      "aliases": [
+        "doxorrubicina ciclofosfamida",
+        "adriamicina ciclofosfamida"
+      ],
       "indicacao": "Cancer de mama",
       "efeitos": [
-        {"efeito": "Nausea e vomito (alto potencial emetogenico)", "manejo": "Antiemese conforme prescricao; fracionar; alimentos secos e frios; hidratacao em pequenos goles"},
-        {"efeito": "Mucosite / estomatite", "manejo": "Texturas macias; evitar acidos e picantes"},
-        {"efeito": "Alteracao de paladar", "manejo": "Ervas e temperos suaves; evitar gosto metalico com talher plastico"},
-        {"efeito": "Hiporexia", "manejo": "Refeicoes densas em energia/proteina, pequenas e frequentes"},
-        {"efeito": "Fadiga", "manejo": "Refeicoes praticas; suporte energetico-proteico"},
-        {"efeito": "Neutropenia", "manejo": "Seguranca alimentar em periodos de risco"}
+        {
+          "efeito": "Nausea e vomito (alto potencial emetogenico)",
+          "manejo": "Antiemese conforme prescricao; fracionar; alimentos secos e frios; hidratacao em pequenos goles"
+        },
+        {
+          "efeito": "Mucosite / estomatite",
+          "manejo": "Texturas macias; evitar acidos e picantes"
+        },
+        {
+          "efeito": "Alteracao de paladar",
+          "manejo": "Ervas e temperos suaves; evitar gosto metalico com talher plastico"
+        },
+        {
+          "efeito": "Hiporexia",
+          "manejo": "Refeicoes densas em energia/proteina, pequenas e frequentes"
+        },
+        {
+          "efeito": "Fadiga",
+          "manejo": "Refeicoes praticas; suporte energetico-proteico"
+        },
+        {
+          "efeito": "Neutropenia",
+          "manejo": "Seguranca alimentar em periodos de risco"
+        }
       ]
     },
     {
       "nome": "TC",
-      "aliases": ["docetaxel ciclofosfamida"],
+      "aliases": [
+        "docetaxel ciclofosfamida"
+      ],
       "indicacao": "Cancer de mama",
       "efeitos": [
-        {"efeito": "Nausea e vomito", "manejo": "Fracionar; alimentos secos/frios; evitar odores fortes"},
-        {"efeito": "Neutropenia (risco de neutropenia febril)", "manejo": "Reforcar seguranca alimentar; atencao a sinais de infeccao"},
-        {"efeito": "Neuropatia periferica (docetaxel)", "manejo": "Adaptar manuseio de utensilios e alimentos quentes/cortantes"},
-        {"efeito": "Retencao hidrica / edema (docetaxel)", "manejo": "Atencao a ingestao de sodio; monitorar peso/edema"},
-        {"efeito": "Mucosite", "manejo": "Texturas macias; evitar irritantes"},
-        {"efeito": "Alteracao de paladar e fadiga", "manejo": "Realcar sabores; refeicoes praticas e densas"}
+        {
+          "efeito": "Nausea e vomito",
+          "manejo": "Fracionar; alimentos secos/frios; evitar odores fortes"
+        },
+        {
+          "efeito": "Neutropenia (risco de neutropenia febril)",
+          "manejo": "Reforcar seguranca alimentar; atencao a sinais de infeccao"
+        },
+        {
+          "efeito": "Neuropatia periferica (docetaxel)",
+          "manejo": "Adaptar manuseio de utensilios e alimentos quentes/cortantes"
+        },
+        {
+          "efeito": "Retencao hidrica / edema (docetaxel)",
+          "manejo": "Atencao a ingestao de sodio; monitorar peso/edema"
+        },
+        {
+          "efeito": "Mucosite",
+          "manejo": "Texturas macias; evitar irritantes"
+        },
+        {
+          "efeito": "Alteracao de paladar e fadiga",
+          "manejo": "Realcar sabores; refeicoes praticas e densas"
+        }
       ]
     },
     {
       "nome": "TCHP",
-      "aliases": ["docetaxel carboplatina trastuzumabe pertuzumabe", "TCH+P", "docetaxel carbo trastuzumab pertuzumab"],
+      "aliases": [
+        "docetaxel carboplatina trastuzumabe pertuzumabe",
+        "TCH+P",
+        "docetaxel carbo trastuzumab pertuzumab"
+      ],
       "indicacao": "Cancer de mama HER2+",
       "efeitos": [
-        {"efeito": "Diarreia (pertuzumabe/trastuzumabe — frequente)", "manejo": "Hidratacao com reposicao; alimentos de baixa fibra insoluvel na fase aguda; evitar lactose/cafeina/gordura em excesso se piorar; atencao a perdas eletroliticas"},
-        {"efeito": "Nausea e vomito", "manejo": "Fracionar; alimentos secos/frios; evitar odores"},
-        {"efeito": "Mucosite / estomatite", "manejo": "Texturas macias e umidas; evitar acidos e picantes"},
-        {"efeito": "Neutropenia", "manejo": "Seguranca alimentar em periodos de risco"},
-        {"efeito": "Alteracao de paladar e hiporexia", "manejo": "Realcar sabores; refeicoes pequenas e densas em energia/proteina"},
-        {"efeito": "Neuropatia periferica (docetaxel)", "manejo": "Adaptar manuseio de alimentos quentes/cortantes"},
-        {"efeito": "Fadiga", "manejo": "Refeicoes praticas; suporte energetico-proteico"}
+        {
+          "efeito": "Diarreia (pertuzumabe/trastuzumabe — frequente)",
+          "manejo": "Hidratacao com reposicao; alimentos de baixa fibra insoluvel na fase aguda; evitar lactose/cafeina/gordura em excesso se piorar; atencao a perdas eletroliticas"
+        },
+        {
+          "efeito": "Nausea e vomito",
+          "manejo": "Fracionar; alimentos secos/frios; evitar odores"
+        },
+        {
+          "efeito": "Mucosite / estomatite",
+          "manejo": "Texturas macias e umidas; evitar acidos e picantes"
+        },
+        {
+          "efeito": "Neutropenia",
+          "manejo": "Seguranca alimentar em periodos de risco"
+        },
+        {
+          "efeito": "Alteracao de paladar e hiporexia",
+          "manejo": "Realcar sabores; refeicoes pequenas e densas em energia/proteina"
+        },
+        {
+          "efeito": "Neuropatia periferica (docetaxel)",
+          "manejo": "Adaptar manuseio de alimentos quentes/cortantes"
+        },
+        {
+          "efeito": "Fadiga",
+          "manejo": "Refeicoes praticas; suporte energetico-proteico"
+        }
       ]
     },
     {
       "nome": "TH (Paclitaxel + Trastuzumabe)",
-      "aliases": ["paclitaxel trastuzumabe", "paclitaxel trastuzumab"],
+      "aliases": [
+        "paclitaxel trastuzumabe",
+        "paclitaxel trastuzumab"
+      ],
       "indicacao": "Cancer de mama HER2+",
       "efeitos": [
-        {"efeito": "Neuropatia periferica (paclitaxel)", "manejo": "Adaptar manuseio de utensilios e alimentos quentes/cortantes"},
-        {"efeito": "Diarreia (trastuzumabe)", "manejo": "Hidratacao com reposicao; reduzir fibra insoluvel/lactose/gordura na fase aguda"},
-        {"efeito": "Mialgia / artralgia", "manejo": "Suporte geral; hidratacao; alimentacao anti-inflamatoria conforme conduta"},
-        {"efeito": "Mucosite leve", "manejo": "Texturas macias; evitar irritantes"},
-        {"efeito": "Fadiga", "manejo": "Refeicoes praticas e densas"}
+        {
+          "efeito": "Neuropatia periferica (paclitaxel)",
+          "manejo": "Adaptar manuseio de utensilios e alimentos quentes/cortantes"
+        },
+        {
+          "efeito": "Diarreia (trastuzumabe)",
+          "manejo": "Hidratacao com reposicao; reduzir fibra insoluvel/lactose/gordura na fase aguda"
+        },
+        {
+          "efeito": "Mialgia / artralgia",
+          "manejo": "Suporte geral; hidratacao; alimentacao anti-inflamatoria conforme conduta"
+        },
+        {
+          "efeito": "Mucosite leve",
+          "manejo": "Texturas macias; evitar irritantes"
+        },
+        {
+          "efeito": "Fadiga",
+          "manejo": "Refeicoes praticas e densas"
+        }
       ]
     },
     {
       "nome": "FOLFOX",
-      "aliases": ["5-FU leucovorina oxaliplatina", "fluorouracil oxaliplatina"],
+      "aliases": [
+        "5-FU leucovorina oxaliplatina",
+        "fluorouracil oxaliplatina"
+      ],
       "indicacao": "Cancer colorretal / TGI",
       "efeitos": [
-        {"efeito": "Neuropatia ao frio (oxaliplatina)", "manejo": "EVITAR alimentos e bebidas geladas nos primeiros dias do ciclo; servir tudo morno/temperatura ambiente; cuidado ao pegar itens gelados"},
-        {"efeito": "Nausea e vomito", "manejo": "Fracionar; alimentos secos/frios conforme tolerancia (respeitando o frio); evitar odores"},
-        {"efeito": "Diarreia", "manejo": "Hidratacao com reposicao; baixa fibra insoluvel na fase aguda; evitar lactose/cafeina/gordura em excesso"},
-        {"efeito": "Mucosite", "manejo": "Texturas macias; evitar acidos e picantes"},
-        {"efeito": "Neutropenia", "manejo": "Seguranca alimentar em periodos de risco"},
-        {"efeito": "Alteracao de paladar e fadiga", "manejo": "Realcar sabores; refeicoes praticas e densas"}
+        {
+          "efeito": "Neuropatia ao frio (oxaliplatina)",
+          "manejo": "EVITAR alimentos e bebidas geladas nos primeiros dias do ciclo; servir tudo morno/temperatura ambiente; cuidado ao pegar itens gelados"
+        },
+        {
+          "efeito": "Nausea e vomito",
+          "manejo": "Fracionar; alimentos secos/frios conforme tolerancia (respeitando o frio); evitar odores"
+        },
+        {
+          "efeito": "Diarreia",
+          "manejo": "Hidratacao com reposicao; baixa fibra insoluvel na fase aguda; evitar lactose/cafeina/gordura em excesso"
+        },
+        {
+          "efeito": "Mucosite",
+          "manejo": "Texturas macias; evitar acidos e picantes"
+        },
+        {
+          "efeito": "Neutropenia",
+          "manejo": "Seguranca alimentar em periodos de risco"
+        },
+        {
+          "efeito": "Alteracao de paladar e fadiga",
+          "manejo": "Realcar sabores; refeicoes praticas e densas"
+        }
       ]
     },
     {
       "nome": "FOLFIRI",
-      "aliases": ["5-FU leucovorina irinotecano", "fluorouracil irinotecano"],
+      "aliases": [
+        "5-FU leucovorina irinotecano",
+        "fluorouracil irinotecano"
+      ],
       "indicacao": "Cancer colorretal / TGI",
       "efeitos": [
-        {"efeito": "Diarreia (irinotecano — precoce e tardia, pode ser intensa)", "manejo": "Hidratacao com reposicao de eletrolitos; baixa fibra insoluvel; evitar lactose/cafeina/gordura na fase aguda; comunicar equipe medica se grave"},
-        {"efeito": "Sindrome colinergica aguda", "manejo": "Manejo medico; suporte de hidratacao"},
-        {"efeito": "Nausea e vomito", "manejo": "Fracionar; alimentos secos/frios; evitar odores"},
-        {"efeito": "Mucosite", "manejo": "Texturas macias; evitar irritantes"},
-        {"efeito": "Neutropenia", "manejo": "Seguranca alimentar em periodos de risco"},
-        {"efeito": "Fadiga e hiporexia", "manejo": "Refeicoes pequenas, densas e praticas"}
+        {
+          "efeito": "Diarreia (irinotecano — precoce e tardia, pode ser intensa)",
+          "manejo": "Hidratacao com reposicao de eletrolitos; baixa fibra insoluvel; evitar lactose/cafeina/gordura na fase aguda; comunicar equipe medica se grave"
+        },
+        {
+          "efeito": "Sindrome colinergica aguda",
+          "manejo": "Manejo medico; suporte de hidratacao"
+        },
+        {
+          "efeito": "Nausea e vomito",
+          "manejo": "Fracionar; alimentos secos/frios; evitar odores"
+        },
+        {
+          "efeito": "Mucosite",
+          "manejo": "Texturas macias; evitar irritantes"
+        },
+        {
+          "efeito": "Neutropenia",
+          "manejo": "Seguranca alimentar em periodos de risco"
+        },
+        {
+          "efeito": "Fadiga e hiporexia",
+          "manejo": "Refeicoes pequenas, densas e praticas"
+        }
       ]
     },
     {
       "nome": "CAPOX / XELOX",
-      "aliases": ["capecitabina oxaliplatina", "xelox"],
+      "aliases": [
+        "capecitabina oxaliplatina",
+        "xelox"
+      ],
       "indicacao": "Cancer colorretal / gastrico",
       "efeitos": [
-        {"efeito": "Neuropatia ao frio (oxaliplatina)", "manejo": "Evitar gelados nos primeiros dias; servir morno/temperatura ambiente"},
-        {"efeito": "Sindrome mao-pe (capecitabina)", "manejo": "Atencao ao autocuidado e ao preparo de alimentos; pode dificultar manuseio de utensilios"},
-        {"efeito": "Diarreia (capecitabina)", "manejo": "Hidratacao com reposicao; baixa fibra insoluvel na fase aguda"},
-        {"efeito": "Nausea", "manejo": "Fracionar; alimentos secos; evitar odores"},
-        {"efeito": "Mucosite e fadiga", "manejo": "Texturas macias; refeicoes praticas e densas"}
+        {
+          "efeito": "Neuropatia ao frio (oxaliplatina)",
+          "manejo": "Evitar gelados nos primeiros dias; servir morno/temperatura ambiente"
+        },
+        {
+          "efeito": "Sindrome mao-pe (capecitabina)",
+          "manejo": "Atencao ao autocuidado e ao preparo de alimentos; pode dificultar manuseio de utensilios"
+        },
+        {
+          "efeito": "Diarreia (capecitabina)",
+          "manejo": "Hidratacao com reposicao; baixa fibra insoluvel na fase aguda"
+        },
+        {
+          "efeito": "Nausea",
+          "manejo": "Fracionar; alimentos secos; evitar odores"
+        },
+        {
+          "efeito": "Mucosite e fadiga",
+          "manejo": "Texturas macias; refeicoes praticas e densas"
+        }
       ]
     },
     {
       "nome": "Capecitabina",
-      "aliases": ["xeloda", "capecitabina oral"],
+      "aliases": [
+        "xeloda",
+        "capecitabina oral"
+      ],
       "indicacao": "Varios (mama, TGI)",
       "efeitos": [
-        {"efeito": "Sindrome mao-pe", "manejo": "Atencao ao preparo de alimentos e autocuidado; adaptar utensilios se necessario"},
-        {"efeito": "Diarreia", "manejo": "Hidratacao com reposicao; baixa fibra insoluvel; evitar lactose/cafeina/gordura na fase aguda"},
-        {"efeito": "Mucosite / estomatite", "manejo": "Texturas macias e umidas; evitar acidos e picantes"},
-        {"efeito": "Nausea e hiporexia", "manejo": "Fracionar; refeicoes pequenas e densas em energia/proteina"},
-        {"efeito": "Fadiga", "manejo": "Refeicoes praticas; suporte energetico-proteico"}
+        {
+          "efeito": "Sindrome mao-pe",
+          "manejo": "Atencao ao preparo de alimentos e autocuidado; adaptar utensilios se necessario"
+        },
+        {
+          "efeito": "Diarreia",
+          "manejo": "Hidratacao com reposicao; baixa fibra insoluvel; evitar lactose/cafeina/gordura na fase aguda"
+        },
+        {
+          "efeito": "Mucosite / estomatite",
+          "manejo": "Texturas macias e umidas; evitar acidos e picantes"
+        },
+        {
+          "efeito": "Nausea e hiporexia",
+          "manejo": "Fracionar; refeicoes pequenas e densas em energia/proteina"
+        },
+        {
+          "efeito": "Fadiga",
+          "manejo": "Refeicoes praticas; suporte energetico-proteico"
+        }
       ]
     },
     {
       "nome": "Cisplatina",
-      "aliases": ["cisplatina", "CDDP"],
+      "aliases": [
+        "cisplatina",
+        "CDDP"
+      ],
       "indicacao": "Varios",
       "efeitos": [
-        {"efeito": "Nausea e vomito (alto potencial emetogenico)", "manejo": "Antiemese conforme prescricao; fracionar; alimentos secos/frios; hidratacao em pequenos goles"},
-        {"efeito": "Nefrotoxicidade / disturbios eletroliticos (Mg, K)", "manejo": "Reforcar hidratacao conforme conduta; atencao a fontes de magnesio e potassio conforme orientacao medica"},
-        {"efeito": "Disgeusia (gosto metalico)", "manejo": "Talheres plasticos; realcar sabor com ervas; servir frio quando aversao"},
-        {"efeito": "Hiporexia", "manejo": "Refeicoes pequenas e densas; aproveitar melhores horarios"},
-        {"efeito": "Fadiga", "manejo": "Refeicoes praticas e densas"}
+        {
+          "efeito": "Nausea e vomito (alto potencial emetogenico)",
+          "manejo": "Antiemese conforme prescricao; fracionar; alimentos secos/frios; hidratacao em pequenos goles"
+        },
+        {
+          "efeito": "Nefrotoxicidade / disturbios eletroliticos (Mg, K)",
+          "manejo": "Reforcar hidratacao conforme conduta; atencao a fontes de magnesio e potassio conforme orientacao medica"
+        },
+        {
+          "efeito": "Disgeusia (gosto metalico)",
+          "manejo": "Talheres plasticos; realcar sabor com ervas; servir frio quando aversao"
+        },
+        {
+          "efeito": "Hiporexia",
+          "manejo": "Refeicoes pequenas e densas; aproveitar melhores horarios"
+        },
+        {
+          "efeito": "Fadiga",
+          "manejo": "Refeicoes praticas e densas"
+        }
       ]
     },
     {
       "nome": "Carboplatina",
-      "aliases": ["carboplatina", "CBDCA"],
+      "aliases": [
+        "carboplatina",
+        "CBDCA"
+      ],
       "indicacao": "Varios",
       "efeitos": [
-        {"efeito": "Nausea e vomito (moderado)", "manejo": "Fracionar; alimentos secos/frios; evitar odores"},
-        {"efeito": "Mielossupressao (atencao a trombocitopenia)", "manejo": "Seguranca alimentar; suporte nutricional geral"},
-        {"efeito": "Hiporexia e disgeusia", "manejo": "Refeicoes densas e pequenas; realcar sabores"},
-        {"efeito": "Fadiga", "manejo": "Refeicoes praticas e densas"}
+        {
+          "efeito": "Nausea e vomito (moderado)",
+          "manejo": "Fracionar; alimentos secos/frios; evitar odores"
+        },
+        {
+          "efeito": "Mielossupressao (atencao a trombocitopenia)",
+          "manejo": "Seguranca alimentar; suporte nutricional geral"
+        },
+        {
+          "efeito": "Hiporexia e disgeusia",
+          "manejo": "Refeicoes densas e pequenas; realcar sabores"
+        },
+        {
+          "efeito": "Fadiga",
+          "manejo": "Refeicoes praticas e densas"
+        }
       ]
     },
     {
       "nome": "Tamoxifeno",
-      "aliases": ["tamoxifeno"],
+      "aliases": [
+        "tamoxifeno"
+      ],
       "indicacao": "Cancer de mama (hormonioterapia)",
       "efeitos": [
-        {"efeito": "Possivel ganho de peso", "manejo": "Suporte a controle de peso; padrao alimentar equilibrado e atividade fisica conforme tolerancia"},
-        {"efeito": "Nausea leve", "manejo": "Tomar conforme orientacao; fracionar refeicoes se necessario"},
-        {"efeito": "Fogachos", "manejo": "Reduzir gatilhos (cafeina, alcool, alimentos muito quentes) conforme tolerancia"},
-        {"efeito": "Saude metabolica / hepatica", "manejo": "Atencao ao perfil metabolico; padrao alimentar equilibrado"}
+        {
+          "efeito": "Possivel ganho de peso",
+          "manejo": "Suporte a controle de peso; padrao alimentar equilibrado e atividade fisica conforme tolerancia"
+        },
+        {
+          "efeito": "Nausea leve",
+          "manejo": "Tomar conforme orientacao; fracionar refeicoes se necessario"
+        },
+        {
+          "efeito": "Fogachos",
+          "manejo": "Reduzir gatilhos (cafeina, alcool, alimentos muito quentes) conforme tolerancia"
+        },
+        {
+          "efeito": "Saude metabolica / hepatica",
+          "manejo": "Atencao ao perfil metabolico; padrao alimentar equilibrado"
+        }
       ]
     },
     {
       "nome": "Inibidores de aromatase (Anastrozol / Letrozol)",
-      "aliases": ["anastrozol", "letrozol", "inibidor de aromatase"],
+      "aliases": [
+        "anastrozol",
+        "letrozol",
+        "inibidor de aromatase"
+      ],
       "indicacao": "Cancer de mama (hormonioterapia)",
       "efeitos": [
-        {"efeito": "Artralgia / dores articulares", "manejo": "Padrao alimentar anti-inflamatorio conforme conduta; suporte geral"},
-        {"efeito": "Perda de densidade ossea", "manejo": "Reforcar calcio e vitamina D conforme avaliacao; atencao a saude ossea"},
-        {"efeito": "Dislipidemia", "manejo": "Acompanhar perfil lipidico; padrao alimentar cardioprotetor"},
-        {"efeito": "Possivel ganho de peso", "manejo": "Suporte a controle de peso; atividade fisica conforme tolerancia"},
-        {"efeito": "Fogachos e fadiga", "manejo": "Reduzir gatilhos; refeicoes praticas e equilibradas"}
+        {
+          "efeito": "Artralgia / dores articulares",
+          "manejo": "Padrao alimentar anti-inflamatorio conforme conduta; suporte geral"
+        },
+        {
+          "efeito": "Perda de densidade ossea",
+          "manejo": "Reforcar calcio e vitamina D conforme avaliacao; atencao a saude ossea"
+        },
+        {
+          "efeito": "Dislipidemia",
+          "manejo": "Acompanhar perfil lipidico; padrao alimentar cardioprotetor"
+        },
+        {
+          "efeito": "Possivel ganho de peso",
+          "manejo": "Suporte a controle de peso; atividade fisica conforme tolerancia"
+        },
+        {
+          "efeito": "Fogachos e fadiga",
+          "manejo": "Reduzir gatilhos; refeicoes praticas e equilibradas"
+        }
       ]
     },
     {
-      "nome": "BEP 1",
+      "nome": "BEP",
       "indicacao": "Ovário / Testículo",
-      "aliases": ["bleomicina etoposido cisplatina", "bep 21 dias"],
+      "aliases": [
+        "bleomicina etoposido cisplatina",
+        "bep 21 dias",
+        "bep x4"
+      ],
       "duracaoCiclo": 21,
       "timeline": [
-        { "dia": 0,  "label": "D0",    "desc": "Quimio",                 "fase": "quimio" },
-        { "dia": 7,  "label": "D+7",   "desc": "Início da piora / pico", "fase": "risco"  },
-        { "dia": 11, "label": "D+11",  "desc": "Fim da janela de risco", "fase": "alerta" }
+        {
+          "dia": 0,
+          "label": "D0",
+          "desc": "Quimio (início do ciclo)",
+          "fase": "quimio"
+        },
+        {
+          "dia": 7,
+          "label": "D+7",
+          "desc": "Início da piora / pico",
+          "fase": "risco"
+        },
+        {
+          "dia": 11,
+          "label": "D+11",
+          "desc": "Fim da janela de risco",
+          "fase": "alerta"
+        }
       ],
-      "efeitos": []
-    },
-    {
-      "nome": "BEP 2",
-      "indicacao": "Ovário / Testículo",
-      "aliases": ["bep 15 dias"],
-      "duracaoCiclo": 15,
-      "timeline": [
-        { "dia": 0,  "label": "D0",    "desc": "Quimio",                 "fase": "quimio" },
-        { "dia": 7,  "label": "D+7",   "desc": "Início da piora / pico", "fase": "risco"  },
-        { "dia": 11, "label": "D+11",  "desc": "Fim da janela de risco", "fase": "alerta" }
+      "conduta_base": "A prioridade é manter hidratação, proteína e segurança alimentar. Proteína em todas as refeições, mesmo em pequeno volume (ovos, frango desfiado, peixe, carne moída, iogurte proteico, leite em pó, whey/proteína prescrita, feijão/lentilha bem cozidos, homus, creme de ervilha). Refeições de baixo esforço (sopas proteicas, purês enriquecidos, arroz cremoso com proteína, omelete macia, mingau proteico, vitamina com fruta + proteína, caldo com frango ou carne, panqueca macia). Hidratação fracionada: pequenos goles ao longo do dia, especialmente nos dias de cisplatina; se houver náusea, usar líquidos gelados, água saborizada leve ou gelo de água de coco, se tolerado. Evitar extremos: jejum prolongado, dietas restritivas, excesso de gordura nos dias de náusea, alimentos crus inseguros, suplementos antioxidantes em altas doses sem liberação da oncologia. O BEP é muito efetivo, mas exige manejo ativo desde o primeiro ciclo, principalmente por causa da cisplatina e da bleomicina.",
+      "fases_ciclo": [
+        {
+          "fase": "Fase 1 — Ataque / fase mais intensa (D1–D5)",
+          "drogas": "Cisplatina + Etoposídeo (D1–D5) + Bleomicina (D1)",
+          "sintomas": "Náuseas, vômitos, gosto metálico, perda de apetite, cansaço intenso, maior risco de desidratação, alteração renal e perda de eletrólitos (principalmente magnésio e potássio).",
+          "foco": "Hidratação, antiemético preventivo, comida leve, fracionada, rica em proteína e de baixo cheiro. Nessa fase, o paciente não deve esperar sentir fome. A meta é comer pequenas porções programadas para proteger hidratação, rim, massa muscular e tolerância ao tratamento."
+        },
+        {
+          "fase": "Fase 2 — Estímulo da medula (D6)",
+          "drogas": "Lonquex 6 mg SC (fator estimulador de colônia)",
+          "sintomas": "Dor óssea, dor lombar, dor no corpo, sensação gripal, fadiga.",
+          "foco": "Hidratação, repouso relativo, proteína, alimentação simples e analgésico apenas se prescrito/liberado. A dor óssea após o Lonquex pode ser sinal do estímulo da medula, mas dor intensa, febre ou mal-estar importante precisam ser comunicados."
+        },
+        {
+          "fase": "Fase 3 — Queda imunológica / nadir (D7–D14)",
+          "drogas": "Sem nova quimio neste intervalo (efeito cumulativo)",
+          "sintomas": "Neutropenia, mucosite, feridas na boca, piora do apetite, fadiga, diarreia ou constipação, maior risco de infecção.",
+          "foco": "Segurança alimentar, higiene rigorosa, evitar alimentos crus inseguros, evitar buffet/self-service, manter proteína e calorias mesmo com pouco volume. Uma das fases mais importantes para a nutrição acompanhar."
+        },
+        {
+          "fase": "Fase 4 — Bleomicina isolada (D8 e D15)",
+          "drogas": "Bleomicina",
+          "sintomas": "Febre, calafrios, dor no corpo, sintomas gripais, tosse seca, falta de ar, queda de saturação, cansaço fora do habitual.",
+          "foco": "Monitorar febre e sintomas respiratórios. No BEP, tosse seca nova e falta de ar não são sintomas para observar em casa por muitos dias — precisam ser comunicados."
+        },
+        {
+          "fase": "Fase 5 — Recuperação para o próximo ciclo (D16–D21)",
+          "drogas": "Janela de reconstrução (sem nova quimio)",
+          "sintomas": "Pode melhorar náusea, paladar e apetite, mas ainda pode haver fadiga, baixa ingestão, alteração intestinal, queda de massa muscular, anemia, fraqueza e sensibilidade oral.",
+          "foco": "Recuperar ingestão proteica, hidratação, massa muscular e preparar o corpo para o próximo ciclo. Entram bem: sopas proteicas, ovos, peixe, frango desfiado, carne moída, purês enriquecidos, iogurte proteico, vitaminas com proteína, arroz cremoso com proteína, homus, lentilha ou ervilha bem cozida."
+        }
       ],
-      "efeitos": []
+      "efeitos": [
+        {
+          "efeito": "Náuseas e vômitos (alto potencial emetogênico)",
+          "relacionado_a": "Principalmente cisplatina",
+          "manejo": "Fazer antiemético preventivo, não esperar enjoar. Fracionar refeições em pequenos volumes, evitar jejum prolongado, usar preparações frias ou mornas, reduzir gordura nos dias D1–D5, evitar cheiro forte de comida. Boas opções: arroz, batata, purê, ovos, frango desfiado, caldos, frutas leves, torradas, mingau, iogurte se tolerado."
+        },
+        {
+          "efeito": "Náusea tardia",
+          "relacionado_a": "Cisplatina (comum após D2–D5)",
+          "manejo": "Pode aparecer mesmo depois da quimio. Manter prescrição antiemética domiciliar conforme oncologia. Nutricionalmente: refeições secas ao acordar, gengibre em pequenas doses se liberado, líquidos em goles pequenos, evitar grandes volumes junto das refeições."
+        },
+        {
+          "efeito": "Perda de apetite",
+          "relacionado_a": "Quimio + inflamação + náusea",
+          "manejo": "Não depender da fome. Usar horários fixos, refeições pequenas e densas em proteína/caloria. Estratégia \"pouco volume, muita entrega\": vitamina proteica, creme de legumes com proteína, mingau proteico, purês com azeite, ovos, peixe, frango, carne moída, iogurte proteico."
+        },
+        {
+          "efeito": "Alteração de paladar / gosto metálico",
+          "relacionado_a": "Cisplatina, etoposídeo",
+          "manejo": "Trocar talher de inox por plástico/bambu se houver gosto metálico. Usar marinadas leves com limão, ervas, gengibre, hortelã. Preferir alimentos frios ou temperatura ambiente. Se carne vermelha \"amargar\", alternar com ovos, frango, peixe, laticínios, leguminosas bem cozidas."
+        },
+        {
+          "efeito": "Mucosite / feridas na boca",
+          "relacionado_a": "Etoposídeo, cisplatina, queda imune",
+          "manejo": "Textura macia, cremosa e fria/morna. Evitar álcool, pimenta, cítricos, alimentos duros, torrados ou muito salgados. Usar cremes, purês, sopas batidas, iogurte, mingau, ovos mexidos macios. Higiene oral rigorosa e comunicar equipe se dor, placas brancas ou dificuldade para engolir."
+        },
+        {
+          "efeito": "Diarreia",
+          "relacionado_a": "Etoposídeo, antibióticos, alterações intestinais",
+          "manejo": "Hidratação com água, água de coco ou soro de reidratação se necessário. Preferir arroz, batata, mandioquinha, banana, maçã sem casca, cenoura cozida, frango, peixe, ovos. Reduzir leite, frituras, café, adoçantes poliol, alimentos crus e excesso de fibras até controlar."
+        },
+        {
+          "efeito": "Constipação",
+          "relacionado_a": "Antieméticos, menor ingestão, opioides, baixa mobilidade",
+          "manejo": "Aumentar líquidos, azeite nas refeições, frutas cozidas, aveia se tolerada, mamão, ameixa hidratada, legumes cozidos. Caminhada leve se liberada. Atenção: se neutropenia importante, evitar crus sem orientação individual."
+        },
+        {
+          "efeito": "Queda de imunidade / neutropenia",
+          "relacionado_a": "Quimioterapia (Lonquex é usado para reduzir o risco)",
+          "manejo": "Monitorar febre. Temperatura ≥ 37,5–38°C, calafrios ou mal-estar importante precisam de contato imediato com a equipe. Em períodos de maior risco, reforçar segurança alimentar: nada cru de procedência duvidosa, evitar buffet/self-service, sushi, ovos crus, leite não pasteurizado, frutas já cortadas fora de casa."
+        },
+        {
+          "efeito": "Dor óssea / dor no corpo",
+          "relacionado_a": "Lonquex (D6)",
+          "manejo": "Muito comum com lipegfilgrastim/Lonquex, por estímulo da medula óssea. Pode causar dor óssea, muscular e lombar. Manejo com analgésico prescrito/liberado pela equipe, hidratação, compressa morna e repouso relativo. Evitar anti-inflamatório por conta própria, principalmente pelo risco renal/plaquetas."
+        },
+        {
+          "efeito": "Toxicidade renal",
+          "relacionado_a": "Cisplatina",
+          "manejo": "Hidratação é prioridade. Monitorar creatinina, ureia, eletrólitos, diurese. Evitar desidratação por vômitos/diarreia. Não usar anti-inflamatórios sem liberação. Nutricionalmente: manter ingestão hídrica orientada, fracionar líquidos e usar preparações com caldo, sopas, frutas ricas em água se toleradas."
+        },
+        {
+          "efeito": "Perda de magnésio / potássio",
+          "relacionado_a": "Cisplatina",
+          "manejo": "Pode gerar fraqueza, câimbras, palpitação. Monitorar exames. Reposição deve ser médica. Pela dieta: banana, batata, feijões bem cozidos, abacate, água de coco, sementes e castanhas se toleradas e seguras."
+        },
+        {
+          "efeito": "Fadiga intensa",
+          "relacionado_a": "Quimio, anemia, inflamação, baixa ingestão",
+          "manejo": "Planejar alimentação de baixo esforço: comida congelada, sopas proteicas, ovos, iogurtes, shakes, purês enriquecidos. Pequenas caminhadas ou exercícios leves, se liberados, ajudam mais do que repouso absoluto. Avaliar anemia, sono, hidratação e ingestão proteica."
+        },
+        {
+          "efeito": "Anemia / palidez / falta de ar aos esforços",
+          "relacionado_a": "Mielossupressão",
+          "manejo": "Monitorar hemograma. Nutrição ajuda se houver deficiência, mas anemia da quimio pode precisar de conduta médica. Priorizar proteína, ferro alimentar, B12 e folato conforme exames. Sinais como falta de ar, tontura ou coração acelerado devem ser comunicados."
+        },
+        {
+          "efeito": "Alterações de pele / unhas",
+          "relacionado_a": "Bleomicina, etoposídeo",
+          "manejo": "Pode haver escurecimento de pele/unhas, ressecamento, coceira. Hidratar pele, evitar sol excessivo, usar fotoproteção. Comunicar lesões, bolhas, descamação intensa ou sinais de infecção."
+        },
+        {
+          "efeito": "Alopecia",
+          "relacionado_a": "Etoposídeo / cisplatina",
+          "manejo": "Manejo de acolhimento e imagem corporal. Orientar cuidado com couro cabeludo, proteção solar, lenços/turbantes, hidratação da pele."
+        }
+      ],
+      "sinais_alerta": [
+        "Febre, calafrios ou temperatura ≥ 37,5–38°C — contato imediato com a equipe (risco de neutropenia febril)",
+        "Tosse seca nova, falta de ar, dor no peito ou queda de saturação — toxicidade pulmonar da bleomicina, comunicar logo",
+        "Vômitos persistentes ou incapacidade de se alimentar/hidratar por mais de 24h",
+        "Diarreia intensa ou redução importante da urina",
+        "Placas brancas na boca, dor de garganta ou ardência para urinar",
+        "Zumbido súbito, sensação de ouvido tampado ou dificuldade de ouvir (ototoxicidade da cisplatina)",
+        "Formigamento progressivo, dormência ou perda de sensibilidade (neuropatia periférica)",
+        "Manchas roxas, sangramento nasal, gengiva sangrando, pontinhos vermelhos na pele, urina ou fezes com sangue (plaquetopenia)",
+        "Tontura importante, confusão mental ou piora rápida do estado geral"
+      ]
     }
   ]
 }
