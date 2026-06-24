@@ -1094,7 +1094,8 @@ function ModalEditarDados({ paciente, onClose, onSaved }) {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
               <label className="field-label">E-mail</label>
-              <input type="email" value={form.email} onChange={set('email')} />
+              <input type="email" value={form.email} readOnly style={{ background: 'var(--bg2)', color: 'var(--text3)', cursor: 'default' }} />
+              <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 3 }}>Para alterar o e-mail de login, fale com o suporte.</div>
             </div>
             <div>
               <label className="field-label">Telefone</label>
@@ -2418,7 +2419,7 @@ A resposta começa com "[" e termina com "]" — nada mais. "original" é sempre
         let textoQty = null;
         if (kcalAlvo && kcalAlvo > 0) {
           const eq = kcalEquivalente(kcalAlvo, nome);
-          if (eq && gramasOrig != null && eq.gramas >= gramasOrig * 0.2 && eq.gramas <= gramasOrig * 5) {
+          if (eq && (gramasOrig == null || (eq.gramas >= gramasOrig * 0.2 && eq.gramas <= gramasOrig * 5))) {
             const unid = eq.liquido ? 'ml' : 'g';
             textoQty = eq.medida ? `≈ ${eq.gramas} ${unid} · ${eq.medida}` : `≈ ${eq.gramas} ${unid}`;
           }
@@ -2535,6 +2536,7 @@ A resposta começa com "[" e termina com "]" — nada mais. "original" é sempre
 - Proteínas: ${prot}g | Carboidratos: ${carbo}g | Gorduras: ${gord}g
 - Restrições alimentares: ${restricoes}
 - Número de refeições: 6
+- Nomes obrigatórios das refeições (use exatamente estes nomes, nesta ordem): Café da manhã, Almoço, Lanche da tarde, Jantar, Ceia, Pré-treino
 - Formato de resposta: APENAS JSON puro, sem texto adicional, sem markdown.
 
 Estrutura JSON obrigatória:
@@ -2681,7 +2683,10 @@ Estrutura JSON obrigatória:
     setJsonInput('');
     setErroJson(null);
     setJsonOpen(false);
-    setFeedback({ tipo: 'importado', msg: `JSON importado! ${refs.length} refeições carregadas. Revise e clique em Publicar.` });
+    const avisoContagem = refs.length < refeicoes.length
+      ? ` ⚠️ Atenção: o editor tinha ${refeicoes.length} refeições e o JSON trouxe ${refs.length} — verifique se alguma ficou de fora.`
+      : '';
+    setFeedback({ tipo: 'importado', msg: `JSON importado! ${refs.length} refeições carregadas.${avisoContagem} Revise e clique em Publicar.` });
   }
 
   async function publicar() {

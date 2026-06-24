@@ -24,11 +24,6 @@ export default function RedefinirSenha() {
   // hash da URL e dispara o evento PASSWORD_RECOVERY no client.
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('[RESET] onAuthStateChange', {
-        event,
-        userId: session?.user?.id ?? null,
-        expiresAt: session?.expires_at ?? null,
-      });
       if (event === 'PASSWORD_RECOVERY') {
         setTokenOk(true);
       } else if (event === 'SIGNED_IN' && session) {
@@ -37,11 +32,6 @@ export default function RedefinirSenha() {
     });
 
     supabase.auth.getSession().then(({ data }) => {
-      console.log('[RESET] getSession', {
-        temSessao: !!data.session,
-        userId: data.session?.user?.id ?? null,
-        expiresAt: data.session?.expires_at ?? null,
-      });
       if (data.session) setTokenOk(true);
       else setTokenOk((v) => v ?? false);
     });
@@ -56,21 +46,11 @@ export default function RedefinirSenha() {
     if (senha !== confirmaSenha) return setErro('As senhas não conferem.');
 
     const { data: sessaoAtual } = await supabase.auth.getSession();
-    console.log('[RESET] PRE_UPDATE_SESSION', {
-      temSessao: !!sessaoAtual.session,
-      userId: sessaoAtual.session?.user?.id ?? null,
-      tokenType: sessaoAtual.session?.token_type ?? null,
-      expiresAt: sessaoAtual.session?.expires_at ?? null,
-    });
+    if (!sessaoAtual.session) return setErro('Sessão expirada. Peça um novo link na tela de Login.');
 
     setBusy(true);
     try {
-      const { data: updateData, error } = await supabase.auth.updateUser({ password: senha });
-      console.log('[RESET] UPDATE_RESULT', {
-        erro: error?.message ?? null,
-        userId: updateData?.user?.id ?? null,
-        updatedAt: updateData?.user?.updated_at ?? null,
-      });
+      const { error } = await supabase.auth.updateUser({ password: senha });
       setBusy(false);
       if (error) {
         if (/expired|invalid|token/i.test(error.message)) {

@@ -47,9 +47,7 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
       .order('titulo');
     const items = (data ?? []).map(it => ({
       ...it,
-      foto_url: it.storage_path
-        ? supabase.storage.from('ebooks').getPublicUrl(it.storage_path).data.publicUrl
-        : null,
+      foto_url: null,
     }));
     setFavoritos(items);
   }
@@ -75,9 +73,10 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
     setBusy(true);
     try {
       let foto_url = s.foto_url ?? null;
+      let fotoAviso = null;
       if (fotoFile) {
         try { foto_url = await uploadFotoSuplemento(fotoFile); }
-        catch (e) { alert('Erro ao enviar foto: ' + e.message); return; }
+        catch (e) { fotoAviso = e.message; foto_url = s.foto_url ?? null; }
       }
       if (s.novo) {
         const { error } = await supabase.from('suplementos').insert({
@@ -101,7 +100,9 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
       setEditar(null);
       setAdicionarOpen(false);
       carregar();
-      setFeedback('Suplemento salvo com sucesso!');
+      setFeedback(fotoAviso
+        ? `Suplemento salvo! Foto não enviada: ${fotoAviso}`
+        : 'Suplemento salvo com sucesso!');
     } catch (e) {
       alert('Erro ao salvar suplemento: ' + (e?.message ?? 'tente novamente'));
     } finally {
