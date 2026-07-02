@@ -94,10 +94,33 @@ export default function Inicio() {
     return () => { active = false; };
   }, [pacienteId]);
 
-  // Mensagem motivacional ativa da nutri (vale para todos os pacientes)
+  // Mensagem motivacional do topo.
+  // - Emagrecimento: banco próprio (mensagens_emagrecimento), rotação semanal.
+  // - Oncologia e demais objetivos: mensagem ativa da nutri (mensagens_ciclo).
   useEffect(() => {
     if (!profile?.nutri_id) return;
     let active = true;
+    const primeiroNome = profile.apelido || profile.nome?.split(' ')[0] || '';
+
+    if (profile.objetivo === 'Emagrecimento') {
+      // Âncora: segunda 05/01/2026 à meia-noite de Brasília (UTC-3).
+      // A virada da mensagem acontece toda segunda 00h no horário do Brasil.
+      const ANCORA = Date.UTC(2026, 0, 5, 3, 0, 0);
+      supabase
+        .from('mensagens_emagrecimento')
+        .select('texto')
+        .eq('nutri_id', profile.nutri_id)
+        .eq('ativa', true)
+        .order('ordem', { ascending: true })
+        .then(({ data }) => {
+          if (!active || !data?.length) return;
+          const semanas = Math.floor((Date.now() - ANCORA) / (7 * 86_400_000));
+          const idx = ((semanas % data.length) + data.length) % data.length;
+          const texto = data[idx].texto.replace(/\{nome\}/g, primeiroNome);
+          setMensagemCiclo({ texto });
+        });
+      return () => { active = false; };
+    }
 
     supabase
       .from('mensagens_ciclo')
@@ -107,13 +130,12 @@ export default function Inicio() {
       .maybeSingle()
       .then(({ data }) => {
         if (!active || !data?.mensagem) return;
-        const primeiroNome = profile.apelido || profile.nome?.split(' ')[0] || '';
         const texto = data.mensagem.replace(/\{nome\}/g, primeiroNome);
         setMensagemCiclo({ texto });
       });
 
     return () => { active = false; };
-  }, [profile?.nutri_id]);
+  }, [profile?.nutri_id, profile?.objetivo]);
 
   // ─── Derivados básicos ────────────────────────────────────────────────────
   const proximaRef = plano?.refeicoes?.find(r => !r.feita) ?? plano?.refeicoes?.[0] ?? null;
