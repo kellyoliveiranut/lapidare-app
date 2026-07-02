@@ -571,6 +571,2172 @@
         "Manchas roxas, sangramento nasal, gengiva sangrando, pontinhos vermelhos na pele, urina ou fezes com sangue (plaquetopenia)",
         "Tontura importante, confusão mental ou piora rápida do estado geral"
       ]
+    },
+    {
+      "nome": "Avelumabe",
+      "indicacao": "Imunoterapia; verificar sítio tumoral",
+      "duracaoCiclo": 14,
+      "conduta_base": "Manter boa hidratação, proteína em todas as refeições e registro de diarreia, dor abdominal, apetite, peso, fadiga, tosse e falta de ar. Perfil de imunoterapia: atenção a efeitos imunomediados. (duração a confirmar)",
+      "efeitos": [
+        {
+          "efeito": "Diarreia/colite imunomediada",
+          "relacionado_a": "Avelumabe",
+          "manejo": "Oferecer líquidos em pequenos goles, arroz, batata, banana, maçã sem casca, cenoura cozida e proteína leve. Evitar leite, frituras, álcool, café e alimentos crus enquanto houver piora."
+        },
+        {
+          "efeito": "Fadiga",
+          "relacionado_a": "Avelumabe",
+          "manejo": "Fracionar em 5 a 6 pequenas refeições, cada uma com proteína: ovo, frango desfiado, peixe, iogurte ou suplemento prescrito."
+        },
+        {
+          "efeito": "Alterações de apetite e peso por tireoidite/endocrinopatias",
+          "relacionado_a": "Avelumabe",
+          "manejo": "Monitorar peso semanal, fome, constipação, frio excessivo, palpitações e fraqueza; ajustar densidade calórica conforme evolução."
+        }
+      ],
+      "sinais_alerta": [
+        "Diarreia persistente ou com sangue",
+        "Dor abdominal forte",
+        "Falta de ar ou tosse nova",
+        "Pele ou olhos amarelados",
+        "Febre",
+        "Fraqueza intensa ou confusão mental"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "Bevacizumabe + Irinotecano",
+      "indicacao": "Colorretal, TGI, SNC ou outros; verificar indicação",
+      "duracaoCiclo": 14,
+      "conduta_base": "Priorizar prevenção de desidratação, controle de diarreia, proteína diária e segurança alimentar. Acompanhar peso, evacuações e ingestão hídrica. (duração a confirmar)",
+      "efeitos": [
+        {
+          "efeito": "Diarreia",
+          "relacionado_a": "Irinotecano",
+          "manejo": "Usar arroz, batata, mandioquinha, banana, maçã sem casca, cenoura cozida, frango, peixe e ovos. Evitar leite, frituras, café, álcool, adoçantes poliol e saladas cruas."
+        },
+        {
+          "efeito": "Náuseas",
+          "relacionado_a": "Irinotecano",
+          "manejo": "Fracionar em pequenas refeições a cada 2 ou 3 horas. Usar torrada, biscoito água e sal, caldo, purê, arroz e frutas leves."
+        },
+        {
+          "efeito": "Risco de sangramento e pior cicatrização",
+          "relacionado_a": "Bevacizumabe",
+          "manejo": "Garantir proteína em todas as refeições: ovos, peixe, frango, carne moída, iogurte ou leguminosas bem cozidas. Evitar suplementos sem validação clínica."
+        }
+      ],
+      "sinais_alerta": [
+        "Diarreia intensa ou com sangue",
+        "Sinais de desidratação",
+        "Febre",
+        "Sangramento",
+        "Dor abdominal forte",
+        "Pressão muito elevada",
+        "Dor de cabeça intensa"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "Bevacizumabe + Lomustina",
+      "indicacao": "SNC/glioma; verificar indicação",
+      "duracaoCiclo": 42,
+      "conduta_base": "A lomustina pode ter queda de medula mais tardia. Manter segurança alimentar, proteína diária, hidratação e atenção a náuseas, baixa ingestão, sangramentos e infecção. (duração a confirmar)",
+      "efeitos": [
+        {
+          "efeito": "Náuseas",
+          "relacionado_a": "Lomustina",
+          "manejo": "Usar refeições pequenas, secas e de baixo cheiro: torrada, arroz, purê, caldo, ovos, frango desfiado e banana."
+        },
+        {
+          "efeito": "Perda de apetite",
+          "relacionado_a": "Lomustina",
+          "manejo": "Oferecer 5 a 6 refeições pequenas com proteína. Enriquecer purês, sopas e mingaus com azeite, leite em pó, ovos ou suplemento prescrito."
+        },
+        {
+          "efeito": "Risco de sangramento/cicatrização",
+          "relacionado_a": "Bevacizumabe",
+          "manejo": "Manter aporte proteico e observar sangramentos. Evitar condutas restritivas que reduzam ingestão sem necessidade."
+        }
+      ],
+      "sinais_alerta": [
+        "Febre",
+        "Manchas roxas ou sangramento",
+        "Dor de cabeça intensa",
+        "Pressão alta importante",
+        "Vômitos persistentes",
+        "Sonolência ou confusão"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "Cabozantinibe",
+      "indicacao": "Terapia-alvo oral; rim, fígado, tireoide ou outros; verificar indicação",
+      "duracaoCiclo": 28,
+      "conduta_base": "Terapia oral contínua exige rotina alimentar estável, monitoramento de diarreia, mucosite, peso, pressão, hidratação e síndrome mão-pé. (duração a confirmar)",
+      "efeitos": [
+        {
+          "efeito": "Diarreia",
+          "relacionado_a": "Cabozantinibe",
+          "manejo": "Reduzir gordura, leite, café, álcool e fibras cruas. Usar arroz, batata, banana, maçã sem casca, cenoura cozida e proteínas magras."
+        },
+        {
+          "efeito": "Mucosite",
+          "relacionado_a": "Cabozantinibe",
+          "manejo": "Preferir cremes, purês, mingaus, ovos macios e sopas batidas. Evitar alimentos ácidos, picantes, muito salgados ou crocantes."
+        },
+        {
+          "efeito": "Perda de peso/anorexia",
+          "relacionado_a": "Cabozantinibe",
+          "manejo": "Enriquecer pequenas porções com azeite, leite em pó, pasta de amendoim, abacate, ovos ou suplemento prescrito."
+        },
+        {
+          "efeito": "Síndrome mão-pé",
+          "relacionado_a": "Cabozantinibe",
+          "manejo": "Facilitar refeições de baixo preparo se houver dor nas mãos; priorizar alimentos prontos seguros, sopas congeladas e proteínas macias."
+        }
+      ],
+      "sinais_alerta": [
+        "Diarreia intensa",
+        "Sangramento",
+        "Dor abdominal forte",
+        "Pressão muito alta",
+        "Feridas graves na boca",
+        "Dor no peito ou falta de ar"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "Capecitabina + Temozolomida",
+      "indicacao": "Neuroendócrino, SNC ou TGI; verificar indicação",
+      "duracaoCiclo": 28,
+      "conduta_base": "Manter alimentação fracionada, hidratação, controle de diarreia/mucosite e monitoramento de mãos e pés. Confirmar dias exatos de uso de cada medicação.",
+      "efeitos": [
+        {
+          "efeito": "Náuseas",
+          "relacionado_a": "Temozolomida",
+          "manejo": "Preferir refeições pequenas, frias ou mornas, com pouco cheiro: torrada, arroz, purê, banana, iogurte, ovos e sopas leves."
+        },
+        {
+          "efeito": "Diarreia",
+          "relacionado_a": "Capecitabina",
+          "manejo": "Usar arroz, batata, cenoura cozida, banana, maçã sem casca e proteína magra. Evitar leite, frituras, café e saladas cruas."
+        },
+        {
+          "efeito": "Síndrome mão-pé",
+          "relacionado_a": "Capecitabina",
+          "manejo": "Planejar refeições prontas ou congeladas se houver dor nas mãos. Manter proteína para reparo tecidual."
+        },
+        {
+          "efeito": "Mucosite",
+          "relacionado_a": "Capecitabina + Temozolomida",
+          "manejo": "Usar textura cremosa e fria/morna: purê, mingau, sopa batida, iogurte e ovos macios. Evitar pimenta, limão e crocantes."
+        }
+      ],
+      "sinais_alerta": [
+        "Diarreia intensa",
+        "Vômitos persistentes",
+        "Feridas importantes na boca",
+        "Febre",
+        "Descamação dolorosa nas mãos/pés",
+        "Sangramento"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "CARBO + PACLITAXEL",
+      "indicacao": "Ovário, pulmão, endométrio, mama ou outros; verificar indicação",
+      "duracaoCiclo": 21,
+      "conduta_base": "Foco em náusea moderada, constipação, fadiga, neuropatia, dor muscular e preservação de massa magra. Reforçar segurança alimentar se houver queda de imunidade. (duração a confirmar)",
+      "efeitos": [
+        {
+          "efeito": "Náuseas",
+          "relacionado_a": "Carboplatina",
+          "manejo": "Fazer pequenas refeições a cada 2 ou 3 horas: arroz, batata, caldo, frango, ovos, iogurte e frutas leves."
+        },
+        {
+          "efeito": "Neuropatia",
+          "relacionado_a": "Paclitaxel",
+          "manejo": "Monitorar formigamento e dificuldade para cozinhar. Garantir proteína diária e avaliar B12, folato, vitamina D e magnésio conforme exames."
+        },
+        {
+          "efeito": "Dor muscular/articular",
+          "relacionado_a": "Paclitaxel",
+          "manejo": "Manter hidratação, proteína e refeições com peixe, azeite, legumes cozidos e frutas toleradas."
+        },
+        {
+          "efeito": "Constipação",
+          "relacionado_a": "Antieméticos e baixa ingestão",
+          "manejo": "Usar água, mamão, aveia, ameixa hidratada e legumes cozidos, ajustando se houver neutropenia."
+        }
+      ],
+      "sinais_alerta": [
+        "Febre",
+        "Falta de ar",
+        "Reação alérgica durante ou após infusão",
+        "Formigamento progressivo",
+        "Sangramento",
+        "Vômitos persistentes"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "Carboplatina + Docetaxel semanal",
+      "indicacao": "Mama, pulmão, próstata ou outros; verificar indicação",
+      "duracaoCiclo": 21,
+      "conduta_base": "Por ser semanal, evitar queda progressiva da ingestão. Manter proteína diária, hidratação, manejo de mucosite e controle de constipação/diarreia. (duração a confirmar)",
+      "efeitos": [
+        {
+          "efeito": "Mucosite",
+          "relacionado_a": "Docetaxel",
+          "manejo": "Preferir sopas cremosas, purês, mingau, iogurte e ovos macios. Evitar pimenta, álcool, limão e alimentos duros."
+        },
+        {
+          "efeito": "Náuseas",
+          "relacionado_a": "Carboplatina",
+          "manejo": "Usar pequenas refeições e alimentos secos nos dias de enjoo. Fracionar líquidos fora das refeições."
+        },
+        {
+          "efeito": "Diarreia",
+          "relacionado_a": "Docetaxel",
+          "manejo": "Reduzir leite, gordura e café. Usar arroz, batata, banana, cenoura cozida e proteína magra."
+        },
+        {
+          "efeito": "Retenção de líquidos",
+          "relacionado_a": "Docetaxel",
+          "manejo": "Monitorar peso, edema e consumo de sal; manter proteína em todas as refeições."
+        }
+      ],
+      "sinais_alerta": [
+        "Febre",
+        "Falta de ar",
+        "Inchaço importante",
+        "Diarreia intensa",
+        "Feridas graves na boca",
+        "Sangramento"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "Carboplatina + Etoposídeo",
+      "indicacao": "Pulmão pequenas células, neuroendócrino ou outros; verificar indicação",
+      "duracaoCiclo": 21,
+      "conduta_base": "Foco em manter ingestão proteica, prevenir desidratação, controlar náusea e reforçar segurança alimentar na janela de queda imune.",
+      "efeitos": [
+        {
+          "efeito": "Náuseas",
+          "relacionado_a": "Carboplatina + Etoposídeo",
+          "manejo": "Usar pequenas refeições de baixo cheiro: arroz, purê, ovos, frango desfiado, caldo, banana e frutas leves."
+        },
+        {
+          "efeito": "Mucosite",
+          "relacionado_a": "Etoposídeo",
+          "manejo": "Textura macia e cremosa: sopa batida, purê, mingau, iogurte e ovos macios. Evitar ácidos, pimenta e alimentos secos."
+        },
+        {
+          "efeito": "Perda de apetite",
+          "relacionado_a": "Etoposídeo",
+          "manejo": "Programar horários fixos e enriquecer pequenas porções com azeite, leite em pó, ovos ou suplemento prescrito."
+        },
+        {
+          "efeito": "Constipação",
+          "relacionado_a": "Antieméticos e baixa ingestão",
+          "manejo": "Oferecer água, frutas cozidas, aveia e legumes cozidos, ajustando conforme tolerância e hemograma."
+        }
+      ],
+      "sinais_alerta": [
+        "Febre",
+        "Calafrios",
+        "Feridas na boca com dificuldade para comer",
+        "Vômitos persistentes",
+        "Diarreia intensa",
+        "Sangramento"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "Cemiplimabe",
+      "indicacao": "Imunoterapia; pele, pulmão ou outros; verificar indicação",
+      "duracaoCiclo": 21,
+      "conduta_base": "Perfil de imunoterapia. Monitorar intestino, apetite, peso, fadiga, pele, respiração e sinais de tireoidite, hepatite, colite ou pneumonite. Manter hidratação e proteína diária. (duração a confirmar)",
+      "efeitos": [
+        {
+          "efeito": "Diarreia/colite imunomediada",
+          "relacionado_a": "Cemiplimabe",
+          "manejo": "Manter líquidos em pequenos goles e usar refeições simples: arroz, batata, banana, maçã sem casca, cenoura cozida, frango, peixe ou ovos. Evitar leite, álcool, café, frituras e alimentos crus enquanto houver piora."
+        },
+        {
+          "efeito": "Fadiga",
+          "relacionado_a": "Cemiplimabe",
+          "manejo": "Fracionar em 5 a 6 pequenas refeições com proteína: 1 ovo, 1 copo de iogurte, frango desfiado, peixe, carne moída ou suplemento prescrito."
+        },
+        {
+          "efeito": "Alteração de apetite/peso por endocrinopatias",
+          "relacionado_a": "Cemiplimabe",
+          "manejo": "Monitorar peso, apetite, constipação, frio excessivo, palpitação, fraqueza e sonolência; ajustar densidade calórica conforme evolução e comunicar alterações importantes."
+        },
+        {
+          "efeito": "Náusea/inapetência associada à toxicidade imune",
+          "relacionado_a": "Cemiplimabe",
+          "manejo": "Usar pequenas refeições de baixo cheiro, como sopas leves, purês, arroz, ovos e frutas cozidas. Investigar se há dor abdominal, icterícia ou diarreia associada."
+        }
+      ],
+      "sinais_alerta": [
+        "Diarreia persistente ou com sangue",
+        "Dor abdominal forte",
+        "Falta de ar ou tosse nova",
+        "Febre",
+        "Pele ou olhos amarelados",
+        "Fraqueza extrema ou confusão mental"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "Cetuximabe (Ataque)",
+      "indicacao": "Colorretal, cabeça e pescoço ou outros; verificar indicação",
+      "duracaoCiclo": 7,
+      "conduta_base": "Foco em pele, mucosite, diarreia, hidratação e manutenção da ingestão. Garantir proteína diária para integridade de pele e mucosas. (duração a confirmar)",
+      "efeitos": [
+        {
+          "efeito": "Rash/acneiforme e pele seca",
+          "relacionado_a": "Cetuximabe",
+          "manejo": "Manter boa hidratação e proteína em todas as refeições: ovos, frango, peixe, carne, iogurte, feijões bem cozidos e azeite se tolerado."
+        },
+        {
+          "efeito": "Diarreia",
+          "relacionado_a": "Cetuximabe",
+          "manejo": "Usar arroz, batata, banana, maçã sem casca, cenoura cozida e proteína magra. Evitar leite, frituras, café, álcool e alimentos crus temporariamente."
+        },
+        {
+          "efeito": "Mucosite",
+          "relacionado_a": "Cetuximabe",
+          "manejo": "Usar alimentos cremosos e frios ou mornos: purês, sopas batidas, mingau, iogurte e ovos macios. Evitar pimenta, álcool, limão, abacaxi e alimentos ásperos."
+        },
+        {
+          "efeito": "Perda de apetite",
+          "relacionado_a": "Cetuximabe/doença",
+          "manejo": "Usar refeições pequenas e enriquecidas, como vitamina proteica, mingau com leite em pó, sopa com frango desfiado ou creme de leguminosas."
+        }
+      ],
+      "sinais_alerta": [
+        "Reação alérgica durante ou após infusão",
+        "Falta de ar",
+        "Diarreia intensa",
+        "Feridas graves na pele ou boca",
+        "Febre",
+        "Sinais de desidratação"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "Cetuximabe (Manutenção)",
+      "indicacao": "Colorretal, cabeça e pescoço ou outros; verificar indicação",
+      "duracaoCiclo": 7,
+      "conduta_base": "Acompanhar semanalmente ingestão, peso, diarreia, mucosite e lesões de pele. Priorizar hidratação, proteína diária e refeições de fácil aceitação. (duração a confirmar)",
+      "efeitos": [
+        {
+          "efeito": "Pele seca/rash",
+          "relacionado_a": "Cetuximabe",
+          "manejo": "Manter proteína e gorduras boas em pequenas porções: ovos, peixe, azeite, abacate e castanhas se toleradas."
+        },
+        {
+          "efeito": "Diarreia",
+          "relacionado_a": "Cetuximabe",
+          "manejo": "Reduzir alimentos gordurosos e irritantes. Preferir arroz, batata, banana, cenoura cozida, frango, peixe e ovos."
+        },
+        {
+          "efeito": "Mucosite",
+          "relacionado_a": "Cetuximabe",
+          "manejo": "Preferir textura cremosa: sopa batida, purê, mingau, iogurte e ovos macios. Evitar cítricos, pimenta, álcool e crocantes."
+        },
+        {
+          "efeito": "Baixa ingestão/perda de peso",
+          "relacionado_a": "Cetuximabe/doença",
+          "manejo": "Usar 5 a 6 pequenas refeições por dia, enriquecidas com azeite, leite em pó, ovos, frango desfiado ou suplemento prescrito."
+        }
+      ],
+      "sinais_alerta": [
+        "Falta de ar",
+        "Diarreia intensa",
+        "Febre",
+        "Desidratação",
+        "Lesões de pele extensas, dolorosas ou infectadas",
+        "Feridas importantes na boca"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "Cisplatina + Etoposideo",
+      "indicacao": "Pulmão pequenas células, tumores germinativos ou outros; verificar indicação",
+      "duracaoCiclo": 21,
+      "conduta_base": "Priorizar hidratação, controle de náusea, proteção renal, manutenção de eletrólitos conforme exames e proteína diária. Reforçar segurança alimentar na janela de queda de imunidade. (duração a confirmar)",
+      "efeitos": [
+        {
+          "efeito": "Náuseas/vômitos",
+          "relacionado_a": "Cisplatina",
+          "manejo": "Comer pequenas porções a cada 2 ou 3 horas, evitar jejum e usar alimentos frios ou mornos de baixo cheiro: arroz, batata, caldos, ovos, frango e banana."
+        },
+        {
+          "efeito": "Risco renal e desidratação",
+          "relacionado_a": "Cisplatina",
+          "manejo": "Fracionar água ao longo do dia, incluir caldos, água de coco se liberada e frutas ricas em água. Observar volume e cor da urina."
+        },
+        {
+          "efeito": "Mucosite",
+          "relacionado_a": "Etoposídeo",
+          "manejo": "Usar purês, sopas batidas, mingau, iogurte e ovos macios. Evitar alimentos ácidos, picantes, muito salgados ou crocantes."
+        },
+        {
+          "efeito": "Alteração de paladar/gosto metálico",
+          "relacionado_a": "Cisplatina",
+          "manejo": "Usar talheres não metálicos, variar proteínas como ovos, peixe, frango e iogurte, e usar ervas suaves ou limão se não houver mucosite."
+        },
+        {
+          "efeito": "Perda de apetite/fadiga",
+          "relacionado_a": "Cisplatina + Etoposideo",
+          "manejo": "Usar pequenas refeições densas em proteína: vitamina proteica, mingau enriquecido, sopa com frango, creme de legumes com carne moída ou ovos."
+        }
+      ],
+      "sinais_alerta": [
+        "Febre",
+        "Vômitos persistentes",
+        "Pouca urina",
+        "Zumbido ou perda auditiva",
+        "Formigamento progressivo",
+        "Sangramento",
+        "Feridas na boca com dificuldade para comer"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "Cisplatina + Irinotecano",
+      "indicacao": "Pulmão, TGI, ginecológico ou outros; verificar indicação",
+      "duracaoCiclo": 21,
+      "conduta_base": "Combinação com foco em náusea, proteção renal, diarreia e risco de desidratação. Reforçar hidratação fracionada e plano alimentar antidiarreico. (duração a confirmar)",
+      "efeitos": [
+        {
+          "efeito": "Náuseas/vômitos",
+          "relacionado_a": "Cisplatina",
+          "manejo": "Fracionar refeições, evitar cheiro forte e reduzir gordura nos dias de enjoo. Usar arroz, batata, caldos, ovos, frango e frutas leves."
+        },
+        {
+          "efeito": "Diarreia",
+          "relacionado_a": "Irinotecano",
+          "manejo": "Preferir arroz, batata, cenoura cozida, banana, maçã sem casca e proteína magra. Evitar leite, café, gordura, álcool, adoçantes poliol e alimentos crus."
+        },
+        {
+          "efeito": "Desidratação",
+          "relacionado_a": "Cisplatina + Irinotecano",
+          "manejo": "Ofertar líquidos em pequenos goles, água de coco ou soro de reidratação se indicado. Monitorar urina, sede, tontura e boca seca."
+        },
+        {
+          "efeito": "Mucosite",
+          "relacionado_a": "Irinotecano",
+          "manejo": "Usar textura cremosa, fria ou morna: purê, sopa batida, mingau e ovos macios. Evitar pimenta, álcool, cítricos e crocantes."
+        },
+        {
+          "efeito": "Perda de apetite",
+          "relacionado_a": "Cisplatina + Irinotecano",
+          "manejo": "Oferecer 5 a 6 pequenas refeições ao dia, priorizando proteína em pequeno volume, como ovos, iogurte, frango desfiado, peixe ou suplemento prescrito."
+        }
+      ],
+      "sinais_alerta": [
+        "Diarreia intensa",
+        "Vômitos persistentes",
+        "Febre",
+        "Pouca urina",
+        "Dor abdominal forte",
+        "Sangramento",
+        "Sinais de desidratação"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "Dabrafenibe + Trametinibe",
+      "indicacao": "Terapia-alvo; melanoma, pulmão, tireoide ou outros BRAF; verificar indicação",
+      "duracaoCiclo": 28,
+      "conduta_base": "Monitorar febre, hidratação, ingestão, peso, diarreia, náusea e fadiga. Terapias-alvo orais podem gerar sintomas flutuantes. (duração a confirmar)",
+      "efeitos": [
+        {
+          "efeito": "Febre e mal-estar",
+          "relacionado_a": "Dabrafenibe + Trametinibe",
+          "manejo": "Aumentar líquidos em pequenos goles e usar refeições leves com proteína em pequeno volume: ovos, iogurte, frango, peixe, sopa proteica ou vitamina."
+        },
+        {
+          "efeito": "Diarreia",
+          "relacionado_a": "Trametinibe",
+          "manejo": "Usar arroz, batata, cenoura cozida, banana, maçã sem casca e proteína magra. Evitar leite, gordura, café e álcool."
+        },
+        {
+          "efeito": "Perda de apetite",
+          "relacionado_a": "Dabrafenibe + Trametinibe",
+          "manejo": "Oferecer vitaminas proteicas, sopas enriquecidas, ovos, iogurte, purês com azeite e porções pequenas mais calóricas."
+        },
+        {
+          "efeito": "Náuseas",
+          "relacionado_a": "Dabrafenibe + Trametinibe",
+          "manejo": "Usar pequenas refeições de baixo cheiro e líquidos fora das refeições. Preferir preparações mornas ou frias se o cheiro incomodar."
+        }
+      ],
+      "sinais_alerta": [
+        "Febre persistente",
+        "Desidratação",
+        "Diarreia intensa",
+        "Falta de ar",
+        "Alteração visual",
+        "Fraqueza intensa",
+        "Confusão mental"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "Dacarbazina",
+      "indicacao": "Melanoma, sarcoma, linfoma ou outros; verificar indicação",
+      "duracaoCiclo": 21,
+      "conduta_base": "Foco em náuseas, vômitos, anorexia, hidratação e segurança alimentar na janela de queda imune. (duração a confirmar)",
+      "efeitos": [
+        {
+          "efeito": "Náuseas/vômitos",
+          "relacionado_a": "Dacarbazina",
+          "manejo": "Usar refeições pequenas, secas e de baixo cheiro: torrada, arroz, purê, caldos, banana, ovos e proteína leve."
+        },
+        {
+          "efeito": "Perda de apetite",
+          "relacionado_a": "Dacarbazina",
+          "manejo": "Enriquecer pequenas porções com azeite, leite em pó, ovos ou suplemento prescrito. Priorizar horários fixos mesmo sem fome."
+        },
+        {
+          "efeito": "Mucosite",
+          "relacionado_a": "Dacarbazina",
+          "manejo": "Preferir textura cremosa e fria ou morna. Evitar alimentos ácidos, picantes, muito salgados ou duros."
+        },
+        {
+          "efeito": "Fadiga",
+          "relacionado_a": "Dacarbazina",
+          "manejo": "Planejar refeições práticas: sopa proteica, iogurte, vitamina, ovos mexidos macios, purês e frango desfiado."
+        }
+      ],
+      "sinais_alerta": [
+        "Febre",
+        "Vômitos persistentes",
+        "Sinais de desidratação",
+        "Sangramento",
+        "Feridas importantes na boca",
+        "Fraqueza intensa"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "Docetaxel + Gencitabina",
+      "indicacao": "Sarcoma, mama, pulmão ou outros; verificar indicação",
+      "duracaoCiclo": 21,
+      "conduta_base": "Foco em proteína, hidratação, manejo de fadiga, mucosite, retenção de líquidos, diarreia e segurança alimentar. (duração a confirmar)",
+      "efeitos": [
+        {
+          "efeito": "Fadiga",
+          "relacionado_a": "Docetaxel + Gencitabina",
+          "manejo": "Usar refeições prontas simples: sopa proteica, ovos, iogurte, vitamina, frango desfiado, peixe e purês enriquecidos."
+        },
+        {
+          "efeito": "Mucosite",
+          "relacionado_a": "Docetaxel",
+          "manejo": "Preferir alimentos cremosos: purê, sopa batida, mingau, iogurte e ovos macios. Evitar pimenta, álcool, limão e alimentos duros."
+        },
+        {
+          "efeito": "Náuseas",
+          "relacionado_a": "Gencitabina + Docetaxel",
+          "manejo": "Fracionar em pequenos volumes, evitar gordura nos dias de enjoo e escolher preparações de baixo cheiro."
+        },
+        {
+          "efeito": "Retenção de líquidos",
+          "relacionado_a": "Docetaxel",
+          "manejo": "Monitorar peso, edema e consumo de sal; manter proteína em todas as refeições."
+        },
+        {
+          "efeito": "Diarreia",
+          "relacionado_a": "Docetaxel + Gencitabina",
+          "manejo": "Usar arroz, batata, banana, cenoura cozida e proteína magra. Reduzir leite, café, gordura e álcool temporariamente."
+        }
+      ],
+      "sinais_alerta": [
+        "Febre",
+        "Falta de ar",
+        "Inchaço importante",
+        "Diarreia intensa",
+        "Sangramento",
+        "Feridas graves na boca"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "Dostarlimabe (Ruby trial)",
+      "indicacao": "Imunoterapia; endométrio ou outros; verificar indicação",
+      "duracaoCiclo": 21,
+      "conduta_base": "Perfil de imunoterapia. Monitorar intestino, fígado, tireoide, pulmão, apetite, peso e fadiga. Toxicidades podem ser imunomediadas e não devem ser tratadas como sintomas comuns persistentes. (duração a confirmar)",
+      "efeitos": [
+        {
+          "efeito": "Diarreia/colite imunomediada",
+          "relacionado_a": "Dostarlimabe",
+          "manejo": "Hidratar em pequenos goles, reduzir gordura, leite, café, álcool e alimentos crus; usar arroz, batata, banana, cenoura cozida, frango, peixe e ovos."
+        },
+        {
+          "efeito": "Fadiga",
+          "relacionado_a": "Dostarlimabe",
+          "manejo": "Manter pequenas refeições com proteína e avaliar ingestão total do dia. Usar vitaminas proteicas, sopas e ovos se houver baixa energia."
+        },
+        {
+          "efeito": "Alterações endócrinas",
+          "relacionado_a": "Dostarlimabe",
+          "manejo": "Monitorar peso, apetite, constipação, frio excessivo, palpitação e fraqueza. Ajustar calorias e proteína conforme evolução."
+        },
+        {
+          "efeito": "Náusea/inapetência por possível hepatite imunomediada",
+          "relacionado_a": "Dostarlimabe",
+          "manejo": "Evitar álcool e suplementos sem validação. Usar refeições leves e comunicar náusea persistente, dor abdominal ou icterícia."
+        }
+      ],
+      "sinais_alerta": [
+        "Diarreia persistente",
+        "Dor abdominal forte",
+        "Falta de ar ou tosse nova",
+        "Icterícia",
+        "Febre",
+        "Confusão mental ou fraqueza extrema"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "DOXOPEG + DACARBAZINA",
+      "indicacao": "Sarcoma, ginecológico ou outros; verificar indicação",
+      "duracaoCiclo": 28,
+      "conduta_base": "Foco em náuseas, mucosite, síndrome mão-pé, fadiga, hidratação e manutenção proteica. (duração a confirmar)",
+      "efeitos": [
+        {
+          "efeito": "Náuseas/vômitos",
+          "relacionado_a": "DACARBAZINA",
+          "manejo": "Refeições pequenas, frias ou mornas e de baixo cheiro: arroz, purê, caldos, banana, ovos e frango desfiado."
+        },
+        {
+          "efeito": "Mucosite",
+          "relacionado_a": "DOXOPEG + DACARBAZINA",
+          "manejo": "Textura cremosa e macia: mingau, sopa batida, purê, iogurte e ovos macios. Evitar pimenta, álcool, cítricos e alimentos duros."
+        },
+        {
+          "efeito": "Síndrome mão-pé",
+          "relacionado_a": "DOXOPEG",
+          "manejo": "Planejar refeições de baixo preparo se houver dor nas mãos; usar sopas congeladas, ovos, iogurte e proteínas já desfiadas. Manter proteína e hidratação."
+        },
+        {
+          "efeito": "Perda de apetite",
+          "relacionado_a": "DACARBAZINA",
+          "manejo": "Enriquecer sopas, mingaus e vitaminas com proteína e calorias em pequeno volume, como leite em pó, azeite, ovos ou suplemento prescrito."
+        }
+      ],
+      "sinais_alerta": [
+        "Febre",
+        "Vômitos persistentes",
+        "Feridas graves na boca",
+        "Descamação dolorosa nas mãos/pés",
+        "Falta de ar",
+        "Sangramento"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "Doxorrubicina + Cisplatina",
+      "indicacao": "Sarcoma, ginecológico ou outros; verificar indicação",
+      "duracaoCiclo": 21,
+      "conduta_base": "Combinação com alta demanda de controle de náusea, hidratação, mucosite, proteção renal e manutenção de massa magra. (duração a confirmar)",
+      "efeitos": [
+        {
+          "efeito": "Náuseas/vômitos",
+          "relacionado_a": "Cisplatina",
+          "manejo": "Usar pequenas refeições frequentes, líquidos em goles, preparações frias ou mornas e baixo teor de gordura."
+        },
+        {
+          "efeito": "Mucosite",
+          "relacionado_a": "Doxorrubicina",
+          "manejo": "Usar sopas batidas, purês, mingau, iogurte e ovos macios. Evitar alimentos ácidos, picantes, crocantes e muito salgados."
+        },
+        {
+          "efeito": "Risco renal e desidratação",
+          "relacionado_a": "Cisplatina",
+          "manejo": "Fracionar hidratação ao longo do dia, incluir caldos e monitorar urina, vômitos e diarreia."
+        },
+        {
+          "efeito": "Perda de apetite/fadiga",
+          "relacionado_a": "Doxorrubicina + Cisplatina",
+          "manejo": "Usar pequenas porções densas: vitamina proteica, creme de legumes com carne ou frango, mingau enriquecido, iogurte e ovos."
+        },
+        {
+          "efeito": "Alteração de paladar",
+          "relacionado_a": "Cisplatina",
+          "manejo": "Trocar talheres metálicos por plástico/bambu e variar fontes proteicas. Usar ervas suaves se tolerado."
+        }
+      ],
+      "sinais_alerta": [
+        "Febre",
+        "Vômitos persistentes",
+        "Dor no peito ou falta de ar",
+        "Pouca urina",
+        "Feridas graves na boca",
+        "Sangramento",
+        "Zumbido ou formigamento progressivo"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "Doxorrubicina + Ifosfamida",
+      "indicacao": "Sarcoma; verificar indicação",
+      "duracaoCiclo": 21,
+      "conduta_base": "Foco em hidratação, mucosite, segurança alimentar, manutenção proteica e vigilância de sintomas urinários/neurológicos. (duração a confirmar)",
+      "efeitos": [
+        {
+          "efeito": "Mucosite",
+          "relacionado_a": "Doxorrubicina",
+          "manejo": "Preferir alimentos cremosos e frios ou mornos. Evitar pimenta, álcool, cítricos, torradas duras e alimentos crocantes."
+        },
+        {
+          "efeito": "Náuseas",
+          "relacionado_a": "Ifosfamida + Doxorrubicina",
+          "manejo": "Usar pequenas refeições de baixo cheiro, com arroz, purê, frango, ovos, caldos e banana."
+        },
+        {
+          "efeito": "Risco urinário/desidratação",
+          "relacionado_a": "Ifosfamida",
+          "manejo": "Reforçar hidratação fracionada e observar cor da urina, ardência e presença de sangue."
+        },
+        {
+          "efeito": "Perda de peso/baixa ingestão",
+          "relacionado_a": "Doxorrubicina + Ifosfamida",
+          "manejo": "Enriquecer refeições com azeite, leite em pó, ovos, frango desfiado e suplementos prescritos."
+        },
+        {
+          "efeito": "Fadiga",
+          "relacionado_a": "Doxorrubicina + Ifosfamida",
+          "manejo": "Organizar comida de baixo esforço: sopas congeladas, purês proteicos, ovos, iogurte, vitaminas e proteínas já cozidas/desfiadas."
+        }
+      ],
+      "sinais_alerta": [
+        "Febre",
+        "Sangue na urina",
+        "Confusão mental ou sonolência intensa",
+        "Feridas graves na boca",
+        "Vômitos persistentes",
+        "Sangramento",
+        "Falta de ar ou dor no peito"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "Doxorrubicina Lipossomal",
+      "indicacao": "Ovário, mama, sarcoma ou outros; verificar indicação",
+      "duracaoCiclo": 28,
+      "conduta_base": "Foco em mucosite, síndrome mão-pé, fadiga, hidratação e manutenção do peso. (duração a confirmar)",
+      "efeitos": [
+        {
+          "efeito": "Mucosite",
+          "relacionado_a": "Doxorrubicina Lipossomal",
+          "manejo": "Usar textura cremosa: purês, sopas batidas, mingau, iogurte e ovos macios. Evitar ácidos, pimenta e alimentos duros."
+        },
+        {
+          "efeito": "Síndrome mão-pé",
+          "relacionado_a": "Doxorrubicina Lipossomal",
+          "manejo": "Facilitar preparo com refeições prontas ou congeladas e manter proteína para reparo tecidual."
+        },
+        {
+          "efeito": "Fadiga",
+          "relacionado_a": "Doxorrubicina Lipossomal",
+          "manejo": "Fracionar refeições e priorizar proteína em cada uma: ovos, peixe, frango, iogurte ou leguminosas bem cozidas."
+        },
+        {
+          "efeito": "Perda de apetite",
+          "relacionado_a": "Doxorrubicina Lipossomal",
+          "manejo": "Usar pequenas refeições enriquecidas: vitamina proteica, mingau com leite em pó, purê com azeite ou sopa com frango."
+        }
+      ],
+      "sinais_alerta": [
+        "Febre",
+        "Feridas graves na boca",
+        "Descamação dolorosa nas mãos/pés",
+        "Falta de ar",
+        "Dor no peito",
+        "Sangramento"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "DTIC",
+      "indicacao": "Melanoma, sarcoma, linfoma ou outros; verificar indicação",
+      "duracaoCiclo": 21,
+      "conduta_base": "Foco em náusea, vômitos, anorexia, hidratação e segurança alimentar. (duração a confirmar)",
+      "efeitos": [
+        {
+          "efeito": "Náuseas/vômitos",
+          "relacionado_a": "DTIC",
+          "manejo": "Fazer pequenas refeições secas e de baixo cheiro. Usar torradas, arroz, purê, banana, caldos e líquidos em goles."
+        },
+        {
+          "efeito": "Perda de apetite",
+          "relacionado_a": "DTIC",
+          "manejo": "Usar sopas proteicas, vitaminas, ovos, iogurte e purês enriquecidos com azeite, leite em pó ou suplemento prescrito."
+        },
+        {
+          "efeito": "Mucosite",
+          "relacionado_a": "DTIC",
+          "manejo": "Preferir textura cremosa e evitar alimentos ácidos, picantes, muito salgados ou crocantes."
+        },
+        {
+          "efeito": "Fadiga",
+          "relacionado_a": "DTIC",
+          "manejo": "Planejar refeições simples e de baixo esforço, com proteína em pequenos volumes ao longo do dia."
+        }
+      ],
+      "sinais_alerta": [
+        "Febre",
+        "Vômitos persistentes",
+        "Desidratação",
+        "Sangramento",
+        "Feridas importantes na boca",
+        "Fraqueza intensa"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "Encorafenibe + Binimetinibe",
+      "indicacao": "Terapia-alvo; melanoma/colorretal BRAF ou outros; verificar indicação",
+      "duracaoCiclo": 28,
+      "conduta_base": "Monitorar diarreia, náuseas, fadiga, apetite, peso, pele e sintomas visuais. Manter hidratação e proteína diária. (duração a confirmar)",
+      "efeitos": [
+        {
+          "efeito": "Náuseas",
+          "relacionado_a": "Encorafenibe + Binimetinibe",
+          "manejo": "Fracionar refeições, usar alimentos mornos ou frios e de baixo cheiro: arroz, purê, ovos, frango, iogurte e banana."
+        },
+        {
+          "efeito": "Diarreia",
+          "relacionado_a": "Binimetinibe",
+          "manejo": "Usar arroz, batata, banana, maçã sem casca, cenoura cozida e proteína magra. Evitar gordura, leite, café e álcool."
+        },
+        {
+          "efeito": "Fadiga",
+          "relacionado_a": "Encorafenibe + Binimetinibe",
+          "manejo": "Planejar refeições de fácil preparo, com proteína em pequenas porções ao longo do dia: ovos, iogurte, frango, peixe ou suplemento."
+        },
+        {
+          "efeito": "Perda de apetite",
+          "relacionado_a": "Encorafenibe + Binimetinibe",
+          "manejo": "Usar pequenas porções mais densas: vitaminas proteicas, sopas enriquecidas, purês com azeite e ovos."
+        }
+      ],
+      "sinais_alerta": [
+        "Diarreia intensa",
+        "Desidratação",
+        "Alteração visual",
+        "Falta de ar",
+        "Febre",
+        "Dor abdominal forte",
+        "Fraqueza intensa"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "EP X4",
+      "indicacao": "Tumores germinativos; verificar indicação",
+      "duracaoCiclo": 21,
+      "conduta_base": "Foco em náusea intensa, hidratação, proteção renal, mucosite, segurança alimentar e preservação de massa magra.",
+      "efeitos": [
+        {
+          "efeito": "Náuseas/vômitos",
+          "relacionado_a": "Cisplatina",
+          "manejo": "Usar comida leve, fria ou morna, em pequenos volumes. Evitar cheiro forte, gordura e jejum prolongado."
+        },
+        {
+          "efeito": "Alteração de paladar/gosto metálico",
+          "relacionado_a": "Cisplatina",
+          "manejo": "Trocar talheres metálicos por plástico/bambu e variar proteínas com ovos, peixe, frango, iogurte e leguminosas bem cozidas."
+        },
+        {
+          "efeito": "Mucosite",
+          "relacionado_a": "Etoposídeo",
+          "manejo": "Usar sopas batidas, purês, mingaus e ovos macios. Evitar pimenta, álcool e alimentos ácidos."
+        },
+        {
+          "efeito": "Risco renal/desidratação",
+          "relacionado_a": "Cisplatina",
+          "manejo": "Hidratar em goles ao longo do dia, incluir caldos e monitorar diurese."
+        },
+        {
+          "efeito": "Perda de apetite/fadiga",
+          "relacionado_a": "EP X4",
+          "manejo": "Usar refeições pequenas, com proteína em todas: iogurte, ovos, frango desfiado, peixe, carne moída, mingau proteico ou sopa enriquecida."
+        }
+      ],
+      "sinais_alerta": [
+        "Febre",
+        "Vômitos persistentes",
+        "Pouca urina",
+        "Zumbido",
+        "Formigamento progressivo",
+        "Sangramento",
+        "Feridas importantes na boca"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "Eribulina",
+      "indicacao": "Mama, sarcoma ou outros; verificar indicação",
+      "duracaoCiclo": 21,
+      "conduta_base": "Foco em fadiga, neutropenia, constipação, náusea leve/moderada, neuropatia e manutenção de proteína. (duração a confirmar)",
+      "efeitos": [
+        {
+          "efeito": "Fadiga",
+          "relacionado_a": "Eribulina",
+          "manejo": "Usar refeições simples e proteicas: ovos, iogurte, frango desfiado, peixe, sopas, vitaminas e purês enriquecidos."
+        },
+        {
+          "efeito": "Constipação",
+          "relacionado_a": "Eribulina/antieméticos",
+          "manejo": "Usar água, mamão, aveia, ameixa hidratada e legumes cozidos, conforme tolerância e segurança alimentar."
+        },
+        {
+          "efeito": "Náuseas",
+          "relacionado_a": "Eribulina",
+          "manejo": "Fazer pequenas refeições de baixo cheiro e fracionar líquidos ao longo do dia."
+        },
+        {
+          "efeito": "Neuropatia",
+          "relacionado_a": "Eribulina",
+          "manejo": "Monitorar formigamento, sensibilidade nas mãos e dificuldade para cozinhar. Facilitar refeições prontas e seguras se houver perda de sensibilidade."
+        },
+        {
+          "efeito": "Perda de apetite",
+          "relacionado_a": "Eribulina",
+          "manejo": "Enriquecer pequenas porções com azeite, leite em pó, ovos, pasta de amendoim ou suplemento prescrito."
+        }
+      ],
+      "sinais_alerta": [
+        "Febre",
+        "Formigamento progressivo",
+        "Constipação persistente com dor",
+        "Vômitos persistentes",
+        "Sangramento",
+        "Fraqueza intensa"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "Everolimo",
+      "indicacao": "Terapia-alvo oral; mama, rim, neuroendócrino ou outros; verificar indicação",
+      "duracaoCiclo": 28,
+      "conduta_base": "Atenção a mucosite, hiperglicemia, alteração de apetite, diarreia, fadiga e risco infeccioso. Manter proteína diária e monitorar peso. (duração a confirmar)",
+      "efeitos": [
+        {
+          "efeito": "Mucosite",
+          "relacionado_a": "Everolimo",
+          "manejo": "Usar alimentos cremosos, frios ou mornos e sem acidez: purê, sopa batida, mingau, iogurte e ovos macios. Evitar pimenta, álcool, torradas duras e cítricos."
+        },
+        {
+          "efeito": "Diarreia",
+          "relacionado_a": "Everolimo",
+          "manejo": "Preferir arroz, batata, banana, cenoura cozida e proteínas magras. Reduzir leite, gordura, café e álcool."
+        },
+        {
+          "efeito": "Hiperglicemia",
+          "relacionado_a": "Everolimo",
+          "manejo": "Distribuir carboidratos ao longo do dia, combinar com proteína e fibra tolerada; evitar sucos, refrigerantes e bebidas açucaradas."
+        },
+        {
+          "efeito": "Perda de apetite",
+          "relacionado_a": "Everolimo",
+          "manejo": "Usar pequenas refeições densas em proteína e calorias, como vitamina proteica, sopa enriquecida, purê com azeite e ovos."
+        },
+        {
+          "efeito": "Fadiga",
+          "relacionado_a": "Everolimo",
+          "manejo": "Planejar refeições fáceis, com proteína em todas: iogurte, ovos, frango desfiado, peixe, carne moída ou leguminosas bem cozidas."
+        }
+      ],
+      "sinais_alerta": [
+        "Febre",
+        "Feridas graves na boca",
+        "Falta de ar ou tosse",
+        "Diarreia intensa",
+        "Sede excessiva ou urina excessiva",
+        "Sangramento",
+        "Perda de peso rápida"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "GEMOX",
+      "indicacao": "TGI, vias biliares, pâncreas, linfoma ou outros; verificar indicação",
+      "duracaoCiclo": 14,
+      "conduta_base": "Evitar alimentos e líquidos gelados por sensibilidade ao frio da oxaliplatina. Manter hidratação em temperatura ambiente ou morna, proteína diária e segurança alimentar. (duração a confirmar)",
+      "efeitos": [
+        {
+          "efeito": "Neuropatia/sensibilidade ao frio",
+          "relacionado_a": "Oxaliplatina",
+          "manejo": "Evitar água gelada, sorvete, gelo, alimentos muito frios e contato com freezer. Preferir líquidos em temperatura ambiente ou mornos."
+        },
+        {
+          "efeito": "Náuseas",
+          "relacionado_a": "Oxaliplatina + Gencitabina",
+          "manejo": "Fazer pequenas refeições de baixo cheiro: arroz, batata, caldo, ovos, frango desfiado, banana e purês."
+        },
+        {
+          "efeito": "Fadiga",
+          "relacionado_a": "Gencitabina",
+          "manejo": "Usar refeições práticas e proteicas: sopas, purês enriquecidos, vitaminas, ovos, iogurte, peixe e frango desfiado."
+        },
+        {
+          "efeito": "Mucosite",
+          "relacionado_a": "GEMOX",
+          "manejo": "Preferir textura cremosa: sopa batida, purê, mingau, iogurte e ovos macios. Evitar pimenta, álcool, alimentos ácidos e crocantes."
+        },
+        {
+          "efeito": "Diarreia",
+          "relacionado_a": "Oxaliplatina + Gencitabina",
+          "manejo": "Usar arroz, batata, banana, maçã sem casca, cenoura cozida e proteína magra. Reduzir leite, café, gordura e alimentos crus temporariamente."
+        }
+      ],
+      "sinais_alerta": [
+        "Febre",
+        "Formigamento intenso ou progressivo",
+        "Dificuldade para engolir ou respirar após contato com frio",
+        "Vômitos persistentes",
+        "Sangramento",
+        "Diarreia intensa",
+        "Sinais de desidratação"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "IFOSFAMIDA",
+      "indicacao": "Sarcoma, linfoma, germinativo ou outros; verificar indicação",
+      "duracaoCiclo": 21,
+      "conduta_base": "Foco em hidratação, náusea, segurança alimentar, preservação de proteína e sinais urinários ou neurológicos. (duração a confirmar)",
+      "efeitos": [
+        {
+          "efeito": "Náuseas",
+          "relacionado_a": "IFOSFAMIDA",
+          "manejo": "Usar pequenas refeições, pouco odor e baixo teor de gordura: arroz, purê, caldo, ovos, banana, frango desfiado e iogurte se tolerado."
+        },
+        {
+          "efeito": "Risco urinário/desidratação",
+          "relacionado_a": "IFOSFAMIDA",
+          "manejo": "Hidratar em pequenos goles ao longo do dia e observar cor da urina, ardência e presença de sangue."
+        },
+        {
+          "efeito": "Perda de apetite",
+          "relacionado_a": "IFOSFAMIDA",
+          "manejo": "Usar sopas proteicas, mingaus, iogurte, ovos, vitaminas enriquecidas e suplementos prescritos, em pequenos volumes."
+        },
+        {
+          "efeito": "Mucosite",
+          "relacionado_a": "IFOSFAMIDA",
+          "manejo": "Usar textura macia e cremosa: purê, sopa batida, mingau e ovos macios. Evitar pimenta, álcool, cítricos e crocantes."
+        },
+        {
+          "efeito": "Fadiga",
+          "relacionado_a": "IFOSFAMIDA",
+          "manejo": "Organizar refeições de baixo esforço: sopas congeladas, frango desfiado pronto, ovos, iogurte, vitaminas e purês enriquecidos."
+        }
+      ],
+      "sinais_alerta": [
+        "Febre",
+        "Sangue na urina",
+        "Confusão mental",
+        "Sonolência intensa",
+        "Vômitos persistentes",
+        "Sangramento",
+        "Pouca urina"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "Imatinibe",
+      "indicacao": "Terapia-alvo oral; GIST, LMC ou outros; verificar indicação",
+      "duracaoCiclo": 28,
+      "conduta_base": "Tomar conforme prescrição, geralmente com alimento e água quando orientado. Monitorar náusea, edema, diarreia, cãibras, peso e apetite. (duração a confirmar)",
+      "efeitos": [
+        {
+          "efeito": "Náuseas",
+          "relacionado_a": "Imatinibe",
+          "manejo": "Associar à refeição conforme prescrição, evitar jejum e usar pequenas porções com proteína, como ovos, iogurte, frango ou peixe."
+        },
+        {
+          "efeito": "Diarreia",
+          "relacionado_a": "Imatinibe",
+          "manejo": "Usar arroz, batata, banana, maçã sem casca, cenoura cozida e proteína magra. Evitar gordura, leite, café e álcool temporariamente."
+        },
+        {
+          "efeito": "Edema/retenção de líquidos",
+          "relacionado_a": "Imatinibe",
+          "manejo": "Acompanhar peso, reduzir excesso de sal, embutidos e ultraprocessados. Manter proteína adequada em todas as refeições."
+        },
+        {
+          "efeito": "Cãibras",
+          "relacionado_a": "Imatinibe",
+          "manejo": "Avaliar hidratação e eletrólitos com exames. Incluir alimentos fontes de magnésio e potássio se liberados, como banana, batata, feijão bem cozido e abacate."
+        },
+        {
+          "efeito": "Perda de apetite",
+          "relacionado_a": "Imatinibe",
+          "manejo": "Fracionar refeições e enriquecer pequenas porções com azeite, leite em pó, ovos ou suplemento prescrito."
+        }
+      ],
+      "sinais_alerta": [
+        "Inchaço importante",
+        "Falta de ar",
+        "Diarreia intensa",
+        "Vômitos persistentes",
+        "Sangramento",
+        "Icterícia",
+        "Ganho de peso rápido com edema"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "Lenvatinibe",
+      "indicacao": "Terapia-alvo oral; tireoide, rim, fígado, endométrio ou outros; verificar indicação",
+      "duracaoCiclo": 28,
+      "conduta_base": "Monitorar peso, apetite, diarreia, mucosite, pressão, ingestão hídrica e perda de massa magra. (duração a confirmar)",
+      "efeitos": [
+        {
+          "efeito": "Diarreia",
+          "relacionado_a": "Lenvantinibe",
+          "manejo": "Preferir arroz, batata, banana, maçã sem casca, cenoura cozida e proteína magra. Evitar leite, gordura, café, álcool e saladas cruas."
+        },
+        {
+          "efeito": "Perda de apetite/perda de peso",
+          "relacionado_a": "Lenvantinibe",
+          "manejo": "Oferecer refeições pequenas e densas: vitaminas proteicas, sopas com frango ou carne, purês com azeite, ovos e suplemento prescrito."
+        },
+        {
+          "efeito": "Mucosite",
+          "relacionado_a": "Lenvantinibe",
+          "manejo": "Usar textura cremosa, fria ou morna: sopa batida, purê, mingau, iogurte e ovos macios. Evitar acidez, pimenta e crocantes."
+        },
+        {
+          "efeito": "Hipertensão",
+          "relacionado_a": "Lenvantinibe",
+          "manejo": "Reduzir excesso de sódio, embutidos, temperos prontos e ultraprocessados. Priorizar comida caseira simples e acompanhar pressão conforme orientação."
+        },
+        {
+          "efeito": "Fadiga",
+          "relacionado_a": "Lenvantinibe",
+          "manejo": "Planejar refeições de baixo esforço, com proteína em cada horário: ovos, iogurte, peixe, frango desfiado, carne moída ou leguminosas bem cozidas."
+        }
+      ],
+      "sinais_alerta": [
+        "Pressão muito alta",
+        "Diarreia intensa",
+        "Sangramento",
+        "Dor no peito",
+        "Falta de ar",
+        "Perda de peso rápida",
+        "Sinais de desidratação"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "Lomustina",
+      "indicacao": "SNC/glioma, linfoma ou outros; verificar indicação",
+      "duracaoCiclo": 42,
+      "conduta_base": "Atenção ao nadir tardio. Manter segurança alimentar, controle de náusea, ingestão proteica e monitoramento de sangramentos, febre e baixa ingestão. (duração a confirmar)",
+      "efeitos": [
+        {
+          "efeito": "Náuseas",
+          "relacionado_a": "Lomustina",
+          "manejo": "Usar refeições pequenas, secas e de baixo cheiro. Preferir torrada, arroz, purê, banana, caldos, ovos e frango desfiado."
+        },
+        {
+          "efeito": "Perda de apetite",
+          "relacionado_a": "Lomustina",
+          "manejo": "Usar pequenas porções enriquecidas com proteína, azeite, leite em pó, ovos ou suplemento prescrito. Não depender da fome."
+        },
+        {
+          "efeito": "Mielossupressão tardia",
+          "relacionado_a": "Lomustina",
+          "manejo": "Reforçar higiene alimentar e evitar alimentos crus inseguros na fase de queda imune. Priorizar comida bem cozida e armazenada corretamente."
+        },
+        {
+          "efeito": "Mucosite",
+          "relacionado_a": "Lomustina",
+          "manejo": "Usar alimentos macios e cremosos: sopa batida, purê, mingau, iogurte e ovos macios. Evitar alimentos ácidos, picantes e duros."
+        },
+        {
+          "efeito": "Fadiga",
+          "relacionado_a": "Lomustina",
+          "manejo": "Planejar refeições práticas com proteína: ovos, iogurte, sopas, vitaminas, frango desfiado e purês enriquecidos."
+        }
+      ],
+      "sinais_alerta": [
+        "Febre",
+        "Sangramento",
+        "Manchas roxas",
+        "Vômitos persistentes",
+        "Fraqueza intensa",
+        "Confusão mental",
+        "Feridas importantes na boca"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "Nivolumabe + Ipilimumabe",
+      "indicacao": "Imunoterapia combinada; melanoma, rim, pulmão, colorretal ou outros; verificar indicação",
+      "duracaoCiclo": 21,
+      "conduta_base": "Maior risco de toxicidade imunomediada em combinação. Monitorar diarreia, dor abdominal, apetite, fadiga, pele, respiração, fígado e sinais endócrinos. (duração a confirmar)",
+      "efeitos": [
+        {
+          "efeito": "Colite/diarreia imunomediada",
+          "relacionado_a": "Nivolumabe + Ipilimumabe",
+          "manejo": "Hidratar em pequenos goles e usar dieta temporariamente mais leve: arroz, batata, banana, maçã sem casca, cenoura cozida e proteína magra. Evitar leite, gordura, café, álcool e crus. Não mascarar diarreia persistente sem comunicar a equipe."
+        },
+        {
+          "efeito": "Fadiga/endocrinopatia",
+          "relacionado_a": "Nivolumabe + Ipilimumabe",
+          "manejo": "Manter proteína em pequenas refeições e monitorar peso, apetite, constipação, frio, tontura, sonolência e fraqueza."
+        },
+        {
+          "efeito": "Hepatite imunomediada com inapetência",
+          "relacionado_a": "Nivolumabe + Ipilimumabe",
+          "manejo": "Evitar álcool e suplementos sem validação. Usar refeições leves e comunicar náusea persistente, dor abdominal, urina escura ou icterícia."
+        },
+        {
+          "efeito": "Pneumonite imunomediada",
+          "relacionado_a": "Nivolumabe + Ipilimumabe",
+          "manejo": "Monitorar cansaço fora do padrão, tosse e falta de ar. Manter refeições leves e proteicas se houver fadiga, sem atrasar comunicação à equipe."
+        },
+        {
+          "efeito": "Perda de apetite",
+          "relacionado_a": "Nivolumabe + Ipilimumabe",
+          "manejo": "Usar 5 a 6 pequenas refeições com proteína: ovos, iogurte, frango, peixe, sopa proteica ou vitamina enriquecida."
+        }
+      ],
+      "sinais_alerta": [
+        "Diarreia persistente ou com sangue",
+        "Dor abdominal forte",
+        "Falta de ar ou tosse nova",
+        "Icterícia",
+        "Febre",
+        "Fraqueza extrema ou confusão mental",
+        "Vômitos persistentes"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "Nivolumabe + Relatlimabe",
+      "indicacao": "Imunoterapia; melanoma ou outros; verificar indicação",
+      "duracaoCiclo": 28,
+      "conduta_base": "Monitorar diarreia, fadiga, apetite, pele, tireoide, fígado e sintomas respiratórios. Perfil de imunoterapia, com risco de toxicidades imunomediadas. (duração a confirmar)",
+      "efeitos": [
+        {
+          "efeito": "Diarreia/colite imunomediada",
+          "relacionado_a": "Nivolumabe + Relatlimabe",
+          "manejo": "Hidratar e usar alimentação leve: arroz, batata, banana, cenoura cozida, maçã sem casca e proteína magra. Comunicar persistência."
+        },
+        {
+          "efeito": "Fadiga",
+          "relacionado_a": "Nivolumabe + Relatlimabe",
+          "manejo": "Refeições pequenas e ricas em proteína; acompanhar peso e ingestão diária. Usar ovos, iogurte, frango, peixe, sopa ou suplemento prescrito."
+        },
+        {
+          "efeito": "Alterações endócrinas",
+          "relacionado_a": "Nivolumabe + Relatlimabe",
+          "manejo": "Monitorar ganho ou perda de peso, constipação, frio, palpitações, tremores e fraqueza."
+        },
+        {
+          "efeito": "Hepatite imunomediada com inapetência/náusea",
+          "relacionado_a": "Nivolumabe + Relatlimabe",
+          "manejo": "Evitar álcool e suplementos sem validação. Usar refeições leves e comunicar icterícia, urina escura ou dor abdominal."
+        },
+        {
+          "efeito": "Pneumonite imunomediada",
+          "relacionado_a": "Nivolumabe + Relatlimabe",
+          "manejo": "Monitorar tosse, falta de ar e queda da tolerância ao esforço. Manter alimentação leve, hidratada e proteica enquanto aciona a equipe."
+        }
+      ],
+      "sinais_alerta": [
+        "Diarreia persistente",
+        "Falta de ar",
+        "Tosse nova",
+        "Dor abdominal forte",
+        "Icterícia",
+        "Febre",
+        "Fraqueza intensa"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "Nivolumabe (a cada 2 semanas)",
+      "indicacao": "Imunoterapia; verificar sítio tumoral",
+      "duracaoCiclo": 14,
+      "conduta_base": "Perfil de imunoterapia. Acompanhar intestino, apetite, peso, fadiga, pele, fígado, tireoide e respiração. Toxicidade pode aparecer mesmo entre as aplicações.",
+      "efeitos": [
+        {
+          "efeito": "Diarreia/colite imunomediada",
+          "relacionado_a": "Nivolumabe",
+          "manejo": "Hidratação e dieta leve: arroz, batata, banana, maçã sem casca, cenoura cozida, frango, peixe ou ovos. Evitar leite, gordura, café, álcool e crus se houver diarreia."
+        },
+        {
+          "efeito": "Fadiga",
+          "relacionado_a": "Nivolumabe",
+          "manejo": "Usar pequenas refeições com proteína: ovos, iogurte, frango, peixe, carne moída, sopa proteica ou suplemento prescrito."
+        },
+        {
+          "efeito": "Alterações de tireoide",
+          "relacionado_a": "Nivolumabe",
+          "manejo": "Monitorar peso, apetite, constipação ou diarreia, frio ou calor excessivo, palpitações e energia."
+        },
+        {
+          "efeito": "Hepatite imunomediada com náusea/inapetência",
+          "relacionado_a": "Nivolumabe",
+          "manejo": "Evitar álcool e suplementos sem validação. Usar refeições leves e comunicar dor abdominal, icterícia ou urina escura."
+        },
+        {
+          "efeito": "Pneumonite imunomediada",
+          "relacionado_a": "Nivolumabe",
+          "manejo": "Monitorar tosse, falta de ar e cansaço fora do padrão. Manter hidratação e refeições leves, sem adiar contato com a equipe."
+        }
+      ],
+      "sinais_alerta": [
+        "Diarreia persistente",
+        "Falta de ar",
+        "Tosse nova",
+        "Dor abdominal forte",
+        "Icterícia",
+        "Febre",
+        "Confusão ou fraqueza extrema"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "Nivolumabe (a cada 4 semanas)",
+      "indicacao": "Imunoterapia; verificar sítio tumoral",
+      "duracaoCiclo": 28,
+      "conduta_base": "Perfil de imunoterapia. Monitorar sintomas mesmo longe da infusão, pois toxicidade pode ser tardia. Acompanhar intestino, apetite, peso, fadiga, fígado, tireoide e respiração.",
+      "efeitos": [
+        {
+          "efeito": "Diarreia/colite imunomediada",
+          "relacionado_a": "Nivolumabe",
+          "manejo": "Manter hidratação e alimentação leve: arroz, batata, banana, maçã sem casca, cenoura cozida e proteína magra. Comunicar se persistente ou associada a dor."
+        },
+        {
+          "efeito": "Fadiga/endocrinopatia",
+          "relacionado_a": "Nivolumabe",
+          "manejo": "Registrar peso, apetite, sono, constipação, frio ou calor excessivo e fraqueza. Manter proteína em pequenas refeições."
+        },
+        {
+          "efeito": "Inapetência",
+          "relacionado_a": "Nivolumabe/toxicidade imune",
+          "manejo": "Usar pequenas refeições proteicas e investigar se há náusea, dor abdominal, urina escura ou icterícia."
+        },
+        {
+          "efeito": "Pneumonite imunomediada",
+          "relacionado_a": "Nivolumabe",
+          "manejo": "Monitorar tosse nova, falta de ar e queda da tolerância ao esforço. Priorizar refeições leves e hidratação enquanto comunica a equipe."
+        },
+        {
+          "efeito": "Náuseas",
+          "relacionado_a": "Nivolumabe",
+          "manejo": "Fracionar refeições, evitar gordura e cheiro forte. Usar arroz, purês, sopas, ovos, iogurte e frutas cozidas se necessário."
+        }
+      ],
+      "sinais_alerta": [
+        "Diarreia persistente",
+        "Falta de ar",
+        "Tosse nova",
+        "Dor abdominal forte",
+        "Icterícia",
+        "Febre",
+        "Fraqueza intensa",
+        "Confusão mental"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "Paclitaxel",
+      "indicacao": "Mama, ovário, pulmão, endométrio ou outros; verificar indicação",
+      "duracaoCiclo": 7,
+      "conduta_base": "Pode ser semanal ou a cada 21 dias. Foco em neuropatia, dor muscular, constipação, náusea, fadiga e preservação de massa magra. (duração a confirmar)",
+      "efeitos": [
+        {
+          "efeito": "Neuropatia periférica",
+          "relacionado_a": "Paclitaxel",
+          "manejo": "Monitorar formigamento, dormência, queimação e dificuldade para cozinhar ou segurar utensílios. Garantir proteína diária e avaliar B12, folato, vitamina D e magnésio conforme exames."
+        },
+        {
+          "efeito": "Dor muscular/articular",
+          "relacionado_a": "Paclitaxel",
+          "manejo": "Manter hidratação, proteína e refeições com peixe, azeite, ovos, legumes cozidos e frutas toleradas. Organizar refeições fáceis nos dias de dor."
+        },
+        {
+          "efeito": "Constipação",
+          "relacionado_a": "Paclitaxel/antieméticos",
+          "manejo": "Usar água ao longo do dia, mamão, aveia, ameixa hidratada e legumes cozidos, ajustando se houver neutropenia ou baixa tolerância."
+        },
+        {
+          "efeito": "Náusea leve/moderada",
+          "relacionado_a": "Paclitaxel",
+          "manejo": "Fracionar alimentação e evitar gordura no dia da infusão. Usar arroz, batata, caldo, ovos, iogurte e frutas leves."
+        },
+        {
+          "efeito": "Fadiga",
+          "relacionado_a": "Paclitaxel",
+          "manejo": "Planejar refeições simples com proteína em todos os horários: ovos, frango desfiado, peixe, carne moída, iogurte, vitamina ou suplemento prescrito."
+        }
+      ],
+      "sinais_alerta": [
+        "Reação alérgica durante ou após infusão",
+        "Falta de ar",
+        "Febre",
+        "Formigamento progressivo",
+        "Sangramento",
+        "Dor intensa",
+        "Fraqueza importante"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "PCV",
+      "indicacao": "SNC/glioma; verificar indicação",
+      "duracaoCiclo": 42,
+      "conduta_base": "Procarbazina, lomustina e vincristina exigem atenção a náusea, constipação, neuropatia, baixa imunidade e possíveis interações alimentares específicas. Confirmar restrições do serviço. (duração a confirmar)",
+      "efeitos": [
+        {
+          "efeito": "Náuseas",
+          "relacionado_a": "Lomustina/Procarbazina",
+          "manejo": "Usar pequenas refeições, baixo cheiro e evitar jejum. Preferir torradas, arroz, purê, caldos, banana, ovos e proteína leve."
+        },
+        {
+          "efeito": "Constipação",
+          "relacionado_a": "Vincristina",
+          "manejo": "Usar água, mamão, aveia, ameixa hidratada e legumes cozidos; ajustar fibras conforme tolerância, evacuação e segurança alimentar."
+        },
+        {
+          "efeito": "Neuropatia",
+          "relacionado_a": "Vincristina",
+          "manejo": "Monitorar formigamento, marcha, força nas mãos e segurança para cozinhar. Facilitar refeições prontas, sopas e proteínas já preparadas."
+        },
+        {
+          "efeito": "Interações alimentares",
+          "relacionado_a": "Procarbazina",
+          "manejo": "VERIFICAR orientação institucional sobre alimentos ricos em tiramina e álcool. Não liberar dietas ou suplementos sem checar protocolo."
+        },
+        {
+          "efeito": "Baixa imunidade",
+          "relacionado_a": "PCV",
+          "manejo": "Reforçar higiene alimentar, evitar alimentos crus inseguros e priorizar comida bem cozida e armazenada corretamente."
+        }
+      ],
+      "sinais_alerta": [
+        "Febre",
+        "Sangramento",
+        "Manchas roxas",
+        "Constipação intensa com dor",
+        "Confusão ou sonolência",
+        "Vômitos persistentes",
+        "Formigamento progressivo"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "Pembrolizumabe (a cada 3 semanas)",
+      "indicacao": "Imunoterapia; verificar sítio tumoral",
+      "duracaoCiclo": 21,
+      "conduta_base": "Perfil de imunoterapia. Monitorar diarreia, dor abdominal, tosse, falta de ar, fadiga, apetite, peso, fígado e sinais endócrinos.",
+      "efeitos": [
+        {
+          "efeito": "Diarreia/colite imunomediada",
+          "relacionado_a": "Pembrolizumabe",
+          "manejo": "Hidratar e usar alimentação leve: arroz, batata, banana, maçã sem casca, cenoura cozida, frango, peixe ou ovos. Evitar leite, gordura, café, álcool e crus durante piora."
+        },
+        {
+          "efeito": "Fadiga/endocrinopatia",
+          "relacionado_a": "Pembrolizumabe",
+          "manejo": "Manter proteína em pequenas refeições e monitorar peso, sono, constipação, frio ou calor excessivo, palpitação e fraqueza."
+        },
+        {
+          "efeito": "Inapetência",
+          "relacionado_a": "Pembrolizumabe/toxicidade imune",
+          "manejo": "Usar pequenas refeições proteicas e investigar sintomas associados, como dor abdominal, náusea persistente, urina escura ou icterícia."
+        },
+        {
+          "efeito": "Pneumonite imunomediada",
+          "relacionado_a": "Pembrolizumabe",
+          "manejo": "Monitorar tosse nova, falta de ar e queda de tolerância ao esforço. Manter alimentação leve e hidratada enquanto comunica a equipe."
+        }
+      ],
+      "sinais_alerta": [
+        "Diarreia persistente",
+        "Falta de ar",
+        "Tosse nova",
+        "Dor abdominal forte",
+        "Icterícia",
+        "Febre",
+        "Fraqueza extrema"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "Pembrolizumabe (a cada 6 semanas)",
+      "indicacao": "Imunoterapia; verificar sítio tumoral",
+      "duracaoCiclo": 42,
+      "conduta_base": "Mesmo com intervalo maior, toxicidade imunomediada pode ocorrer entre doses. Monitorar intestino, pulmão, fígado, tireoide, apetite, peso e fadiga.",
+      "efeitos": [
+        {
+          "efeito": "Diarreia/colite imunomediada",
+          "relacionado_a": "Pembrolizumabe",
+          "manejo": "Hidratação fracionada e dieta leve temporária: arroz, batata, banana, maçã sem casca, cenoura cozida e proteína magra. Comunicar persistência, dor ou sangue."
+        },
+        {
+          "efeito": "Fadiga/endocrinopatia",
+          "relacionado_a": "Pembrolizumabe",
+          "manejo": "Registrar peso, apetite, sono e energia. Manter proteína em pequenas refeições: ovos, iogurte, frango, peixe ou suplemento prescrito."
+        },
+        {
+          "efeito": "Náusea/inapetência",
+          "relacionado_a": "Pembrolizumabe/toxicidade imune",
+          "manejo": "Fracionar alimentação, evitar gordura e cheiro forte. Investigar se há dor abdominal, urina escura ou icterícia."
+        },
+        {
+          "efeito": "Pneumonite imunomediada",
+          "relacionado_a": "Pembrolizumabe",
+          "manejo": "Monitorar tosse nova, falta de ar e cansaço fora do padrão. Manter refeições leves e hidratação enquanto aciona a equipe."
+        }
+      ],
+      "sinais_alerta": [
+        "Diarreia persistente",
+        "Falta de ar",
+        "Tosse nova",
+        "Icterícia",
+        "Febre",
+        "Dor abdominal forte",
+        "Fraqueza extrema"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "Ramucirumabe + Docetaxel",
+      "indicacao": "Pulmão, gástrico ou outros; verificar indicação",
+      "duracaoCiclo": 21,
+      "conduta_base": "Foco em proteína, mucosite, diarreia, fadiga, retenção de líquidos, pressão e risco de sangramento/cicatrização. (duração a confirmar)",
+      "efeitos": [
+        {
+          "efeito": "Mucosite",
+          "relacionado_a": "Docetaxel",
+          "manejo": "Usar alimentos cremosos e frios ou mornos: purê, sopa batida, mingau, iogurte e ovos macios. Evitar ácidos, pimenta, álcool e alimentos duros."
+        },
+        {
+          "efeito": "Diarreia",
+          "relacionado_a": "Docetaxel/Ramucirumabe",
+          "manejo": "Usar arroz, batata, banana, maçã sem casca, cenoura cozida e proteína magra. Reduzir leite, gordura, café e álcool."
+        },
+        {
+          "efeito": "Perda de apetite",
+          "relacionado_a": "Docetaxel",
+          "manejo": "Oferecer pequenas refeições enriquecidas com proteína e calorias: vitaminas, sopas, purês, ovos, iogurte e suplemento prescrito."
+        },
+        {
+          "efeito": "Sangramento/cicatrização",
+          "relacionado_a": "Ramucirumabe",
+          "manejo": "Manter proteína em todas as refeições e comunicar sangramentos. Evitar suplementos e fitoterápicos sem validação."
+        },
+        {
+          "efeito": "Retenção de líquidos/fadiga",
+          "relacionado_a": "Docetaxel",
+          "manejo": "Monitorar peso e edema, reduzir excesso de sal e priorizar refeições proteicas de baixo esforço."
+        }
+      ],
+      "sinais_alerta": [
+        "Febre",
+        "Sangramento",
+        "Pressão alta importante",
+        "Dor abdominal forte",
+        "Falta de ar",
+        "Diarreia intensa",
+        "Feridas graves na boca"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "Sandostatin Lar 20mg",
+      "indicacao": "Análogo de somatostatina; neuroendócrino/acromegalia; verificar indicação",
+      "duracaoCiclo": 28,
+      "conduta_base": "Não é quimioterapia citotóxica clássica. Foco em diarreia/esteatorreia, dor abdominal, controle glicêmico, apetite e manutenção de peso. (duração a confirmar)",
+      "efeitos": [
+        {
+          "efeito": "Diarreia/esteatorreia",
+          "relacionado_a": "Sandostatin Lar 20mg",
+          "manejo": "Fracionar refeições, reduzir excesso de gordura e observar fezes oleosas. Manter proteína em todas as refeições e ajustar calorias se houver perda de peso."
+        },
+        {
+          "efeito": "Dor abdominal/náusea",
+          "relacionado_a": "Sandostatin Lar 20mg",
+          "manejo": "Usar refeições menores, cozidas, com baixo teor de gordura e boa hidratação ao longo do dia."
+        },
+        {
+          "efeito": "Alteração glicêmica",
+          "relacionado_a": "Sandostatin Lar 20mg",
+          "manejo": "Distribuir carboidratos ao longo do dia e combinar com proteína, como fruta com iogurte, arroz com frango ou pão com ovo."
+        },
+        {
+          "efeito": "Perda de peso por má absorção",
+          "relacionado_a": "Sandostatin Lar 20mg/doença",
+          "manejo": "Monitorar peso e fezes. Usar refeições mais densas com proteína, azeite em pequena quantidade se tolerado e suplemento prescrito quando necessário."
+        }
+      ],
+      "sinais_alerta": [
+        "Dor abdominal forte",
+        "Diarreia intensa",
+        "Sinais de desidratação",
+        "Hipoglicemia ou hiperglicemia sintomática",
+        "Icterícia",
+        "Perda de peso rápida"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "Sandostatin Lar 30mg",
+      "indicacao": "Análogo de somatostatina; neuroendócrino/acromegalia; verificar indicação",
+      "duracaoCiclo": 28,
+      "conduta_base": "Não é quimioterapia citotóxica clássica. Foco em controle de diarreia, gordura nas fezes, dor abdominal, glicemia e manutenção do estado nutricional. (duração a confirmar)",
+      "efeitos": [
+        {
+          "efeito": "Diarreia/esteatorreia",
+          "relacionado_a": "Sandostatin Lar 30mg",
+          "manejo": "Reduzir excesso de gordura, fracionar refeições e monitorar perda de peso. Priorizar arroz, batata, legumes cozidos e proteína magra."
+        },
+        {
+          "efeito": "Náusea/dor abdominal",
+          "relacionado_a": "Sandostatin Lar 30mg",
+          "manejo": "Usar refeições menores, cozidas, com pouca gordura e líquidos em pequenos goles."
+        },
+        {
+          "efeito": "Alteração glicêmica",
+          "relacionado_a": "Sandostatin Lar 30mg",
+          "manejo": "Combinar carboidratos com proteína e evitar bebidas açucaradas isoladas. Fazer refeições regulares."
+        },
+        {
+          "efeito": "Baixa ingestão/perda de peso",
+          "relacionado_a": "Sandostatin Lar 30mg/doença",
+          "manejo": "Usar pequenas refeições com proteína: ovos, peixe, frango, iogurte, sopas proteicas e vitaminas, conforme tolerância."
+        }
+      ],
+      "sinais_alerta": [
+        "Dor abdominal forte",
+        "Diarreia intensa",
+        "Desidratação",
+        "Icterícia",
+        "Alteração glicêmica sintomática",
+        "Perda de peso rápida"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "Somatuline Autogel",
+      "indicacao": "Análogo de somatostatina; neuroendócrino/acromegalia; verificar indicação",
+      "duracaoCiclo": 28,
+      "conduta_base": "Não é quimioterapia citotóxica clássica. Monitorar diarreia, gordura nas fezes, dor abdominal, glicemia, apetite e peso. (duração a confirmar)",
+      "efeitos": [
+        {
+          "efeito": "Diarreia/esteatorreia",
+          "relacionado_a": "Somatuline Autogel",
+          "manejo": "Fracionar refeições, reduzir excesso de gordura e manter proteína. Observar fezes oleosas e perda de peso."
+        },
+        {
+          "efeito": "Dor abdominal/náusea",
+          "relacionado_a": "Somatuline Autogel",
+          "manejo": "Usar refeições menores, cozidas e com pouca gordura. Fracionar líquidos ao longo do dia."
+        },
+        {
+          "efeito": "Alteração glicêmica",
+          "relacionado_a": "Somatuline Autogel",
+          "manejo": "Distribuir carboidratos ao longo do dia e combinar com proteínas, como fruta com iogurte, arroz com peixe ou pão com ovo."
+        },
+        {
+          "efeito": "Perda de peso/baixa absorção",
+          "relacionado_a": "Somatuline Autogel/doença",
+          "manejo": "Monitorar peso e ingestão. Usar refeições densas em proteína e calorias, com suplemento prescrito se necessário."
+        }
+      ],
+      "sinais_alerta": [
+        "Dor abdominal forte",
+        "Diarreia intensa",
+        "Desidratação",
+        "Icterícia",
+        "Alteração glicêmica importante",
+        "Perda de peso rápida"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "Sunitinibe 37,5mg",
+      "indicacao": "Terapia-alvo oral; rim, GIST, neuroendócrino ou outros; verificar indicação",
+      "duracaoCiclo": 28,
+      "conduta_base": "Monitorar diarreia, mucosite, alteração de paladar, peso, pressão e síndrome mão-pé. Esquema pode ser contínuo ou intermitente; VERIFICAR prescrição. (duração a confirmar)",
+      "efeitos": [
+        {
+          "efeito": "Diarreia",
+          "relacionado_a": "Sunitinibe 37,5mg",
+          "manejo": "Usar arroz, batata, banana, maçã sem casca, cenoura cozida e proteína magra. Reduzir leite, café, gordura e álcool."
+        },
+        {
+          "efeito": "Mucosite",
+          "relacionado_a": "Sunitinibe 37,5mg",
+          "manejo": "Usar textura cremosa, fria ou morna: sopa batida, purê, mingau, iogurte e ovos macios. Evitar acidez, pimenta e crocantes."
+        },
+        {
+          "efeito": "Alteração de paladar",
+          "relacionado_a": "Sunitinibe 37,5mg",
+          "manejo": "Usar ervas suaves, variar proteínas e ajustar temperatura dos alimentos. Se carne incomodar, alternar com ovos, peixe, frango, iogurte e leguminosas bem cozidas."
+        },
+        {
+          "efeito": "Síndrome mão-pé",
+          "relacionado_a": "Sunitinibe 37,5mg",
+          "manejo": "Facilitar preparo das refeições se houver dor nas mãos. Usar sopas, purês, ovos, iogurte, frango desfiado e comidas já preparadas com segurança."
+        },
+        {
+          "efeito": "Hipertensão",
+          "relacionado_a": "Sunitinibe 37,5mg",
+          "manejo": "Reduzir excesso de sal, embutidos, temperos prontos e ultraprocessados. Priorizar comida caseira simples."
+        }
+      ],
+      "sinais_alerta": [
+        "Diarreia intensa",
+        "Pressão muito alta",
+        "Sangramento",
+        "Feridas graves na boca",
+        "Dor no peito",
+        "Falta de ar",
+        "Descamação dolorosa nas mãos/pés"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "Sunitinibe 50mg",
+      "indicacao": "Terapia-alvo oral; rim, GIST, neuroendócrino ou outros; verificar indicação",
+      "duracaoCiclo": 42,
+      "conduta_base": "Esquema 4 semanas on/2 off é comum, mas VERIFICAR prescrição. Monitorar diarreia, mucosite, paladar, peso, pressão e síndrome mão-pé. (duração a confirmar)",
+      "efeitos": [
+        {
+          "efeito": "Diarreia",
+          "relacionado_a": "Sunitinibe 50mg",
+          "manejo": "Usar alimentação mais constipante temporária: arroz, batata, banana, maçã sem casca, cenoura cozida e proteína magra. Evitar gordura, café, leite e álcool."
+        },
+        {
+          "efeito": "Mucosite",
+          "relacionado_a": "Sunitinibe 50mg",
+          "manejo": "Usar cremes, purês, mingau e sopas batidas. Evitar ácidos, pimenta, álcool e crocantes."
+        },
+        {
+          "efeito": "Anorexia/perda de peso",
+          "relacionado_a": "Sunitinibe 50mg",
+          "manejo": "Enriquecer pequenas porções com azeite, ovos, leite em pó, pasta de amendoim ou suplemento prescrito."
+        },
+        {
+          "efeito": "Hipertensão",
+          "relacionado_a": "Sunitinibe 50mg",
+          "manejo": "Reduzir excesso de sódio e ultraprocessados; acompanhar pressão conforme orientação da equipe."
+        },
+        {
+          "efeito": "Síndrome mão-pé",
+          "relacionado_a": "Sunitinibe 50mg",
+          "manejo": "Organizar refeições de baixo preparo se houver dor nas mãos ou pés; priorizar proteínas macias e comida pronta segura."
+        }
+      ],
+      "sinais_alerta": [
+        "Pressão muito alta",
+        "Diarreia intensa",
+        "Sangramento",
+        "Falta de ar",
+        "Dor no peito",
+        "Feridas graves na boca",
+        "Descamação dolorosa nas mãos/pés"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "Temozolomida 150mg Isolado",
+      "indicacao": "SNC/glioma ou outros; verificar indicação",
+      "duracaoCiclo": 28,
+      "conduta_base": "Foco em náusea, constipação, apetite, segurança alimentar, proteína diária e monitoramento de hemograma. Confirmar dias de tomada na prescrição. (duração a confirmar)",
+      "efeitos": [
+        {
+          "efeito": "Náuseas",
+          "relacionado_a": "Temozolomida 150mg Isolado",
+          "manejo": "Usar refeições pequenas e de baixo cheiro. Quando prescrito em jejum, alinhar horários com antiemético e tolerância."
+        },
+        {
+          "efeito": "Constipação",
+          "relacionado_a": "Antieméticos/Temozolomida",
+          "manejo": "Usar água, frutas cozidas, aveia, ameixa hidratada e legumes cozidos conforme segurança alimentar e tolerância."
+        },
+        {
+          "efeito": "Perda de apetite",
+          "relacionado_a": "Temozolomida 150mg Isolado",
+          "manejo": "Usar pequenas refeições proteicas: iogurte, ovos, sopas, vitaminas, frango desfiado e suplemento prescrito."
+        },
+        {
+          "efeito": "Fadiga",
+          "relacionado_a": "Temozolomida 150mg Isolado",
+          "manejo": "Planejar refeições simples e de baixo esforço, com proteína em todas: ovos, iogurte, sopa proteica, peixe ou frango."
+        },
+        {
+          "efeito": "Baixa imunidade",
+          "relacionado_a": "Temozolomida 150mg Isolado",
+          "manejo": "Reforçar higiene dos alimentos e evitar crus inseguros quando hemograma estiver baixo."
+        }
+      ],
+      "sinais_alerta": [
+        "Febre",
+        "Vômitos persistentes",
+        "Sangramento",
+        "Manchas roxas",
+        "Sonolência ou confusão",
+        "Dor de cabeça intensa",
+        "Convulsão"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "Temozolomida 75mg + RDT",
+      "indicacao": "SNC/glioma com radioterapia; verificar indicação",
+      "duracaoCiclo": 42,
+      "conduta_base": "Durante RDT, acompanhar fadiga, náusea, constipação, apetite, peso, segurança alimentar e sintomas neurológicos. (duração a confirmar)",
+      "efeitos": [
+        {
+          "efeito": "Náuseas",
+          "relacionado_a": "Temozolomida 75mg + RDT",
+          "manejo": "Usar refeições pequenas, de baixo cheiro e líquidos fracionados. Preferir arroz, batata, caldos, banana, ovos e frango desfiado."
+        },
+        {
+          "efeito": "Fadiga",
+          "relacionado_a": "RDT + Temozolomida",
+          "manejo": "Planejar refeições práticas e proteicas: ovos, iogurte, frango, peixe, sopas, vitaminas e purês enriquecidos."
+        },
+        {
+          "efeito": "Constipação",
+          "relacionado_a": "Antieméticos/baixa mobilidade",
+          "manejo": "Usar água, aveia, mamão, ameixa hidratada e legumes cozidos conforme tolerância e segurança."
+        },
+        {
+          "efeito": "Baixa imunidade",
+          "relacionado_a": "Temozolomida 75mg + RDT",
+          "manejo": "Reforçar higiene alimentar e evitar alimentos crus inseguros quando hemograma estiver baixo."
+        },
+        {
+          "efeito": "Perda de apetite",
+          "relacionado_a": "Temozolomida 75mg + RDT",
+          "manejo": "Usar pequenas refeições densas em proteína: vitamina proteica, sopa com frango, ovos, iogurte e suplemento prescrito."
+        }
+      ],
+      "sinais_alerta": [
+        "Febre",
+        "Sangramento",
+        "Vômitos persistentes",
+        "Sonolência ou confusão",
+        "Dor de cabeça intensa",
+        "Convulsão",
+        "Fraqueza neurológica nova"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "VAC",
+      "indicacao": "Sarcoma, tumores pediátricos/adulto jovem ou outros; verificar indicação",
+      "duracaoCiclo": 21,
+      "conduta_base": "Foco em constipação por vincristina, mucosite, náusea, hidratação, segurança alimentar e preservação de massa magra. (duração a confirmar)",
+      "efeitos": [
+        {
+          "efeito": "Constipação",
+          "relacionado_a": "Vincristina",
+          "manejo": "Usar água, mamão, aveia, ameixa hidratada e legumes cozidos. Comunicar se houver dor abdominal ou muitos dias sem evacuar."
+        },
+        {
+          "efeito": "Mucosite",
+          "relacionado_a": "Actinomicina D/Ciclofosfamida",
+          "manejo": "Usar alimentos cremosos e frios ou mornos: purê, sopa batida, mingau, iogurte e ovos macios. Evitar pimenta, álcool, ácidos e crocantes."
+        },
+        {
+          "efeito": "Náuseas",
+          "relacionado_a": "Ciclofosfamida",
+          "manejo": "Usar pequenas refeições de baixo cheiro e líquidos em goles. Preferir arroz, batata, caldo, banana, ovos e frango."
+        },
+        {
+          "efeito": "Neuropatia",
+          "relacionado_a": "Vincristina",
+          "manejo": "Monitorar formigamento, marcha e segurança nas atividades de cozinha. Facilitar alimentos prontos e proteínas já preparadas."
+        },
+        {
+          "efeito": "Baixa imunidade",
+          "relacionado_a": "VAC",
+          "manejo": "Reforçar higiene alimentar, comida bem cozida e armazenamento seguro. Evitar crus inseguros conforme hemograma."
+        }
+      ],
+      "sinais_alerta": [
+        "Febre",
+        "Constipação intensa com dor",
+        "Sangue na urina",
+        "Feridas graves na boca",
+        "Formigamento progressivo",
+        "Sangramento",
+        "Vômitos persistentes"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "Vemurafenibe+ Cobimetinibe",
+      "indicacao": "Terapia-alvo; melanoma BRAF ou outros; verificar indicação",
+      "duracaoCiclo": 28,
+      "conduta_base": "Monitorar diarreia, náusea, perda de apetite, pele/fotossensibilidade, fadiga, febre e sintomas visuais. (duração a confirmar)",
+      "efeitos": [
+        {
+          "efeito": "Diarreia",
+          "relacionado_a": "Vemurafenibe+ Cobimetinibe",
+          "manejo": "Usar arroz, batata, banana, maçã sem casca, cenoura cozida e proteína magra. Evitar gordura, leite, café e álcool temporariamente."
+        },
+        {
+          "efeito": "Náusea",
+          "relacionado_a": "Vemurafenibe+ Cobimetinibe",
+          "manejo": "Usar refeições pequenas, de baixo cheiro e líquidos fracionados. Preferir alimentos mornos ou frios se o cheiro incomodar."
+        },
+        {
+          "efeito": "Fotossensibilidade/pele",
+          "relacionado_a": "Vemurafenibe",
+          "manejo": "Manter hidratação e proteína para suporte de pele. Usar ovos, peixe, frango, iogurte, leguminosas bem cozidas e azeite se tolerado."
+        },
+        {
+          "efeito": "Perda de apetite",
+          "relacionado_a": "Vemurafenibe+ Cobimetinibe",
+          "manejo": "Usar pequenas refeições densas com ovos, iogurte, sopas proteicas, vitaminas e purês enriquecidos."
+        },
+        {
+          "efeito": "Fadiga",
+          "relacionado_a": "Vemurafenibe+ Cobimetinibe",
+          "manejo": "Organizar refeições de baixo esforço, com proteína em todos os horários e hidratação ao longo do dia."
+        }
+      ],
+      "sinais_alerta": [
+        "Diarreia intensa",
+        "Febre persistente",
+        "Alteração visual",
+        "Falta de ar",
+        "Lesões de pele graves",
+        "Desidratação",
+        "Fraqueza intensa"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "Vorsidenibe",
+      "indicacao": "Terapia-alvo oral; glioma IDH ou outros; verificar indicação",
+      "duracaoCiclo": 28,
+      "conduta_base": "VERIFICAR protocolo e perfil institucional. Monitorar náusea, fadiga, apetite, peso, evacuação e sinais hepáticos. (duração a confirmar)",
+      "efeitos": [
+        {
+          "efeito": "Náusea",
+          "relacionado_a": "Vorsidenibe",
+          "manejo": "Fracionar refeições e evitar gordura ou cheiro forte nos dias de enjoo. Usar arroz, purês, caldos, banana, ovos e iogurte se tolerado."
+        },
+        {
+          "efeito": "Fadiga",
+          "relacionado_a": "Vorsidenibe/doença",
+          "manejo": "Manter refeições pequenas com proteína e hidratação regular. Usar sopas proteicas, vitaminas, ovos, frango ou peixe."
+        },
+        {
+          "efeito": "Alterações hepáticas com inapetência",
+          "relacionado_a": "Vorsidenibe",
+          "manejo": "Evitar álcool e suplementos sem validação. Comunicar náusea persistente, dor abdominal, urina escura ou icterícia."
+        },
+        {
+          "efeito": "Perda de apetite",
+          "relacionado_a": "Vorsidenibe",
+          "manejo": "Oferecer pequenas porções enriquecidas com azeite, ovos, leite em pó ou suplemento prescrito."
+        }
+      ],
+      "sinais_alerta": [
+        "Icterícia",
+        "Dor abdominal forte",
+        "Vômitos persistentes",
+        "Fraqueza intensa",
+        "Confusão",
+        "Febre",
+        "Urina escura"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "YONDELIS",
+      "indicacao": "Sarcoma ou ovário; verificar indicação",
+      "duracaoCiclo": 21,
+      "conduta_base": "Foco em náusea, fadiga, manutenção proteica, segurança alimentar e vigilância de sinais hepáticos. (duração a confirmar)",
+      "efeitos": [
+        {
+          "efeito": "Náuseas",
+          "relacionado_a": "YONDELIS",
+          "manejo": "Usar refeições pequenas, baixo cheiro, líquidos em goles e baixo teor de gordura. Preferir arroz, batata, banana, caldos, ovos e frango."
+        },
+        {
+          "efeito": "Fadiga",
+          "relacionado_a": "YONDELIS",
+          "manejo": "Usar refeições práticas: sopas proteicas, ovos, iogurte, frango desfiado, peixe, vitaminas e purês enriquecidos."
+        },
+        {
+          "efeito": "Alterações hepáticas com inapetência",
+          "relacionado_a": "YONDELIS",
+          "manejo": "Evitar álcool e suplementos sem validação. Comunicar dor abdominal, náusea persistente, urina escura ou icterícia."
+        },
+        {
+          "efeito": "Mucosite",
+          "relacionado_a": "YONDELIS",
+          "manejo": "Usar textura cremosa e sem ácidos ou pimenta: sopa batida, purê, mingau, iogurte e ovos macios."
+        },
+        {
+          "efeito": "Perda de apetite",
+          "relacionado_a": "YONDELIS",
+          "manejo": "Usar 5 a 6 pequenas refeições com proteína e calorias concentradas, como vitamina proteica, sopa enriquecida e purê com azeite."
+        }
+      ],
+      "sinais_alerta": [
+        "Febre",
+        "Icterícia",
+        "Dor abdominal forte",
+        "Fraqueza intensa",
+        "Urina escura",
+        "Sangramento",
+        "Vômitos persistentes"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "YONDELIS + DOXORRUBICINA",
+      "indicacao": "Sarcoma ou outros; verificar indicação",
+      "duracaoCiclo": 21,
+      "conduta_base": "Foco em mucosite, náusea, fadiga, manutenção proteica, segurança alimentar e vigilância hepática/cardiopulmonar. (duração a confirmar)",
+      "efeitos": [
+        {
+          "efeito": "Náuseas/vômitos",
+          "relacionado_a": "YONDELIS + DOXORRUBICINA",
+          "manejo": "Fracionar alimentação, evitar cheiro forte e usar preparações frias ou mornas: arroz, purê, caldos, banana, ovos e frango."
+        },
+        {
+          "efeito": "Mucosite",
+          "relacionado_a": "DOXORRUBICINA",
+          "manejo": "Usar purês, sopas batidas, mingau, iogurte e ovos macios. Evitar ácidos, pimenta, álcool e crocantes."
+        },
+        {
+          "efeito": "Fadiga/perda de apetite",
+          "relacionado_a": "YONDELIS + DOXORRUBICINA",
+          "manejo": "Usar refeições pequenas e densas em proteína: vitaminas, cremes, ovos, peixe, frango, iogurte e suplemento prescrito."
+        },
+        {
+          "efeito": "Alterações hepáticas",
+          "relacionado_a": "YONDELIS",
+          "manejo": "Evitar álcool e suplementos sem validação. Comunicar icterícia, urina escura, náusea persistente ou dor abdominal."
+        },
+        {
+          "efeito": "Baixa imunidade",
+          "relacionado_a": "YONDELIS + DOXORRUBICINA",
+          "manejo": "Reforçar higiene alimentar, comida bem cozida e segurança no armazenamento. Evitar crus inseguros conforme hemograma."
+        }
+      ],
+      "sinais_alerta": [
+        "Febre",
+        "Falta de ar",
+        "Dor no peito",
+        "Icterícia",
+        "Feridas graves na boca",
+        "Sangramento",
+        "Vômitos persistentes"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "ZOLADEX 10.8MG",
+      "indicacao": "Hormonioterapia/análogo de GnRH; mama, próstata ou ginecológico; verificar indicação",
+      "duracaoCiclo": 84,
+      "conduta_base": "Não é quimioterapia citotóxica. Foco em manejo de menopausa induzida ou bloqueio hormonal: fogachos, sono, composição corporal, massa muscular, saúde óssea e sintomas metabólicos. (duração a confirmar)",
+      "efeitos": [
+        {
+          "efeito": "Fogachos/ondas de calor",
+          "relacionado_a": "ZOLADEX 10.8MG",
+          "manejo": "Reduzir álcool, excesso de cafeína, comidas muito picantes e refeições muito volumosas à noite. Priorizar hidratação e refeições leves no período noturno."
+        },
+        {
+          "efeito": "Ganho de gordura/perda de massa magra",
+          "relacionado_a": "ZOLADEX 10.8MG",
+          "manejo": "Garantir proteína em todas as refeições: ovos, peixe, frango, carne, iogurte ou leguminosas. Distribuir carboidratos com proteína e orientar treino de força quando liberado."
+        },
+        {
+          "efeito": "Piora do sono",
+          "relacionado_a": "ZOLADEX 10.8MG",
+          "manejo": "Evitar cafeína à tarde/noite, jantar mais leve e incluir ceia proteica se houver fome: iogurte, leite, ovo ou pequena vitamina."
+        },
+        {
+          "efeito": "Saúde óssea",
+          "relacionado_a": "ZOLADEX 10.8MG",
+          "manejo": "Acompanhar ingestão de cálcio, vitamina D conforme exames, proteína adequada e exposição solar segura quando orientada."
+        },
+        {
+          "efeito": "Alterações metabólicas",
+          "relacionado_a": "ZOLADEX 10.8MG",
+          "manejo": "Priorizar comida de verdade, fibras toleradas, proteínas magras e reduzir bebidas açucaradas, excesso de açúcar e ultraprocessados."
+        }
+      ],
+      "sinais_alerta": [
+        "Dor de cabeça intensa ou alteração visual",
+        "Dor no peito",
+        "Falta de ar",
+        "Sangramento ginecológico intenso",
+        "Dor óssea importante",
+        "Tristeza intensa ou alteração importante de humor"
+      ],
+      "rascunho": true
+    },
+    {
+      "nome": "ZOLADEX 3,6MG",
+      "indicacao": "Hormonioterapia/análogo de GnRH; mama, próstata ou ginecológico; verificar indicação",
+      "duracaoCiclo": 28,
+      "conduta_base": "Não é quimioterapia citotóxica. Foco em manejo de menopausa induzida ou bloqueio hormonal: fogachos, sono, composição corporal, massa muscular, saúde óssea e sintomas metabólicos. (duração a confirmar)",
+      "efeitos": [
+        {
+          "efeito": "Fogachos/ondas de calor",
+          "relacionado_a": "ZOLADEX 3,6MG",
+          "manejo": "Reduzir álcool, cafeína em excesso, comidas muito picantes e refeições grandes à noite. Manter hidratação e refeições leves no período noturno."
+        },
+        {
+          "efeito": "Ganho de peso/gordura abdominal",
+          "relacionado_a": "ZOLADEX 3,6MG",
+          "manejo": "Distribuir proteína ao longo do dia e evitar longos jejuns. Combinar carboidratos com proteína, como fruta com iogurte, arroz com peixe ou pão com ovo."
+        },
+        {
+          "efeito": "Perda de massa muscular",
+          "relacionado_a": "ZOLADEX 3,6MG",
+          "manejo": "Garantir proteína em todas as refeições: ovos, frango, peixe, carne, iogurte, queijo ou leguminosas. Associar treino de força quando liberado."
+        },
+        {
+          "efeito": "Piora do sono",
+          "relacionado_a": "ZOLADEX 3,6MG",
+          "manejo": "Evitar cafeína à tarde/noite, ajustar jantar e considerar ceia leve proteica se acordar com fome ou queda de energia."
+        },
+        {
+          "efeito": "Saúde óssea",
+          "relacionado_a": "ZOLADEX 3,6MG",
+          "manejo": "Acompanhar cálcio alimentar, vitamina D conforme exames, proteína e atividade física com impacto/força quando liberada."
+        }
+      ],
+      "sinais_alerta": [
+        "Dor de cabeça intensa ou alteração visual",
+        "Dor no peito",
+        "Falta de ar",
+        "Sangramento ginecológico intenso",
+        "Dor óssea importante",
+        "Tristeza intensa ou alteração importante de humor"
+      ],
+      "rascunho": true
     }
   ]
 }

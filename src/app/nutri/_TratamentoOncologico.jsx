@@ -784,6 +784,29 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
               return (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 
+                  {/* Aviso de rascunho gerado por IA */}
+                  {proto.rascunho && (
+                    <div style={{
+                      padding: '12px 14px', borderRadius: 8,
+                      border: '1px solid #f59e0b', borderLeft: '3px solid #d97706',
+                      background: '#fffbeb',
+                      display: 'flex', gap: 9, alignItems: 'flex-start',
+                    }}>
+                      <i className="ti ti-alert-triangle" style={{ fontSize: 16, color: '#d97706', flexShrink: 0, marginTop: 1 }} aria-hidden="true" />
+                      <div style={{ fontFamily: 'var(--font-sans)' }}>
+                        <div style={{
+                          fontSize: 11.5, fontWeight: 700, color: '#b45309',
+                          textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 3,
+                        }}>
+                          Rascunho gerado por IA
+                        </div>
+                        <div style={{ fontSize: 12.5, color: '#92400e', lineHeight: 1.5 }}>
+                          Revise e valide clinicamente antes de usar com pacientes. Este protocolo não foi verificado.
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Conduta nutricional-base */}
                   {proto.conduta_base && (
                     <div style={{
