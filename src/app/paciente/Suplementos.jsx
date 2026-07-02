@@ -224,7 +224,7 @@ export default function Suplementos() {
                       </div>
                     )}
                   </div>
-                  {s.foto_url ? (
+                  {s.foto_url && !/\.pdf(\?|#|$)/i.test(s.foto_url) ? (
                     <img src={s.foto_url} alt={s.nome} loading="lazy" decoding="async"
                       style={{ width: 36, height: 36, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
                   ) : (

@@ -74,6 +74,8 @@ export default function PacienteLayout() {
   const isChat = location.pathname === '/paciente/chat';
   const primeiroNome = profile?.apelido || profile?.nome?.split(' ')[0] || '';
 
+  const tabs = profile?.objetivo === 'Oncologia' ? TABS : TABS.filter(t => t.id !== 'tratamento');
+
   const isBlocked = (path) => {
     if (!path) return false;
     if (profile?.tipo_plano !== 'avulsa') return false;
@@ -402,7 +404,7 @@ export default function PacienteLayout() {
 
       {!isChat && (
         <nav className="tabbar" role="tablist">
-          {TABS.map(t => {
+          {tabs.map(t => {
             const active = t.path
               ? location.pathname === t.path
               : ['/paciente/checkins', '/paciente/progresso', '/paciente/compras', '/paciente/suplementos', '/paciente/prescricoes', '/paciente/ebooks', '/paciente/chat', '/paciente/treinos'].includes(location.pathname);

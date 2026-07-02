@@ -47,7 +47,9 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
       .order('titulo');
     const items = (data ?? []).map(it => ({
       ...it,
-      foto_url: null,
+      foto_url: /\.(jpg|jpeg|png|webp)$/i.test(it.storage_path ?? '')
+        ? supabase.storage.from('ebooks').getPublicUrl(it.storage_path).data.publicUrl
+        : null,
     }));
     setFavoritos(items);
   }

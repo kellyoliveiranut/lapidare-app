@@ -215,13 +215,14 @@ export default function Inicio() {
       const v = habitosLogs[habiToHumor.id] ?? 0;
       return HUMOR_OPCOES.findIndex(o => o.valEscala === v);
     }
+    if (profile?.objetivo !== 'Oncologia') return -1;
     const dis = monHoje?.disposicao;
     if (!dis) return -1;
     if (dis <= 3) return 0;
     if (dis <= 5) return 1;
     if (dis <= 7) return 2;
     return 3;
-  }, [habiToHumor, habitosLogs, monHoje]);
+  }, [habiToHumor, habitosLogs, monHoje, profile?.objetivo]);
 
   // ─── Ações ────────────────────────────────────────────────────────────────
   async function setValorHabito(habito, valor) {
@@ -249,7 +250,7 @@ export default function Inicio() {
     if (!opcao) return;
     if (habiToHumor) {
       await setValorHabito(habiToHumor, opcao.valEscala);
-    } else {
+    } else if (profile?.objetivo === 'Oncologia') {
       if (!profile?.nutri_id) return;
       const hoje = new Date().toISOString().slice(0, 10);
       const { data } = await supabase.from('monitoramento_oncologico')
@@ -263,7 +264,8 @@ export default function Inicio() {
   }
 
   // ─── Helpers de exibição ─────────────────────────────────────────────────
-  const mostrarHumor = habiToHumor != null || !!profile?.nutri_id;
+  const isOnco = profile?.objetivo === 'Oncologia';
+  const mostrarHumor = habiToHumor != null || (isOnco && !!profile?.nutri_id);
   // Ocultar card quando o banner de lembrete já está visível (consulta dentro de 48h)
   const dentroJanelaBanner = proximaConsulta != null &&
     (new Date(proximaConsulta.data_hora) - Date.now()) <= 48 * 3600 * 1000;

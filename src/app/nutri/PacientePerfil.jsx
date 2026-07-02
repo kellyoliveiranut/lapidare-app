@@ -723,24 +723,34 @@ export default function PacientePerfil() {
         gap: 2, background: 'var(--bg2)',
         borderRadius: 10, padding: 3, marginBottom: 16,
       }}>
-        {[
-          { id: 'evolucao',      label: 'Evolução',      icon: 'chart-line' },
-          { id: 'relatorio',     label: 'Relatório',     icon: 'report-analytics' },
-          { id: 'oncologia',     label: 'Oncologia',     icon: 'dna' },
-          { id: 'emagrecimento', label: 'Emagrecimento', icon: 'trending-down' },
-          { id: 'calculos',      label: 'Cálculos',      icon: 'calculator' },
-          { id: 'anamnese',      label: 'Anamnese',      icon: 'clipboard-text' },
-          { id: 'followup',      label: 'Follow-up',     icon: 'notebook' },
-          { id: 'plano',         label: 'Plano',         icon: 'salad' },
-          { id: 'compras',       label: 'Compras',       icon: 'shopping-cart' },
-          { id: 'suplementacao', label: 'Suplementação', icon: 'pill' },
-          { id: 'habitos',       label: 'Hábitos',       icon: 'checklist' },
-          { id: 'prescricoes',   label: 'Prescrições',   icon: 'file-text' },
-          { id: 'ebooks',        label: 'E-books',       icon: 'book-2' },
-          { id: 'avaliacao',     label: 'Avaliação',     icon: 'ruler-measure' },
-          { id: 'checkin',       label: 'Check-in',      icon: 'clipboard-check' },
-          { id: 'treinos',       label: 'Treinos',       icon: 'run' },
-        ].map(t => (
+        {(() => {
+          const isOnco = paciente.objetivo === 'Oncologia';
+          const todas = [
+            { id: 'evolucao',      label: 'Evolução',      icon: 'chart-line' },
+            { id: 'relatorio',     label: 'Relatório',     icon: 'report-analytics' },
+            { id: 'oncologia',     label: isOnco ? 'Oncologia' : 'Histórico onco', icon: 'dna' },
+            { id: 'emagrecimento', label: 'Emagrecimento', icon: 'trending-down' },
+            { id: 'calculos',      label: 'Cálculos',      icon: 'calculator' },
+            { id: 'anamnese',      label: 'Anamnese',      icon: 'clipboard-text' },
+            { id: 'followup',      label: 'Follow-up',     icon: 'notebook' },
+            { id: 'plano',         label: 'Plano',         icon: 'salad' },
+            { id: 'compras',       label: 'Compras',       icon: 'shopping-cart' },
+            { id: 'suplementacao', label: 'Suplementação', icon: 'pill' },
+            { id: 'habitos',       label: 'Hábitos',       icon: 'checklist' },
+            { id: 'prescricoes',   label: 'Prescrições',   icon: 'file-text' },
+            { id: 'ebooks',        label: 'E-books',       icon: 'book-2' },
+            { id: 'avaliacao',     label: 'Avaliação',     icon: 'ruler-measure' },
+            { id: 'checkin',       label: 'Check-in',      icon: 'clipboard-check' },
+            { id: 'treinos',       label: 'Treinos',       icon: 'run' },
+          ];
+          if (!isOnco) {
+            const ema  = todas.splice(todas.findIndex(t => t.id === 'emagrecimento'), 1)[0];
+            todas.splice(1, 0, ema);
+            const onco = todas.splice(todas.findIndex(t => t.id === 'oncologia'), 1)[0];
+            todas.push(onco);
+          }
+          return todas;
+        })().map(t => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
