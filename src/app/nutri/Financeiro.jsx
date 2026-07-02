@@ -8,6 +8,7 @@ import {
   labelFormaPgto, iconFormaPgto, FORMAS_PGTO_LIST,
 } from '../../lib/utils.js';
 import Gastos from './Gastos.jsx';
+import { criarVendaComParcelas } from '../../lib/vendas.js';
 
 const STATUS_INFO = {
   pago:      { label: 'Pago',      bg: 'var(--green-bg)', color: 'var(--green)',  icon: 'check' },
@@ -456,41 +457,21 @@ function NovaVendaModal({ pacientes, servicos, nutriId, onClose, onSaved }) {
     if (!data) return setErro('Informe a data da venda.');
 
     setBusy(true);
-    const { data: venda, error: vErr } = await supabase
-      .from('vendas')
-      .insert({
-        nutri_id: nutriId,
-        paciente_id: pacienteId || null,
-        servico_id: servicoId || null,
-        servico: servico.trim(),
-        valor_total: valorNum,
-        forma_pgto: forma,
-        data_venda: data,
-        obs: obs.trim() || null,
-      })
-      .select('id')
-      .single();
-    if (vErr) {
-      setBusy(false);
-      return setErro('Erro ao salvar venda: ' + vErr.message);
-    }
-
-    const linhas = parcelasPreview.map(p => ({
-      venda_id: venda.id,
-      nutri_id: nutriId,
-      numero: p.numero,
-      valor: p.valor,
-      vencimento: p.vencimento,
-      status: p.status ?? 'pendente',
-      data_pgto: p.data_pgto ?? null,
-    }));
-    const { error: pErr } = await supabase.from('parcelas').insert(linhas);
+    const { error } = await criarVendaComParcelas(supabase, {
+      nutriId,
+      pacienteId,
+      servicoId,
+      servico,
+      valorTotal: valorNum,
+      forma,
+      dataVenda: data,
+      nParcelas,
+      nMeses,
+      diaVenc,
+      obs,
+    });
     setBusy(false);
-    if (pErr) {
-      // rollback venda
-      await supabase.from('vendas').delete().eq('id', venda.id);
-      return setErro('Erro ao gerar parcelas: ' + pErr.message);
-    }
+    if (error) return setErro(error);
     onSaved();
   }
 

@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
-import { dataBR } from '../../lib/utils.js';
+import { dataBR, brl, gerarParcelas, FORMAS_PGTO_LIST } from '../../lib/utils.js';
+import { criarVendaComParcelas } from '../../lib/vendas.js';
+import DateInput from '../../components/DateInput.jsx';
 
 const OBJETIVOS = ['Emagrecimento', 'Hipertrofia', 'Reeducação alimentar', 'Saúde geral', 'Performance esportiva', 'Oncologia', 'Preparo pré-cirúrgico', 'Outro'];
 const PLANOS    = [
@@ -28,10 +30,52 @@ export default function Cadastrar() {
   const [preConsultaId, setPreConsultaId] = useState('');
   const [templatesPreConsulta, setTemplatesPreConsulta] = useState([]);
 
+  // ─── Pagamento (opcional) — mesma lógica do modal "Nova venda" ───
+  const hoje = new Date().toISOString().slice(0, 10);
+  const [pagOpen, setPagOpen] = useState(false);
+  const [servicos, setServicos] = useState([]);
+  const [pgServicoId, setPgServicoId] = useState('');   // '' = manual/custom
+  const [pgServico, setPgServico] = useState('');
+  const [pgValor, setPgValor] = useState('');
+  const [pgData, setPgData] = useState(hoje);
+  const [pgForma, setPgForma] = useState('pix');
+  const [pgNParcelas, setPgNParcelas] = useState(3);
+  const [pgNMeses, setPgNMeses] = useState(3);
+  const [pgDiaVenc, setPgDiaVenc] = useState(15);
+  const [pgObs, setPgObs] = useState('');
+
+  const pgValorNum = Number(String(pgValor).replace(',', '.')) || 0;
+
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState(null);
   const [sucesso, setSucesso] = useState(null);   // pendente criado (objeto)
   const [pendentes, setPendentes] = useState([]);
+
+  function escolherServico(id) {
+    setPgServicoId(id);
+    if (!id) { setPgServico(''); setPgValor(''); return; }
+    const s = servicos.find(x => x.id === id);
+    if (s) { setPgServico(s.nome); setPgValor(String(s.ticket).replace('.', ',')); }
+  }
+
+  function escolherForma(f) {
+    setPgForma(f);
+    if (f === 'pix' || f === 'dinheiro') setPgNParcelas(1);
+    else if (f === 'parcelado' && pgNParcelas < 2) setPgNParcelas(2);
+  }
+
+  const parcelasPreview = useMemo(() => {
+    if (!pgValorNum || !pgData) return [];
+    return gerarParcelas({
+      forma_pgto: pgForma,
+      valor_total: pgValorNum,
+      data_venda: pgData,
+      n_parcelas: pgForma === 'asaas' ? pgNMeses
+                : ['pix', 'dinheiro', 'parcelado'].includes(pgForma) ? pgNParcelas
+                : 1,
+      dia_venc: pgDiaVenc,
+    });
+  }, [pgForma, pgValorNum, pgData, pgNParcelas, pgNMeses, pgDiaVenc]);
 
   async function carregarPendentes() {
     if (!user) return;
@@ -55,13 +99,27 @@ export default function Cadastrar() {
     setTemplatesPreConsulta(data ?? []);
   }
 
-  useEffect(() => { carregarPendentes(); carregarTemplatesPreConsulta(); }, [user]);
+  async function carregarServicos() {
+    if (!user) return;
+    const { data } = await supabase
+      .from('servicos')
+      .select('id, nome, ticket, ativo')
+      .eq('nutri_id', user.id).eq('ativo', true)
+      .order('ticket', { ascending: false });
+    setServicos(data ?? []);
+  }
+
+  useEffect(() => { carregarPendentes(); carregarTemplatesPreConsulta(); carregarServicos(); }, [user]);
 
   function resetForm() {
     setNome(''); setEmail(''); setTelefone(''); setNascimento('');
     setObjetivo('Emagrecimento'); setTipoPlano('avulsa');
     setModalidade('Online'); setEndereco(''); setObs('');
     setPreConsultaId('');
+    // pagamento
+    setPagOpen(false);
+    setPgServicoId(''); setPgServico(''); setPgValor(''); setPgData(hoje);
+    setPgForma('pix'); setPgNParcelas(3); setPgNMeses(3); setPgDiaVenc(15); setPgObs('');
   }
 
   async function salvar(e) {
@@ -70,6 +128,13 @@ export default function Cadastrar() {
     if (!nome.trim()) return setErro('Informe o nome.');
     if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return setErro('Email inválido.');
     if (!telefone.trim()) return setErro('Informe o telefone.');
+
+    // Pagamento: só lança se serviço E valor > 0. Se preencheu só um, avisa.
+    const querPagamento    = pgServico.trim() !== '' || pgValorNum > 0;
+    const pagamentoCompleto = pgServico.trim() !== '' && pgValorNum > 0;
+    if (querPagamento && !pagamentoCompleto) {
+      return setErro('Para lançar o pagamento, informe o serviço e um valor válido — ou deixe ambos em branco.');
+    }
 
     setBusy(true);
     const emailVal = email.trim().toLowerCase() || null;
@@ -91,6 +156,28 @@ export default function Cadastrar() {
       .select('id, nome, email')
       .single();
     if (pacienteError) { setBusy(false); return setErro('Erro ao cadastrar: ' + pacienteError.message); }
+
+    // Lança a venda vinculada à paciente recém-criada (se pagamento preenchido).
+    // Se falhar, MANTÉM a paciente e apenas avisa — nunca desfaz o cadastro.
+    let avisoVenda = null;
+    if (pagamentoCompleto) {
+      const { error: vendaErro } = await criarVendaComParcelas(supabase, {
+        nutriId: user.id,
+        pacienteId: pacienteData.id,
+        servicoId: pgServicoId,
+        servico: pgServico,
+        valorTotal: pgValorNum,
+        forma: pgForma,
+        dataVenda: pgData,
+        nParcelas: pgNParcelas,
+        nMeses: pgNMeses,
+        diaVenc: pgDiaVenc,
+        obs: pgObs,
+      });
+      if (vendaErro) {
+        avisoVenda = 'Paciente cadastrada, mas o pagamento não foi lançado — registre pelo Financeiro. (' + vendaErro + ')';
+      }
+    }
 
     if (preConsultaId) {
       const tpl = templatesPreConsulta.find(t => t.id === preConsultaId);
@@ -128,7 +215,7 @@ export default function Cadastrar() {
     }
 
     setBusy(false);
-    setSucesso({ id: pacienteData.id, nome: pacienteData.nome, email: pacienteData.email, pendente });
+    setSucesso({ id: pacienteData.id, nome: pacienteData.nome, email: pacienteData.email, pendente, avisoVenda });
     resetForm();
     carregarPendentes();
   }
@@ -159,6 +246,16 @@ export default function Cadastrar() {
     await supabase.from('pacientes_pendentes').delete().eq('id', pendente.id);
     carregarPendentes();
   }
+
+  const campoStyle = {
+    width: '100%', padding: '10px 12px', fontSize: 13,
+    border: '0.5px solid var(--border)', borderRadius: 8,
+    outline: 'none', fontFamily: 'var(--font-sans)', boxSizing: 'border-box',
+  };
+  const lblStyle = {
+    display: 'block', fontSize: 11, color: 'var(--text3)',
+    marginBottom: 5, fontWeight: 500,
+  };
 
   return (
     <>
@@ -235,6 +332,138 @@ export default function Cadastrar() {
             )}
           </label>
 
+          {/* ─── Pagamento (opcional, recolhido por padrão) ─── */}
+          <div style={{
+            border: '0.5px solid var(--border)', borderRadius: 8,
+            marginBottom: 12, overflow: 'hidden',
+          }}>
+            <button type="button" onClick={() => setPagOpen(o => !o)}
+              style={{
+                width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+                padding: '11px 12px', background: 'var(--bg2)', border: 'none',
+                cursor: 'pointer', fontFamily: 'var(--font-sans)', fontSize: 13,
+                fontWeight: 500, color: 'var(--text2)', textAlign: 'left',
+              }}>
+              <i className="ti ti-cash" style={{ fontSize: 16, color: 'var(--green)' }} aria-hidden="true"></i>
+              <span style={{ flex: 1 }}>Lançar pagamento (opcional)</span>
+              {pgServico.trim() !== '' && pgValorNum > 0 && !pagOpen && (
+                <span style={{ fontSize: 11, color: 'var(--green)', fontWeight: 600 }}>
+                  {brl(pgValorNum)}
+                </span>
+              )}
+              <i className={`ti ti-chevron-${pagOpen ? 'up' : 'down'}`}
+                style={{ fontSize: 16, color: 'var(--text3)' }} aria-hidden="true"></i>
+            </button>
+
+            {pagOpen && (
+              <div style={{ padding: 12 }}>
+                <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 10, lineHeight: 1.5 }}>
+                  Preencha para já registrar a venda no Financeiro. Deixe em branco para cadastrar só a paciente.
+                </div>
+
+                <label style={lblStyle}>Serviço</label>
+                {servicos.length > 0 ? (
+                  <select value={pgServicoId} onChange={e => escolherServico(e.target.value)} style={campoStyle}>
+                    <option value="">— Outro (digitar manualmente) —</option>
+                    {servicos.map(s => (
+                      <option key={s.id} value={s.id}>{s.nome} · {brl(s.ticket)}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 6 }}>
+                    Cadastre serviços em <strong>Meus serviços</strong> para selecionar com 1 clique.
+                  </div>
+                )}
+                {(!pgServicoId || servicos.length === 0) && (
+                  <input value={pgServico} onChange={e => setPgServico(e.target.value)}
+                    placeholder="Ex: Acompanhamento trimestral"
+                    style={{ ...campoStyle, marginTop: 6 }} />
+                )}
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 12 }}>
+                  <div>
+                    <label style={lblStyle}>Valor total (R$)</label>
+                    <input inputMode="decimal" value={pgValor} onChange={e => setPgValor(e.target.value)}
+                      placeholder="0,00" style={campoStyle} />
+                  </div>
+                  <div>
+                    <label style={lblStyle}>Data da venda</label>
+                    <DateInput value={pgData} onChange={e => setPgData(e.target.value)} />
+                  </div>
+                </div>
+
+                <label style={{ ...lblStyle, marginTop: 12 }}>Forma de pagamento</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 8 }}>
+                  {FORMAS_PGTO_LIST.map(f => {
+                    const ativo = pgForma === f.id;
+                    return (
+                      <button key={f.id} type="button" onClick={() => escolherForma(f.id)}
+                        style={{
+                          border: ativo ? 'none' : '0.5px solid var(--border)',
+                          background: ativo ? 'var(--dark)' : 'var(--white)',
+                          color: ativo ? 'var(--white)' : 'var(--text2)',
+                          borderRadius: 7, padding: '9px 12px', fontSize: 13, cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', gap: 7, fontFamily: 'var(--font-sans)',
+                        }}>
+                        <i className={`ti ti-${f.icon}`} style={{ fontSize: 16 }} aria-hidden="true"></i>
+                        {f.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {['pix', 'dinheiro', 'parcelado'].includes(pgForma) && (
+                  <>
+                    <label style={lblStyle}>Número de parcelas</label>
+                    <select value={pgNParcelas} onChange={e => setPgNParcelas(Number(e.target.value))} style={campoStyle}>
+                      {(pgForma === 'pix' || pgForma === 'dinheiro') && (
+                        <option value={1}>1x — à vista (entra como recebido)</option>
+                      )}
+                      {Array.from({ length: 11 }, (_, i) => i + 2).map(n => (
+                        <option key={n} value={n}>{n}x (venc. mensais)</option>
+                      ))}
+                    </select>
+                  </>
+                )}
+
+                {pgForma === 'asaas' && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    <div>
+                      <label style={lblStyle}>Número de meses</label>
+                      <select value={pgNMeses} onChange={e => setPgNMeses(Number(e.target.value))} style={campoStyle}>
+                        {[1, 2, 3, 4, 5, 6, 12].map(n => <option key={n} value={n}>{n} {n === 1 ? 'mês' : 'meses'}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={lblStyle}>Dia do vencimento</label>
+                      <select value={pgDiaVenc} onChange={e => setPgDiaVenc(Number(e.target.value))} style={campoStyle}>
+                        {[5, 10, 15, 20, 25, 28].map(d => <option key={d} value={d}>dia {d}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                )}
+
+                {parcelasPreview.length > 0 && (
+                  <div style={{
+                    background: 'var(--bg2)', borderRadius: 6, padding: '8px 10px',
+                    marginTop: 10, fontSize: 13, color: 'var(--text2)',
+                  }}>
+                    <div style={{ fontWeight: 500, marginBottom: 4 }}>Preview:</div>
+                    {parcelasPreview.length === 1
+                      ? `1 parcela única de ${brl(parcelasPreview[0].valor)} no dia ${dataBR(parcelasPreview[0].vencimento)}`
+                      : `${parcelasPreview.length}x de ${brl(parcelasPreview[0].valor)}${parcelasPreview[0].valor !== parcelasPreview[parcelasPreview.length-1].valor ? ` (última ${brl(parcelasPreview[parcelasPreview.length-1].valor)})` : ''} — primeira ${dataBR(parcelasPreview[0].vencimento)} / última ${dataBR(parcelasPreview[parcelasPreview.length-1].vencimento)}`
+                    }
+                  </div>
+                )}
+
+                <label style={{ ...lblStyle, marginTop: 12 }}>Observação do pagamento (opcional)</label>
+                <textarea rows="2" value={pgObs} onChange={e => setPgObs(e.target.value)}
+                  placeholder="Ex: desconto dado, adiantou 1 mês..."
+                  style={{ ...campoStyle, resize: 'none' }} />
+              </div>
+            )}
+          </div>
+
           {erro && (
             <div style={{
               fontSize: 12, padding: '8px 12px', borderRadius: 6, marginBottom: 10,
@@ -255,6 +484,7 @@ export default function Cadastrar() {
               pacienteId={sucesso.id}
               nome={sucesso.nome}
               pendente={sucesso.pendente}
+              avisoVenda={sucesso.avisoVenda}
               link={sucesso.pendente ? linkDe(sucesso.pendente) : null}
               mensagemWhats={sucesso.pendente ? mensagemWhats(sucesso.pendente) : null}
               onCopiar={sucesso.pendente ? () => copiarLink(sucesso.pendente) : null}
@@ -361,7 +591,7 @@ function telefoneValido(raw) {
   return n.length === 12 || n.length === 13;
 }
 
-function CartaoSucesso({ pacienteId, nome, pendente, link, mensagemWhats, onCopiar, onDispensar, onIrPerfil }) {
+function CartaoSucesso({ pacienteId, nome, pendente, avisoVenda, link, mensagemWhats, onCopiar, onDispensar, onIrPerfil }) {
   const primeiroNome = nome?.split(' ')[0] ?? '';
   return (
     <div style={{
@@ -390,6 +620,17 @@ function CartaoSucesso({ pacienteId, nome, pendente, link, mensagemWhats, onCopi
           <i className="ti ti-x" aria-hidden="true"></i>
         </button>
       </div>
+
+      {avisoVenda && (
+        <div style={{
+          marginTop: 10, padding: '8px 10px', borderRadius: 6,
+          background: 'var(--orange-bg, #fff7ed)', color: 'var(--orange, #c2410c)',
+          fontSize: 12, lineHeight: 1.5, display: 'flex', gap: 6,
+        }}>
+          <i className="ti ti-alert-triangle" style={{ fontSize: 14, marginTop: 1, flexShrink: 0 }} aria-hidden="true"></i>
+          <span>{avisoVenda}</span>
+        </div>
+      )}
 
       {pendente && link ? (
         <>
