@@ -158,7 +158,7 @@ export default function MensagensArsenal() {
       `}</style>
 
       {/* ── ADICIONAR NOVA ── */}
-      <div className="card" style={{ marginBottom: 20, maxWidth: 720 }}>
+      <div className="card" style={{ marginBottom: 20 }}>
         <div className="card-header">
           <div className="card-title">💬 Arsenal de mensagens</div>
           <div className="card-sub">
