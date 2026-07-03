@@ -92,6 +92,21 @@ export default function MensagensArsenal() {
     mostrarFeedback('ok', 'Mensagem atualizada!');
   }
 
+  async function toggleEnviada(m) {
+    if (!user) return;
+    const novo = !m.enviada;
+    // update otimista — reverte se der erro
+    setMsgs(prev => prev.map(x => (x.id === m.id ? { ...x, enviada: novo } : x)));
+    const { error } = await supabase
+      .from('mensagens_arsenal')
+      .update({ enviada: novo })
+      .eq('id', m.id);
+    if (error) {
+      setMsgs(prev => prev.map(x => (x.id === m.id ? { ...x, enviada: !novo } : x)));
+      mostrarFeedback('erro', 'Erro ao atualizar: ' + error.message);
+    }
+  }
+
   async function excluir(m) {
     if (!user) return;
     if (!window.confirm('Excluir esta mensagem? Essa ação não pode ser desfeita.')) return;
@@ -129,9 +144,21 @@ export default function MensagensArsenal() {
   }
 
   return (
-    <div style={{ maxWidth: 720 }}>
+    <div>
+      <style>{`
+        .arsenal-msgs {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 10px;
+        }
+        @media (min-width: 900px) {
+          .arsenal-msgs { grid-template-columns: 1fr 1fr; }
+          .arsenal-msg--editando { grid-column: 1 / -1; }
+        }
+      `}</style>
+
       {/* ── ADICIONAR NOVA ── */}
-      <div className="card" style={{ marginBottom: 20 }}>
+      <div className="card" style={{ marginBottom: 20, maxWidth: 720 }}>
         <div className="card-header">
           <div className="card-title">💬 Arsenal de mensagens</div>
           <div className="card-sub">
@@ -223,12 +250,17 @@ export default function MensagensArsenal() {
                 <div className="card-sub">{g.itens.length} mensagem{g.itens.length > 1 ? 's' : ''}</div>
               </div>
               <div className="card-body">
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div className="arsenal-msgs">
                   {g.itens.map(m => (
-                    <div key={m.id} style={{
-                      padding: '10px 12px', borderRadius: 10,
-                      border: '1px solid var(--border)', background: 'var(--bg-soft)',
-                    }}>
+                    <div
+                      key={m.id}
+                      className={editandoId === m.id ? 'arsenal-msg--editando' : undefined}
+                      style={{
+                        padding: '10px 12px', borderRadius: 10,
+                        border: m.enviada ? '1px dashed var(--border)' : '1px solid var(--border)',
+                        background: m.enviada ? 'var(--bg2)' : 'var(--bg-soft)',
+                      }}
+                    >
                       {editandoId === m.id ? (
                         <>
                           <textarea
@@ -267,14 +299,38 @@ export default function MensagensArsenal() {
                         </>
                       ) : (
                         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-                          <div style={{
-                            flex: 1, minWidth: 0, fontSize: 13, lineHeight: 1.6,
-                            color: 'var(--ink)', fontFamily: 'var(--font-sans)',
-                            whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-                          }}>
-                            {m.texto}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            {m.enviada && (
+                              <div style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 4,
+                                fontSize: 10, fontWeight: 700, letterSpacing: '.06em',
+                                textTransform: 'uppercase', marginBottom: 5,
+                                color: 'var(--green, #16a34a)',
+                              }}>
+                                <i className="ti ti-check" style={{ fontSize: 12 }} />
+                                Enviada
+                              </div>
+                            )}
+                            <div style={{
+                              fontSize: 13, lineHeight: 1.6, fontFamily: 'var(--font-sans)',
+                              whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                              color: m.enviada ? 'var(--text3)' : 'var(--ink)',
+                            }}>
+                              {m.texto}
+                            </div>
                           </div>
                           <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+                            <button
+                              onClick={() => toggleEnviada(m)}
+                              title={m.enviada ? 'Marcar como não enviada' : 'Marcar como enviada'}
+                              style={{
+                                background: 'none', border: 'none', cursor: 'pointer',
+                                color: m.enviada ? 'var(--green, #16a34a)' : 'var(--muted)',
+                                padding: '5px 7px',
+                              }}
+                            >
+                              <i className={`ti ti-${m.enviada ? 'circle-check-filled' : 'circle'}`} style={{ fontSize: 16 }} />
+                            </button>
                             <button
                               onClick={() => copiar(m)}
                               title="Copiar"
