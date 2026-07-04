@@ -99,7 +99,11 @@ export default function MensagensCiclo() {
   }
 
   return (
-    <div style={{ maxWidth: 640 }}>
+    <div>
+      <style>{`
+        .ciclo-exemplos { display: grid; grid-template-columns: 1fr; gap: 20px; }
+        @media (min-width: 900px) { .ciclo-exemplos { grid-template-columns: 1fr 1fr; } }
+      `}</style>
       <div className="card">
         <div className="card-header">
           <div className="card-title">💌 Mensagem motivacional</div>
@@ -223,7 +227,7 @@ export default function MensagensCiclo() {
             Biblioteca de exemplos
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <div className="ciclo-exemplos">
             {GRUPOS.map(g => (
               <div key={g.id}>
                 <div style={{
