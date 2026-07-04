@@ -20,6 +20,7 @@ const NAV_CONFIG = [
       { id: 'monitoramento',    path: '/nutri/monitoramento-oncologico', label: 'Oncologia',           icon: 'atom-2' },
       { id: 'mensagens-ciclo', path: '/nutri/mensagens-ciclo', label: 'Mensagens do ciclo',      icon: 'message-heart' },
       { id: 'arsenal',         path: '/nutri/mensagens-arsenal', label: 'Mensagens',             icon: 'messages' },
+      { id: 'msg-emagrecimento', path: '/nutri/mensagens-emagrecimento', label: 'Msgs. emagrecimento', icon: 'scale' },
       { id: 'checkins',        path: '/nutri/checkins',        label: 'Check-ins',               icon: 'clipboard-check' },
       { id: 'questionarios', path: '/nutri/questionarios', label: 'Pré-consulta',       icon: 'clipboard-list' },
     ],
