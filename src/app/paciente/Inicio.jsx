@@ -108,15 +108,25 @@ export default function Inicio() {
       const ANCORA = Date.UTC(2026, 0, 5, 3, 0, 0);
       supabase
         .from('mensagens_emagrecimento')
-        .select('texto')
+        .select('texto, fixada_em')
         .eq('nutri_id', profile.nutri_id)
         .eq('ativa', true)
         .order('ordem', { ascending: true })
         .then(({ data }) => {
           if (!active || !data?.length) return;
-          const semanas = Math.floor((Date.now() - ANCORA) / (7 * 86_400_000));
-          const idx = ((semanas % data.length) + data.length) % data.length;
-          const texto = data[idx].texto.replace(/\{nome\}/g, primeiroNome);
+          // Existe uma fixada válida (< 3 dias)? Ela ganha da rotação.
+          const TRES_DIAS = 3 * 86_400_000;
+          const fixada = data
+            .filter(m => m.fixada_em && Date.now() - new Date(m.fixada_em).getTime() < TRES_DIAS)
+            .sort((a, b) => new Date(b.fixada_em) - new Date(a.fixada_em))[0];
+          let escolhida = fixada;
+          if (!escolhida) {
+            // Rotação automática semanal (padrão).
+            const semanas = Math.floor((Date.now() - ANCORA) / (7 * 86_400_000));
+            const idx = ((semanas % data.length) + data.length) % data.length;
+            escolhida = data[idx];
+          }
+          const texto = escolhida.texto.replace(/\{nome\}/g, primeiroNome);
           setMensagemCiclo({ texto });
         });
       return () => { active = false; };

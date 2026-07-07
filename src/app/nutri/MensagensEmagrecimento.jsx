@@ -8,6 +8,21 @@ import { useSession } from '../../lib/session.jsx';
 
 const temPlaceholder = t => /\{nome\}/.test(t);
 
+const TRES_DIAS = 3 * 86_400_000;
+
+// Uma mensagem está fixada se tem `fixada_em` e ainda não passaram 3 dias (72h).
+const estaFixada = m => !!m.fixada_em && Date.now() - new Date(m.fixada_em).getTime() < TRES_DIAS;
+
+// Rótulo "expira em Xd Yh" a partir de fixada_em + 3 dias.
+function restanteFixada(fixadaEm) {
+  const ms = new Date(fixadaEm).getTime() + TRES_DIAS - Date.now();
+  if (ms <= 0) return 'expirada';
+  const horas = Math.floor(ms / 3_600_000);
+  const d = Math.floor(horas / 24);
+  const h = horas % 24;
+  return d > 0 ? `expira em ${d}d ${h}h` : `expira em ${h}h`;
+}
+
 export default function MensagensEmagrecimento() {
   const { user } = useSession();
   const [msgs, setMsgs] = useState([]);        // todas as mensagens da nutri
@@ -81,6 +96,46 @@ export default function MensagensEmagrecimento() {
       setMsgs(prev => prev.map(x => (x.id === m.id ? { ...x, ativa: !novo } : x)));
       mostrarFeedback('erro', 'Erro ao atualizar: ' + error.message);
     }
+  }
+
+  async function toggleFixar(m) {
+    if (!user) return;
+    if (estaFixada(m)) {
+      // Desfixar — volta pra rotação automática.
+      setMsgs(prev => prev.map(x => (x.id === m.id ? { ...x, fixada_em: null } : x)));
+      const { error } = await supabase
+        .from('mensagens_emagrecimento')
+        .update({ fixada_em: null })
+        .eq('id', m.id);
+      if (error) {
+        setMsgs(prev => prev.map(x => (x.id === m.id ? { ...x, fixada_em: m.fixada_em } : x)));
+        mostrarFeedback('erro', 'Erro ao desfixar: ' + error.message);
+      }
+      return;
+    }
+    // Só fixa mensagem ativa.
+    if (!m.ativa) return;
+    setBusy(true);
+    const agora = new Date().toISOString();
+    // Só UMA fixada por vez: limpa todas as da nutri e fixa esta.
+    const limpa = await supabase
+      .from('mensagens_emagrecimento')
+      .update({ fixada_em: null })
+      .eq('nutri_id', user.id)
+      .not('fixada_em', 'is', null);
+    if (limpa.error) {
+      setBusy(false);
+      mostrarFeedback('erro', 'Erro ao fixar: ' + limpa.error.message);
+      return;
+    }
+    const { error } = await supabase
+      .from('mensagens_emagrecimento')
+      .update({ fixada_em: agora })
+      .eq('id', m.id);
+    setBusy(false);
+    if (error) { mostrarFeedback('erro', 'Erro ao fixar: ' + error.message); return; }
+    setMsgs(prev => prev.map(x => ({ ...x, fixada_em: x.id === m.id ? agora : null })));
+    mostrarFeedback('ok', 'Mensagem fixada por até 3 dias.');
   }
 
   async function excluir(m) {
@@ -276,6 +331,14 @@ export default function MensagensEmagrecimento() {
                         }}>
                           #{i + 1}
                           {!m.ativa && <span style={{ color: 'var(--muted)' }}>· inativa</span>}
+                          {estaFixada(m) && (
+                            <span style={{
+                              display: 'inline-flex', alignItems: 'center', gap: 3,
+                              color: 'var(--green, #16a34a)', fontWeight: 700,
+                            }}>
+                              📌 Fixada · {restanteFixada(m.fixada_em)}
+                            </span>
+                          )}
                         </div>
                         <div style={{
                           fontSize: 13, lineHeight: 1.6, fontFamily: 'var(--font-sans)',
@@ -286,6 +349,26 @@ export default function MensagensEmagrecimento() {
                         </div>
                       </div>
                       <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+                        <button
+                          onClick={() => toggleFixar(m)}
+                          disabled={busy || (!estaFixada(m) && !m.ativa)}
+                          title={
+                            estaFixada(m)
+                              ? 'Desfixar (voltar à rotação)'
+                              : !m.ativa
+                                ? 'Só é possível fixar mensagens ativas'
+                                : 'Fixar por até 3 dias (aparece para todas as pacientes)'
+                          }
+                          style={{
+                            background: 'none', border: 'none',
+                            cursor: (!estaFixada(m) && !m.ativa) ? 'not-allowed' : 'pointer',
+                            color: estaFixada(m) ? 'var(--green, #16a34a)' : 'var(--muted)',
+                            opacity: (!estaFixada(m) && !m.ativa) ? 0.4 : 1,
+                            padding: '5px 7px',
+                          }}
+                        >
+                          <span style={{ fontSize: 16, lineHeight: 1, filter: estaFixada(m) ? 'none' : 'grayscale(1) opacity(0.5)' }}>📌</span>
+                        </button>
                         <button
                           onClick={() => toggleAtiva(m)}
                           title={m.ativa ? 'Desativar (tirar da rotação)' : 'Ativar (voltar à rotação)'}
