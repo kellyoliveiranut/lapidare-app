@@ -2,7 +2,7 @@ import { memo, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
-import { iniciais } from '../../lib/utils.js';
+import { iniciais, textoDias } from '../../lib/utils.js';
 import ImportarCsv from './_ImportarCsv.jsx';
 
 export default function Pacientes() {
@@ -19,7 +19,7 @@ export default function Pacientes() {
     const [pacRes, pendRes] = await Promise.all([
       supabase
         .from('pacientes')
-        .select('id, nome, email, objetivo, tipo_plano, modalidade, avatar_url, created_at, status_paciente')
+        .select('id, nome, email, objetivo, tipo_plano, modalidade, avatar_url, created_at, status_paciente, ultimo_acesso')
         .order('created_at', { ascending: false }),
       supabase
         .from('pacientes_pendentes')
@@ -339,6 +339,10 @@ const PacienteCard = memo(function PacienteCard({ paciente: p, onNavigate, onRea
             {p.modalidade}
           </div>
         )}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, fontSize: 11, color: 'var(--text3)' }}>
+          <i className="ti ti-clock" style={{ fontSize: 12 }} aria-hidden="true"></i>
+          {p.ultimo_acesso ? `último acesso: ${textoDias(p.ultimo_acesso)}` : 'sem acesso registrado'}
+        </div>
       </div>
     </div>
   );

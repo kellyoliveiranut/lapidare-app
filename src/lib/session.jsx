@@ -53,6 +53,15 @@ export function SessionProvider({ children }) {
         profile,
         loading: false,
       });
+      // Carimba o último acesso da paciente. Fire-and-forget: nunca aguardamos
+      // nem deixamos um erro (rede/RLS) afetar a hidratação da sessão.
+      if (role === 'paciente' && profile?.id) {
+        supabase
+          .from('pacientes')
+          .update({ ultimo_acesso: new Date().toISOString() })
+          .eq('id', profile.id)
+          .then(() => {}, () => {});
+      }
     }
 
     supabase.auth.getSession().then(({ data }) => {
