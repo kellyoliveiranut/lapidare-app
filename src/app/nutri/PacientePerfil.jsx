@@ -2191,12 +2191,15 @@ function PublicarPlano({ pacienteId, nutriId, calculosImportados, onLimparImport
   const [pdfsList, setPdfsList]               = useState([]);
   const [excluindoPdfId, setExcluindoPdfId]   = useState(null);
   const editorPreenchido = useRef(false);
+  // Import pendente dos Cálculos — vence o plano salvo na primeira carga (evita a race com carregar())
+  const importPendente = useRef(null);
 
   useEffect(() => { carregar(); carregarPdfs(); }, [pacienteId]);
 
   // Preenche macros quando vêm dos Cálculos
   useEffect(() => {
     if (!calculosImportados) return;
+    importPendente.current = calculosImportados;
     setMacros(prev => ({
       ...prev,
       kcal:        calculosImportados.kcal        != null ? String(calculosImportados.kcal)        : prev.kcal,
@@ -2214,28 +2217,32 @@ function PublicarPlano({ pacienteId, nutriId, calculosImportados, onLimparImport
       .eq('paciente_id', pacienteId)
       .order('publicado_em', { ascending: false });
     setHistorico(data ?? []);
-    if (!editorPreenchido.current && data?.length) {
+    if (!editorPreenchido.current) {
       editorPreenchido.current = true;
-      const dadosBase = data[0].dados;
-      // Se o plano mais recente não tem substituições, recupera do plano anterior que tenha
-      if (!dadosBase?.substituicoes?.length) {
-        const planComSubs = data.find(p => p.dados?.substituicoes?.length > 0);
-        if (planComSubs) {
-          carregarEditor({ ...dadosBase, substituicoes: planComSubs.dados.substituicoes }, data[0].validade ?? '');
-          return;
-        }
+      if (data?.length) {
+        const dadosBase = data[0].dados;
+        // Se o plano mais recente não tem substituições, recupera do plano anterior que tenha
+        const planComSubs = !dadosBase?.substituicoes?.length
+          ? data.find(p => p.dados?.substituicoes?.length > 0)
+          : null;
+        carregarEditor(
+          planComSubs ? { ...dadosBase, substituicoes: planComSubs.dados.substituicoes } : dadosBase,
+          data[0].validade ?? '',
+        );
       }
-      carregarEditor(dadosBase, data[0].validade ?? '');
+      // Import só vence o carregamento inicial; cargas seguintes (pós-publicar/excluir) preenchem normal
+      importPendente.current = null;
     }
   }
 
   function carregarEditor(dados, validadeStr) {
     const m = dados?.macros ?? {};
+    const imp = importPendente.current; // valores recém-importados dos Cálculos vencem o plano salvo
     setMacros({
-      kcal:        m.kcal   != null ? String(m.kcal)   : '',
-      proteinas_g: m.prot_g != null ? String(m.prot_g) : '',
-      carbo_g:     m.cho_g  != null ? String(m.cho_g)  : '',
-      gorduras_g:  m.lip_g  != null ? String(m.lip_g)  : '',
+      kcal:        imp?.kcal        != null ? String(imp.kcal)        : m.kcal   != null ? String(m.kcal)   : '',
+      proteinas_g: imp?.proteinas_g != null ? String(imp.proteinas_g) : m.prot_g != null ? String(m.prot_g) : '',
+      carbo_g:     imp?.carbo_g     != null ? String(imp.carbo_g)     : m.cho_g  != null ? String(m.cho_g)  : '',
+      gorduras_g:  imp?.gorduras_g  != null ? String(imp.gorduras_g)  : m.lip_g  != null ? String(m.lip_g)  : '',
       agua_l:      m.agua_l != null ? String(m.agua_l) : '',
     });
     setRefeicoes((dados?.refeicoes ?? []).map(r => ({
