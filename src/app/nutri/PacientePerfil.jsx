@@ -1514,47 +1514,8 @@ function CheckinPersonalizado({ pacienteId, nutriId, pacienteNome }) {
 /* ============================================================
    AVALIAÇÃO ANTROPOMÉTRICA
    ============================================================ */
-function RegistrarAvaliacao({ pacienteId, nutriId, paciente }) {
-  const [historico, setHistorico] = useState([]);
-  const [form, setForm] = useState(novaAvaliacao());
-  const [busy, setBusy] = useState(false);
-  const [feedback, setFeedback] = useState(null);
-  const [analisarOpen, setAnalisarOpen] = useState(false);
-  const [importandoShaped, setImportandoShaped] = useState(false);
-  const shapedRef = useRef(null);
-
-  // PDFs de avaliação (só nutri)
-  const [pdfs, setPdfs] = useState([]);
-  const [uploadingPdfs, setUploadingPdfs] = useState(false);
-  const [pdfFeedback, setPdfFeedback] = useState(null);
-  const pdfRef = useRef(null);
-
-  function novaAvaliacao() {
-    return {
-      data: new Date().toISOString().slice(0, 10),
-      kg: '', altura_cm: '',
-      cintura_cm: '', quadril_cm: '', abdome_cm: '',
-      braco_dir_cm: '', braco_esq_cm: '', braco_cm: '',
-      coxa_dir_cm: '', coxa_esq_cm: '', coxa_cm: '',
-      panturrilha_cm: '',
-      pgc: '', mm_kg: '', mm_pct: '', gordura_kg: '',
-      hidratacao_pct: '', geb_kcal: '', get_kcal: '',
-      obs: '',
-    };
-  }
-
-  async function importarShaped(file) {
-    setImportandoShaped(true);
-    setFeedback(null);
-    try {
-      const base64 = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result.split(',')[1]);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-
-      const prompt = `Analise este relatório de avaliação física do Shaped e extraia APENAS os valores abaixo em JSON puro sem texto adicional:
+/* ── Shaped: leitura por IA (compartilhado entre import único e em lote) ── */
+const PROMPT_SHAPED = `Analise este relatório de avaliação física do Shaped e extraia APENAS os valores abaixo em JSON puro sem texto adicional:
 {
   data: string (formato YYYY-MM-DD),
   peso: number,
@@ -1578,45 +1539,144 @@ function RegistrarAvaliacao({ pacienteId, nutriId, paciente }) {
 }
 Retorne SOMENTE o JSON.`;
 
-      const text = await callAnthropic([
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'document',
-              source: { type: 'base64', media_type: 'application/pdf', data: base64 },
-            },
-            { type: 'text', text: prompt },
-          ],
-        },
-      ], { maxTokens: 1024 });
+// Campos numéricos editáveis na tabela de conferência do lote (data e obs são tratados à parte)
+const CAMPOS_LOTE = [
+  { k: 'kg',            label: 'Peso (kg) *' },
+  { k: 'altura_cm',     label: 'Altura (cm)' },
+  { k: 'cintura_cm',    label: 'Cintura' },
+  { k: 'quadril_cm',    label: 'Quadril' },
+  { k: 'abdome_cm',     label: 'Abdome' },
+  { k: 'panturrilha_cm',label: 'Panturrilha' },
+  { k: 'braco_dir_cm',  label: 'Braço D' },
+  { k: 'braco_esq_cm',  label: 'Braço E' },
+  { k: 'coxa_dir_cm',   label: 'Coxa D' },
+  { k: 'coxa_esq_cm',   label: 'Coxa E' },
+  { k: 'pgc',           label: '% gordura' },
+  { k: 'gordura_kg',    label: 'Gordura (kg)' },
+  { k: 'mm_kg',         label: 'Massa magra (kg)' },
+  { k: 'mm_pct',        label: 'Massa magra (%)' },
+  { k: 'hidratacao_pct',label: 'Hidratação (%)' },
+  { k: 'geb_kcal',      label: 'GEB (kcal)' },
+  { k: 'get_kcal',      label: 'GET (kcal)' },
+];
 
-      const cleaned = text.replace(/```(?:json)?\n?/g, '').trim();
-      const d = JSON.parse(cleaned);
+function lerPdfBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
 
-      setForm(f => ({
-        ...f,
-        data:          d.data         ?? f.data,
-        kg:            d.peso         != null ? String(d.peso)          : f.kg,
-        altura_cm:     d.altura       != null ? String(d.altura)        : f.altura_cm,
-        pgc:           d.gordura_perc != null ? String(d.gordura_perc)  : f.pgc,
-        gordura_kg:    d.gordura_kg   != null ? String(d.gordura_kg)    : f.gordura_kg,
-        mm_kg:         d.massa_magra_kg   != null ? String(d.massa_magra_kg)  : f.mm_kg,
-        mm_pct:        d.massa_magra_perc != null ? String(d.massa_magra_perc): f.mm_pct,
-        hidratacao_pct:d.hidratacao   != null ? String(d.hidratacao)    : f.hidratacao_pct,
-        geb_kcal:      d.geb          != null ? String(d.geb)           : f.geb_kcal,
-        get_kcal:      d.get          != null ? String(d.get)           : f.get_kcal,
-        cintura_cm:    d.cintura      != null ? String(d.cintura)       : f.cintura_cm,
-        quadril_cm:    d.quadril      != null ? String(d.quadril)       : f.quadril_cm,
-        abdome_cm:     d.abdome       != null ? String(d.abdome)        : f.abdome_cm,
-        panturrilha_cm:d.panturrilha  != null ? String(d.panturrilha)   : f.panturrilha_cm,
-        braco_dir_cm:  d.braco_d      != null ? String(d.braco_d)       : f.braco_dir_cm,
-        braco_esq_cm:  d.braco_e      != null ? String(d.braco_e)       : f.braco_esq_cm,
-        coxa_dir_cm:   d.coxa_d       != null ? String(d.coxa_d)        : f.coxa_dir_cm,
-        coxa_esq_cm:   d.coxa_e       != null ? String(d.coxa_e)        : f.coxa_esq_cm,
-        obs:           d.obs          ?? f.obs,
-      }));
+async function chamarShaped(base64) {
+  const text = await callAnthropic([
+    {
+      role: 'user',
+      content: [
+        { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
+        { type: 'text', text: PROMPT_SHAPED },
+      ],
+    },
+  ], { maxTokens: 1024 });
+  const cleaned = text.replace(/```(?:json)?\n?/g, '').trim();
+  return JSON.parse(cleaned);
+}
 
+// Retorna só as chaves que a IA preencheu (formato do form); as ausentes ficam de fora.
+function mapShapedParaCampos(d) {
+  const m = {};
+  const put = (cond, key, val) => { if (cond) m[key] = String(val); };
+  put(d.data != null,             'data',           d.data);
+  put(d.peso != null,             'kg',             d.peso);
+  put(d.altura != null,           'altura_cm',      d.altura);
+  put(d.gordura_perc != null,     'pgc',            d.gordura_perc);
+  put(d.gordura_kg != null,       'gordura_kg',     d.gordura_kg);
+  put(d.massa_magra_kg != null,   'mm_kg',          d.massa_magra_kg);
+  put(d.massa_magra_perc != null, 'mm_pct',         d.massa_magra_perc);
+  put(d.hidratacao != null,       'hidratacao_pct', d.hidratacao);
+  put(d.geb != null,              'geb_kcal',       d.geb);
+  put(d.get != null,              'get_kcal',       d.get);
+  put(d.cintura != null,          'cintura_cm',     d.cintura);
+  put(d.quadril != null,          'quadril_cm',     d.quadril);
+  put(d.abdome != null,           'abdome_cm',      d.abdome);
+  put(d.panturrilha != null,      'panturrilha_cm', d.panturrilha);
+  put(d.braco_d != null,          'braco_dir_cm',   d.braco_d);
+  put(d.braco_e != null,          'braco_esq_cm',   d.braco_e);
+  put(d.coxa_d != null,           'coxa_dir_cm',    d.coxa_d);
+  put(d.coxa_e != null,           'coxa_esq_cm',    d.coxa_e);
+  put(d.obs != null,              'obs',            d.obs);
+  return m;
+}
+
+// Data ausente/malformada/futura/muito antiga → precisa de conferência
+function dataSuspeita(dataStr) {
+  if (!dataStr || !/^\d{4}-\d{2}-\d{2}$/.test(dataStr)) return true;
+  const d = new Date(dataStr + 'T12:00:00');
+  if (Number.isNaN(d.getTime())) return true;
+  if (d > new Date()) return true;
+  if (d.getFullYear() < 2015) return true;
+  return false;
+}
+
+// Executa `worker` sobre os itens com no máximo `limite` em paralelo; worker nunca lança.
+async function runPool(items, limite, worker, onProgress) {
+  const resultados = new Array(items.length);
+  let i = 0;
+  async function drain() {
+    while (i < items.length) {
+      const idx = i++;
+      resultados[idx] = await worker(items[idx], idx);
+      onProgress?.();
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limite, items.length) }, drain));
+  return resultados;
+}
+
+function RegistrarAvaliacao({ pacienteId, nutriId, paciente }) {
+  const [historico, setHistorico] = useState([]);
+  const [form, setForm] = useState(novaAvaliacao());
+  const [busy, setBusy] = useState(false);
+  const [feedback, setFeedback] = useState(null);
+  const [analisarOpen, setAnalisarOpen] = useState(false);
+  const [importandoShaped, setImportandoShaped] = useState(false);
+  const shapedRef = useRef(null);
+
+  // PDFs de avaliação (só nutri)
+  const [pdfs, setPdfs] = useState([]);
+  const [uploadingPdfs, setUploadingPdfs] = useState(false);
+  const [pdfFeedback, setPdfFeedback] = useState(null);
+  const pdfRef = useRef(null);
+
+  // Importação em lote de PDFs do Shaped (lê por IA → conferência → salva N)
+  const [importandoLote, setImportandoLote] = useState(false);
+  const [progresso, setProgresso] = useState({ feito: 0, total: 0 });
+  const [rascunhos, setRascunhos] = useState([]); // [{ _id, arquivo, dados, erro }]
+  const [salvandoLote, setSalvandoLote] = useState(false);
+  const loteRef = useRef(null);
+
+  function novaAvaliacao() {
+    return {
+      data: new Date().toISOString().slice(0, 10),
+      kg: '', altura_cm: '',
+      cintura_cm: '', quadril_cm: '', abdome_cm: '',
+      braco_dir_cm: '', braco_esq_cm: '', braco_cm: '',
+      coxa_dir_cm: '', coxa_esq_cm: '', coxa_cm: '',
+      panturrilha_cm: '',
+      pgc: '', mm_kg: '', mm_pct: '', gordura_kg: '',
+      hidratacao_pct: '', geb_kcal: '', get_kcal: '',
+      obs: '',
+    };
+  }
+
+  async function importarShaped(file) {
+    setImportandoShaped(true);
+    setFeedback(null);
+    try {
+      const base64 = await lerPdfBase64(file);
+      const d = await chamarShaped(base64);
+      setForm(f => ({ ...f, ...mapShapedParaCampos(d) }));
       setFeedback({ tipo: 'ok', msg: 'Avaliação importada com sucesso! Confira os dados antes de salvar.' });
     } catch (err) {
       console.error('[importarShaped]', err);
@@ -1624,6 +1684,92 @@ Retorne SOMENTE o JSON.`;
     } finally {
       setImportandoShaped(false);
       if (shapedRef.current) shapedRef.current.value = '';
+    }
+  }
+
+  // Lê vários PDFs do Shaped por IA (até 3 em paralelo) e abre a tela de conferência.
+  async function importarLoteShaped(files) {
+    const arr = Array.from(files);
+    if (arr.length === 0) return;
+    setImportandoLote(true);
+    setFeedback(null);
+    setProgresso({ feito: 0, total: arr.length });
+    const resultados = await runPool(
+      arr,
+      3,
+      async (file) => {
+        try {
+          const base64 = await lerPdfBase64(file);
+          const d = await chamarShaped(base64);
+          return {
+            _id: Math.random().toString(36).slice(2),
+            arquivo: file.name,
+            dados: { ...novaAvaliacao(), data: '', ...mapShapedParaCampos(d) },
+            erro: null,
+          };
+        } catch (err) {
+          console.error('[importarLoteShaped]', file.name, err);
+          return {
+            _id: Math.random().toString(36).slice(2),
+            arquivo: file.name,
+            dados: null,
+            erro: err?.message ?? 'falha ao ler o PDF',
+          };
+        }
+      },
+      () => setProgresso(p => ({ ...p, feito: p.feito + 1 })),
+    );
+    setImportandoLote(false);
+    if (loteRef.current) loteRef.current.value = '';
+    setRascunhos(resultados);
+  }
+
+  async function salvarLote() {
+    const validos = rascunhos.filter(r => !r.erro && r.dados);
+    if (validos.length === 0) {
+      return setFeedback({ tipo: 'erro', msg: 'Nenhuma avaliação válida para salvar.' });
+    }
+    const pendentes = validos.filter(r => dataSuspeita(r.dados.data) || !r.dados.kg);
+    if (pendentes.length > 0) {
+      return setFeedback({ tipo: 'erro', msg: `Corrija a data e o peso de ${pendentes.length} avaliação(ões) destacada(s) antes de salvar.` });
+    }
+    setSalvandoLote(true);
+    setFeedback(null);
+    try {
+      const payloads = validos.map(({ dados: fm }) => ({
+        paciente_id: pacienteId,
+        nutri_id: nutriId,
+        data: fm.data,
+        kg: num(fm.kg),
+        altura_cm: numInt(fm.altura_cm),
+        cintura_cm: num(fm.cintura_cm),
+        quadril_cm: num(fm.quadril_cm),
+        abdome_cm: num(fm.abdome_cm),
+        braco_cm: num(fm.braco_cm),
+        braco_dir_cm: num(fm.braco_dir_cm),
+        braco_esq_cm: num(fm.braco_esq_cm),
+        coxa_cm: num(fm.coxa_cm),
+        coxa_dir_cm: num(fm.coxa_dir_cm),
+        coxa_esq_cm: num(fm.coxa_esq_cm),
+        panturrilha_cm: num(fm.panturrilha_cm),
+        pgc: num(fm.pgc),
+        mm_kg: num(fm.mm_kg),
+        mm_pct: num(fm.mm_pct),
+        gordura_kg: num(fm.gordura_kg),
+        hidratacao_pct: num(fm.hidratacao_pct),
+        geb_kcal: numInt(fm.geb_kcal),
+        get_kcal: numInt(fm.get_kcal),
+        obs: fm.obs?.trim() || null,
+      }));
+      const { error } = await supabase.from('peso_registros').insert(payloads);
+      if (error) throw error;
+      setRascunhos([]);
+      setFeedback({ tipo: 'ok', msg: `${payloads.length} avaliação(ões) registrada(s).` });
+      carregar();
+    } catch (err) {
+      setFeedback({ tipo: 'erro', msg: err?.message || 'Erro ao salvar avaliações.' });
+    } finally {
+      setSalvandoLote(false);
     }
   }
 
@@ -1776,6 +1922,17 @@ Retorne SOMENTE o JSON.`;
         </Suspense>
       )}
 
+      {rascunhos.length > 0 && (
+        <ModalRevisaoLote
+          rascunhos={rascunhos}
+          salvando={salvandoLote}
+          onEditar={(id, campo, val) => setRascunhos(rs => rs.map(r => r._id === id ? { ...r, dados: { ...r.dados, [campo]: val } } : r))}
+          onRemover={(id) => setRascunhos(rs => rs.filter(r => r._id !== id))}
+          onSalvar={salvarLote}
+          onFechar={() => setRascunhos([])}
+        />
+      )}
+
       <div className="card">
         <div className="card-header">
           <div>
@@ -1798,8 +1955,8 @@ Retorne SOMENTE o JSON.`;
           )}
         </div>
         <div className="card-body">
-          {/* Importar do Shaped */}
-          <div style={{ marginBottom: 16 }}>
+          {/* Importar do Shaped (único ou em lote) */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
             <input
               ref={shapedRef}
               type="file"
@@ -1810,18 +1967,44 @@ Retorne SOMENTE o JSON.`;
             <button
               type="button"
               onClick={() => shapedRef.current?.click()}
-              disabled={importandoShaped}
+              disabled={importandoShaped || importandoLote}
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 7,
                 padding: '8px 14px', borderRadius: 8,
                 border: '1px dashed var(--border)',
                 background: 'var(--bg2)', color: 'var(--text2)',
-                fontSize: 13, cursor: importandoShaped ? 'default' : 'pointer',
+                fontSize: 13, cursor: (importandoShaped || importandoLote) ? 'default' : 'pointer',
                 fontFamily: 'var(--font-sans)',
               }}>
               {importandoShaped
                 ? <><i className="ti ti-loader-2" style={{ fontSize: 15 }} aria-hidden="true" /> Lendo avaliação Shaped...</>
                 : <>📄 Importar do Shaped</>
+              }
+            </button>
+
+            <input
+              ref={loteRef}
+              type="file"
+              accept="application/pdf,.pdf"
+              multiple
+              style={{ display: 'none' }}
+              onChange={e => { if (e.target.files?.length) importarLoteShaped(e.target.files); }}
+            />
+            <button
+              type="button"
+              onClick={() => loteRef.current?.click()}
+              disabled={importandoShaped || importandoLote}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 7,
+                padding: '8px 14px', borderRadius: 8,
+                border: '1px dashed var(--border)',
+                background: 'var(--bg2)', color: 'var(--text2)',
+                fontSize: 13, cursor: (importandoShaped || importandoLote) ? 'default' : 'pointer',
+                fontFamily: 'var(--font-sans)',
+              }}>
+              {importandoLote
+                ? <><i className="ti ti-loader-2" style={{ fontSize: 15 }} aria-hidden="true" /> Lendo {progresso.feito} de {progresso.total}…</>
+                : <>📄 Importar vários do Shaped</>
               }
             </button>
           </div>
@@ -2099,6 +2282,133 @@ function parseSubs(subs) {
   }
   if (cur.trim()) items.push(parseOne(cur.trim()));
   return items.filter(s => s.nome);
+}
+
+// ─── Modal: conferência do lote de avaliações Shaped (revisar antes de salvar) ──
+function ModalRevisaoLote({ rascunhos, salvando, onEditar, onRemover, onSalvar, onFechar }) {
+  const comErro = rascunhos.filter(r => r.erro);
+  const validos = rascunhos.filter(r => !r.erro && r.dados);
+  const pendentes = validos.filter(r => dataSuspeita(r.dados.data) || !r.dados.kg);
+  const podeSalvar = !salvando && validos.length > 0 && pendentes.length === 0;
+
+  const inputStyle = {
+    width: '100%', boxSizing: 'border-box', padding: '7px 9px', borderRadius: 8,
+    border: '1px solid var(--hair)', fontSize: 13, background: 'var(--white)', fontFamily: 'var(--font-sans)',
+  };
+  const labelStyle = { fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', fontWeight: 500, marginBottom: 3, display: 'block' };
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 1100,
+      background: 'rgba(0,0,0,.45)', display: 'flex',
+      alignItems: 'flex-end', justifyContent: 'center',
+    }} onClick={e => { if (e.target === e.currentTarget && !salvando) onFechar(); }}>
+      <div style={{
+        background: 'var(--paper, #faf7f2)', borderRadius: '20px 20px 0 0',
+        padding: '20px 18px 28px', width: '100%', maxWidth: 720,
+        maxHeight: '92vh', overflowY: 'auto',
+        boxShadow: '0 -4px 30px rgba(0,0,0,.15)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+          <span style={{ fontFamily: 'var(--font-serif)', fontSize: 18, color: 'var(--ink)' }}>
+            Conferir {validos.length} avaliação{validos.length !== 1 ? 'ões' : ''}
+          </span>
+          <button onClick={() => { if (!salvando) onFechar(); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: 'var(--muted)', padding: 4 }}>
+            <i className="ti ti-x" aria-hidden="true" />
+          </button>
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 16 }}>
+          Revise os valores lidos pela IA — corrija o que estiver errado. Datas destacadas em vermelho precisam ser conferidas antes de salvar.
+        </div>
+
+        {comErro.length > 0 && (
+          <div style={{ fontSize: 12, color: 'var(--red, #dc2626)', marginBottom: 12 }}>
+            {comErro.length} PDF(s) não puderam ser lidos e serão ignorados: {comErro.map(r => r.arquivo).join(', ')}.
+          </div>
+        )}
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {rascunhos.map(r => {
+            if (r.erro) {
+              return (
+                <div key={r._id} style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--red, #dc2626)', background: 'var(--red-bg, #fef2f2)', display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--dark)' }}>{r.arquivo}</div>
+                    <div style={{ fontSize: 12, color: 'var(--red, #dc2626)' }}>Falha ao ler: {r.erro}</div>
+                  </div>
+                  <button onClick={() => onRemover(r._id)} style={{ background: 'none', border: '1px solid var(--hair)', borderRadius: 8, padding: '5px 10px', cursor: 'pointer', fontSize: 12, color: 'var(--text3)', fontFamily: 'var(--font-sans)', flexShrink: 0 }}>
+                    Remover
+                  </button>
+                </div>
+              );
+            }
+            const suspeita = dataSuspeita(r.dados.data);
+            return (
+              <div key={r._id} style={{ padding: '12px', borderRadius: 10, border: '1px solid var(--hair)', background: 'var(--white)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                  <span style={{ flex: 1, minWidth: 0, fontSize: 12, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    📄 {r.arquivo}
+                  </span>
+                  <button onClick={() => onRemover(r._id)} style={{ background: 'none', border: '1px solid var(--hair)', borderRadius: 8, padding: '5px 10px', cursor: 'pointer', fontSize: 12, color: 'var(--text3)', fontFamily: 'var(--font-sans)', flexShrink: 0 }}>
+                    Remover
+                  </button>
+                </div>
+
+                <div style={{ marginBottom: 10, maxWidth: 220 }}>
+                  <label style={labelStyle}>Data {suspeita && <span style={{ color: 'var(--red, #dc2626)' }}>· ⚠️ confira</span>}</label>
+                  <input
+                    type="date"
+                    value={r.dados.data || ''}
+                    onChange={e => onEditar(r._id, 'data', e.target.value)}
+                    style={{ ...inputStyle, border: suspeita ? '1.5px solid var(--red, #dc2626)' : inputStyle.border, background: suspeita ? 'var(--red-bg, #fef2f2)' : inputStyle.background }}
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 8 }}>
+                  {CAMPOS_LOTE.map(c => (
+                    <div key={c.k}>
+                      <label style={labelStyle}>{c.label}</label>
+                      <input
+                        inputMode="decimal"
+                        value={r.dados[c.k] ?? ''}
+                        onChange={e => onEditar(r._id, c.k, e.target.value)}
+                        style={c.k === 'kg' && !r.dados.kg ? { ...inputStyle, border: '1.5px solid var(--red, #dc2626)', background: 'var(--red-bg, #fef2f2)' } : inputStyle}
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ marginTop: 8 }}>
+                  <label style={labelStyle}>Observação</label>
+                  <input value={r.dados.obs ?? ''} onChange={e => onEditar(r._id, 'obs', e.target.value)} style={inputStyle} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div style={{ marginTop: 18, display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button
+            onClick={onSalvar}
+            disabled={!podeSalvar}
+            style={{
+              flex: 1, padding: '13px', borderRadius: 12,
+              background: 'var(--gold-deep, #a08456)', color: '#fff',
+              border: 'none', fontSize: 14, fontWeight: 600,
+              cursor: podeSalvar ? 'pointer' : 'default', opacity: podeSalvar ? 1 : 0.6,
+              fontFamily: 'var(--font-sans)',
+            }}>
+            {salvando ? 'Salvando…' : `Salvar ${validos.length} avaliação${validos.length !== 1 ? 'ões' : ''}`}
+          </button>
+        </div>
+        {pendentes.length > 0 && (
+          <div style={{ marginTop: 8, fontSize: 12, color: 'var(--red, #dc2626)', textAlign: 'center' }}>
+            {pendentes.length} avaliação(ões) com data ou peso pendente. Corrija para habilitar o salvamento.
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function PdfListSection({ itens, excluindoId, onAbrir, onExcluir }) {
