@@ -65,7 +65,13 @@ export default function Pacientes() {
 
   const filtradas = useMemo(() => {
     if (!pacientes) return [];
-    const porStatus = pacientes.filter(p => (p.status_paciente ?? 'ativo') === filtroStatus);
+    let porStatus = pacientes.filter(p => (p.status_paciente ?? 'ativo') === filtroStatus);
+    // Só a aba 'ativo' é ordenada por nome (A→Z); finalizado/obito seguem como estão (created_at desc)
+    if (filtroStatus === 'ativo') {
+      porStatus = [...porStatus].sort((a, b) =>
+        (a.nome ?? '').localeCompare(b.nome ?? '', 'pt-BR', { sensitivity: 'base' })
+      );
+    }
     const q = busca.trim().toLowerCase();
     if (!q) return porStatus;
     return porStatus.filter(p =>

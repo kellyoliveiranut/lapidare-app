@@ -72,12 +72,14 @@ export default function Biblioteca() {
   const filtrados = useMemo(() => {
     if (!items) return [];
     const q = busca.trim().toLowerCase();
-    return items.filter(it => {
-      if (secaoDoItem(it.tag) !== secaoAtiva) return false;
-      if (!q) return true;
-      return (it.titulo ?? '').toLowerCase().includes(q)
-        || (it.descricao ?? '').toLowerCase().includes(q);
-    });
+    return items
+      .filter(it => {
+        if (secaoDoItem(it.tag) !== secaoAtiva) return false;
+        if (!q) return true;
+        return (it.titulo ?? '').toLowerCase().includes(q)
+          || (it.descricao ?? '').toLowerCase().includes(q);
+      })
+      .sort((a, b) => (a.titulo ?? '').localeCompare(b.titulo ?? '', 'pt-BR', { sensitivity: 'base' }));
   }, [items, secaoAtiva, busca]);
 
   const contagensSecao = useMemo(() => {
