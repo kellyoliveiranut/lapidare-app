@@ -44,6 +44,7 @@ export default function PacientePerfil() {
   const [consultaAtiva, setConsultaAtiva] = useState(undefined);
   const [busyConsulta, setBusyConsulta] = useState(false);
   const [agendarAcompOpen, setAgendarAcompOpen] = useState(false);
+  const [agendarAvulsaOpen, setAgendarAvulsaOpen] = useState(false);
   const [acompList, setAcompList] = useState(null);
   const [erroAcomp, setErroAcomp] = useState(null);
   const [erroCarregar, setErroCarregar] = useState(false);
@@ -53,6 +54,7 @@ export default function PacientePerfil() {
     if (tipo === 'primeira') return '1ª consulta';
     if (tipo === 'avaliacao') return 'Avaliação';
     if (tipo === 'retorno') return 'Retorno';
+    if (tipo === 'avulsa') return 'Consulta avulsa';
     const m = tipo.match(/^consulta_(\d+)$/);
     return m ? `Consulta ${m[1]}` : tipo;
   }
@@ -540,6 +542,19 @@ export default function PacientePerfil() {
         />
       )}
 
+      {/* Agendar consulta avulsa */}
+      {agendarAvulsaOpen && (
+        <ModalAgendarAvulsa
+          pacienteId={id}
+          nutriId={user?.id}
+          onClose={() => setAgendarAvulsaOpen(false)}
+          onSalvo={() => {
+            setAgendarAvulsaOpen(false);
+            Promise.all([reloadConsultaAtiva(), loadAcompConsultas()]);
+          }}
+        />
+      )}
+
       {/* Card de consulta ativa */}
       {consultaAtiva && (() => {
         const finalizada = consultaAtiva.status === 'realizada';
@@ -623,12 +638,12 @@ export default function PacientePerfil() {
         );
       })()}
 
-      {/* Botão agendar acompanhamento */}
-      <div style={{ marginBottom: 14 }}>
+      {/* Botões de agendamento */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
         <button
           onClick={() => setAgendarAcompOpen(true)}
           style={{
-            width: '100%', padding: '9px 14px', borderRadius: 10,
+            flex: '1 1 200px', padding: '9px 14px', borderRadius: 10,
             border: '1px dashed var(--gold-deep, #a08456)',
             background: 'transparent', color: 'var(--gold-deep, #a08456)',
             fontSize: 13, fontWeight: 500, cursor: 'pointer',
@@ -638,6 +653,20 @@ export default function PacientePerfil() {
         >
           <i className="ti ti-calendar-plus" aria-hidden="true" />
           Agendar acompanhamento (6 consultas)
+        </button>
+        <button
+          onClick={() => setAgendarAvulsaOpen(true)}
+          style={{
+            flex: '1 1 200px', padding: '9px 14px', borderRadius: 10,
+            border: '1px dashed var(--gold-deep, #a08456)',
+            background: 'transparent', color: 'var(--gold-deep, #a08456)',
+            fontSize: 13, fontWeight: 500, cursor: 'pointer',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            gap: 6, fontFamily: 'var(--font-sans)',
+          }}
+        >
+          <i className="ti ti-calendar-plus" aria-hidden="true" />
+          Agendar consulta avulsa
         </button>
       </div>
 
@@ -5674,6 +5703,105 @@ function ModalAgendarAcompanhamento({ pacienteId, nutriId, consultaAtiva, onClos
           }}
         >
           {salvando ? 'Salvando…' : 'Salvar 6 consultas'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Modal: Agendar consulta avulsa (atendimento único, fora do pacote de 6) ──
+function ModalAgendarAvulsa({ pacienteId, nutriId, onClose, onSalvo }) {
+  const defaultStr = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 7);
+    return d.toISOString().slice(0, 16); // "YYYY-MM-DDTHH:mm"
+  })();
+
+  const [dataHora, setDataHora] = useState(defaultStr);
+  const [duracao, setDuracao] = useState(50);
+  const [salvando, setSalvando] = useState(false);
+  const [erro, setErro] = useState(null);
+
+  async function salvar() {
+    if (!dataHora) { setErro('Preencha a data e a hora.'); return; }
+    setSalvando(true);
+    setErro(null);
+    const { error } = await supabase.from('consultas').insert({
+      paciente_id:    pacienteId,
+      nutri_id:       nutriId,
+      data_hora:      new Date(dataHora).toISOString(),
+      duracao_min:    duracao,
+      tipo:           'avulsa',
+      status:         'agendada',
+      lembrete_ativo: true,
+    });
+    setSalvando(false);
+    if (error) { setErro('Erro ao salvar: ' + error.message); return; }
+    onSalvo();
+  }
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 1100,
+      background: 'rgba(0,0,0,.45)', display: 'flex',
+      alignItems: 'flex-end', justifyContent: 'center',
+    }} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{
+        background: 'var(--paper, #faf7f2)', borderRadius: '20px 20px 0 0',
+        padding: '24px 20px 32px', width: '100%', maxWidth: 540,
+        maxHeight: '90vh', overflowY: 'auto',
+        boxShadow: '0 -4px 30px rgba(0,0,0,.15)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+          <span style={{ fontFamily: 'var(--font-serif)', fontSize: 18, color: 'var(--ink)' }}>
+            Agendar consulta avulsa
+          </span>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: 'var(--muted)', padding: 4 }}>
+            <i className="ti ti-x" aria-hidden="true" />
+          </button>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 18 }}>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.1em', fontWeight: 500 }}>Data e hora</span>
+            <input
+              type="datetime-local"
+              value={dataHora}
+              onChange={e => setDataHora(e.target.value)}
+              style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid var(--hair)', fontSize: 13, background: 'var(--white)', fontFamily: 'var(--font-sans)' }}
+            />
+          </label>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.1em', fontWeight: 500 }}>Duração (min)</span>
+            <select
+              value={duracao}
+              onChange={e => setDuracao(Number(e.target.value))}
+              style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid var(--hair)', fontSize: 13, background: 'var(--white)', fontFamily: 'var(--font-sans)' }}
+            >
+              {[30, 45, 50, 60, 90].map(m => <option key={m} value={m}>{m} min</option>)}
+            </select>
+          </label>
+        </div>
+
+        {erro && (
+          <div style={{ color: 'var(--red, #dc2626)', fontSize: 13, marginBottom: 12, padding: '8px 12px', background: 'var(--red-bg, #fef2f2)', borderRadius: 8 }}>
+            {erro}
+          </div>
+        )}
+
+        <button
+          onClick={salvar}
+          disabled={salvando}
+          style={{
+            width: '100%', padding: '13px', borderRadius: 12,
+            background: 'var(--gold-deep, #a08456)', color: '#fff',
+            border: 'none', fontSize: 14, fontWeight: 600,
+            cursor: salvando ? 'default' : 'pointer',
+            opacity: salvando ? 0.7 : 1,
+            fontFamily: 'var(--font-sans)',
+          }}
+        >
+          {salvando ? 'Salvando…' : 'Salvar consulta'}
         </button>
       </div>
     </div>

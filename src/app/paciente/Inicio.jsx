@@ -21,6 +21,7 @@ function labelTipo(tipo) {
   if (tipo === 'primeira')  return '1ª consulta';
   if (tipo === 'avaliacao') return 'Avaliação';
   if (tipo === 'retorno')   return 'Retorno';
+  if (tipo === 'avulsa')    return 'Consulta avulsa';
   const m = tipo.match(/^consulta_(\d+)$/);
   return m ? `Consulta ${m[1]}` : tipo;
 }
