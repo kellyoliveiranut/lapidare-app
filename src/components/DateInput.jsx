@@ -1,4 +1,4 @@
-function parseDatePaste(raw) {
+export function parseDatePaste(raw) {
   const s = raw.trim().replace(/\s/g, '');
   // ISO: YYYY-MM-DD
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;

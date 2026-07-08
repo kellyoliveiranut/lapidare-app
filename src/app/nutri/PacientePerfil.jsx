@@ -9,7 +9,7 @@ import {
 import { TEMPLATE_PADRAO } from '../../lib/checkinDefault.js';
 import { callAnthropic } from '../../lib/anthropic.js';
 import { buscarAlimento, medidaCaseira, kcalDoAlimento, kcalEquivalente, parseGramas } from '../../lib/taco.js';
-import DateInput from '../../components/DateInput.jsx';
+import DateInput, { parseDatePaste } from '../../components/DateInput.jsx';
 import CheckinForm from '../../components/CheckinForm.jsx';
 const Evolucao             = lazy(() => import('./_Evolucao.jsx'));
 const FollowUp             = lazy(() => import('./_FollowUp.jsx'));
@@ -1064,34 +1064,88 @@ function ModalArquivar({ paciente, onClose, onArquivado }) {
 /* ============================================================
    MODAL EDITAR DADOS DA PACIENTE
    ============================================================ */
+// ISO (YYYY-MM-DD) → BR (DD/MM/AAAA) para exibição
+function isoParaBR(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso ?? '');
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : '';
+}
+
+// Texto digitado/colado (DD/MM/AAAA, com ou sem separadores) → { iso, erro }.
+// Vazio é válido (nascimento é opcional). Rejeita data impossível e ano fora de 1900..hoje.
+function parseBrData(raw) {
+  const s = (raw ?? '').trim();
+  if (!s) return { iso: '', erro: null };
+  let iso = parseDatePaste(s);
+  if (!iso) {
+    const soDigitos = s.replace(/\D/g, '');
+    if (/^\d{8}$/.test(soDigitos)) {
+      iso = `${soDigitos.slice(4)}-${soDigitos.slice(2, 4)}-${soDigitos.slice(0, 2)}`;
+    }
+  }
+  if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+    return { iso: null, erro: 'Data inválida — use DD/MM/AAAA (ex.: 15/03/1955).' };
+  }
+  const [y, mo, d] = iso.split('-').map(Number);
+  const dt = new Date(y, mo - 1, d);
+  if (dt.getFullYear() !== y || dt.getMonth() !== mo - 1 || dt.getDate() !== d) {
+    return { iso: null, erro: 'Essa data não existe. Confira o dia e o mês.' };
+  }
+  const anoAtual = new Date().getFullYear();
+  if (y < 1900 || dt > new Date()) {
+    return { iso: null, erro: `Ano fora da faixa (1900–${anoAtual}).` };
+  }
+  return { iso, erro: null };
+}
+
 function ModalEditarDados({ paciente, onClose, onSaved }) {
   const [form, setForm] = useState({
     nome:       paciente.nome       ?? '',
     email:      paciente.email      ?? '',
     telefone:   paciente.telefone   ?? '',
-    nascimento: paciente.nascimento ?? '',
     objetivo:   paciente.objetivo   ?? '',
     tipo_plano: paciente.tipo_plano ?? '',
     modalidade: paciente.modalidade ?? '',
   });
+  const [nascInput, setNascInput] = useState(isoParaBR(paciente.nascimento));
+  const [erroNasc, setErroNasc]   = useState(null);
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState(null);
 
   const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
-  const emailJaCadastrado = !!paciente.email;
+
+  function onNascChange(e) {
+    const v = e.target.value;
+    setNascInput(v);
+    setErroNasc(v.trim() ? parseBrData(v).erro : null);
+  }
 
   async function salvar() {
     if (!form.nome.trim()) return setErro('Nome é obrigatório.');
+    const { iso: nascISO, erro: nascErro } = parseBrData(nascInput);
+    if (nascErro) { setErroNasc(nascErro); setErro(nascErro); return; }
     setBusy(true); setErro(null);
     try {
+      const emailVal = form.email.trim();
+      // Unicidade: e-mail não pode repetir de outra paciente da mesma nutri
+      if (emailVal && emailVal.toLowerCase() !== (paciente.email ?? '').toLowerCase()) {
+        const { data: dup, error: dupErr } = await supabase.from('pacientes')
+          .select('id')
+          .eq('nutri_id', paciente.nutri_id)
+          .neq('id', paciente.id)
+          .ilike('email', emailVal)
+          .limit(1)
+          .maybeSingle();
+        if (dupErr) throw dupErr;
+        if (dup) { setErro('Este e-mail já está em uso por outra paciente.'); setBusy(false); return; }
+      }
       const { error } = await supabase.from('pacientes').update({
-        nome:       form.nome.trim()       || null,
-        email:      form.email.trim()      || null,
-        telefone:   form.telefone.trim()   || null,
-        nascimento: form.nascimento        || null,
-        objetivo:   form.objetivo          || null,
-        tipo_plano: form.tipo_plano        || null,
-        modalidade: form.modalidade        || null,
+        nome:       form.nome.trim()   || null,
+        email:      emailVal           || null,
+        telefone:   form.telefone.trim() || null,
+        nascimento: nascISO            || null,
+        objetivo:   form.objetivo      || null,
+        tipo_plano: form.tipo_plano    || null,
+        modalidade: form.modalidade    || null,
       }).eq('id', paciente.id);
       if (error) throw error;
       onSaved();
@@ -1137,12 +1191,13 @@ function ModalEditarDados({ paciente, onClose, onSaved }) {
               <input
                 type="email"
                 value={form.email}
-                readOnly={emailJaCadastrado}
-                onChange={emailJaCadastrado ? undefined : set('email')}
-                style={emailJaCadastrado ? { background: 'var(--bg2)', color: 'var(--text3)', cursor: 'default' } : {}}
+                onChange={set('email')}
+                placeholder="email@exemplo.com"
               />
-              {emailJaCadastrado && (
-                <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 3 }}>Para alterar o e-mail de login, fale com o suporte.</div>
+              {paciente.user_id && (
+                <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 3 }}>
+                  Esta paciente já tem login — alterar aqui muda o cadastro, não o e-mail de acesso dela.
+                </div>
               )}
             </div>
             <div>
@@ -1158,7 +1213,18 @@ function ModalEditarDados({ paciente, onClose, onSaved }) {
 
           <div>
             <label className="field-label">Data de nascimento</label>
-            <input type="date" value={form.nascimento} onChange={set('nascimento')} />
+            <input
+              type="text"
+              inputMode="numeric"
+              placeholder="DD/MM/AAAA"
+              maxLength={10}
+              value={nascInput}
+              onChange={onNascChange}
+              style={erroNasc ? { border: '1.5px solid var(--red, #dc2626)' } : undefined}
+            />
+            {erroNasc && (
+              <div style={{ fontSize: 11, color: 'var(--red, #dc2626)', marginTop: 3 }}>{erroNasc}</div>
+            )}
           </div>
 
           <div>
