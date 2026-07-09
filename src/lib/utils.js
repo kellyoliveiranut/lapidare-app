@@ -20,7 +20,11 @@ export function mesAno(date = new Date()) {
 /** "09/05/2026" */
 export function dataBR(value) {
   if (!value) return '—';
-  const d = typeof value === 'string' ? new Date(value) : value;
+  // "YYYY-MM-DD" (coluna date) → interpreta como LOCAL; senão new Date() joga
+  // pra UTC e em fuso negativo (Belém −3) a data recua um dia.
+  const d = (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value))
+    ? new Date(value + 'T12:00:00')
+    : (typeof value === 'string' ? new Date(value) : value);
   if (Number.isNaN(d.getTime())) return '—';
   return d.toLocaleDateString('pt-BR');
 }
