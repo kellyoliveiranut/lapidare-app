@@ -152,8 +152,9 @@ export default function Agenda() {
 
   const agora = new Date().toISOString();
   const ativas = (consultas ?? []).filter(c => c.status !== 'cancelada');
-  const futuras = ativas.filter(c => c.data_hora >= agora);
-  const passadas = ativas.filter(c => c.data_hora < agora);
+  const futuras = ativas.filter(c => c.data_hora && c.data_hora >= agora);
+  const passadas = ativas.filter(c => c.data_hora && c.data_hora < agora);
+  const aDefinir = ativas.filter(c => !c.data_hora);
   const canceladas = (consultas ?? []).filter(c => c.status === 'cancelada');
 
   // Consultas do dia selecionado
@@ -161,6 +162,7 @@ export default function Agenda() {
     if (!diaSelecionado) return [];
     return (consultas ?? [])
       .filter(c => c.status !== 'cancelada')
+      .filter(c => c.data_hora)
       .filter(c => ehMesmoDia(new Date(c.data_hora), diaSelecionado))
       .sort((a, b) => a.data_hora.localeCompare(b.data_hora));
   }, [consultas, diaSelecionado]);
@@ -241,6 +243,17 @@ export default function Agenda() {
       {/* Listas tradicionais */}
       {consultas !== undefined && (
         <>
+          {aDefinir.length > 0 && (
+            <>
+              <div className="section-label" style={{ marginTop: 20 }}>A definir ({aDefinir.length})</div>
+              <div className="card" style={{ padding: 0 }}>
+                {aDefinir.map((c, i) => (
+                  <ConsultaRow key={c.id} c={c} isLast={i === aDefinir.length - 1} onClick={() => abrirEdit(c)} />
+                ))}
+              </div>
+            </>
+          )}
+
           {futuras.length > 0 && (
             <>
               <div className="section-label" style={{ marginTop: 20 }}>Todas as próximas</div>
@@ -669,7 +682,7 @@ function ConsultaRow({ c, isLast, isPast, isCanceled, onClick }) {
           {c.paciente?.nome ?? '—'}
         </div>
         <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>
-          {dataConsultaBR(c.data_hora)} · {c.duracao_min}min
+          {c.data_hora ? dataConsultaBR(c.data_hora) : 'A definir'} · {c.duracao_min}min
           {isPast && c.status === 'agendada' && ' · sem status'}
           {c.status === 'realizada' && ' · ✓ realizada'}
         </div>
@@ -695,7 +708,7 @@ function ConsultaRow({ c, isLast, isPast, isCanceled, onClick }) {
         }}>
           {tipoLabel(c.tipo)}
         </span>
-        {!isPast && !isCanceled && (
+        {!isPast && !isCanceled && c.data_hora && (
           <span style={{ fontSize: 11, color: 'var(--text3)' }}>{textoDias(c.data_hora)}</span>
         )}
         <i className="ti ti-chevron-right" style={{ fontSize: 14, color: 'var(--text3)' }} aria-hidden="true"></i>

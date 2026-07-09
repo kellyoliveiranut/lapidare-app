@@ -47,6 +47,7 @@ export default function PacientePerfil() {
   const [busyConsulta, setBusyConsulta] = useState(false);
   const [agendarAcompOpen, setAgendarAcompOpen] = useState(false);
   const [agendarAvulsaOpen, setAgendarAvulsaOpen] = useState(false);
+  const [definirDataConsulta, setDefinirDataConsulta] = useState(null); // consulta "a definir" sendo datada
   const [acompList, setAcompList] = useState(null);
   const [erroAcomp, setErroAcomp] = useState(null);
   const [erroCarregar, setErroCarregar] = useState(false);
@@ -159,6 +160,16 @@ export default function PacientePerfil() {
     const { error } = await supabase.from('consultas').delete().eq('id', consultaId);
     if (error) { setErroAcomp('Erro ao excluir: ' + error.message); return; }
     await Promise.all([loadAcompConsultas(), reloadConsultaAtiva()]);
+  }
+
+  async function salvarDataConsulta(consultaId, dataHoraIso) {
+    setErroAcomp(null);
+    const { error } = await supabase.from('consultas')
+      .update({ data_hora: dataHoraIso })
+      .eq('id', consultaId);
+    if (error) { setErroAcomp('Erro ao definir data: ' + error.message); return false; }
+    await Promise.all([loadAcompConsultas(), reloadConsultaAtiva()]);
+    return true;
   }
 
   async function enviarRedefinicaoSenha() {
@@ -564,6 +575,18 @@ export default function PacientePerfil() {
         />
       )}
 
+      {/* Definir data de uma consulta "a definir" */}
+      {definirDataConsulta && (
+        <ModalDefinirData
+          labelTipo={labelTipoConsulta(definirDataConsulta.tipo)}
+          onClose={() => setDefinirDataConsulta(null)}
+          onSalvar={async (dataHoraIso) => {
+            const ok = await salvarDataConsulta(definirDataConsulta.id, dataHoraIso);
+            if (ok) setDefinirDataConsulta(null);
+          }}
+        />
+      )}
+
       {/* Card de consulta ativa */}
       {consultaAtiva && (() => {
         const finalizada = consultaAtiva.status === 'realizada';
@@ -703,9 +726,10 @@ export default function PacientePerfil() {
           )}
           {acompList.map((c, idx) => {
             const realizada = c.status === 'realizada';
-            const dt = new Date(c.data_hora);
-            const dataStr = dt.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit', year: '2-digit' });
-            const horaStr = dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+            const semData = !c.data_hora;
+            const dt = semData ? null : new Date(c.data_hora);
+            const dataStr = dt ? dt.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit', year: '2-digit' }) : 'A definir';
+            const horaStr = dt ? dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
             return (
               <div key={c.id} style={{
                 display: 'flex', alignItems: 'center', gap: 10,
@@ -721,7 +745,7 @@ export default function PacientePerfil() {
                     {labelTipoConsulta(c.tipo)}
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 1 }}>
-                    {dataStr} às {horaStr}
+                    {semData ? 'A definir' : `${dataStr} às ${horaStr}`}
                   </div>
                 </div>
                 <span style={{
@@ -732,6 +756,22 @@ export default function PacientePerfil() {
                 }}>
                   {realizada ? '✓ Realizada' : 'Agendada'}
                 </span>
+                {semData && !realizada && (
+                  <button
+                    onClick={() => setDefinirDataConsulta(c)}
+                    style={{
+                      flexShrink: 0, padding: '5px 10px', borderRadius: 8,
+                      border: '1px solid var(--gold-deep, #a08456)',
+                      background: 'var(--gold-soft, #faf6ee)',
+                      color: 'var(--gold-deep, #a08456)',
+                      fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                      fontFamily: 'var(--font-sans)',
+                      display: 'inline-flex', alignItems: 'center', gap: 4,
+                    }}
+                  >
+                    <i className="ti ti-calendar-plus" aria-hidden="true" /> Definir data
+                  </button>
+                )}
                 <button
                   onClick={() => marcarAcomp(c.id, !realizada)}
                   style={{
@@ -752,7 +792,7 @@ export default function PacientePerfil() {
                 </button>
                 <button
                   onClick={() => {
-                    if (window.confirm(`Excluir "${labelTipoConsulta(c.tipo)}" de ${dataStr} às ${horaStr}? Esta ação não pode ser desfeita.`)) {
+                    if (window.confirm(`Excluir "${labelTipoConsulta(c.tipo)}" (${semData ? 'a definir' : `${dataStr} às ${horaStr}`})? Esta ação não pode ser desfeita.`)) {
                       excluirAcomp(c.id);
                     }
                   }}
@@ -5784,6 +5824,7 @@ function ModalAgendarAcompanhamento({ pacienteId, nutriId, consultaAtiva, onClos
   const [intervalo, setIntervalo] = useState(15);
   const [duracao, setDuracao] = useState(50);
   const [datas, setDatas] = useState(() => gerarDatas(defaultData, defaultHora, 15, 6));
+  const [semData, setSemData] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState(null);
 
@@ -5798,17 +5839,19 @@ function ModalAgendarAcompanhamento({ pacienteId, nutriId, consultaAtiva, onClos
   }
 
   async function salvar() {
-    if (datas.some(d => !d.data)) { setErro('Preencha todas as datas.'); return; }
-    if (datas.some(d => !horaConsultaValida(d.hora))) {
-      setErro('Todos os horários devem ser entre 14:00 e 17:00 (de 30 em 30 min).');
-      return;
+    if (!semData) {
+      if (datas.some(d => !d.data)) { setErro('Preencha todas as datas.'); return; }
+      if (datas.some(d => !horaConsultaValida(d.hora))) {
+        setErro('Todos os horários devem ser entre 14:00 e 17:00 (de 30 em 30 min).');
+        return;
+      }
     }
     setSalvando(true);
     setErro(null);
-    const payload = datas.map((d, i) => ({
+    const payload = Array.from({ length: 6 }, (_, i) => ({
       paciente_id:    pacienteId,
       nutri_id:       nutriId,
-      data_hora:      montarDataHoraISO(d.data, d.hora),
+      data_hora:      semData ? null : montarDataHoraISO(datas[i].data, datas[i].hora),
       duracao_min:    duracao,
       tipo:           tipoConsulta(i),
       status:         'agendada',
@@ -5844,22 +5887,35 @@ function ModalAgendarAcompanhamento({ pacienteId, nutriId, consultaAtiva, onClos
           </button>
         </div>
 
-        {/* Configuração: 1ª consulta (data + horário) e intervalo/duração */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <span style={lblStyle}>1ª consulta</span>
-            <DateInput value={primeiraData} onChange={e => handlePrimeiraData(e.target.value)} />
-          </label>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <span style={lblStyle}>Horário</span>
-            <select value={hora} onChange={e => handleHora(e.target.value)} style={selStyle}>
-              {HORARIOS_CONSULTA.map(h => <option key={h} value={h}>{h}</option>)}
-            </select>
-          </label>
-        </div>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, cursor: 'pointer', fontSize: 13, color: 'var(--ink)' }}>
+          <input type="checkbox" checked={semData} onChange={e => setSemData(e.target.checked)} />
+          Criar as 6 sem datas (definir depois)
+        </label>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 18 }}>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {/* Duração — sempre visível */}
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 18 }}>
+          <span style={lblStyle}>Duração (min)</span>
+          <select value={duracao} onChange={e => setDuracao(Number(e.target.value))} style={selStyle}>
+            {[30, 45, 50, 60, 90].map(m => <option key={m} value={m}>{m} min</option>)}
+          </select>
+        </label>
+
+        {!semData && (<>
+          {/* Configuração: 1ª consulta (data + horário) e intervalo */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <span style={lblStyle}>1ª consulta</span>
+              <DateInput value={primeiraData} onChange={e => handlePrimeiraData(e.target.value)} />
+            </label>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <span style={lblStyle}>Horário</span>
+              <select value={hora} onChange={e => handleHora(e.target.value)} style={selStyle}>
+                {HORARIOS_CONSULTA.map(h => <option key={h} value={h}>{h}</option>)}
+              </select>
+            </label>
+          </div>
+
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 18 }}>
             <span style={lblStyle}>Intervalo (dias)</span>
             <input
               type="number" min="1" max="90"
@@ -5868,31 +5924,25 @@ function ModalAgendarAcompanhamento({ pacienteId, nutriId, consultaAtiva, onClos
               style={selStyle}
             />
           </label>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <span style={lblStyle}>Duração (min)</span>
-            <select value={duracao} onChange={e => setDuracao(Number(e.target.value))} style={selStyle}>
-              {[30, 45, 50, 60, 90].map(m => <option key={m} value={m}>{m} min</option>)}
-            </select>
-          </label>
-        </div>
 
-        {/* Tabela de 6 datas — cada uma com data + horário fixo */}
-        <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.1em', fontWeight: 500, marginBottom: 8 }}>
-          Confirme as datas
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 20 }}>
-          {datas.map((dt, i) => (
-            <div key={i} style={{ display: 'grid', gridTemplateColumns: '76px 1fr 96px', gap: 8, alignItems: 'center' }}>
-              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--gold-deep)', textAlign: 'right', paddingRight: 4 }}>
-                Consulta {i + 1}
-              </span>
-              <DateInput value={dt.data} onChange={e => handleData(i, 'data', e.target.value)} />
-              <select value={dt.hora} onChange={e => handleData(i, 'hora', e.target.value)} style={selStyle}>
-                {HORARIOS_CONSULTA.map(h => <option key={h} value={h}>{h}</option>)}
-              </select>
-            </div>
-          ))}
-        </div>
+          {/* Tabela de 6 datas — cada uma com data + horário fixo */}
+          <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.1em', fontWeight: 500, marginBottom: 8 }}>
+            Confirme as datas
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 20 }}>
+            {datas.map((dt, i) => (
+              <div key={i} style={{ display: 'grid', gridTemplateColumns: '76px 1fr 96px', gap: 8, alignItems: 'center' }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--gold-deep)', textAlign: 'right', paddingRight: 4 }}>
+                  Consulta {i + 1}
+                </span>
+                <DateInput value={dt.data} onChange={e => handleData(i, 'data', e.target.value)} />
+                <select value={dt.hora} onChange={e => handleData(i, 'hora', e.target.value)} style={selStyle}>
+                  {HORARIOS_CONSULTA.map(h => <option key={h} value={h}>{h}</option>)}
+                </select>
+              </div>
+            ))}
+          </div>
+        </>)}
 
         {erro && (
           <div style={{ color: 'var(--red, #dc2626)', fontSize: 13, marginBottom: 12, padding: '8px 12px', background: 'var(--red-bg, #fef2f2)', borderRadius: 8 }}>
@@ -5924,21 +5974,24 @@ function ModalAgendarAvulsa({ pacienteId, nutriId, onClose, onSalvo }) {
   const [data, setData] = useState(() => dataLocalISO(7));
   const [hora, setHora] = useState(HORARIO_CONSULTA_PADRAO);
   const [duracao, setDuracao] = useState(50);
+  const [semData, setSemData] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState(null);
 
   async function salvar() {
-    if (!data) { setErro('Preencha a data.'); return; }
-    if (!horaConsultaValida(hora)) {
-      setErro('Escolha um horário entre 14:00 e 17:00 (de 30 em 30 min).');
-      return;
+    if (!semData) {
+      if (!data) { setErro('Preencha a data.'); return; }
+      if (!horaConsultaValida(hora)) {
+        setErro('Escolha um horário entre 14:00 e 17:00 (de 30 em 30 min).');
+        return;
+      }
     }
     setSalvando(true);
     setErro(null);
     const { error } = await supabase.from('consultas').insert({
       paciente_id:    pacienteId,
       nutri_id:       nutriId,
-      data_hora:      montarDataHoraISO(data, hora),
+      data_hora:      semData ? null : montarDataHoraISO(data, hora),
       duracao_min:    duracao,
       tipo:           'avulsa',
       status:         'agendada',
@@ -5973,6 +6026,12 @@ function ModalAgendarAvulsa({ pacienteId, nutriId, onClose, onSalvo }) {
           </button>
         </div>
 
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, cursor: 'pointer', fontSize: 13, color: 'var(--ink)' }}>
+          <input type="checkbox" checked={semData} onChange={e => setSemData(e.target.checked)} />
+          Sem data definida (definir depois)
+        </label>
+
+        {!semData && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
           <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <span style={lblStyle}>Data</span>
@@ -5985,6 +6044,7 @@ function ModalAgendarAvulsa({ pacienteId, nutriId, onClose, onSalvo }) {
             </select>
           </label>
         </div>
+        )}
 
         <label style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 18 }}>
           <span style={lblStyle}>Duração (min)</span>
@@ -6012,6 +6072,84 @@ function ModalAgendarAvulsa({ pacienteId, nutriId, onClose, onSalvo }) {
           }}
         >
           {salvando ? 'Salvando…' : 'Salvar consulta'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Modal: Definir data de uma consulta "a definir" ─────────────────────────
+function ModalDefinirData({ labelTipo, onClose, onSalvar }) {
+  const [data, setData] = useState(() => dataLocalISO(7));
+  const [hora, setHora] = useState(HORARIO_CONSULTA_PADRAO);
+  const [salvando, setSalvando] = useState(false);
+  const [erro, setErro] = useState(null);
+
+  async function salvar() {
+    if (!data) { setErro('Preencha a data.'); return; }
+    if (!horaConsultaValida(hora)) { setErro('Escolha um horário entre 14:00 e 17:00.'); return; }
+    setSalvando(true);
+    setErro(null);
+    await onSalvar(montarDataHoraISO(data, hora));
+    setSalvando(false);
+  }
+
+  const selStyle = { padding: '8px 10px', borderRadius: 8, border: '1px solid var(--hair)', fontSize: 13, background: 'var(--white)', fontFamily: 'var(--font-sans)' };
+  const lblStyle = { fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.1em', fontWeight: 500 };
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 1100,
+      background: 'rgba(0,0,0,.45)', display: 'flex',
+      alignItems: 'flex-end', justifyContent: 'center',
+    }} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{
+        background: 'var(--paper, #faf7f2)', borderRadius: '20px 20px 0 0',
+        padding: '24px 20px 32px', width: '100%', maxWidth: 540,
+        maxHeight: '90vh', overflowY: 'auto',
+        boxShadow: '0 -4px 30px rgba(0,0,0,.15)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+          <span style={{ fontFamily: 'var(--font-serif)', fontSize: 18, color: 'var(--ink)' }}>
+            Definir data — {labelTipo}
+          </span>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: 'var(--muted)', padding: 4 }}>
+            <i className="ti ti-x" aria-hidden="true" />
+          </button>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 18 }}>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span style={lblStyle}>Data</span>
+            <DateInput value={data} onChange={e => setData(e.target.value)} />
+          </label>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span style={lblStyle}>Horário</span>
+            <select value={hora} onChange={e => setHora(e.target.value)} style={selStyle}>
+              {HORARIOS_CONSULTA.map(h => <option key={h} value={h}>{h}</option>)}
+            </select>
+          </label>
+        </div>
+
+        {erro && (
+          <div style={{ color: 'var(--red, #dc2626)', fontSize: 13, marginBottom: 12, padding: '8px 12px', background: 'var(--red-bg, #fef2f2)', borderRadius: 8 }}>
+            {erro}
+          </div>
+        )}
+
+        <button
+          onClick={salvar}
+          disabled={salvando}
+          style={{
+            width: '100%', padding: '13px', borderRadius: 12,
+            background: 'var(--gold-deep, #a08456)', color: '#fff',
+            border: 'none', fontSize: 14, fontWeight: 600,
+            cursor: salvando ? 'default' : 'pointer',
+            opacity: salvando ? 0.7 : 1,
+            fontFamily: 'var(--font-sans)',
+          }}
+        >
+          {salvando ? 'Salvando…' : 'Definir data'}
         </button>
       </div>
     </div>
