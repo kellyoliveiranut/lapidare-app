@@ -101,6 +101,7 @@ export default function SignupPaciente() {
         data: {
           role: 'paciente',
           nutri_id: nutriId,
+          token: token ?? null,
           nome: nome.trim(),
           nascimento: nascimento || null,
           objetivo,
