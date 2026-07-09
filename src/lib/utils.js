@@ -304,6 +304,43 @@ export function consultaEmBreve(iso) {
   return m <= 30 && m >= -60;
 }
 
+// ─── Horários de agendamento de consulta (lista fixa, horário LOCAL) ───
+
+/** As 7 únicas opções de horário permitidas para agendar consulta. */
+export const HORARIOS_CONSULTA = ['14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00'];
+
+/** Horário sugerido por padrão ao abrir um agendamento. */
+export const HORARIO_CONSULTA_PADRAO = '14:00';
+
+/** true se a hora ("HH:mm") é uma das 7 opções válidas. */
+export function horaConsultaValida(hora) {
+  return HORARIOS_CONSULTA.includes(hora);
+}
+
+/** Data LOCAL "YYYY-MM-DD" para hoje + daysAhead. Nunca usa toISOString → sem bug de fuso. */
+export function dataLocalISO(daysAhead = 0) {
+  const d = new Date();
+  d.setDate(d.getDate() + daysAhead);
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+/** Combina data local "YYYY-MM-DD" + hora "HH:mm" em ISO UTC para gravar em consultas.data_hora. */
+export function montarDataHoraISO(dataLocal, hora) {
+  return new Date(`${dataLocal}T${hora}:00`).toISOString();
+}
+
+/** Extrai { data, hora } LOCAIS de um ISO (para semear/editar a partir de uma consulta existente). */
+export function partesLocaisISO(iso) {
+  const d = new Date(iso);
+  const p = (n) => String(n).padStart(2, '0');
+  if (Number.isNaN(d.getTime())) return { data: '', hora: HORARIO_CONSULTA_PADRAO };
+  return {
+    data: `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`,
+    hora: `${p(d.getHours())}:${p(d.getMinutes())}`,
+  };
+}
+
 // ─── Helpers de calendário (vista mensal) ───
 
 const MES_NOME = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',

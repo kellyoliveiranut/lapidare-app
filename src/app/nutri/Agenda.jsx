@@ -6,6 +6,7 @@ import {
   dataConsultaBR, textoDias, iniciais,
   linkCall, gerarLinkJitsi, gerarGoogleCalendarUrl, consultaEmBreve,
   gerarDiasCalendario, ehMesmoDia, mesAnoExtenso, DIAS_SEMANA_CURTOS,
+  HORARIOS_CONSULTA, HORARIO_CONSULTA_PADRAO, horaConsultaValida,
 } from '../../lib/utils.js';
 
 // Opções do dropdown: 1ª, Consulta 02..12, Avaliação, Retorno
@@ -713,7 +714,7 @@ function ConsultaModal({ consulta, pacientes, nutriId, onClose, onSaved }) {
     ? {
         pacienteId: consulta.paciente?.id ?? '',
         data: consulta.data_hora?.slice(0, 10) ?? '',
-        hora: consulta.data_hora ? new Date(consulta.data_hora).toTimeString().slice(0, 5) : '14:00',
+        hora: consulta.data_hora ? new Date(consulta.data_hora).toTimeString().slice(0, 5) : HORARIO_CONSULTA_PADRAO,
         duracao: consulta.duracao_min ?? 45,
         tipo: consulta.tipo ?? 'primeira',
         status: consulta.status ?? 'agendada',
@@ -721,7 +722,7 @@ function ConsultaModal({ consulta, pacientes, nutriId, onClose, onSaved }) {
         meetLink: consulta.meet_link ?? '',
         linksExtras: Array.isArray(consulta.links_extras) ? consulta.links_extras : [],
       }
-    : { pacienteId: pacientes[0]?.id ?? '', data: '', hora: '14:00', duracao: 45, tipo: 'primeira', status: 'agendada', obs: '', meetLink: '', linksExtras: [] };
+    : { pacienteId: pacientes[0]?.id ?? '', data: '', hora: HORARIO_CONSULTA_PADRAO, duracao: 45, tipo: 'primeira', status: 'agendada', obs: '', meetLink: '', linksExtras: [] };
 
   const [pacienteId, setPacienteId] = useState(initial.pacienteId);
   const [data, setData] = useState(initial.data);
@@ -787,6 +788,10 @@ function ConsultaModal({ consulta, pacientes, nutriId, onClose, onSaved }) {
     setErro(null);
     if (!pacienteId || !data || !hora) {
       setErro('Preencha paciente, data e horário.');
+      return;
+    }
+    if (!horaConsultaValida(hora)) {
+      setErro('O horário deve ser um dos valores entre 14:00 e 17:00 (de 30 em 30 min).');
       return;
     }
     setBusy(true);
@@ -890,7 +895,12 @@ function ConsultaModal({ consulta, pacientes, nutriId, onClose, onSaved }) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
           <div>
             <label className="form-lbl" style={{ marginTop: 10 }}>Horário</label>
-            <input type="time" value={hora} onChange={e => setHora(e.target.value)} />
+            <select value={hora} onChange={e => setHora(e.target.value)}>
+              {!HORARIOS_CONSULTA.includes(hora) && hora && (
+                <option value={hora}>{hora} (fora do padrão)</option>
+              )}
+              {HORARIOS_CONSULTA.map(h => <option key={h} value={h}>{h}</option>)}
+            </select>
           </div>
           <div>
             <label className="form-lbl" style={{ marginTop: 10 }}>Duração</label>
