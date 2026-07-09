@@ -154,6 +154,13 @@ export default function PacientePerfil() {
     await Promise.all([loadAcompConsultas(), reloadConsultaAtiva()]);
   }
 
+  async function excluirAcomp(consultaId) {
+    setErroAcomp(null);
+    const { error } = await supabase.from('consultas').delete().eq('id', consultaId);
+    if (error) { setErroAcomp('Erro ao excluir: ' + error.message); return; }
+    await Promise.all([loadAcompConsultas(), reloadConsultaAtiva()]);
+  }
+
   async function enviarRedefinicaoSenha() {
     if (!paciente?.email) return;
     const ok = window.confirm(
@@ -742,6 +749,26 @@ export default function PacientePerfil() {
                     ? <><i className="ti ti-rotate-left" aria-hidden="true" /> Desfazer</>
                     : <><i className="ti ti-check" aria-hidden="true" /> Marcar realizada</>
                   }
+                </button>
+                <button
+                  onClick={() => {
+                    if (window.confirm(`Excluir "${labelTipoConsulta(c.tipo)}" de ${dataStr} às ${horaStr}? Esta ação não pode ser desfeita.`)) {
+                      excluirAcomp(c.id);
+                    }
+                  }}
+                  aria-label="Excluir consulta"
+                  title="Excluir consulta"
+                  style={{
+                    flexShrink: 0, padding: '5px 8px', borderRadius: 8,
+                    border: '1px solid var(--red, #dc2626)',
+                    background: 'transparent',
+                    color: 'var(--red, #dc2626)',
+                    fontSize: 11, cursor: 'pointer',
+                    fontFamily: 'var(--font-sans)',
+                    display: 'inline-flex', alignItems: 'center',
+                  }}
+                >
+                  <i className="ti ti-trash" aria-hidden="true" />
                 </button>
               </div>
             );
