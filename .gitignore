@@ -27,3 +27,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Dados/seeds/rascunhos locais (não versionar)
+bep_protocolo.json
+protocolos_54_rascunho.json
+mensagens_arsenal_seed.json
+insert_pacientes_essentia.sql
