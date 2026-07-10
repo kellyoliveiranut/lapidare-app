@@ -51,6 +51,7 @@ export default function PacientePerfil() {
   const [acompList, setAcompList] = useState(null);
   const [erroAcomp, setErroAcomp] = useState(null);
   const [erroCarregar, setErroCarregar] = useState(false);
+  const [linkConviteCopiado, setLinkConviteCopiado] = useState(false);
 
   function labelTipoConsulta(tipo) {
     if (!tipo) return 'Consulta';
@@ -198,6 +199,45 @@ export default function PacientePerfil() {
     }
   }
 
+  // Gera (ou recupera) o link de convite da paciente sem conta.
+  // Faz upsert em pacientes_pendentes preservando o token existente ou gerando um novo.
+  // Retorna o link, ou null em caso de erro.
+  async function gerarLinkConvite() {
+    const { data: pendente, error } = await supabase
+      .from('pacientes_pendentes')
+      .upsert({
+        nutri_id:   user.id,
+        nome:       paciente.nome?.trim() ?? '',
+        email:      paciente.email.trim().toLowerCase(),
+        telefone:   paciente.telefone?.trim() ?? '',
+        nascimento: paciente.nascimento || null,
+        objetivo:   paciente.objetivo   || 'Outro',
+        tipo_plano: paciente.tipo_plano || 'avulsa',
+        modalidade: paciente.modalidade || 'Online',
+        status:     'pendente',
+      }, { onConflict: 'nutri_id,email' })
+      .select('token')
+      .single();
+    if (error || !pendente?.token) return null;
+    return `${window.location.origin}/signup-paciente/${user.id}/${pendente.token}`;
+  }
+
+  async function copiarLinkConvite() {
+    if (!paciente.email?.trim()) return;
+    const link = await gerarLinkConvite();
+    if (!link) {
+      alert('Não consegui gerar o link agora, tente novamente.');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(link);
+      setLinkConviteCopiado(true);
+      setTimeout(() => setLinkConviteCopiado(false), 2000);
+    } catch {
+      alert('Não consegui copiar. Link:\n\n' + link);
+    }
+  }
+
   async function enviarAcessoWhatsApp() {
     if (!paciente.email?.trim()) return;
     const tel = normalizarTelefone(paciente.telefone);
@@ -205,27 +245,12 @@ export default function PacientePerfil() {
 
     let msg;
     if (!paciente.user_id) {
-      // Caso A: sem conta — upsert preserva token existente ou banco gera um novo
-      const { data: pendente, error } = await supabase
-        .from('pacientes_pendentes')
-        .upsert({
-          nutri_id:   user.id,
-          nome:       paciente.nome?.trim() ?? '',
-          email:      paciente.email.trim().toLowerCase(),
-          telefone:   paciente.telefone?.trim() ?? '',
-          nascimento: paciente.nascimento || null,
-          objetivo:   paciente.objetivo   || 'Outro',
-          tipo_plano: paciente.tipo_plano || 'avulsa',
-          modalidade: paciente.modalidade || 'Online',
-          status:     'pendente',
-        }, { onConflict: 'nutri_id,email' })
-        .select('token')
-        .single();
-      if (error || !pendente?.token) {
+      // Caso A: sem conta — reaproveita a geração do link de convite
+      const linkSignup = await gerarLinkConvite();
+      if (!linkSignup) {
         alert('Não consegui gerar o link agora, tente novamente.');
         return;
       }
-      const linkSignup = `${window.location.origin}/signup-paciente/${user.id}/${pendente.token}`;
       msg =
         `Olá, ${primeiroNome}! Aqui é a Equipe da Dra Kelly Oliveira. Preparei o seu espaço no app do Essentia, onde você vai acompanhar seu plano alimentar e seu cuidado de pertinho.\n\n` +
         `Para criar o seu acesso, clique neste link e escolha a sua senha: ${linkSignup}\n\n` +
@@ -354,6 +379,47 @@ export default function PacientePerfil() {
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2, flexWrap: 'wrap' }}>
             <div className="page-title" style={{ margin: 0 }}>{paciente.nome}</div>
+            {paciente.user_id ? (
+              <span title="A paciente já criou o acesso e usa o app" style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20,
+                background: 'var(--green-bg, #f0fdf4)', color: 'var(--green, #16a34a)',
+                border: '0.5px solid var(--green, #16a34a)', fontFamily: 'var(--font-sans)',
+              }}>
+                <i className="ti ti-circle-check" style={{ fontSize: 12 }} aria-hidden="true" />
+                Acesso ativo
+              </span>
+            ) : (
+              <span title="A paciente ainda não criou o acesso — envie ou copie o link de convite" style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20,
+                background: 'var(--amber-bg, #fdf8ee)', color: 'var(--gold-deep, #a08456)',
+                border: '0.5px solid var(--gold-deep, #a08456)', fontFamily: 'var(--font-sans)',
+              }}>
+                <i className="ti ti-clock" style={{ fontSize: 12 }} aria-hidden="true" />
+                Acesso pendente
+              </span>
+            )}
+            {!paciente.user_id && (
+              <button
+                onClick={copiarLinkConvite}
+                disabled={!paciente.email?.trim()}
+                title={!paciente.email?.trim()
+                  ? 'Cadastre o e-mail da paciente para gerar o link de convite'
+                  : 'Copia o link de convite para você enviar (ex.: WhatsApp)'}
+                style={{
+                  background: 'none', border: '0.5px solid var(--border)',
+                  borderRadius: 6, padding: '3px 9px', fontSize: 11,
+                  color: !paciente.email?.trim() ? 'var(--text3)' : 'var(--gold-deep, #a08456)',
+                  cursor: !paciente.email?.trim() ? 'default' : 'pointer',
+                  opacity: !paciente.email?.trim() ? 0.45 : 1,
+                  fontFamily: 'var(--font-sans)',
+                  display: 'inline-flex', alignItems: 'center', gap: 4,
+                }}>
+                <i className={`ti ti-${linkConviteCopiado ? 'check' : 'link'}`} style={{ fontSize: 12 }} aria-hidden="true" />
+                {linkConviteCopiado ? 'Link copiado!' : 'Copiar link de convite'}
+              </button>
+            )}
             <button
               onClick={() => setEditarDadosOpen(true)}
               style={{
