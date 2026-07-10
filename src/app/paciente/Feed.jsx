@@ -112,6 +112,16 @@ export default function FeedPaciente() {
       await supabase.storage.from('fotos_pratos').remove([path]);
       return setErro('Erro: ' + insErr.message);
     }
+    // Notifica a nutri via push (fire-and-forget — nunca bloqueia a UI)
+    supabase.auth.getSession().then(({ data }) => {
+      const accessToken = data.session?.access_token;
+      if (!accessToken) return;
+      fetch('/.netlify/functions/send-push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+        body: JSON.stringify({ mode: 'notify_nutri', kind: 'foto_prato' }),
+      }).catch(() => {});
+    });
     cancelar();
     carregar({ cancelled: false });
   }

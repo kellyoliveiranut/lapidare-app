@@ -51,11 +51,11 @@ exports.handler = async (event) => {
       }
 
       const primeiroNome = paciente.nome.trim().split(/\s+/)[0];
-      const payload = {
-        title: 'Essentia',
-        body: `Nova mensagem de ${primeiroNome}`,
-        url: '/nutri/chat',
+      const NUTRI_PAYLOADS = {
+        mensagem:   { title: 'Essentia', body: `Nova mensagem de ${primeiroNome}`,      url: '/nutri/chat' },
+        foto_prato: { title: 'Essentia', body: `Nova foto do prato de ${primeiroNome}`, url: '/nutri/feed' },
       };
+      const payload = NUTRI_PAYLOADS[body.kind] ?? NUTRI_PAYLOADS.mensagem;
 
       return await enviarParaUsuario(supabase, paciente.nutri_id, payload);
     }
