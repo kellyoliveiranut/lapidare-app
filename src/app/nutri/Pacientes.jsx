@@ -10,13 +10,14 @@ export default function Pacientes() {
   const { user } = useSession();
   const [pacientes, setPacientes] = useState(null);
   const [pendentes, setPendentes] = useState([]);
+  const [enviadoEmails, setEnviadoEmails] = useState(() => new Set());
   const [busca, setBusca] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('ativo');
   const [importerOpen, setImporterOpen] = useState(false);
   const [showPendentes, setShowPendentes] = useState(false);
 
   async function carregar() {
-    const [pacRes, pendRes] = await Promise.all([
+    const [pacRes, pendRes, enviadosRes] = await Promise.all([
       supabase
         .from('pacientes')
         .select('id, nome, email, objetivo, tipo_plano, modalidade, avatar_url, created_at, status_paciente, ultimo_acesso, user_id')
@@ -26,9 +27,15 @@ export default function Pacientes() {
         .select('*')
         .eq('status', 'pendente')
         .order('created_at', { ascending: false }),
+      // E-mails com convite já enviado — alimenta o selo "Acesso enviado" nos cards
+      supabase
+        .from('pacientes_pendentes')
+        .select('email')
+        .eq('status', 'enviado'),
     ]);
     setPacientes(pacRes.data ?? []);
     setPendentes(pendRes.data ?? []);
+    setEnviadoEmails(new Set((enviadosRes.data ?? []).map(r => (r.email ?? '').trim().toLowerCase())));
   }
 
   useEffect(() => { if (user) carregar(); }, [user]);
@@ -246,7 +253,7 @@ export default function Pacientes() {
           gap: 14,
         }}>
           {filtradas.map(p => (
-            <PacienteCard key={p.id} paciente={p} onNavigate={navigate} onReativar={reativar} />
+            <PacienteCard key={p.id} paciente={p} enviado={!p.user_id && enviadoEmails.has((p.email ?? '').trim().toLowerCase())} onNavigate={navigate} onReativar={reativar} />
           ))}
         </div>
       )}
@@ -254,7 +261,7 @@ export default function Pacientes() {
   );
 }
 
-const PacienteCard = memo(function PacienteCard({ paciente: p, onNavigate, onReativar }) {
+const PacienteCard = memo(function PacienteCard({ paciente: p, enviado, onNavigate, onReativar }) {
   return (
     <div
       className="card"
@@ -359,6 +366,16 @@ const PacienteCard = memo(function PacienteCard({ paciente: p, onNavigate, onRea
             }}>
               <i className="ti ti-circle-check" style={{ fontSize: 11 }} aria-hidden="true"></i>
               Acesso ativo
+            </span>
+          ) : enviado ? (
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              fontSize: 10.5, fontWeight: 600, padding: '2px 8px', borderRadius: 20,
+              background: '#eff6ff', color: '#2563eb',
+              border: '0.5px solid #2563eb',
+            }}>
+              <i className="ti ti-send" style={{ fontSize: 11 }} aria-hidden="true"></i>
+              Acesso enviado
             </span>
           ) : (
             <span style={{

@@ -52,6 +52,7 @@ export default function PacientePerfil() {
   const [erroAcomp, setErroAcomp] = useState(null);
   const [erroCarregar, setErroCarregar] = useState(false);
   const [linkConviteCopiado, setLinkConviteCopiado] = useState(false);
+  const [conviteEnviado, setConviteEnviado] = useState(false);
 
   function labelTipoConsulta(tipo) {
     if (!tipo) return 'Consulta';
@@ -92,6 +93,18 @@ export default function PacientePerfil() {
       .from('pacientes').select('*').eq('id', id).maybeSingle();
     if (error) { setErroCarregar(true); return; }
     setPaciente(data);
+    // Selo "Acesso enviado": lê o status do pré-cadastro (só relevante enquanto sem conta)
+    if (data && !data.user_id && data.email) {
+      const { data: pend } = await supabase
+        .from('pacientes_pendentes')
+        .select('status')
+        .eq('nutri_id', data.nutri_id)
+        .eq('email', data.email.trim().toLowerCase())
+        .maybeSingle();
+      setConviteEnviado(pend?.status === 'enviado');
+    } else {
+      setConviteEnviado(false);
+    }
   }
 
   // Carregamento inicial — reutiliza carregar() em vez de duplicar a query
@@ -214,11 +227,13 @@ export default function PacientePerfil() {
         objetivo:   paciente.objetivo   || 'Outro',
         tipo_plano: paciente.tipo_plano || 'avulsa',
         modalidade: paciente.modalidade || 'Online',
-        status:     'pendente',
+        status:     'enviado',
       }, { onConflict: 'nutri_id,email' })
       .select('token')
       .single();
     if (error || !pendente?.token) return null;
+    // Marca o selo "Acesso enviado" na hora — vale para copiar e para o WhatsApp
+    setConviteEnviado(true);
     return `${window.location.origin}/signup-paciente/${user.id}/${pendente.token}`;
   }
 
@@ -388,6 +403,16 @@ export default function PacientePerfil() {
               }}>
                 <i className="ti ti-circle-check" style={{ fontSize: 12 }} aria-hidden="true" />
                 Acesso ativo
+              </span>
+            ) : conviteEnviado ? (
+              <span title="Você já enviou/copiou o link de convite — aguardando a paciente criar o acesso" style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20,
+                background: '#eff6ff', color: '#2563eb',
+                border: '0.5px solid #2563eb', fontFamily: 'var(--font-sans)',
+              }}>
+                <i className="ti ti-send" style={{ fontSize: 12 }} aria-hidden="true" />
+                Acesso enviado
               </span>
             ) : (
               <span title="A paciente ainda não criou o acesso — envie ou copie o link de convite" style={{
