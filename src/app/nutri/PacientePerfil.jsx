@@ -579,6 +579,7 @@ export default function PacientePerfil() {
       {definirDataConsulta && (
         <ModalDefinirData
           labelTipo={labelTipoConsulta(definirDataConsulta.tipo)}
+          dataHoraInicial={definirDataConsulta.data_hora}
           onClose={() => setDefinirDataConsulta(null)}
           onSalvar={async (dataHoraIso) => {
             const ok = await salvarDataConsulta(definirDataConsulta.id, dataHoraIso);
@@ -756,7 +757,7 @@ export default function PacientePerfil() {
                 }}>
                   {realizada ? '✓ Realizada' : 'Agendada'}
                 </span>
-                {semData && !realizada && (
+                {!realizada && (
                   <button
                     onClick={() => setDefinirDataConsulta(c)}
                     style={{
@@ -769,7 +770,9 @@ export default function PacientePerfil() {
                       display: 'inline-flex', alignItems: 'center', gap: 4,
                     }}
                   >
-                    <i className="ti ti-calendar-plus" aria-hidden="true" /> Definir data
+                    {semData
+                      ? <><i className="ti ti-calendar-plus" aria-hidden="true" /> Definir data</>
+                      : <><i className="ti ti-pencil" aria-hidden="true" /> Editar</>}
                   </button>
                 )}
                 <button
@@ -2360,89 +2363,6 @@ function ModalRevisaoLote({ rascunhos, salvando, onEditar, onRemover, onSalvar, 
   );
 }
 
-function PdfListSection({ itens, excluindoId, onAbrir, onExcluir }) {
-  const btnBase = {
-    display: 'inline-flex', alignItems: 'center', gap: 4,
-    padding: '5px 10px', borderRadius: 6,
-    fontSize: 11, fontWeight: 600,
-    fontFamily: 'var(--font-sans)', cursor: 'pointer',
-    border: 'none',
-  };
-  return (
-    <div style={{ borderTop: '1px solid var(--border)' }}>
-      {itens.length === 0 ? (
-        <div style={{ padding: '11px 16px', fontSize: 13, color: 'var(--text3)' }}>
-          Nenhum enviado ainda.
-        </div>
-      ) : itens.map((pdf, idx) => {
-        const excluindo = excluindoId === pdf.id;
-        const dataFmt   = pdf.created_at
-          ? new Date(pdf.created_at).toLocaleDateString('pt-BR')
-          : '';
-        return (
-          <div
-            key={pdf.id}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 10,
-              padding: '10px 16px',
-              borderBottom: idx < itens.length - 1 ? '1px solid var(--border)' : 'none',
-              background: idx === 0 ? '#FAFAF8' : undefined,
-            }}
-          >
-            <div style={{
-              flexShrink: 0, width: 32, height: 32, borderRadius: 8,
-              background: '#F4ECDD', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <i className="ti ti-file-type-pdf" style={{ fontSize: 16, color: '#9A7B3F' }} aria-hidden="true" />
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                <span style={{
-                  fontSize: 13, fontWeight: 500, color: 'var(--dark)',
-                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                }}>
-                  {pdf.titulo || '(sem título)'}
-                </span>
-                {idx === 0 && (
-                  <span style={{
-                    flexShrink: 0, fontSize: 10, fontWeight: 700,
-                    padding: '1px 7px', borderRadius: 10,
-                    background: '#2C3A30', color: '#FDFBF8', letterSpacing: '.02em',
-                  }}>atual</span>
-                )}
-              </div>
-              <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 1 }}>{dataFmt}</div>
-            </div>
-            <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-              <button
-                onClick={() => onAbrir(pdf.storage_path)}
-                style={{ ...btnBase, border: '1px solid var(--border)', background: 'var(--bg2)', color: 'var(--dark)' }}
-              >
-                <i className="ti ti-external-link" style={{ fontSize: 12 }} aria-hidden="true" />
-                Abrir
-              </button>
-              <button
-                onClick={() => onExcluir(pdf)}
-                disabled={excluindo}
-                style={{
-                  ...btnBase,
-                  border: '1px solid #fca5a5',
-                  background: excluindo ? '#fef2f2' : '#fff',
-                  color: '#dc2626',
-                  cursor: excluindo ? 'default' : 'pointer',
-                }}
-              >
-                <i className="ti ti-trash" style={{ fontSize: 12 }} aria-hidden="true" />
-                {excluindo ? '…' : 'Excluir'}
-              </button>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 function PublicarPlano({ pacienteId, nutriId, calculosImportados, onLimparImportados }) {
   const [macros, setMacros]       = useState({ kcal: '', proteinas_g: '', carbo_g: '', gorduras_g: '', agua_l: '' });
   const [refeicoes, setRefeicoes] = useState([]);
@@ -2470,19 +2390,11 @@ function PublicarPlano({ pacienteId, nutriId, calculosImportados, onLimparImport
   const [dadosPreview, setDadosPreview]       = useState(null);
   const [previewSubsOpen, setPreviewSubsOpen] = useState({});
   const [verPlano, setVerPlano]           = useState(null); // plano publicado sendo visualizado
-  const [uploadandoDieta, setUploadandoDieta] = useState(false);
-  const [feedbackDieta, setFeedbackDieta]     = useState(null);
-  const dietaPdfRef = useRef(null);
-  const [uploadandoSubs, setUploadandoSubs]   = useState(false);
-  const [feedbackSubs, setFeedbackSubs]       = useState(null);
-  const subsPdfRef = useRef(null);
-  const [pdfsList, setPdfsList]               = useState([]);
-  const [excluindoPdfId, setExcluindoPdfId]   = useState(null);
   const editorPreenchido = useRef(false);
   // Import pendente dos Cálculos — vence o plano salvo na primeira carga (evita a race com carregar())
   const importPendente = useRef(null);
 
-  useEffect(() => { carregar(); carregarPdfs(); }, [pacienteId]);
+  useEffect(() => { carregar(); }, [pacienteId]);
 
   // Preenche macros quando vêm dos Cálculos
   useEffect(() => {
@@ -2553,35 +2465,6 @@ function PublicarPlano({ pacienteId, nutriId, calculosImportados, onLimparImport
         ? s.subs.map(sub => typeof sub === 'object' ? (sub.nome ?? '').trim() : String(sub).trim()).filter(Boolean).join(', ')
         : String(s.subs ?? ''),
     })));
-  }
-
-  async function carregarPdfs() {
-    const { data } = await supabase
-      .from('dietas_pdf')
-      .select('id, tipo, titulo, storage_path, created_at')
-      .eq('paciente_id', pacienteId)
-      .order('created_at', { ascending: false });
-    setPdfsList(data ?? []);
-  }
-
-  async function abrirPdf(storagePath) {
-    const { data, error } = await supabase.storage
-      .from('prescricoes')
-      .createSignedUrl(storagePath, 60);
-    if (error || !data?.signedUrl) return alert('Não foi possível abrir o PDF.');
-    window.open(data.signedUrl, '_blank');
-  }
-
-  async function excluirPdf(item) {
-    if (!window.confirm('Excluir este arquivo? Esta ação é permanente.')) return;
-    setExcluindoPdfId(item.id);
-    try {
-      await supabase.storage.from('prescricoes').remove([item.storage_path]);
-      await supabase.from('dietas_pdf').delete().eq('id', item.id);
-      await carregarPdfs();
-    } finally {
-      setExcluindoPdfId(null);
-    }
   }
 
   /* ── mutações de refeições ── */
@@ -3060,66 +2943,6 @@ Estrutura JSON obrigatória:
     setDadosPreview(dados);
     setPreviewSubsOpen({});
     setPreviewOpen(true);
-  }
-
-  async function enviarDietaPdf(arquivo) {
-    setFeedbackDieta(null);
-    setUploadandoDieta(true);
-    const path = `${pacienteId}/dieta-${Date.now()}.pdf`;
-    try {
-      const { error: upErr } = await supabase.storage
-        .from('prescricoes')
-        .upload(path, arquivo, { contentType: arquivo.type });
-      if (upErr) throw new Error('Upload falhou: ' + upErr.message);
-      const { error: insErr } = await supabase.from('dietas_pdf').insert({
-        paciente_id: pacienteId,
-        nutri_id: nutriId,
-        storage_path: path,
-        titulo: arquivo.name.replace(/\.[^.]+$/, ''),
-        tipo: 'dieta',
-      });
-      if (insErr) {
-        await supabase.storage.from('prescricoes').remove([path]);
-        throw new Error('Erro ao registrar: ' + insErr.message);
-      }
-      setFeedbackDieta({ tipo: 'ok', msg: 'Dieta PDF enviada! A paciente já pode visualizar.' });
-      carregarPdfs();
-    } catch (e) {
-      setFeedbackDieta({ tipo: 'erro', msg: e.message ?? 'Erro ao enviar PDF.' });
-    } finally {
-      setUploadandoDieta(false);
-      if (dietaPdfRef.current) dietaPdfRef.current.value = '';
-    }
-  }
-
-  async function enviarSubstituicoesPdf(arquivo) {
-    setFeedbackSubs(null);
-    setUploadandoSubs(true);
-    const path = `${pacienteId}/substituicoes-${Date.now()}.pdf`;
-    try {
-      const { error: upErr } = await supabase.storage
-        .from('prescricoes')
-        .upload(path, arquivo, { contentType: arquivo.type });
-      if (upErr) throw new Error('Upload falhou: ' + upErr.message);
-      const { error: insErr } = await supabase.from('dietas_pdf').insert({
-        paciente_id: pacienteId,
-        nutri_id: nutriId,
-        storage_path: path,
-        titulo: arquivo.name.replace(/\.[^.]+$/, ''),
-        tipo: 'substituicoes',
-      });
-      if (insErr) {
-        await supabase.storage.from('prescricoes').remove([path]);
-        throw new Error('Erro ao registrar: ' + insErr.message);
-      }
-      setFeedbackSubs({ tipo: 'ok', msg: 'Lista de substituições enviada! A paciente já pode visualizar.' });
-      carregarPdfs();
-    } catch (e) {
-      setFeedbackSubs({ tipo: 'erro', msg: e.message ?? 'Erro ao enviar PDF.' });
-    } finally {
-      setUploadandoSubs(false);
-      if (subsPdfRef.current) subsPdfRef.current.value = '';
-    }
   }
 
   return (
@@ -3878,86 +3701,6 @@ Estrutura JSON obrigatória:
 
           {feedback && feedback.tipo !== 'importado' && <FeedbackInline f={feedback} />}
         </div>
-      </div>
-
-      {/* ── Dieta atual em PDF ── */}
-      <div className="card">
-        <div className="card-header">
-          <div>
-            <div className="card-title">Dieta atual (PDF)</div>
-            <div className="card-sub">O PDF mais recente aparece para a paciente na área do Plano</div>
-          </div>
-          <input
-            ref={dietaPdfRef}
-            type="file"
-            accept=".pdf,application/pdf"
-            style={{ display: 'none' }}
-            onChange={e => { const f = e.target.files?.[0]; if (f) enviarDietaPdf(f); }}
-          />
-          <button
-            className="btn"
-            onClick={() => dietaPdfRef.current?.click()}
-            disabled={uploadandoDieta}
-          >
-            <i
-              className={`ti ti-${uploadandoDieta ? 'loader-2' : 'file-upload'}`}
-              style={uploadandoDieta ? { animation: 'lapidare-spin .75s linear infinite' } : {}}
-              aria-hidden="true"
-            />
-            {uploadandoDieta ? 'Enviando...' : 'Enviar dieta (PDF)'}
-          </button>
-        </div>
-        {feedbackDieta && (
-          <div style={{ padding: '0 16px 8px' }}>
-            <FeedbackInline f={feedbackDieta} />
-          </div>
-        )}
-        <PdfListSection
-          itens={pdfsList.filter(p => p.tipo === 'dieta')}
-          excluindoId={excluindoPdfId}
-          onAbrir={abrirPdf}
-          onExcluir={excluirPdf}
-        />
-      </div>
-
-      {/* ── Lista de substituições em PDF ── */}
-      <div className="card">
-        <div className="card-header">
-          <div>
-            <div className="card-title">Lista de substituições (PDF)</div>
-            <div className="card-sub">O PDF mais recente aparece para a paciente na área do Plano</div>
-          </div>
-          <input
-            ref={subsPdfRef}
-            type="file"
-            accept=".pdf,application/pdf"
-            style={{ display: 'none' }}
-            onChange={e => { const f = e.target.files?.[0]; if (f) enviarSubstituicoesPdf(f); }}
-          />
-          <button
-            className="btn"
-            onClick={() => subsPdfRef.current?.click()}
-            disabled={uploadandoSubs}
-          >
-            <i
-              className={`ti ti-${uploadandoSubs ? 'loader-2' : 'file-upload'}`}
-              style={uploadandoSubs ? { animation: 'lapidare-spin .75s linear infinite' } : {}}
-              aria-hidden="true"
-            />
-            {uploadandoSubs ? 'Enviando...' : 'Enviar lista de substituições (PDF)'}
-          </button>
-        </div>
-        {feedbackSubs && (
-          <div style={{ padding: '0 16px 8px' }}>
-            <FeedbackInline f={feedbackSubs} />
-          </div>
-        )}
-        <PdfListSection
-          itens={pdfsList.filter(p => p.tipo === 'substituicoes')}
-          excluindoId={excluindoPdfId}
-          onAbrir={abrirPdf}
-          onExcluir={excluirPdf}
-        />
       </div>
 
       <HistoricoLista
@@ -6079,9 +5822,12 @@ function ModalAgendarAvulsa({ pacienteId, nutriId, onClose, onSalvo }) {
 }
 
 // ─── Modal: Definir data de uma consulta "a definir" ─────────────────────────
-function ModalDefinirData({ labelTipo, onClose, onSalvar }) {
-  const [data, setData] = useState(() => dataLocalISO(7));
-  const [hora, setHora] = useState(HORARIO_CONSULTA_PADRAO);
+function ModalDefinirData({ labelTipo, dataHoraInicial = null, onClose, onSalvar }) {
+  const seed = dataHoraInicial ? partesLocaisISO(dataHoraInicial) : null;
+  const modoEdicao = !!dataHoraInicial;
+  const [data, setData] = useState(() => seed ? seed.data : dataLocalISO(7));
+  const [hora, setHora] = useState(() =>
+    (seed && horaConsultaValida(seed.hora)) ? seed.hora : HORARIO_CONSULTA_PADRAO);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState(null);
 
@@ -6111,7 +5857,7 @@ function ModalDefinirData({ labelTipo, onClose, onSalvar }) {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
           <span style={{ fontFamily: 'var(--font-serif)', fontSize: 18, color: 'var(--ink)' }}>
-            Definir data — {labelTipo}
+            {modoEdicao ? 'Editar data' : 'Definir data'} — {labelTipo}
           </span>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: 'var(--muted)', padding: 4 }}>
             <i className="ti ti-x" aria-hidden="true" />
@@ -6149,7 +5895,7 @@ function ModalDefinirData({ labelTipo, onClose, onSalvar }) {
             fontFamily: 'var(--font-sans)',
           }}
         >
-          {salvando ? 'Salvando…' : 'Definir data'}
+          {salvando ? 'Salvando…' : (modoEdicao ? 'Salvar' : 'Definir data')}
         </button>
       </div>
     </div>
