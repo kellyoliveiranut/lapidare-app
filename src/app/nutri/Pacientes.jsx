@@ -19,7 +19,7 @@ export default function Pacientes() {
     const [pacRes, pendRes] = await Promise.all([
       supabase
         .from('pacientes')
-        .select('id, nome, email, objetivo, tipo_plano, modalidade, avatar_url, created_at, status_paciente, ultimo_acesso')
+        .select('id, nome, email, objetivo, tipo_plano, modalidade, avatar_url, created_at, status_paciente, ultimo_acesso, user_id')
         .order('created_at', { ascending: false }),
       supabase
         .from('pacientes_pendentes')
@@ -348,6 +348,29 @@ const PacienteCard = memo(function PacienteCard({ paciente: p, onNavigate, onRea
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, fontSize: 11, color: 'var(--text3)' }}>
           <i className="ti ti-clock" style={{ fontSize: 12 }} aria-hidden="true"></i>
           {p.ultimo_acesso ? `último acesso: ${textoDias(p.ultimo_acesso)}` : 'sem acesso registrado'}
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 2 }}>
+          {p.user_id ? (
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              fontSize: 10.5, fontWeight: 600, padding: '2px 8px', borderRadius: 20,
+              background: 'var(--green-bg, #f0fdf4)', color: 'var(--green, #16a34a)',
+              border: '0.5px solid var(--green, #16a34a)',
+            }}>
+              <i className="ti ti-circle-check" style={{ fontSize: 11 }} aria-hidden="true"></i>
+              Acesso ativo
+            </span>
+          ) : (
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              fontSize: 10.5, fontWeight: 600, padding: '2px 8px', borderRadius: 20,
+              background: 'var(--amber-bg, #fdf8ee)', color: 'var(--gold-deep, #a08456)',
+              border: '0.5px solid var(--gold-deep, #a08456)',
+            }}>
+              <i className="ti ti-hourglass" style={{ fontSize: 11 }} aria-hidden="true"></i>
+              Acesso pendente
+            </span>
+          )}
         </div>
       </div>
     </div>
