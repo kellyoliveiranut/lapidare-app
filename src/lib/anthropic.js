@@ -16,11 +16,35 @@ export async function callAnthropic(messages, { model = 'claude-sonnet-4-6', max
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     const msg = body.error?.message ?? body.error?.type ?? res.statusText ?? 'sem detalhes';
-    throw new Error(`${res.status}: ${msg}`);
+    const err = new Error(`${res.status}: ${msg}`);
+    err.status = res.status;
+    const ra = parseInt(res.headers.get('retry-after') ?? '', 10);
+    if (Number.isFinite(ra)) err.retryAfter = ra; // segundos
+    throw err;
   }
 
   const data = await res.json();
   return data.content[0].text;
+}
+
+// Envolve callAnthropic com retry + backoff exponencial nos erros transientes
+// (429 rate limit, 529 overloaded). Erros não-transientes propagam na 1ª falha.
+export async function callAnthropicComRetry(messages, opts = {}, { tentativas = 4, baseMs = 1000 } = {}) {
+  let ultimoErro;
+  for (let i = 0; i < tentativas; i++) {
+    try {
+      return await callAnthropic(messages, opts);
+    } catch (err) {
+      const transiente = err?.status === 429 || err?.status === 529;
+      if (!transiente || i === tentativas - 1) throw err;
+      ultimoErro = err;
+      const espera = Number.isFinite(err.retryAfter)
+        ? err.retryAfter * 1000
+        : baseMs * 2 ** i + Math.random() * 300; // backoff + jitter
+      await new Promise(r => setTimeout(r, espera));
+    }
+  }
+  throw ultimoErro;
 }
 
 export async function urlToBase64(url) {

@@ -9,7 +9,7 @@ import {
   dataLocalISO, montarDataHoraISO, partesLocaisISO,
 } from '../../lib/utils.js';
 import { TEMPLATE_PADRAO } from '../../lib/checkinDefault.js';
-import { callAnthropic } from '../../lib/anthropic.js';
+import { callAnthropicComRetry } from '../../lib/anthropic.js';
 import { buscarAlimento, medidaCaseira, kcalDoAlimento, kcalEquivalente, parseGramas } from '../../lib/taco.js';
 import DateInput, { parseDatePaste } from '../../components/DateInput.jsx';
 import CheckinForm from '../../components/CheckinForm.jsx';
@@ -1764,7 +1764,7 @@ const PROMPT_SHAPED = `Analise este relatório de avaliação física do Shaped 
   braco_e: number ou null,
   coxa_d: number (cm, usar valor de coxa),
   coxa_e: number ou null,
-  obs: string (incluir IMC, shaped score se houver, e classificações de risco encontradas)
+  obs: string (resumida, máx. 2 linhas: IMC, shaped score se houver, e classificações de risco encontradas)
 }
 Retorne SOMENTE o JSON.`;
 
@@ -1799,7 +1799,7 @@ function lerPdfBase64(file) {
 }
 
 async function chamarShaped(base64) {
-  const text = await callAnthropic([
+  const text = await callAnthropicComRetry([
     {
       role: 'user',
       content: [
@@ -1807,7 +1807,7 @@ async function chamarShaped(base64) {
         { type: 'text', text: PROMPT_SHAPED },
       ],
     },
-  ], { maxTokens: 1024 });
+  ], { maxTokens: 4096 });
   const cleaned = text.replace(/```(?:json)?\n?/g, '').trim();
   return JSON.parse(cleaned);
 }
@@ -1927,6 +1927,7 @@ function RegistrarAvaliacao({ pacienteId, nutriId, paciente }) {
           return {
             _id: Math.random().toString(36).slice(2),
             arquivo: file.name,
+            file, // guardado para permitir reprocessar sem reabrir o seletor
             dados: { ...novaAvaliacao(), data: '', ...mapShapedParaCampos(d) },
             erro: null,
           };
@@ -1935,6 +1936,7 @@ function RegistrarAvaliacao({ pacienteId, nutriId, paciente }) {
           return {
             _id: Math.random().toString(36).slice(2),
             arquivo: file.name,
+            file,
             dados: null,
             erro: err?.message ?? 'falha ao ler o PDF',
           };
@@ -1945,6 +1947,31 @@ function RegistrarAvaliacao({ pacienteId, nutriId, paciente }) {
     setImportandoLote(false);
     if (loteRef.current) loteRef.current.value = '';
     setRascunhos(resultados);
+  }
+
+  // Relê um único PDF que falhou (reaproveitando o File guardado no rascunho).
+  async function reprocessarRascunho(id) {
+    const alvo = rascunhos.find(r => r._id === id);
+    if (!alvo?.file) return;
+    setRascunhos(rs => rs.map(r => r._id === id ? { ...r, reprocessando: true, erro: null } : r));
+    try {
+      const base64 = await lerPdfBase64(alvo.file);
+      const d = await chamarShaped(base64);
+      setRascunhos(rs => rs.map(r => r._id === id
+        ? { ...r, reprocessando: false, erro: null, dados: { ...novaAvaliacao(), data: '', ...mapShapedParaCampos(d) } }
+        : r));
+    } catch (err) {
+      console.error('[reprocessarRascunho]', alvo.arquivo, err);
+      setRascunhos(rs => rs.map(r => r._id === id
+        ? { ...r, reprocessando: false, erro: err?.message ?? 'falha ao ler o PDF' }
+        : r));
+    }
+  }
+
+  // Reprocessa em lote todos os que ainda estão com erro (até 3 em paralelo).
+  async function reprocessarTodosComErro() {
+    const ids = rascunhos.filter(r => r.erro).map(r => r._id);
+    await runPool(ids, 3, id => reprocessarRascunho(id));
   }
 
   async function salvarLote() {
@@ -1986,8 +2013,18 @@ function RegistrarAvaliacao({ pacienteId, nutriId, paciente }) {
       }));
       const { error } = await supabase.from('peso_registros').insert(payloads);
       if (error) throw error;
-      setRascunhos([]);
-      setFeedback({ tipo: 'ok', msg: `${payloads.length} avaliação(ões) registrada(s).` });
+      const comErro = rascunhos.filter(r => r.erro);
+      if (comErro.length > 0) {
+        // Mantém só os que falharam na tela, para reprocessar ou remover.
+        setRascunhos(comErro);
+        setFeedback({
+          tipo: 'aviso',
+          msg: `${payloads.length} avaliação(ões) registrada(s). ${comErro.length} PDF(s) falharam na leitura e NÃO foram salvos — reprocesse ou remova: ${comErro.map(r => r.arquivo).join(', ')}.`,
+        });
+      } else {
+        setRascunhos([]);
+        setFeedback({ tipo: 'ok', msg: `${payloads.length} avaliação(ões) registrada(s).` });
+      }
       carregar();
     } catch (err) {
       setFeedback({ tipo: 'erro', msg: err?.message || 'Erro ao salvar avaliações.' });
@@ -2094,6 +2131,8 @@ function RegistrarAvaliacao({ pacienteId, nutriId, paciente }) {
           salvando={salvandoLote}
           onEditar={(id, campo, val) => setRascunhos(rs => rs.map(r => r._id === id ? { ...r, dados: { ...r.dados, [campo]: val } } : r))}
           onRemover={(id) => setRascunhos(rs => rs.filter(r => r._id !== id))}
+          onReprocessar={reprocessarRascunho}
+          onReprocessarTodos={reprocessarTodosComErro}
           onSalvar={salvarLote}
           onFechar={() => setRascunhos([])}
         />
@@ -2328,11 +2367,12 @@ function parseSubs(subs) {
 }
 
 // ─── Modal: conferência do lote de avaliações Shaped (revisar antes de salvar) ──
-function ModalRevisaoLote({ rascunhos, salvando, onEditar, onRemover, onSalvar, onFechar }) {
+function ModalRevisaoLote({ rascunhos, salvando, onEditar, onRemover, onReprocessar, onReprocessarTodos, onSalvar, onFechar }) {
   const comErro = rascunhos.filter(r => r.erro);
   const validos = rascunhos.filter(r => !r.erro && r.dados);
   const pendentes = validos.filter(r => dataSuspeita(r.dados.data) || !r.dados.kg);
-  const podeSalvar = !salvando && validos.length > 0 && pendentes.length === 0;
+  const reprocessando = rascunhos.some(r => r.reprocessando);
+  const podeSalvar = !salvando && !reprocessando && validos.length > 0 && pendentes.length === 0;
 
   const inputStyle = {
     width: '100%', boxSizing: 'border-box', padding: '7px 9px', borderRadius: 8,
@@ -2365,8 +2405,24 @@ function ModalRevisaoLote({ rascunhos, salvando, onEditar, onRemover, onSalvar, 
         </div>
 
         {comErro.length > 0 && (
-          <div style={{ fontSize: 12, color: 'var(--red, #dc2626)', marginBottom: 12 }}>
-            {comErro.length} PDF(s) não puderam ser lidos e serão ignorados: {comErro.map(r => r.arquivo).join(', ')}.
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+            fontSize: 12, color: 'var(--red, #dc2626)', marginBottom: 12,
+            padding: '8px 10px', borderRadius: 8, background: 'var(--red-bg, #fef2f2)', border: '1px solid var(--red, #dc2626)',
+          }}>
+            <span style={{ flex: 1, minWidth: 160 }}>
+              {comErro.length} PDF(s) não puderam ser lidos e <strong>não serão salvos</strong>: {comErro.map(r => r.arquivo).join(', ')}.
+            </span>
+            <button
+              onClick={onReprocessarTodos}
+              disabled={reprocessando}
+              style={{
+                background: 'var(--red, #dc2626)', color: '#fff', border: 'none', borderRadius: 8,
+                padding: '6px 12px', cursor: reprocessando ? 'default' : 'pointer', fontSize: 12, fontWeight: 500,
+                fontFamily: 'var(--font-sans)', flexShrink: 0, opacity: reprocessando ? 0.6 : 1,
+              }}>
+              {reprocessando ? 'Reprocessando…' : `Reprocessar os ${comErro.length} que falharam`}
+            </button>
           </div>
         )}
 
@@ -2377,9 +2433,18 @@ function ModalRevisaoLote({ rascunhos, salvando, onEditar, onRemover, onSalvar, 
                 <div key={r._id} style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--red, #dc2626)', background: 'var(--red-bg, #fef2f2)', display: 'flex', alignItems: 'center', gap: 10 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--dark)' }}>{r.arquivo}</div>
-                    <div style={{ fontSize: 12, color: 'var(--red, #dc2626)' }}>Falha ao ler: {r.erro}</div>
+                    <div style={{ fontSize: 12, color: 'var(--red, #dc2626)' }}>
+                      {r.reprocessando
+                        ? <><i className="ti ti-loader-2" style={{ fontSize: 13 }} aria-hidden="true" /> Reprocessando…</>
+                        : <>Falha ao ler: {r.erro}</>}
+                    </div>
                   </div>
-                  <button onClick={() => onRemover(r._id)} style={{ background: 'none', border: '1px solid var(--hair)', borderRadius: 8, padding: '5px 10px', cursor: 'pointer', fontSize: 12, color: 'var(--text3)', fontFamily: 'var(--font-sans)', flexShrink: 0 }}>
+                  {r.file && (
+                    <button onClick={() => onReprocessar(r._id)} disabled={r.reprocessando} style={{ background: 'var(--red, #dc2626)', color: '#fff', border: 'none', borderRadius: 8, padding: '5px 10px', cursor: r.reprocessando ? 'default' : 'pointer', fontSize: 12, fontWeight: 500, fontFamily: 'var(--font-sans)', flexShrink: 0, opacity: r.reprocessando ? 0.6 : 1 }}>
+                      Reprocessar
+                    </button>
+                  )}
+                  <button onClick={() => onRemover(r._id)} disabled={r.reprocessando} style={{ background: 'none', border: '1px solid var(--hair)', borderRadius: 8, padding: '5px 10px', cursor: r.reprocessando ? 'default' : 'pointer', fontSize: 12, color: 'var(--text3)', fontFamily: 'var(--font-sans)', flexShrink: 0 }}>
                     Remover
                   </button>
                 </div>
@@ -4863,14 +4928,18 @@ function Pill({ label, v, u }) {
 
 function FeedbackInline({ f }) {
   const ok = f.tipo === 'ok';
+  const aviso = f.tipo === 'aviso';
+  const bg = ok ? 'var(--green-bg)' : aviso ? 'var(--amber-bg, #fef3c7)' : 'var(--red-bg)';
+  const cor = ok ? 'var(--green)' : aviso ? 'var(--amber, #b45309)' : 'var(--red)';
+  const icon = ok ? 'check' : aviso ? 'alert-triangle' : 'alert-circle';
   return (
     <div style={{
       marginTop: 10,
-      background: ok ? 'var(--green-bg)' : 'var(--red-bg)',
-      color: ok ? 'var(--green)' : 'var(--red)',
+      background: bg,
+      color: cor,
       padding: '8px 12px', borderRadius: 6, fontSize: 13,
     }}>
-      <i className={`ti ti-${ok ? 'check' : 'alert-circle'}`} style={{ marginRight: 5 }} aria-hidden="true"></i>
+      <i className={`ti ti-${icon}`} style={{ marginRight: 5 }} aria-hidden="true"></i>
       {f.msg}
     </div>
   );
