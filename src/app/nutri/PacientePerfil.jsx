@@ -5676,7 +5676,7 @@ function ModalAgendarAcompanhamento({ pacienteId, nutriId, consultaAtiva, onClos
     if (!semData) {
       if (datas.some(d => !d.data)) { setErro('Preencha todas as datas.'); return; }
       if (datas.some(d => !horaConsultaValida(d.hora))) {
-        setErro('Todos os horários devem ser entre 14:00 e 17:00 (de 30 em 30 min).');
+        setErro('Todos os horários devem ser entre 08:00 e 17:00 (de 30 em 30 min).');
         return;
       }
     }
@@ -5816,7 +5816,7 @@ function ModalAgendarAvulsa({ pacienteId, nutriId, onClose, onSalvo }) {
     if (!semData) {
       if (!data) { setErro('Preencha a data.'); return; }
       if (!horaConsultaValida(hora)) {
-        setErro('Escolha um horário entre 14:00 e 17:00 (de 30 em 30 min).');
+        setErro('Escolha um horário entre 08:00 e 17:00 (de 30 em 30 min).');
         return;
       }
     }
@@ -5924,7 +5924,7 @@ function ModalDefinirData({ labelTipo, dataHoraInicial = null, onClose, onSalvar
 
   async function salvar() {
     if (!data) { setErro('Preencha a data.'); return; }
-    if (!horaConsultaValida(hora)) { setErro('Escolha um horário entre 14:00 e 17:00.'); return; }
+    if (!horaConsultaValida(hora)) { setErro('Escolha um horário entre 08:00 e 17:00.'); return; }
     setSalvando(true);
     setErro(null);
     await onSalvar(montarDataHoraISO(data, hora));

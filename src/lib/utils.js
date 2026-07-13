@@ -310,13 +310,16 @@ export function consultaEmBreve(iso) {
 
 // ─── Horários de agendamento de consulta (lista fixa, horário LOCAL) ───
 
-/** As 7 únicas opções de horário permitidas para agendar consulta. */
-export const HORARIOS_CONSULTA = ['14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00'];
+/** As 14 únicas opções de horário permitidas para agendar consulta (manhã e tarde). */
+export const HORARIOS_CONSULTA = [
+  '08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00',
+  '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00',
+];
 
 /** Horário sugerido por padrão ao abrir um agendamento. */
 export const HORARIO_CONSULTA_PADRAO = '14:00';
 
-/** true se a hora ("HH:mm") é uma das 7 opções válidas. */
+/** true se a hora ("HH:mm") é uma das 14 opções válidas. */
 export function horaConsultaValida(hora) {
   return HORARIOS_CONSULTA.includes(hora);
 }
