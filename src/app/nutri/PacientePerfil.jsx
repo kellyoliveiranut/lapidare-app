@@ -52,6 +52,7 @@ export default function PacientePerfil() {
   const [erroAcomp, setErroAcomp] = useState(null);
   const [erroCarregar, setErroCarregar] = useState(false);
   const [linkConviteCopiado, setLinkConviteCopiado] = useState(false);
+  const [linkConviteCompartilhado, setLinkConviteCompartilhado] = useState(false);
   const [conviteEnviado, setConviteEnviado] = useState(false);
 
   function labelTipoConsulta(tipo) {
@@ -244,11 +245,32 @@ export default function PacientePerfil() {
       alert('Não consegui gerar o link agora, tente novamente.');
       return;
     }
+    const primeiroNome = paciente.nome?.split(' ')[0] ?? '';
+    const textoConvite =
+      `Olá, ${primeiroNome}! Preparei o seu acesso ao app do Essentia. ` +
+      `Clique no link para criar sua senha e entrar: ${link}`;
+
+    // 1. Celular: menu nativo de compartilhamento (WhatsApp, Mensagens, Copiar…)
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'Acesso ao app Essentia', text: textoConvite });
+        setLinkConviteCompartilhado(true);
+        setTimeout(() => setLinkConviteCompartilhado(false), 2000);
+        return;
+      } catch (err) {
+        // Usuário cancelou o menu — não é erro, não cai no fallback
+        if (err?.name === 'AbortError') return;
+        // Qualquer outra falha: segue para o clipboard
+      }
+    }
+
+    // 2. Desktop (ou share indisponível): copiar para a área de transferência
     try {
       await navigator.clipboard.writeText(link);
       setLinkConviteCopiado(true);
       setTimeout(() => setLinkConviteCopiado(false), 2000);
     } catch {
+      // 3. Fallback final: mostra o link para copiar na mão
       alert('Não consegui copiar. Link:\n\n' + link);
     }
   }
@@ -441,8 +463,8 @@ export default function PacientePerfil() {
                   fontFamily: 'var(--font-sans)',
                   display: 'inline-flex', alignItems: 'center', gap: 4,
                 }}>
-                <i className={`ti ti-${linkConviteCopiado ? 'check' : 'link'}`} style={{ fontSize: 12 }} aria-hidden="true" />
-                {linkConviteCopiado ? 'Link copiado!' : 'Copiar link de convite'}
+                <i className={`ti ti-${linkConviteCopiado || linkConviteCompartilhado ? 'check' : 'link'}`} style={{ fontSize: 12 }} aria-hidden="true" />
+                {linkConviteCompartilhado ? 'Compartilhado!' : linkConviteCopiado ? 'Link copiado!' : 'Copiar link de convite'}
               </button>
             )}
             <button
