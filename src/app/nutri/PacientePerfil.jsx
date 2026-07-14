@@ -1744,9 +1744,19 @@ function CheckinPersonalizado({ pacienteId, nutriId, pacienteNome }) {
    AVALIAÇÃO ANTROPOMÉTRICA
    ============================================================ */
 /* ── Shaped: leitura por IA (compartilhado entre import único e em lote) ── */
-const PROMPT_SHAPED = `Analise este relatório de avaliação física do Shaped e extraia APENAS os valores abaixo em JSON puro sem texto adicional:
+const PROMPT_SHAPED = `Você vai analisar um relatório de avaliação física do Shaped. Ele contém UMA avaliação ATUAL e dados de avaliações ANTERIORES (histórico). Sua tarefa é extrair APENAS os dados da avaliação ATUAL.
+
+⚠️ REGRA CRÍTICA — LEIA COM ATENÇÃO:
+- A avaliação ATUAL é identificada pelo campo "Avaliação em:" que aparece no CABEÇALHO de cada página. A data a extrair é SEMPRE essa, e SOMENTE essa.
+- NUNCA use a data de "Avaliação anterior:" (aparece nos comparativos).
+- NUNCA use datas dos gráficos do "Histórico de avaliações" (geralmente na última página).
+- TODOS os valores (peso, circunferências, composição corporal, gasto energético, etc.) devem ser os da avaliação ATUAL — aqueles detalhados junto ao cabeçalho "Avaliação em:".
+- IGNORE completamente: os valores da coluna/menção "avaliação anterior" nos comparativos, e todos os pontos e números dos gráficos de histórico.
+- Em caso de dúvida entre dois valores para o mesmo campo, escolha SEMPRE o da avaliação ATUAL (a do cabeçalho "Avaliação em:"), nunca o comparativo/histórico.
+
+Extraia APENAS os valores abaixo em JSON puro, sem texto adicional:
 {
-  data: string (formato YYYY-MM-DD),
+  data: string (formato YYYY-MM-DD — vindo OBRIGATORIAMENTE do campo "Avaliação em:" do cabeçalho),
   peso: number,
   altura: number (em cm, converter se necessário),
   gordura_perc: number (percentual de gordura),
