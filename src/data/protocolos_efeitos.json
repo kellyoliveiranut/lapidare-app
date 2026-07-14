@@ -1964,6 +1964,75 @@
       ]
     },
     {
+      "nome": "Taxol Semanal",
+      "indicacao": "Mama, ovário, pulmão, endométrio ou outros; verificar indicação",
+      "aliases": [
+        "taxol semanal",
+        "paclitaxel semanal",
+        "paclitaxel weekly"
+      ],
+      "duracaoCiclo": 28,
+      "estruturaCiclo": {
+        "aplicacoes": 3,
+        "cadenciaDias": 7,
+        "descansoDias": 7,
+        "totalCiclos": 4
+      },
+      "marcosEfeito": [
+        {
+          "de": 3,
+          "ate": 5,
+          "label": "D3–D5",
+          "desc": "Momento crítico dos efeitos",
+          "fase": "risco"
+        },
+        {
+          "de": 6,
+          "ate": 7,
+          "label": "D6–D7",
+          "desc": "Recuperação",
+          "fase": "alerta"
+        }
+      ],
+      "conduta_base": "Protocolo semanal: um ciclo tem 3 aplicações (D1, D8, D15), seguidas de 1 semana de descanso, por 4 ciclos. Por ser semanal, evitar queda progressiva da ingestão ao longo das semanas. Manter proteína diária, hidratação, preservação de massa magra e manejo de neuropatia, dor muscular, constipação, náusea e fadiga. Concentrar atenção nos dias D3–D5 de cada aplicação (pico dos efeitos) e apoiar a recuperação em D6–D7.",
+      "efeitos": [
+        {
+          "efeito": "Neuropatia periférica",
+          "relacionado_a": "Paclitaxel",
+          "manejo": "Monitorar formigamento, dormência, queimação e dificuldade para cozinhar ou segurar utensílios. Garantir proteína diária e avaliar B12, folato, vitamina D e magnésio conforme exames."
+        },
+        {
+          "efeito": "Dor muscular/articular",
+          "relacionado_a": "Paclitaxel",
+          "manejo": "Manter hidratação, proteína e refeições com peixe, azeite, ovos, legumes cozidos e frutas toleradas. Organizar refeições fáceis nos dias de dor (D3–D5)."
+        },
+        {
+          "efeito": "Constipação",
+          "relacionado_a": "Paclitaxel/antieméticos",
+          "manejo": "Usar água ao longo do dia, mamão, aveia, ameixa hidratada e legumes cozidos, ajustando se houver neutropenia ou baixa tolerância."
+        },
+        {
+          "efeito": "Náusea leve/moderada",
+          "relacionado_a": "Paclitaxel",
+          "manejo": "Fracionar alimentação e evitar gordura no dia da infusão. Usar arroz, batata, caldo, ovos, iogurte e frutas leves."
+        },
+        {
+          "efeito": "Fadiga",
+          "relacionado_a": "Paclitaxel",
+          "manejo": "Planejar refeições simples com proteína em todos os horários: ovos, frango desfiado, peixe, carne moída, iogurte, vitamina ou suplemento prescrito."
+        }
+      ],
+      "sinais_alerta": [
+        "Reação alérgica durante ou após infusão",
+        "Falta de ar",
+        "Febre",
+        "Formigamento progressivo",
+        "Sangramento",
+        "Dor intensa",
+        "Fraqueza importante"
+      ]
+    },
+    {
       "nome": "PCV",
       "indicacao": "SNC/glioma; verificar indicação",
       "duracaoCiclo": 42,

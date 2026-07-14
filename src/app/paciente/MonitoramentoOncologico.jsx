@@ -2,8 +2,11 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { dataBR } from '../../lib/utils.js';
+import { getProtocolo, temEstruturaCiclo, janelaRisco, marcosEfeitoAplicacao } from '../../lib/protocoloCiclo.js';
 
 const TOTAL_STEPS = 11;
+
+const COR_FASE_PAC = { quimio: '#16a34a', alerta: '#eab308', risco: '#dc2626' };
 
 const REFEICOES = [
   { key: 'ref_cafe',         label: 'Café da manhã',   emoji: '☕' },
@@ -70,6 +73,7 @@ export default function MonitoramentoOncologico() {
   // Estado da linha do tempo de ciclo
   const [ciclos,    setCiclos]    = useState([]);
   const [intervalo, setIntervalo] = useState(21);
+  const [protocoloNome, setProtocoloNome] = useState(null);
 
   // Estado do formulário
   const [apetite,     setApetite]     = useState(null);
@@ -118,12 +122,13 @@ export default function MonitoramentoOncologico() {
         .order('data_quimio', { ascending: false })
         .limit(5),
       supabase.from('tratamentos_oncologicos')
-        .select('intervalo_ciclos')
+        .select('intervalo_ciclos,protocolo')
         .eq('paciente_id', pacienteId)
         .maybeSingle(),
     ]).then(([{ data: cic }, { data: trat }]) => {
       setCiclos(cic ?? []);
       setIntervalo(trat?.intervalo_ciclos ?? 21);
+      setProtocoloNome(trat?.protocolo ?? null);
     });
   }, [pacienteId]);
 
@@ -207,7 +212,7 @@ export default function MonitoramentoOncologico() {
   if (step === null) {
     return (
       <Wrap>
-        <LinhaDoTempoCiclo ciclos={ciclos} intervalo={intervalo} />
+        <LinhaDoTempoCiclo ciclos={ciclos} intervalo={intervalo} protocoloNome={protocoloNome} />
         <div style={{ textAlign: 'center', color: 'var(--muted)', padding: 40 }}>Carregando…</div>
       </Wrap>
     );
@@ -216,7 +221,7 @@ export default function MonitoramentoOncologico() {
   if (salvo) {
     return (
       <>
-        <LinhaDoTempoCiclo ciclos={ciclos} intervalo={intervalo} standalone />
+        <LinhaDoTempoCiclo ciclos={ciclos} intervalo={intervalo} protocoloNome={protocoloNome} standalone />
         <Concluido />
       </>
     );
@@ -225,7 +230,7 @@ export default function MonitoramentoOncologico() {
   if (step === 0 && registroHoje) {
     return (
       <>
-        <LinhaDoTempoCiclo ciclos={ciclos} intervalo={intervalo} standalone />
+        <LinhaDoTempoCiclo ciclos={ciclos} intervalo={intervalo} protocoloNome={protocoloNome} standalone />
         <JaPreenchidoHoje
           registro={registroHoje}
           onEditar={() => { preencherForm(registroHoje); setStep(1); }}
@@ -239,7 +244,7 @@ export default function MonitoramentoOncologico() {
 
   return (
     <Wrap>
-      <LinhaDoTempoCiclo ciclos={ciclos} intervalo={intervalo} />
+      <LinhaDoTempoCiclo ciclos={ciclos} intervalo={intervalo} protocoloNome={protocoloNome} />
 
       {/* Barra de progresso */}
       <div style={{ marginBottom: 28 }}>
@@ -625,7 +630,7 @@ export default function MonitoramentoOncologico() {
 }
 
 // ── Linha do tempo de ciclo (somente leitura) ─────────────────────
-function LinhaDoTempoCiclo({ ciclos, intervalo, standalone }) {
+function LinhaDoTempoCiclo({ ciclos, intervalo, protocoloNome, standalone }) {
   const hoje = new Date().toISOString().slice(0, 10);
 
   // standalone = usado fora do <Wrap>, precisa do próprio centramento
@@ -651,16 +656,33 @@ function LinhaDoTempoCiclo({ ciclos, intervalo, standalone }) {
 
   const uc = ciclos[0];
   const iv = intervalo || 21;
-  const emJanela = hoje >= uc.d7 && hoje <= uc.d14;
+  const proto = getProtocolo(protocoloNome);
+  const estruturado = temEstruturaCiclo(proto);
 
-  const marcos = [
-    { d: uc.data_quimio,          label: 'D0',       desc: 'Quimio',          cor: '#16a34a' },
-    { d: uc.d3,                    label: 'D+3',      desc: 'Início da piora', cor: '#eab308' },
-    { d: uc.d7,                    label: 'D+7',      desc: 'Janela de risco', cor: '#ef4444' },
-    { d: uc.d10,                   label: 'D+10',     desc: 'Pico de risco',   cor: '#dc2626' },
-    { d: uc.d14,                   label: 'D+14',     desc: 'Fim da janela',   cor: '#eab308' },
-    { d: addDias(uc.data_quimio, iv), label: `D+${iv}`, desc: 'Próximo ciclo', cor: '#16a34a' },
-  ];
+  let emJanela, janInicio, janFim, marcos;
+  if (estruturado) {
+    ({ inicio: janInicio, fim: janFim } = janelaRisco(proto));
+    emJanela = hoje >= addDias(uc.data_quimio, janInicio) && hoje <= addDias(uc.data_quimio, janFim);
+    marcos = [
+      { d: uc.data_quimio, label: 'Aplicação', desc: 'Dia da infusão', cor: '#16a34a' },
+      ...marcosEfeitoAplicacao(proto, uc.data_quimio).map(m => ({
+        d: m.data, label: m.label, desc: m.desc, cor: COR_FASE_PAC[m.fase] ?? '#6b7280',
+      })),
+      { d: addDias(uc.data_quimio, proto.estruturaCiclo.cadenciaDias),
+        label: 'Próxima', desc: 'Próxima aplicação', cor: '#16a34a' },
+    ];
+  } else {
+    janInicio = 7; janFim = 14;
+    emJanela = hoje >= uc.d7 && hoje <= uc.d14;
+    marcos = [
+      { d: uc.data_quimio,          label: 'D0',       desc: 'Quimio',          cor: '#16a34a' },
+      { d: uc.d3,                    label: 'D+3',      desc: 'Início da piora', cor: '#eab308' },
+      { d: uc.d7,                    label: 'D+7',      desc: 'Janela de risco', cor: '#ef4444' },
+      { d: uc.d10,                   label: 'D+10',     desc: 'Pico de risco',   cor: '#dc2626' },
+      { d: uc.d14,                   label: 'D+14',     desc: 'Fim da janela',   cor: '#eab308' },
+      { d: addDias(uc.data_quimio, iv), label: `D+${iv}`, desc: 'Próximo ciclo', cor: '#16a34a' },
+    ];
+  }
 
   return (
     <div style={wrapStyle}>
@@ -673,7 +695,7 @@ function LinhaDoTempoCiclo({ ciclos, intervalo, standalone }) {
         }}>
           <span style={{ flexShrink: 0 }}>⚠️</span>
           <span>
-            Você está na <strong>janela de risco imunológico</strong> (D+7 a D+14 do ciclo {uc.numero_ciclo}).
+            Você está na <strong>janela de risco imunológico</strong> (D+{janInicio} a D+{janFim} do ciclo {uc.numero_ciclo}).
             Fique atenta a febre e mal-estar — avise sua nutri se precisar.
           </span>
         </div>

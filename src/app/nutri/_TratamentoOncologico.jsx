@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase.js';
 import { dataBR } from '../../lib/utils.js';
 import DateInput from '../../components/DateInput.jsx';
 import protocolosEfeitosData from '../../data/protocolos_efeitos.json';
+import { getProtocolo, temEstruturaCiclo, janelaRisco, marcosEfeitoAplicacao, datasAplicacoesCiclo } from '../../lib/protocoloCiclo.js';
 
 const GRUPOS_EFEITOS = (() => {
   const groups = {};
@@ -208,12 +209,18 @@ export default function TratamentoOncologico({ pacienteId, nutriId }) {
     if (!novoCiclo.data_quimio) return setFeedback({ tipo: 'erro', msg: 'Informe a data da quimio.' });
     if (!tratamentoId) return setFeedback({ tipo: 'erro', msg: 'Salve os dados do tratamento primeiro.' });
     setBusy(true);
-    const { error } = await supabase.from('ciclos_quimio').insert({
+    const protoLocal = getProtocolo(dados.protocolo);
+    const numero = num(novoCiclo.numero_ciclo) ?? (ciclos[0]?.numero_ciclo ?? 0) + 1;
+    const comum = {
       tratamento_id: tratamentoId, paciente_id: pacienteId, nutri_id: nutriId,
-      numero_ciclo: num(novoCiclo.numero_ciclo) ?? ciclos.length + 1,
-      data_quimio: novoCiclo.data_quimio,
-      obs: novoCiclo.obs.trim() || null,
-    });
+      numero_ciclo: numero, obs: novoCiclo.obs.trim() || null,
+    };
+    const rows = temEstruturaCiclo(protoLocal)
+      ? datasAplicacoesCiclo(protoLocal, novoCiclo.data_quimio).map(a => ({
+          ...comum, data_quimio: a.data, aplicacao_no_ciclo: a.aplicacao,
+        }))
+      : [{ ...comum, data_quimio: novoCiclo.data_quimio }];
+    const { error } = await supabase.from('ciclos_quimio').insert(rows);
     setBusy(false);
     if (error) return setFeedback({ tipo: 'erro', msg: error.message });
     setNovoCiclo(prev => ({ numero_ciclo: (num(prev.numero_ciclo) ?? 0) + 1, data_quimio: '', obs: '' }));
@@ -330,13 +337,19 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
   }
 
   // Resolve protocolo do JSON para timeline e janela de risco
-  const proto = protocolosEfeitosData.protocolos.find(p => p.nome === dados.protocolo);
+  const proto = getProtocolo(dados.protocolo);
+  const estruturado = temEstruturaCiclo(proto);
   const timelineBase = proto?.timeline?.length > 0 ? proto.timeline : TIMELINE_FALLBACK;
   const duracaoCiclo = proto?.duracaoCiclo ?? num(dados.intervalo_ciclos) ?? 21;
-  const diasRisco     = timelineBase.filter(m => m.fase === 'risco').map(m => m.dia);
-  const inicioRisco   = diasRisco.length > 0 ? Math.min(...diasRisco) : 7;
-  const diasAlertaPos = timelineBase.filter(m => m.fase === 'alerta' && m.dia > inicioRisco).map(m => m.dia);
-  const fimRisco      = diasAlertaPos.length > 0 ? Math.max(...diasAlertaPos) : 14;
+  let inicioRisco, fimRisco;
+  if (estruturado) {
+    ({ inicio: inicioRisco, fim: fimRisco } = janelaRisco(proto));
+  } else {
+    const diasRisco     = timelineBase.filter(m => m.fase === 'risco').map(m => m.dia);
+    inicioRisco         = diasRisco.length > 0 ? Math.min(...diasRisco) : 7;
+    const diasAlertaPos = timelineBase.filter(m => m.fase === 'alerta' && m.dia > inicioRisco).map(m => m.dia);
+    fimRisco            = diasAlertaPos.length > 0 ? Math.max(...diasAlertaPos) : 14;
+  }
 
   // Janela de risco atual
   const hoje = new Date().toISOString().slice(0, 10);
@@ -519,7 +532,9 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
           <div className="card" style={{ marginBottom: 12 }}>
             <div className="card-header">
               <div className="card-title">📅 Adicionar ciclo</div>
-              <div className="card-sub">D+3, D+7, D+10 e D+14 são calculados automaticamente</div>
+              <div className="card-sub">{estruturado
+                ? `Informe a data do D1: as ${proto.estruturaCiclo.aplicacoes} aplicações (D1/D8/D15) são geradas automaticamente`
+                : 'D+3, D+7, D+10 e D+14 são calculados automaticamente'}</div>
             </div>
             <div className="card-body">
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: 10, alignItems: 'end' }}>
@@ -528,7 +543,7 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
                   <input type="number" value={novoCiclo.numero_ciclo} onChange={e => setNovoCiclo(p => ({ ...p, numero_ciclo: e.target.value }))} />
                 </div>
                 <div>
-                  <label className="field-label">Data da quimio *</label>
+                  <label className="field-label">{estruturado ? 'Data do D1 (1ª aplicação) *' : 'Data da quimio *'}</label>
                   <DateInput value={novoCiclo.data_quimio} onChange={e => setNovoCiclo(p => ({ ...p, data_quimio: e.target.value }))} />
                 </div>
                 <div>
@@ -542,7 +557,7 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
             </div>
           </div>
 
-          {ciclos.length > 0 && (() => {
+          {!estruturado && ciclos.length > 0 && (() => {
             const uc = ciclos[0];
             const marcos = [
               ...timelineBase.map(m => ({
@@ -589,7 +604,7 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
             );
           })()}
 
-          {ciclos.length > 0 && (
+          {!estruturado && ciclos.length > 0 && (
             <div className="card" style={{ padding: 0 }}>
               <div style={{ overflowX: 'auto' }}>
               <table className="table">
@@ -630,6 +645,98 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
               </div>
             </div>
           )}
+
+          {/* ── Timeline estruturada (última aplicação) ── */}
+          {estruturado && ciclos.length > 0 && (() => {
+            const ucApp = ciclos[0];
+            const marcos = [
+              { d: ucApp.data_quimio, label: `Aplic. ${ucApp.aplicacao_no_ciclo ?? ''}`.trim(), desc: 'Infusão', cor: COR_FASE.quimio },
+              ...marcosEfeitoAplicacao(proto, ucApp.data_quimio).map(m => ({
+                d: m.data, label: m.label, desc: m.desc, cor: COR_FASE[m.fase] ?? '#6b7280',
+              })),
+              { d: addDays(ucApp.data_quimio, proto.estruturaCiclo.cadenciaDias), label: 'Próx.', desc: 'Próxima aplicação', cor: COR_FASE.quimio },
+            ];
+            return (
+              <div className="card" style={{ padding: 16, marginBottom: 12, overflow: 'hidden' }}>
+                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 14, color: 'var(--dark)' }}>
+                  Linha do tempo · Ciclo {ucApp.numero_ciclo} · aplicação {ucApp.aplicacao_no_ciclo ?? '—'} ({dataBR(ucApp.data_quimio)})
+                </div>
+                <div style={{ position: 'relative', padding: '0 6px 32px' }}>
+                  <div style={{ position: 'absolute', top: 10, left: 6, right: 6, height: 2, background: 'var(--bg3, #e8e2d8)', borderRadius: 1 }} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', position: 'relative' }}>
+                    {marcos.map((m, i) => {
+                      const passado = m.d <= hoje;
+                      const isHoje  = m.d === hoje;
+                      return (
+                        <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+                          <div style={{
+                            width: 20, height: 20, borderRadius: '50%', zIndex: 1, marginBottom: 6,
+                            background: passado ? m.cor : m.cor + '30',
+                            border: `2px solid ${m.cor}`,
+                            boxShadow: isHoje ? `0 0 0 3px ${m.cor}55` : 'none',
+                          }} />
+                          <div style={{ fontSize: 10, fontWeight: 700, color: m.cor, textAlign: 'center', lineHeight: 1.3 }}>{m.label}</div>
+                          <div style={{ fontSize: 9, color: 'var(--text3)', textAlign: 'center', lineHeight: 1.3 }}>{dataBR(m.d)}</div>
+                          <div style={{ fontSize: 9, color: 'var(--text3)', textAlign: 'center', lineHeight: 1.3, maxWidth: 56 }}>{m.desc}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* ── Tabela estruturada (agrupada por ciclo, D1/D8/D15) ── */}
+          {estruturado && ciclos.length > 0 && (() => {
+            const grupos = {};
+            for (const c of [...ciclos].sort((a, b) => a.data_quimio < b.data_quimio ? -1 : 1)) {
+              (grupos[c.numero_ciclo] ??= []).push(c);
+            }
+            const labelApp = (n) => n === 1 ? 'D1' : n === 2 ? 'D8' : n === 3 ? 'D15' : (n ?? '—');
+            return (
+              <div className="card" style={{ padding: 0 }}>
+                <div style={{ overflowX: 'auto' }}>
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Ciclo</th>
+                      <th>Aplic.</th>
+                      <th>Data</th>
+                      <th>D3–D5</th>
+                      <th>D6–D7</th>
+                      <th>Obs</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(grupos).flatMap(([nc, apps]) =>
+                      apps.map(c => {
+                        const [w1, w2] = marcosEfeitoAplicacao(proto, c.data_quimio);
+                        const emRisco = hoje >= addDays(c.data_quimio, inicioRisco) && hoje <= addDays(c.data_quimio, fimRisco);
+                        return (
+                          <tr key={c.id} style={{ background: emRisco ? '#fef9c3' : undefined }}>
+                            <td><strong>C{nc}</strong></td>
+                            <td>{labelApp(c.aplicacao_no_ciclo)}</td>
+                            <td>{dataBR(c.data_quimio)}</td>
+                            <td style={{ color: emRisco ? '#dc2626' : 'var(--text3)', fontWeight: emRisco ? 600 : undefined }}>{dataBR(w1?.data)}</td>
+                            <td style={{ color: 'var(--text3)' }}>{dataBR(w2?.data)}</td>
+                            <td style={{ color: 'var(--text3)' }}>{c.obs ?? '—'}</td>
+                            <td>
+                              <button onClick={() => removerCiclo(c.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--red)' }}>
+                                <i className="ti ti-trash" />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+                </div>
+              </div>
+            );
+          })()}
         </>
       )}
 
