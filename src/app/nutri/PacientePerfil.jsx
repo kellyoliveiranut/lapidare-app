@@ -1769,39 +1769,49 @@ function CheckinPersonalizado({ pacienteId, nutriId, pacienteNome }) {
    AVALIAÇÃO ANTROPOMÉTRICA
    ============================================================ */
 /* ── Shaped: leitura por IA (compartilhado entre import único e em lote) ── */
-const PROMPT_SHAPED = `Você vai analisar um relatório de avaliação física do Shaped. Ele contém UMA avaliação ATUAL e dados de avaliações ANTERIORES (histórico). Sua tarefa é extrair APENAS os dados da avaliação ATUAL.
+const PROMPT_SHAPED = `Você vai analisar um relatório de avaliação física do Shaped e extrair TODAS as avaliações que ele contém: a avaliação ATUAL (completa) e as avaliações do HISTÓRICO (parciais).
 
-⚠️ REGRA CRÍTICA — LEIA COM ATENÇÃO:
-- A avaliação ATUAL é identificada pelo campo "Avaliação em:" que aparece no CABEÇALHO de cada página. A data a extrair é SEMPRE essa, e SOMENTE essa.
-- NUNCA use a data de "Avaliação anterior:" (aparece nos comparativos).
-- NUNCA use datas dos gráficos do "Histórico de avaliações" (geralmente na última página).
-- TODOS os valores (peso, circunferências, composição corporal, gasto energético, etc.) devem ser os da avaliação ATUAL — aqueles detalhados junto ao cabeçalho "Avaliação em:".
-- IGNORE completamente: os valores da coluna/menção "avaliação anterior" nos comparativos, e todos os pontos e números dos gráficos de histórico.
-- Em caso de dúvida entre dois valores para o mesmo campo, escolha SEMPRE o da avaliação ATUAL (a do cabeçalho "Avaliação em:"), nunca o comparativo/histórico.
+Retorne um ARRAY JSON puro (sem nenhum texto fora do array). Cada item do array é uma avaliação.
 
-Extraia APENAS os valores abaixo em JSON puro, sem texto adicional:
+═══ ITEM 1 — AVALIAÇÃO ATUAL (sempre o primeiro do array) ═══
+- Identificada pelo campo "Avaliação em: DD/MM/AAAA" do CABEÇALHO das páginas. A data deste item vem SEMPRE desse campo.
+- NUNCA use a data de "Avaliação anterior" nem datas dos gráficos para este item.
+- Preencha TODOS os campos com os valores detalhados da avaliação atual (não os do comparativo/histórico).
+
+═══ ITENS 2..N — HISTÓRICO DE AVALIAÇÕES (um por data anterior) ═══
+- Fonte: a seção "Histórico de avaliações" (normalmente na última página) — os GRÁFICOS de evolução (peso, % gordura, massa magra, massa gorda e circunferências: braço, antebraço, cintura, quadril, coxa, panturrilha) e a TABELA de índices por data, quando houver.
+- Crie UM item para CADA data anterior que aparecer no histórico.
+- A data de cada item vem do eixo dos gráficos / da tabela de índices (formato YYYY-MM-DD).
+- Prefira SEMPRE os números da TABELA de índices (são exatos); use os gráficos só quando não houver tabela. Se um valor não for legível ou não existir para aquela data, use null — NÃO invente.
+- Preencha só o que existir no histórico: peso, gordura_perc, gordura_kg (massa gorda), massa_magra_kg, cintura, quadril, abdome, panturrilha, braco_d (valor de braço), coxa_d (valor de coxa).
+- Deixe NULL, nos itens históricos: altura, massa_magra_perc, hidratacao, geb, get, braco_e, coxa_e, obs.
+- NÃO repita a avaliação atual aqui (se a data atual também aparecer no gráfico, ela já é o item 1).
+- Não existe campo para "antebraço" — ignore essa série.
+
+Formato de CADA item do array:
 {
-  data: string (formato YYYY-MM-DD — vindo OBRIGATORIAMENTE do campo "Avaliação em:" do cabeçalho),
-  peso: number,
-  altura: number (em cm, converter se necessário),
-  gordura_perc: number (percentual de gordura),
-  gordura_kg: number (massa gorda em kg),
-  massa_magra_kg: number,
-  massa_magra_perc: number,
-  hidratacao: number (água corporal em % — calcular: agua_litros / peso * 100),
-  geb: number (gasto energético de repouso em kcal),
-  get: number (se não houver, calcular geb * 1.3),
-  cintura: number (cm),
-  quadril: number (cm),
-  abdome: number ou null,
-  panturrilha: number (cm),
-  braco_d: number (cm, usar valor de braço),
-  braco_e: number ou null,
-  coxa_d: number (cm, usar valor de coxa),
-  coxa_e: number ou null,
-  obs: string (resumida, máx. 2 linhas: IMC, shaped score se houver, e classificações de risco encontradas)
+  data: string "YYYY-MM-DD",
+  peso: number|null,
+  altura: number|null (cm),
+  gordura_perc: number|null,
+  gordura_kg: number|null (massa gorda em kg),
+  massa_magra_kg: number|null,
+  massa_magra_perc: number|null,
+  hidratacao: number|null (água corporal em % — na atual: agua_litros / peso * 100),
+  geb: number|null (kcal),
+  get: number|null (na atual, se não houver, calcular geb * 1.3; no histórico, null),
+  cintura: number|null (cm),
+  quadril: number|null (cm),
+  abdome: number|null,
+  panturrilha: number|null (cm),
+  braco_d: number|null (cm),
+  braco_e: number|null,
+  coxa_d: number|null (cm),
+  coxa_e: number|null,
+  obs: string|null (só na atual: IMC, shaped score se houver, classificações de risco; no histórico, null)
 }
-Retorne SOMENTE o JSON.`;
+
+Retorne SOMENTE o array JSON. Se houver apenas a avaliação atual (sem histórico), retorne um array com 1 item.`;
 
 // Campos numéricos editáveis na tabela de conferência do lote (data e obs são tratados à parte)
 const CAMPOS_LOTE = [
@@ -1842,9 +1852,15 @@ async function chamarShaped(base64) {
         { type: 'text', text: PROMPT_SHAPED },
       ],
     },
-  ], { maxTokens: 4096 });
+  ], { maxTokens: 8192 });
   const cleaned = text.replace(/```(?:json)?\n?/g, '').trim();
-  return JSON.parse(cleaned);
+  const parsed = JSON.parse(cleaned);
+  // A IA agora devolve um ARRAY de avaliações (atual + históricas). Normaliza
+  // defensivamente: array puro, { avaliacoes: [...] } ou objeto único (compat).
+  const arr = Array.isArray(parsed) ? parsed
+            : Array.isArray(parsed?.avaliacoes) ? parsed.avaliacoes
+            : [parsed];
+  return arr.filter(Boolean);
 }
 
 // Retorna só as chaves que a IA preencheu (formato do form); as ausentes ficam de fora.
@@ -1928,14 +1944,33 @@ function RegistrarAvaliacao({ pacienteId, nutriId, paciente }) {
     };
   }
 
+  // Transforma as N avaliações lidas de UM PDF (atual + históricas) em N rascunhos.
+  function rascunhosDeAvaliacoes(file, avals) {
+    return avals.map((d, i) => ({
+      _id: Math.random().toString(36).slice(2),
+      arquivo: file.name,
+      origem: i === 0 ? 'atual' : 'historico',
+      file, // guardado para permitir reprocessar sem reabrir o seletor
+      dados: { ...novaAvaliacao(), data: '', ...mapShapedParaCampos(d) },
+      erro: null,
+    }));
+  }
+
+  // 1 PDF agora rende N avaliações (atual + históricas). Como o form individual
+  // só comporta uma, a importação individual abre a MESMA tela de conferência do lote.
   async function importarShaped(file) {
     setImportandoShaped(true);
     setFeedback(null);
     try {
       const base64 = await lerPdfBase64(file);
-      const d = await chamarShaped(base64);
-      setForm(f => ({ ...f, ...mapShapedParaCampos(d) }));
-      setFeedback({ tipo: 'ok', msg: 'Avaliação importada com sucesso! Confira os dados antes de salvar.' });
+      const avals = await chamarShaped(base64);
+      if (!avals.length) throw new Error('nenhuma avaliação encontrada no PDF');
+      setRascunhos(rascunhosDeAvaliacoes(file, avals));
+      const nHist = avals.length - 1;
+      setFeedback({
+        tipo: 'ok',
+        msg: `${avals.length} avaliação(ões) lida(s) (1 atual${nHist > 0 ? ` + ${nHist} do histórico` : ''}). Confira e salve.`,
+      });
     } catch (err) {
       console.error('[importarShaped]', err);
       setFeedback({ tipo: 'erro', msg: 'Erro ao ler avaliação Shaped: ' + (err?.message ?? 'tente novamente') });
@@ -1958,30 +1993,26 @@ function RegistrarAvaliacao({ pacienteId, nutriId, paciente }) {
       async (file) => {
         try {
           const base64 = await lerPdfBase64(file);
-          const d = await chamarShaped(base64);
-          return {
-            _id: Math.random().toString(36).slice(2),
-            arquivo: file.name,
-            file, // guardado para permitir reprocessar sem reabrir o seletor
-            dados: { ...novaAvaliacao(), data: '', ...mapShapedParaCampos(d) },
-            erro: null,
-          };
+          const avals = await chamarShaped(base64);
+          if (!avals.length) throw new Error('nenhuma avaliação encontrada');
+          // Cada PDF vira N rascunhos (atual + históricos).
+          return rascunhosDeAvaliacoes(file, avals);
         } catch (err) {
           console.error('[importarLoteShaped]', file.name, err);
-          return {
+          return [{
             _id: Math.random().toString(36).slice(2),
             arquivo: file.name,
             file,
             dados: null,
             erro: err?.message ?? 'falha ao ler o PDF',
-          };
+          }];
         }
       },
       () => setProgresso(p => ({ ...p, feito: p.feito + 1 })),
     );
     setImportandoLote(false);
     if (loteRef.current) loteRef.current.value = '';
-    setRascunhos(resultados);
+    setRascunhos(resultados.flat());
   }
 
   // Relê um único PDF que falhou (reaproveitando o File guardado no rascunho).
@@ -1991,10 +2022,11 @@ function RegistrarAvaliacao({ pacienteId, nutriId, paciente }) {
     setRascunhos(rs => rs.map(r => r._id === id ? { ...r, reprocessando: true, erro: null } : r));
     try {
       const base64 = await lerPdfBase64(alvo.file);
-      const d = await chamarShaped(base64);
-      setRascunhos(rs => rs.map(r => r._id === id
-        ? { ...r, reprocessando: false, erro: null, dados: { ...novaAvaliacao(), data: '', ...mapShapedParaCampos(d) } }
-        : r));
+      const avals = await chamarShaped(base64);
+      if (!avals.length) throw new Error('nenhuma avaliação encontrada');
+      // Sucesso: o PDF rende N avaliações → troca o rascunho de erro pelos N novos.
+      const novos = rascunhosDeAvaliacoes(alvo.file, avals);
+      setRascunhos(rs => rs.flatMap(r => r._id === id ? novos : [r]));
     } catch (err) {
       console.error('[reprocessarRascunho]', alvo.arquivo, err);
       setRascunhos(rs => rs.map(r => r._id === id
@@ -2021,7 +2053,26 @@ function RegistrarAvaliacao({ pacienteId, nutriId, paciente }) {
     setSalvandoLote(true);
     setFeedback(null);
     try {
-      const payloads = validos.map(({ dados: fm }) => ({
+      // Dedup: ignora datas que já existem no banco e duplicatas dentro do lote.
+      const { data: existentes } = await supabase.from('peso_registros')
+        .select('data').eq('paciente_id', pacienteId);
+      const jaExiste = new Set((existentes ?? []).map(r => r.data));
+      const vistas = new Set();
+      const aInserir = [];
+      let dupPuladas = 0;
+      for (const { dados: fm } of validos) {
+        if (jaExiste.has(fm.data) || vistas.has(fm.data)) { dupPuladas++; continue; }
+        vistas.add(fm.data);
+        aInserir.push(fm);
+      }
+      const comErro = rascunhos.filter(r => r.erro);
+      const sufixoDup = dupPuladas > 0 ? ` ${dupPuladas} duplicada(s) (mesma data) ignorada(s).` : '';
+
+      if (aInserir.length === 0) {
+        return setFeedback({ tipo: 'aviso', msg: `Nada novo para salvar.${sufixoDup}` });
+      }
+
+      const payloads = aInserir.map((fm) => ({
         paciente_id: pacienteId,
         nutri_id: nutriId,
         data: fm.data,
@@ -2048,17 +2099,16 @@ function RegistrarAvaliacao({ pacienteId, nutriId, paciente }) {
       }));
       const { error } = await supabase.from('peso_registros').insert(payloads);
       if (error) throw error;
-      const comErro = rascunhos.filter(r => r.erro);
       if (comErro.length > 0) {
         // Mantém só os que falharam na tela, para reprocessar ou remover.
         setRascunhos(comErro);
         setFeedback({
           tipo: 'aviso',
-          msg: `${payloads.length} avaliação(ões) registrada(s). ${comErro.length} PDF(s) falharam na leitura e NÃO foram salvos — reprocesse ou remova: ${comErro.map(r => r.arquivo).join(', ')}.`,
+          msg: `${payloads.length} avaliação(ões) registrada(s).${sufixoDup} ${comErro.length} PDF(s) falharam na leitura e NÃO foram salvos — reprocesse ou remova: ${comErro.map(r => r.arquivo).join(', ')}.`,
         });
       } else {
         setRascunhos([]);
-        setFeedback({ tipo: 'ok', msg: `${payloads.length} avaliação(ões) registrada(s).` });
+        setFeedback({ tipo: 'ok', msg: `${payloads.length} avaliação(ões) registrada(s).${sufixoDup}` });
       }
       carregar();
     } catch (err) {
@@ -2164,6 +2214,7 @@ function RegistrarAvaliacao({ pacienteId, nutriId, paciente }) {
         <ModalRevisaoLote
           rascunhos={rascunhos}
           salvando={salvandoLote}
+          datasExistentes={new Set((historico ?? []).map(h => h.data))}
           onEditar={(id, campo, val) => setRascunhos(rs => rs.map(r => r._id === id ? { ...r, dados: { ...r.dados, [campo]: val } } : r))}
           onRemover={(id) => setRascunhos(rs => rs.filter(r => r._id !== id))}
           onReprocessar={reprocessarRascunho}
@@ -2402,11 +2453,19 @@ function parseSubs(subs) {
 }
 
 // ─── Modal: conferência do lote de avaliações Shaped (revisar antes de salvar) ──
-function ModalRevisaoLote({ rascunhos, salvando, onEditar, onRemover, onReprocessar, onReprocessarTodos, onSalvar, onFechar }) {
+function ModalRevisaoLote({ rascunhos, salvando, datasExistentes, onEditar, onRemover, onReprocessar, onReprocessarTodos, onSalvar, onFechar }) {
   const comErro = rascunhos.filter(r => r.erro);
   const validos = rascunhos.filter(r => !r.erro && r.dados);
   const pendentes = validos.filter(r => dataSuspeita(r.dados.data) || !r.dados.kg);
   const reprocessando = rascunhos.some(r => r.reprocessando);
+
+  // Primeira ocorrência de cada data no lote → as demais (e as já existentes no
+  // banco) são duplicatas que o salvarLote vai ignorar.
+  const primeiraOcorrencia = {};
+  for (const r of validos) {
+    const d = r.dados.data;
+    if (d && !(d in primeiraOcorrencia)) primeiraOcorrencia[d] = r._id;
+  }
   const podeSalvar = !salvando && !reprocessando && validos.length > 0 && pendentes.length === 0;
 
   const inputStyle = {
@@ -2486,9 +2545,23 @@ function ModalRevisaoLote({ rascunhos, salvando, onEditar, onRemover, onReproces
               );
             }
             const suspeita = dataSuspeita(r.dados.data);
+            const jaExisteNoBanco = r.dados.data && datasExistentes?.has(r.dados.data);
+            const dupNoLote = r.dados.data && primeiraOcorrencia[r.dados.data] !== r._id;
+            const duplicada = jaExisteNoBanco || dupNoLote;
+            const chip = (texto, cor, bg) => (
+              <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase', color: cor, background: bg, borderRadius: 5, padding: '2px 6px', flexShrink: 0 }}>{texto}</span>
+            );
             return (
-              <div key={r._id} style={{ padding: '12px', borderRadius: 10, border: '1px solid var(--hair)', background: 'var(--white)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+              <div key={r._id} style={{ padding: '12px', borderRadius: 10, border: `1px solid ${duplicada ? 'var(--amber, #d97706)' : 'var(--hair)'}`, background: duplicada ? 'var(--amber-bg, #fffbeb)' : 'var(--white)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                  {r.origem === 'historico'
+                    ? chip('histórico', 'var(--text3)', 'var(--bg3, #f0ece3)')
+                    : chip('atual', 'var(--green, #16a34a)', 'var(--green-bg, #f0fdf4)')}
+                  {jaExisteNoBanco
+                    ? chip('já existe · ignorada', 'var(--amber, #b45309)', 'var(--amber-bg, #fffbeb)')
+                    : dupNoLote
+                      ? chip('duplicada · ignorada', 'var(--amber, #b45309)', 'var(--amber-bg, #fffbeb)')
+                      : null}
                   <span style={{ flex: 1, minWidth: 0, fontSize: 12, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     📄 {r.arquivo}
                   </span>
