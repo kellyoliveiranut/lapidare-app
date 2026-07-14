@@ -124,6 +124,7 @@ export default function PacientePerfil() {
         .eq('paciente_id', id)
         .eq('nutri_id', user.id)
         .neq('status', 'cancelada')
+        .neq('status', 'realizada')
         .gte('data_hora', hoje0.toISOString())
         .order('data_hora', { ascending: true })
         .limit(1)
@@ -155,6 +156,7 @@ export default function PacientePerfil() {
       .select('id, data_hora, tipo, status, duracao_min, iniciada_em, encerrada_em')
       .eq('paciente_id', id).eq('nutri_id', user?.id)
       .neq('status', 'cancelada')
+      .neq('status', 'realizada')
       .gte('data_hora', hoje0.toISOString())
       .order('data_hora', { ascending: true }).limit(1).maybeSingle();
     setConsultaAtiva(data ?? null);
@@ -602,6 +604,7 @@ export default function PacientePerfil() {
                 {tipo === 'select' ? (
                   <select value={novoCampo} onChange={e => setNovoCampo(e.target.value)}
                     style={{ fontSize: 13, padding: '4px 6px', width: '100%', marginBottom: 6, fontFamily: 'var(--font-sans)' }}>
+                    <option value="">Selecione…</option>
                     {opcoes.map(o => <option key={o} value={o}>{o}</option>)}
                   </select>
                 ) : (
@@ -618,8 +621,8 @@ export default function PacientePerfil() {
                   </>
                 )}
                 <div style={{ display: 'flex', gap: 4 }}>
-                  <button onClick={salvarCampo} disabled={salvandoCampo}
-                    style={{ background: 'var(--dark)', color: '#fff', border: 'none', borderRadius: 6, padding: '3px 10px', fontSize: 11, cursor: 'pointer', flex: 1, fontFamily: 'var(--font-sans)' }}>
+                  <button onClick={salvarCampo} disabled={salvandoCampo || (tipo === 'select' && !novoCampo)}
+                    style={{ background: 'var(--dark)', color: '#fff', border: 'none', borderRadius: 6, padding: '3px 10px', fontSize: 11, cursor: (tipo === 'select' && !novoCampo) ? 'default' : 'pointer', flex: 1, fontFamily: 'var(--font-sans)', opacity: (tipo === 'select' && !novoCampo) ? 0.5 : 1 }}>
                     {salvandoCampo ? '…' : 'Salvar'}
                   </button>
                   <button onClick={() => setEditandoCampo(null)}
