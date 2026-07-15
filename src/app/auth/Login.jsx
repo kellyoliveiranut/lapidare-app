@@ -91,11 +91,16 @@ export default function Login() {
 
       const parecePhone = !emailFinal.includes('@') && emailFinal.replace(/\D/g, '').length >= 8;
       if (parecePhone) {
-        const { data: emailEncontrado, error: lookupErr } = await supabase
-          .rpc('buscar_email_por_telefone', { p_telefone: emailFinal });
-        if (lookupErr) return setErro('Não foi possível buscar pelo telefone. Tente usar o email.');
-        if (!emailEncontrado) return setErro('Telefone não encontrado. Verifique o número ou use seu email.');
-        emailFinal = emailEncontrado;
+        const resp = await fetch('/.netlify/functions/login-telefone', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ telefone: emailFinal, senha }),
+        });
+        if (!resp.ok) return setErro('Telefone ou senha inválidos.');
+        const { access_token, refresh_token } = await resp.json();
+        const { error: sErr } = await supabase.auth.setSession({ access_token, refresh_token });
+        if (sErr) return setErro('Não foi possível entrar. Tente de novo.');
+        return;   // logada — o useEffect de sessão redireciona
       }
 
       const { data, error } = await signInComTimeout(emailFinal, senha);
