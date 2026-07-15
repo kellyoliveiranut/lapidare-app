@@ -32,6 +32,10 @@ const MAIS_ITEMS = [
 const AVULSA_ALLOWED = new Set([
   '/paciente/inicio',
   '/paciente/plano',
+  '/paciente/feed',
+  '/paciente/habitos',
+  '/paciente/compras',
+  '/paciente/progresso',
   '/paciente/suplementos',
   '/paciente/ebooks',
 ]);
