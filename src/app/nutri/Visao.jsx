@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
-import { brl, dataBR, iniciais, statusParcela } from '../../lib/utils.js';
+import { brl, dataBR, iniciais, statusParcela, TZ_CLINICA } from '../../lib/utils.js';
 
 // Nº esperado de consultas por tipo de plano (para alertar planos chegando ao fim)
 const CONSULTAS_POR_PLANO = {
@@ -382,7 +382,7 @@ export default function Visao() {
             : `${consultasSemana.length} agendada${consultasSemana.length === 1 ? '' : 's'}`}
           itens={consultasSemana.slice(0, 3).map(c => ({
             label: c.paciente?.nome ?? '—',
-            sub: new Date(c.data_hora).toLocaleString('pt-BR', { weekday: 'short', hour: '2-digit', minute: '2-digit' }).replace('.', ''),
+            sub: new Date(c.data_hora).toLocaleString('pt-BR', { timeZone: TZ_CLINICA, weekday: 'short', hour: '2-digit', minute: '2-digit' }).replace('.', ''),
           }))}
           onClick={() => navigate('/nutri/agenda')}
         />

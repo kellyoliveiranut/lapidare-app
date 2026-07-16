@@ -4,7 +4,7 @@ import BrandFooter from './BrandFooter.jsx';
 import { useSession, signOut } from '../lib/session.jsx';
 import { useTheme } from '../lib/theme.jsx';
 import { supabase } from '../lib/supabase.js';
-import { iniciais, diasAte } from '../lib/utils.js';
+import { iniciais, diasAte, horaConsultaBR } from '../lib/utils.js';
 import { ativarNotificacoes } from '../lib/push.js';
 import '../styles/paciente.css';
 
@@ -307,7 +307,7 @@ export default function PacienteLayout() {
 
   const bannerDias = mostrarBanner ? diasAte(proximaBanner.data_hora) : null;
   const bannerHora = mostrarBanner
-    ? new Date(proximaBanner.data_hora).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+    ? horaConsultaBR(proximaBanner.data_hora)
     : null;
 
   const header = useMemo(() => {

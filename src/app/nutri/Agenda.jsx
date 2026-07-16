@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import DateInput from '../../components/DateInput.jsx';
 import {
-  dataConsultaBR, textoDias, iniciais,
+  dataConsultaBR, horaConsultaBR, TZ_CLINICA, textoDias, iniciais,
   linkCall, gerarLinkJitsi, gerarGoogleCalendarUrl, consultaEmBreve,
   gerarDiasCalendario, ehMesmoDia, mesAnoExtenso, DIAS_SEMANA_CURTOS,
   HORARIOS_CONSULTA, HORARIO_CONSULTA_PADRAO, horaConsultaValida,
@@ -356,9 +356,9 @@ function PainelLembretes({ lembretes, profile, enviadosLocais, onEnviar, onDesfa
       <div style={{ padding: '8px 12px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
         {lembretes.map(l => {
           const dt = new Date(l.data_hora);
-          const horaConsulta = dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-          const dataFormatada = dt.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-          const diaSemana = dt.toLocaleDateString('pt-BR', { weekday: 'long' });
+          const horaConsulta = horaConsultaBR(l.data_hora);
+          const dataFormatada = dt.toLocaleDateString('pt-BR', { timeZone: TZ_CLINICA, day: '2-digit', month: '2-digit' });
+          const diaSemana = dt.toLocaleDateString('pt-BR', { timeZone: TZ_CLINICA, weekday: 'long' });
           const pacNome = l.paciente?.nome ?? '';
           const temTelefone = !!(l.paciente?.telefone?.trim());
           const telFormatado = temTelefone ? normalizarTelefone(l.paciente.telefone) : '';
@@ -612,7 +612,7 @@ function CalendarioMensal({ mesVisivel, diaSelecionado, consultas, onMudarMes, o
                     width: 6, height: 6, borderRadius: '50%',
                     background: tipoColor(c.tipo),
                     boxShadow: isSelected ? '0 0 0 0.5px var(--white)' : 'none',
-                  }} title={`${new Date(c.data_hora).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} · ${c.paciente?.nome}`} />
+                  }} title={`${horaConsultaBR(c.data_hora)} · ${c.paciente?.nome}`} />
                 ))}
                 {cs.length > 4 && (
                   <span style={{

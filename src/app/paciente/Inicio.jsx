@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { useTheme } from '../../lib/theme.jsx';
-import { textoDias, dataConsultaBR, diasAte, linkCall, consultaEmBreve, gerarGoogleCalendarUrl, dataBR } from '../../lib/utils.js';
+import { textoDias, dataConsultaBR, horaConsultaBR, diasAte, linkCall, consultaEmBreve, gerarGoogleCalendarUrl, dataBR } from '../../lib/utils.js';
 import { cumpriuHabito } from './_HabitosHoje.jsx';
 
 
@@ -363,8 +363,7 @@ export default function Inicio() {
       {/* 1b — Consulta hoje / amanhã: card grande (substitui a faixa fina do layout) */}
       {proximaConsulta && dentroJanelaBanner && (() => {
         const eHoje = dias === 0;
-        const hora  = new Date(proximaConsulta.data_hora)
-          .toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        const hora  = horaConsultaBR(proximaConsulta.data_hora);
         const temLinks = gcalUrl ||
           (Array.isArray(proximaConsulta.links_extras) && proximaConsulta.links_extras.length > 0);
         return (

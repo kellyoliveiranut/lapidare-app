@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import {
-  dataBR, iniciais,
+  dataBR, iniciais, horaConsultaBR, TZ_CLINICA,
   validarPlano, validarLista, contarItensLista,
   HORARIOS_CONSULTA, HORARIO_CONSULTA_PADRAO, horaConsultaValida,
   dataLocalISO, montarDataHoraISO, partesLocaisISO,
@@ -718,8 +718,8 @@ export default function PacientePerfil() {
           : 'Próxima consulta';
 
         const dtFmt = new Date(consultaAtiva.data_hora);
-        const dataStr = dtFmt.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
-        const horaStr = dtFmt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        const dataStr = dtFmt.toLocaleDateString('pt-BR', { timeZone: TZ_CLINICA, weekday: 'short', day: '2-digit', month: '2-digit' });
+        const horaStr = horaConsultaBR(consultaAtiva.data_hora);
         const iniciadaStr = consultaAtiva.iniciada_em
           ? new Date(consultaAtiva.iniciada_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
           : null;
@@ -845,8 +845,8 @@ export default function PacientePerfil() {
             const realizada = c.status === 'realizada';
             const semData = !c.data_hora;
             const dt = semData ? null : new Date(c.data_hora);
-            const dataStr = dt ? dt.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit', year: '2-digit' }) : 'A definir';
-            const horaStr = dt ? dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
+            const dataStr = dt ? dt.toLocaleDateString('pt-BR', { timeZone: TZ_CLINICA, weekday: 'short', day: '2-digit', month: '2-digit', year: '2-digit' }) : 'A definir';
+            const horaStr = dt ? horaConsultaBR(c.data_hora) : '';
             return (
               <div key={c.id} style={{
                 display: 'flex', alignItems: 'center', gap: 10,

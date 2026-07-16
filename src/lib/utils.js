@@ -59,16 +59,34 @@ export function textoDias(iso) {
   return `em ${n} dias`;
 }
 
-/** "Quinta, 15/05 às 14:00" */
+/**
+ * Fuso da clínica. Consulta é sempre exibida e agendada no horário de Belém,
+ * independente do aparelho de quem olha — a paciente pode estar em Manaus,
+ * no Acre ou viajando, e o horário combinado não muda.
+ * Belém é UTC-3 fixo, sem horário de verão (mesma premissa de
+ * netlify/functions/lembretes-consulta.js).
+ */
+export const TZ_CLINICA = 'America/Belem';
+const TZ_CLINICA_OFFSET_MS = 3 * 60 * 60 * 1000;
+
+/** "Quinta, 15/05 às 14:00" — no fuso da clínica */
 export function dataConsultaBR(iso) {
   if (!iso) return '—';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '—';
-  const dia = d.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '');
-  const data = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-  const hora = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  const dia = d.toLocaleDateString('pt-BR', { timeZone: TZ_CLINICA, weekday: 'short' }).replace('.', '');
+  const data = d.toLocaleDateString('pt-BR', { timeZone: TZ_CLINICA, day: '2-digit', month: '2-digit' });
+  const hora = d.toLocaleTimeString('pt-BR', { timeZone: TZ_CLINICA, hour: '2-digit', minute: '2-digit' });
   const cap = dia.charAt(0).toUpperCase() + dia.slice(1);
   return `${cap}, ${data} às ${hora}`;
+}
+
+/** "14:30" — hora da consulta no fuso da clínica */
+export function horaConsultaBR(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleTimeString('pt-BR', { timeZone: TZ_CLINICA, hour: '2-digit', minute: '2-digit' });
 }
 
 // ─── Validadores de JSON (Skill 6 e Skill 7) ───
@@ -333,19 +351,25 @@ export function dataLocalISO(daysAhead = 0) {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
-/** Combina data local "YYYY-MM-DD" + hora "HH:mm" em ISO UTC para gravar em consultas.data_hora. */
+/**
+ * Combina data "YYYY-MM-DD" + hora "HH:mm" DA CLÍNICA em ISO UTC para gravar
+ * em consultas.data_hora. O offset é explícito: "14:00" significa 14:00 em
+ * Belém, não no fuso do aparelho de quem agenda.
+ */
 export function montarDataHoraISO(dataLocal, hora) {
-  return new Date(`${dataLocal}T${hora}:00`).toISOString();
+  return new Date(`${dataLocal}T${hora}:00-03:00`).toISOString();
 }
 
-/** Extrai { data, hora } LOCAIS de um ISO (para semear/editar a partir de uma consulta existente). */
+/** Extrai { data, hora } no fuso da CLÍNICA (para semear/editar a partir de uma consulta existente). */
 export function partesLocaisISO(iso) {
   const d = new Date(iso);
   const p = (n) => String(n).padStart(2, '0');
   if (Number.isNaN(d.getTime())) return { data: '', hora: HORARIO_CONSULTA_PADRAO };
+  // Desloca pra Belém e lê em UTC — mesmo truque de lembretes-consulta.js:65
+  const b = new Date(d.getTime() - TZ_CLINICA_OFFSET_MS);
   return {
-    data: `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`,
-    hora: `${p(d.getHours())}:${p(d.getMinutes())}`,
+    data: `${b.getUTCFullYear()}-${p(b.getUTCMonth() + 1)}-${p(b.getUTCDate())}`,
+    hora: `${p(b.getUTCHours())}:${p(b.getUTCMinutes())}`,
   };
 }
 
