@@ -43,6 +43,7 @@ export default function PacientePerfil() {
   const [arquivarOpen, setArquivarOpen] = useState(false);
   const [editarDadosOpen, setEditarDadosOpen] = useState(false);
   const [excluirOpen, setExcluirOpen] = useState(false);
+  const [pausando, setPausando] = useState(false);
   const [consultaAtiva, setConsultaAtiva] = useState(undefined);
   const [busyConsulta, setBusyConsulta] = useState(false);
   const [agendarAcompOpen, setAgendarAcompOpen] = useState(false);
@@ -328,6 +329,23 @@ export default function PacientePerfil() {
     }
 
     window.open(`https://wa.me/${tel}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
+  }
+
+  // Pausa/reativa o acesso da paciente. O carimbo acesso_pausado_em é
+  // preenchido pelo trigger no banco — não mandamos daqui.
+  async function alternarPausa() {
+    const pausar = !paciente.acesso_pausado;
+    const primeiro = paciente.nome.split(' ')[0];
+    const ok = window.confirm(pausar
+      ? `Pausar o acesso de ${primeiro}?\n\nEla continua conseguindo entrar no app, mas vê uma mensagem pedindo pra falar com você, em vez das telas.`
+      : `Reativar o acesso de ${primeiro}?\n\nEla volta a ver o app normalmente.`);
+    if (!ok) return;
+    setPausando(true);
+    const { error } = await supabase.from('pacientes')
+      .update({ acesso_pausado: pausar }).eq('id', paciente.id);
+    setPausando(false);
+    if (error) { alert('Erro: ' + error.message); return; }
+    carregar();
   }
 
   async function salvarCampo() {
@@ -647,6 +665,22 @@ export default function PacientePerfil() {
           );
         })}
       </div>
+
+      {/* Banner de acesso pausado */}
+      {paciente.acesso_pausado && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          padding: '10px 14px', borderRadius: 8, marginBottom: 16,
+          background: 'var(--amber-bg, #fdf8ee)', border: '0.5px solid var(--gold-deep, #a08456)',
+        }}>
+          <i className="ti ti-player-pause" style={{ fontSize: 16, color: 'var(--gold-deep, #a08456)' }} aria-hidden="true" />
+          <div style={{ fontSize: 13, color: 'var(--text2)' }}>
+            <strong>Acesso pausado</strong>
+            {paciente.acesso_pausado_em && ` desde ${dataBR(paciente.acesso_pausado_em)}`}
+            {' '}— ela entra no app mas vê uma mensagem em vez das telas.
+          </div>
+        </div>
+      )}
 
       {/* Banner de status arquivado */}
       {paciente.status_paciente === 'finalizado' && (
@@ -1018,6 +1052,19 @@ export default function PacientePerfil() {
       </Suspense>
 
       <div style={{ marginTop: 32, paddingTop: 16, borderTop: '0.5px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20 }}>
+        {paciente.status_paciente === 'ativo' && (
+          <button onClick={alternarPausa} disabled={pausando} style={{
+            background: 'none', border: 'none', cursor: pausando ? 'default' : 'pointer',
+            fontSize: 12, color: paciente.acesso_pausado ? 'var(--gold-deep, #a08456)' : 'var(--text3)',
+            fontFamily: 'var(--font-sans)',
+            display: 'inline-flex', alignItems: 'center', gap: 5,
+            opacity: pausando ? 0.5 : 1,
+          }}>
+            <i className={`ti ${paciente.acesso_pausado ? 'ti-player-play' : 'ti-player-pause'}`}
+               style={{ fontSize: 13 }} aria-hidden="true" />
+            {pausando ? '…' : paciente.acesso_pausado ? 'Reativar acesso' : 'Pausar acesso'}
+          </button>
+        )}
         {paciente.status_paciente === 'ativo' && (
           <button onClick={() => setArquivarOpen(true)} style={{
             background: 'none', border: 'none', cursor: 'pointer',
