@@ -82,7 +82,9 @@ export default function PacienteLayout() {
 
   const isBlocked = (path) => {
     if (!path) return false;
-    if (profile?.tipo_plano !== 'avulsa') return false;
+    // Normaliza na leitura: protege mesmo se alguma linha escapar capitalizada
+    // ou com espaço. A lógica é negativa — qualquer valor != 'avulsa' libera tudo.
+    if (profile?.tipo_plano?.trim().toLowerCase() !== 'avulsa') return false;
     return !AVULSA_ALLOWED.has(path);
   };
 

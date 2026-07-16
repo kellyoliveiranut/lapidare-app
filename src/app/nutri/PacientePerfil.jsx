@@ -576,8 +576,10 @@ export default function PacientePerfil() {
             campo: 'tipo_plano',
             label: 'Tipo de plano',
             valor: paciente.tipo_plano,
-            tipo: 'text',
-            opcoes: ['Avulsa', 'Essentia'],
+            tipo: 'select',
+            // Valor minúsculo (o que vai pro banco) + rótulo capitalizado (o que
+            // a nutri vê). O gate do plano avulso compara com 'avulsa' minúsculo.
+            opcoes: [{ v: 'avulsa', l: 'Avulsa' }, { v: 'essentia', l: 'Essentia' }],
           },
           {
             campo: 'modalidade',
@@ -586,7 +588,14 @@ export default function PacientePerfil() {
             tipo: 'select',
             opcoes: ['Online', 'Presencial', 'Híbrido'],
           },
-        ].map(({ campo, label, valor, tipo, opcoes }) => (
+        ].map(({ campo, label, valor, tipo, opcoes }) => {
+          // opcoes aceita string ('Online') ou par ({ v: 'avulsa', l: 'Avulsa' }),
+          // pra campos cujo valor gravado difere do rótulo exibido.
+          const valorDe  = (o) => (typeof o === 'string' ? o : o.v);
+          const rotuloDe = (o) => (typeof o === 'string' ? o : o.l);
+          const opcaoAtual = opcoes?.find(o => valorDe(o) === valor);
+          const valorExibido = opcaoAtual ? rotuloDe(opcaoAtual) : valor;
+          return (
           <div key={campo} className="stat">
             <div className="stat-lbl" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
               <span>{label}</span>
@@ -605,7 +614,7 @@ export default function PacientePerfil() {
                   <select value={novoCampo} onChange={e => setNovoCampo(e.target.value)}
                     style={{ fontSize: 13, padding: '4px 6px', width: '100%', marginBottom: 6, fontFamily: 'var(--font-sans)' }}>
                     <option value="">Selecione…</option>
-                    {opcoes.map(o => <option key={o} value={o}>{o}</option>)}
+                    {opcoes.map(o => <option key={valorDe(o)} value={valorDe(o)}>{rotuloDe(o)}</option>)}
                   </select>
                 ) : (
                   <>
@@ -632,10 +641,11 @@ export default function PacientePerfil() {
                 </div>
               </div>
             ) : (
-              <div className="stat-val" style={{ fontSize: 18 }}>{valor ?? '—'}</div>
+              <div className="stat-val" style={{ fontSize: 18 }}>{valorExibido ?? '—'}</div>
             )}
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Banner de status arquivado */}
@@ -1428,17 +1438,14 @@ function ModalEditarDados({ paciente, onClose, onSaved }) {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
               <label className="field-label">Tipo de plano</label>
-              <input
-                list="modal-tipos-plano"
-                value={form.tipo_plano}
-                onChange={set('tipo_plano')}
-                placeholder="ex: Avulsa, Essentia…"
-              />
-              <datalist id="modal-tipos-plano">
-                {['Avulsa', 'Essentia'].map(o => (
-                  <option key={o} value={o} />
+              {/* Valor minúsculo (banco) + rótulo capitalizado (tela) — o gate
+                  do plano avulso compara com 'avulsa' minúsculo. */}
+              <select value={form.tipo_plano} onChange={set('tipo_plano')}>
+                <option value="">— sem plano definido —</option>
+                {[{ v: 'avulsa', l: 'Avulsa' }, { v: 'essentia', l: 'Essentia' }].map(o => (
+                  <option key={o.v} value={o.v}>{o.l}</option>
                 ))}
-              </datalist>
+              </select>
             </div>
 
             <div>

@@ -103,7 +103,9 @@ export default function ImportarCsv({ onClose, onImported }) {
         cpf:        mapa.cpf        != null ? (row[mapa.cpf]        ?? '').trim() || null : null,
         nascimento: mapa.nascimento != null ? parseDataBR(row[mapa.nascimento])           : null,
         objetivo:   mapa.objetivo   != null ? (row[mapa.objetivo]   ?? '').trim() || null : null,
-        tipo_plano: mapa.tipo_plano != null ? (row[mapa.tipo_plano] ?? '').trim() || null : null,
+        // minúsculo: o gate do plano avulso compara com 'avulsa' e a planilha
+        // costuma trazer "Essentia" capitalizado
+        tipo_plano: mapa.tipo_plano != null ? (row[mapa.tipo_plano] ?? '').trim().toLowerCase() || null : null,
         modalidade: mapa.modalidade != null ? (row[mapa.modalidade] ?? '').trim() || null : null,
         obs:        mapa.obs        != null ? (row[mapa.obs]        ?? '').trim() || null : null,
       };
