@@ -12,6 +12,10 @@ const SECOES = [
 
 const TAGS_PROPRIAS = new Set(['receitas', 'manipulados', 'formulacoes', 'materiais']);
 
+// Formatos que renderizam como miniatura. Mantido igual ao regex de
+// _Suplementacao.jsx — se divergir, o item some da thumb num dos dois lados.
+const IMG_RE = /\.(jpg|jpeg|png|webp)$/i;
+
 function secaoDoItem(tag) {
   if (TAGS_PROPRIAS.has(tag)) return tag;
   return 'materiais'; // guia, protocolo, suplementacao, outro, null → Materiais
@@ -52,6 +56,7 @@ export default function Biblioteca() {
   }, [user]);
 
   function abrirItem(it) {
+    if (!it.storage_path) return;
     const { data } = supabase.storage.from('ebooks').getPublicUrl(it.storage_path);
     window.open(data.publicUrl, '_blank', 'noopener');
   }
@@ -62,7 +67,7 @@ export default function Biblioteca() {
       ? `Excluir "${it.titulo}"? Atribuído a ${nPac} paciente${nPac !== 1 ? 's' : ''} — perderão acesso.`
       : `Excluir "${it.titulo}"?`;
     if (!window.confirm(aviso)) return;
-    await supabase.storage.from('ebooks').remove([it.storage_path]);
+    if (it.storage_path) await supabase.storage.from('ebooks').remove([it.storage_path]);
     await supabase.from('ebooks').delete().eq('id', it.id);
     carregar();
   }
@@ -175,7 +180,7 @@ export default function Biblioteca() {
               <div key={it.id} className="card" style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {/* Header */}
                 <div style={{ display: 'flex', alignItems: 'start', gap: 10 }}>
-                  {/\.(jpg|jpeg|png)$/i.test(it.storage_path ?? '') ? (
+                  {IMG_RE.test(it.storage_path ?? '') ? (
                     <img
                       src={supabase.storage.from('ebooks').getPublicUrl(it.storage_path).data.publicUrl}
                       alt={it.titulo}
@@ -248,9 +253,11 @@ export default function Biblioteca() {
 
                 {/* Ações */}
                 <div style={{ display: 'flex', gap: 6 }}>
-                  <button className="btn-outline" style={{ flex: 1, justifyContent: 'center', fontSize: 12 }} onClick={() => abrirItem(it)}>
-                    <i className="ti ti-eye" aria-hidden="true"></i> Abrir
-                  </button>
+                  {it.storage_path && (
+                    <button className="btn-outline" style={{ flex: 1, justifyContent: 'center', fontSize: 12 }} onClick={() => abrirItem(it)}>
+                      <i className="ti ti-eye" aria-hidden="true"></i> Abrir
+                    </button>
+                  )}
                   <button className="btn" style={{ flex: 1, justifyContent: 'center', fontSize: 12 }} onClick={() => setAtribuirItem(it)}>
                     <i className="ti ti-users" aria-hidden="true"></i> Pacientes
                   </button>
@@ -365,25 +372,31 @@ function ModalUpload({ nutriId, secaoDefault, onClose, onSaved }) {
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState(null);
 
+  // Foto é opcional só na Suplementação ('manipulados'); as outras seções seguem exigindo.
+  const fotoOpcional = tag === 'manipulados';
+
   async function enviar() {
     setErro(null);
-    if (!arquivo) return setErro('Selecione uma imagem JPG ou PNG.');
+    if (!fotoOpcional && !arquivo) return setErro('Selecione uma imagem JPG, PNG ou WEBP.');
     if (!titulo.trim()) return setErro('Informe um título.');
     setBusy(true);
-    const ext = (arquivo.name.split('.').pop() || 'pdf').toLowerCase();
-    const path = `${nutriId}/${Date.now()}-${titulo.trim().replace(/[^a-z0-9]/gi, '_')}.${ext}`;
-    const { error: upErr } = await supabase.storage.from('ebooks')
-      .upload(path, arquivo, { contentType: arquivo.type });
-    if (upErr) { setBusy(false); return setErro('Upload falhou: ' + upErr.message); }
+    let storage_path = null;
+    if (arquivo) {
+      const ext = (arquivo.name.split('.').pop() || 'pdf').toLowerCase();
+      storage_path = `${nutriId}/${Date.now()}-${titulo.trim().replace(/[^a-z0-9]/gi, '_')}.${ext}`;
+      const { error: upErr } = await supabase.storage.from('ebooks')
+        .upload(storage_path, arquivo, { contentType: arquivo.type });
+      if (upErr) { setBusy(false); return setErro('Upload falhou: ' + upErr.message); }
+    }
     const { error: insErr } = await supabase.from('ebooks').insert({
       nutri_id: nutriId,
       titulo: titulo.trim(),
       descricao: descricao.trim() || null,
-      tag, storage_path: path,
+      tag, storage_path,
     });
     setBusy(false);
     if (insErr) {
-      await supabase.storage.from('ebooks').remove([path]);
+      if (storage_path) await supabase.storage.from('ebooks').remove([storage_path]);
       return setErro('Erro: ' + insErr.message);
     }
     onSaved();
@@ -394,7 +407,7 @@ function ModalUpload({ nutriId, secaoDefault, onClose, onSaved }) {
       <button className="btn-outline" style={{ flex: 1, justifyContent: 'center' }} onClick={onClose}>
         Cancelar
       </button>
-      <button className="btn" style={{ flex: 1, justifyContent: 'center' }} onClick={enviar} disabled={busy || !arquivo}>
+      <button className="btn" style={{ flex: 1, justifyContent: 'center' }} onClick={enviar} disabled={busy || (!arquivo && !fotoOpcional)}>
         <i className="ti ti-upload" aria-hidden="true"></i> {busy ? 'Enviando...' : 'Salvar'}
       </button>
     </div>
@@ -407,8 +420,8 @@ function ModalUpload({ nutriId, secaoDefault, onClose, onSaved }) {
       onClose={onClose}
       footer={botoesFooter}
     >
-      <label className="form-lbl">Imagem (JPG ou PNG)</label>
-      <input type="file" accept="image/jpeg,image/png" onChange={e => setArquivo(e.target.files?.[0] ?? null)}
+      <label className="form-lbl">Imagem (JPG, PNG ou WEBP){fotoOpcional ? ' — opcional' : ''}</label>
+      <input type="file" accept="image/jpeg,image/png,image/webp" onChange={e => setArquivo(e.target.files?.[0] ?? null)}
         style={{ padding: 6 }} />
       <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
         {arquivo
@@ -452,7 +465,7 @@ function ModalEditar({ item, onClose, onSaved }) {
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState(null);
 
-  const urlAtual = /\.(jpg|jpeg|png)$/i.test(item.storage_path ?? '')
+  const urlAtual = IMG_RE.test(item.storage_path ?? '')
     ? supabase.storage.from('ebooks').getPublicUrl(item.storage_path).data.publicUrl
     : null;
 
@@ -467,7 +480,7 @@ function ModalEditar({ item, onClose, onSaved }) {
       const { error: upErr } = await supabase.storage.from('ebooks')
         .upload(path, arquivo, { contentType: arquivo.type });
       if (upErr) { setBusy(false); return setErro('Upload falhou: ' + upErr.message); }
-      await supabase.storage.from('ebooks').remove([item.storage_path]);
+      if (item.storage_path) await supabase.storage.from('ebooks').remove([item.storage_path]);
       storage_path = path;
     }
     const { error } = await supabase.from('ebooks').update({
