@@ -16,6 +16,7 @@ export default function SignupPaciente() {
   const [temToken, setTemToken] = useState(false);    // true se veio com token válido
   const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
+  const [telefone, setTelefone] = useState('');
   const [nascimento, setNascimento] = useState('');
   const [senha, setSenha] = useState('');
   const [confirmaSenha, setConfirmaSenha] = useState('');
@@ -49,6 +50,7 @@ export default function SignupPaciente() {
           }
           setNome(p.nome ?? '');
           setEmail(p.email ?? '');
+          setTelefone(p.telefone ?? '');   // pode vir vazio se a RPC viva não retornar telefone
           if (p.nascimento) setNascimento(p.nascimento);
           if (p.objetivo) setObjetivo(p.objetivo);
           if (p.tipo_plano) setTipoPlano(p.tipo_plano);
@@ -94,8 +96,13 @@ export default function SignupPaciente() {
     if (senha !== confirmaSenha) return setErro('As senhas não conferem.');
 
     setBusy(true);
+    // Paciente sem e-mail (cadastro manual): e-mail sintético derivado do token.
+    // Único e determinístico; o login por telefone lê o e-mail guardado, então
+    // o formato não afeta a entrada. O campo de e-mail fica escondido nesse caso.
+    const semEmail = temToken && !email.trim();
+    const emailFinal = semEmail ? `${token}@essentia.local` : email.trim();
     const { data, error } = await supabase.auth.signUp({
-      email: email.trim(),
+      email: emailFinal,
       password: senha,
       options: {
         data: {
@@ -225,8 +232,17 @@ export default function SignupPaciente() {
                 fontSize: 12, lineHeight: 1.6, textAlign: 'left',
               }}>
                 <div><strong>Nome:</strong> {nome}</div>
-                <div><strong>Email:</strong> {email}</div>
+                {email ? (
+                  <div><strong>Email:</strong> {email}</div>
+                ) : telefone ? (
+                  <div><strong>Telefone:</strong> {telefone}</div>
+                ) : null}
                 {nascimento && <div><strong>Nascimento:</strong> {new Date(nascimento + 'T12:00:00').toLocaleDateString('pt-BR')}</div>}
+                {!email && (
+                  <div style={{ marginTop: 6, color: 'var(--muted)' }}>
+                    Você vai entrar no app pelo seu telefone e a senha que criar agora.
+                  </div>
+                )}
                 <div style={{ marginTop: 6, color: 'var(--muted)' }}>
                   Se algum dado estiver errado, fale com {nutriNome.split(' ')[0]} antes de continuar.
                 </div>

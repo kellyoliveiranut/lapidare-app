@@ -36,6 +36,23 @@ export function brl(value) {
 }
 
 /**
+ * Normaliza telefone BR pra formato E.164 sem "+": só dígitos, com DDI 55.
+ * Ex.: "(11) 99999-9999" → "5511999999999". Usado nos links wa.me.
+ */
+export function normalizarTelefone(raw) {
+  let n = (raw ?? '').replace(/\D/g, '');
+  if (n.startsWith('0')) n = n.slice(1);
+  if (n.startsWith('55') && n.length >= 12) return n;
+  return '55' + n;
+}
+
+/** true se o telefone normalizado tem 12 (fixo) ou 13 (celular) dígitos. */
+export function telefoneValido(raw) {
+  const n = normalizarTelefone(raw);
+  return n.length === 12 || n.length === 13;
+}
+
+/**
  * Conta dias entre hoje (00:00) e a data informada (00:00).
  * Retorna número inteiro: 0 = hoje, 1 = amanhã, negativo = passado.
  */

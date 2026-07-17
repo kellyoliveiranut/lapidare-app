@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
-import { dataBR, brl, gerarParcelas, FORMAS_PGTO_LIST } from '../../lib/utils.js';
+import { dataBR, brl, gerarParcelas, FORMAS_PGTO_LIST, normalizarTelefone, telefoneValido } from '../../lib/utils.js';
 import { criarVendaComParcelas } from '../../lib/vendas.js';
 import DateInput from '../../components/DateInput.jsx';
 
@@ -192,27 +192,28 @@ export default function Cadastrar() {
       }
     }
 
-    let pendente = null;
-    if (emailVal) {
-      const pendentePayload = {
-        nutri_id: user.id,
-        nome: nome.trim(),
-        email: emailVal,
-        telefone: telefone.trim(),
-        nascimento: nascimento || null,
-        objetivo,
-        tipo_plano: tipoPlano,
-        modalidade,
-        endereco: endereco.trim() || null,
-        status: 'pendente',
-      };
-      const { data: pData } = await supabase
-        .from('pacientes_pendentes')
-        .upsert(pendentePayload, { onConflict: 'nutri_id,email' })
-        .select('*')
-        .single();
-      pendente = pData ?? null;
-    }
+    // Cria o pendente SEMPRE — mesmo sem e-mail. O paciente_id liga o pendente
+    // à ficha recém-criada; é a chave que o handle_new_user usa pra vincular
+    // no signup (o token sozinho não achava a ficha sem e-mail).
+    const pendentePayload = {
+      nutri_id: user.id,
+      paciente_id: pacienteData.id,
+      nome: nome.trim(),
+      email: emailVal,
+      telefone: telefone.trim(),
+      nascimento: nascimento || null,
+      objetivo,
+      tipo_plano: tipoPlano,
+      modalidade,
+      endereco: endereco.trim() || null,
+      status: 'pendente',
+    };
+    const { data: pData } = await supabase
+      .from('pacientes_pendentes')
+      .insert(pendentePayload)
+      .select('*')
+      .single();
+    const pendente = pData ?? null;
 
     setBusy(false);
     setSucesso({ id: pacienteData.id, nome: pacienteData.nome, email: pacienteData.email, pendente, avisoVenda });
@@ -578,18 +579,6 @@ export default function Cadastrar() {
   );
 }
 
-
-function normalizarTelefone(raw) {
-  let n = (raw ?? '').replace(/\D/g, '');
-  if (n.startsWith('0')) n = n.slice(1);
-  if (n.startsWith('55') && n.length >= 12) return n;
-  return '55' + n;
-}
-
-function telefoneValido(raw) {
-  const n = normalizarTelefone(raw);
-  return n.length === 12 || n.length === 13;
-}
 
 function CartaoSucesso({ pacienteId, nome, pendente, avisoVenda, link, mensagemWhats, onCopiar, onDispensar, onIrPerfil }) {
   const primeiroNome = nome?.split(' ')[0] ?? '';
