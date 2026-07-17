@@ -44,6 +44,7 @@ export default function PacientePerfil() {
   const [editarDadosOpen, setEditarDadosOpen] = useState(false);
   const [excluirOpen, setExcluirOpen] = useState(false);
   const [pausando, setPausando] = useState(false);
+  const [desarquivando, setDesarquivando] = useState(false);
   const [consultaAtiva, setConsultaAtiva] = useState(undefined);
   const [busyConsulta, setBusyConsulta] = useState(false);
   const [agendarAcompOpen, setAgendarAcompOpen] = useState(false);
@@ -344,6 +345,23 @@ export default function PacientePerfil() {
     const { error } = await supabase.from('pacientes')
       .update({ acesso_pausado: pausar }).eq('id', paciente.id);
     setPausando(false);
+    if (error) { alert('Erro: ' + error.message); return; }
+    carregar();
+  }
+
+  // Desarquiva a paciente. Limpa acesso_pausado junto: arquivar não zera o
+  // flag, então sem isso ela voltaria pra 'ativo' ainda bloqueada na tela.
+  // O acesso_pausado_em é zerado pelo trigger — não mandamos daqui.
+  async function desarquivar() {
+    const primeiro = paciente.nome.split(' ')[0];
+    const ok = window.confirm(
+      `Desarquivar ${primeiro}?\n\nEla volta para a lista de pacientes ativas e recupera o acesso ao app.`
+    );
+    if (!ok) return;
+    setDesarquivando(true);
+    const { error } = await supabase.from('pacientes')
+      .update({ status_paciente: 'ativo', acesso_pausado: false }).eq('id', paciente.id);
+    setDesarquivando(false);
     if (error) { alert('Erro: ' + error.message); return; }
     carregar();
   }
@@ -1073,6 +1091,17 @@ export default function PacientePerfil() {
           }}>
             <i className="ti ti-archive" style={{ fontSize: 13 }} aria-hidden="true" />
             Arquivar paciente
+          </button>
+        )}
+        {paciente.status_paciente === 'finalizado' && (
+          <button onClick={desarquivar} disabled={desarquivando} style={{
+            background: 'none', border: 'none', cursor: desarquivando ? 'default' : 'pointer',
+            fontSize: 12, color: 'var(--text3)', fontFamily: 'var(--font-sans)',
+            display: 'inline-flex', alignItems: 'center', gap: 5,
+            opacity: desarquivando ? 0.5 : 1,
+          }}>
+            <i className="ti ti-archive-off" style={{ fontSize: 13 }} aria-hidden="true" />
+            {desarquivando ? '…' : 'Desarquivar paciente'}
           </button>
         )}
         <button onClick={() => setExcluirOpen(true)} style={{
