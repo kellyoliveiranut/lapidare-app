@@ -31,6 +31,8 @@ export default function Personalizacao() {
     cor_primaria: '#a08456',
     cor_secundaria: '#c9a96e',
     tipografia: 'classica',
+    farmacia_email: '',     // destino dos envios de fórmula
+    farmacia_nome: '',      // nome da farmácia (saudação do e-mail)
   });
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState(null);
@@ -49,6 +51,8 @@ export default function Personalizacao() {
       cor_primaria: profile.cor_primaria ?? '#a08456',
       cor_secundaria: profile.cor_secundaria ?? '#c9a96e',
       tipografia: profile.tipografia ?? 'classica',
+      farmacia_email: profile.farmacia_email ?? '',
+      farmacia_nome: profile.farmacia_nome ?? '',
     });
   }, [profile]);
 
@@ -66,6 +70,8 @@ export default function Personalizacao() {
       cor_primaria: form.cor_primaria,
       cor_secundaria: form.cor_secundaria,
       tipografia: form.tipografia,
+      farmacia_email: form.farmacia_email.trim() || null,
+      farmacia_nome:  form.farmacia_nome.trim()  || null,
     }).eq('id', user.id);
     setBusy(false);
     if (error) return setErro('Erro: ' + error.message);
@@ -289,6 +295,27 @@ export default function Personalizacao() {
                   <i className="ti ti-trash" aria-hidden="true"></i> Remover
                 </button>
               )}
+            </div>
+          </div>
+
+          {/* Farmácia de manipulação — destino dos envios de fórmula */}
+          <div className="card" style={{ padding: 18, marginBottom: 14 }}>
+            <div className="card-title" style={{ marginBottom: 4 }}>Farmácia de manipulação</div>
+            <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 12 }}>
+              Para onde vão as fórmulas quando você usa <strong>"Enviar para farmácia"</strong> na aba Suplementação de cada paciente.
+            </div>
+
+            <label className="form-lbl">E-mail da farmácia</label>
+            <input type="email" value={form.farmacia_email}
+              onChange={e => setForm(f => ({ ...f, farmacia_email: e.target.value }))}
+              placeholder="farmacia@exemplo.com" />
+
+            <label className="form-lbl" style={{ marginTop: 14 }}>Nome da farmácia (opcional)</label>
+            <input value={form.farmacia_nome}
+              onChange={e => setForm(f => ({ ...f, farmacia_nome: e.target.value }))}
+              placeholder="Ex: Manipula Belém" />
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4, fontStyle: 'italic' }}>
+              Usado só na saudação do e-mail pra farmácia. Deixe vazio se preferir.
             </div>
           </div>
 

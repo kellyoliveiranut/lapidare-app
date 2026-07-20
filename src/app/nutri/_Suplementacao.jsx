@@ -1,13 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
+import { useSession } from '../../lib/session.jsx';
 import { dataBR } from '../../lib/utils.js';
 
 const HOJE_ISO = () => new Date().toISOString().slice(0, 10);
 
 export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
+  const { profile } = useSession();
   const [suplementos, setSuplementos] = useState(null);
   const [logs, setLogs] = useState([]);
   const [pdfs, setPdfs] = useState([]);
+  const [contato, setContato] = useState(null);          // telefone/email pra prévia
+  const [ultimoEnvio, setUltimoEnvio] = useState(null);  // último envio à farmácia
+  const [enviarFarmaciaOpen, setEnviarFarmaciaOpen] = useState(false);
+  const [enviandoFarmacia, setEnviandoFarmacia] = useState(false);
   const [favoritos, setFavoritos] = useState([]);
   const [editar, setEditar] = useState(null);
   const [adicionarOpen, setAdicionarOpen] = useState(false);
@@ -22,7 +28,7 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
   }, [feedback]);
 
   async function carregar(signal = { cancelled: false }) {
-    const [supRes, logRes, pdfRes] = await Promise.all([
+    const [supRes, logRes, pdfRes, envRes, pacRes] = await Promise.all([
       supabase.from('suplementos').select('id, nome, dose, horario, obs, foto_url, ativo, data_inicio').eq('paciente_id', pacienteId).order('ordem'),
       supabase.from('suplementos_logs').select('tomado, data, suplemento_id')
         .eq('paciente_id', pacienteId)
@@ -31,11 +37,17 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
       supabase.from('prescricoes').select('id, titulo, storage_path, created_at')
         .eq('paciente_id', pacienteId).eq('tipo', 'suplementacao')
         .order('created_at', { ascending: false }),
+      supabase.from('envios_farmacia').select('enviado_em')
+        .eq('paciente_id', pacienteId)
+        .order('enviado_em', { ascending: false }).limit(1).maybeSingle(),
+      supabase.from('pacientes').select('telefone, email').eq('id', pacienteId).maybeSingle(),
     ]);
     if (signal.cancelled) return;
     setSuplementos(supRes.data ?? []);
     setLogs(logRes.data ?? []);
     setPdfs(pdfRes.data ?? []);
+    setUltimoEnvio(envRes.data ?? null);
+    setContato(pacRes.data ?? null);
   }
 
   async function carregarFavoritos() {
@@ -176,6 +188,29 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
     const inp = document.getElementById('sup-pdf-file');
     if (inp) inp.value = '';
     carregar();
+  }
+
+  async function enviarParaFarmacia(formula) {
+    setEnviandoFarmacia(true);
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const accessToken = sess.session?.access_token;
+      if (!accessToken) throw new Error('Sessão expirada. Recarregue a página.');
+      const resp = await fetch('/.netlify/functions/enviar-farmacia', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+        body: JSON.stringify({ paciente_id: pacienteId, formula }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data.error || 'Falha ao enviar.');
+      setEnviarFarmaciaOpen(false);
+      setFeedback('Fórmula enviada para a farmácia!');
+      carregar(); // atualiza "última enviada em"
+    } catch (e) {
+      alert('Erro ao enviar: ' + (e?.message ?? 'tente novamente'));
+    } finally {
+      setEnviandoFarmacia(false);
+    }
   }
 
   async function abrirPdf(pdf) {
@@ -327,6 +362,18 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
             </div>
           )}
 
+          {/* Enviar fórmula pra farmácia de manipulação */}
+          <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <button className="btn-outline" onClick={() => setEnviarFarmaciaOpen(true)}>
+              <i className="ti ti-send" aria-hidden="true"></i> Enviar para farmácia
+            </button>
+            {ultimoEnvio && (
+              <span style={{ fontSize: 11, color: 'var(--text3)' }}>
+                <i className="ti ti-check" aria-hidden="true"></i> Última fórmula enviada em {dataBR(ultimoEnvio.enviado_em)}
+              </span>
+            )}
+          </div>
+
           <div style={{
             marginTop: 18, fontSize: 10, letterSpacing: 1, textTransform: 'uppercase',
             color: 'var(--text3)', fontWeight: 500, marginBottom: 8,
@@ -393,6 +440,19 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
           onClose={() => setEditar(null)}
           onSave={salvar}
           busy={busy}
+        />
+      )}
+
+      {enviarFarmaciaOpen && (
+        <ModalEnviarFarmacia
+          pacienteNome={pacienteNome}
+          contato={contato}
+          suplementosAtivos={(suplementos ?? []).filter(s => s.ativo)}
+          farmaciaEmail={profile?.farmacia_email}
+          farmaciaNome={profile?.farmacia_nome}
+          onClose={() => setEnviarFarmaciaOpen(false)}
+          onEnviar={enviarParaFarmacia}
+          busy={enviandoFarmacia}
         />
       )}
     </>
@@ -759,6 +819,95 @@ function ModalAdicionarSuplemento({ favoritos, onClose, onSalvarBiblioteca, onSa
                 disabled={busy || !form.nome.trim()}>
                 <i className="ti ti-check" aria-hidden="true"></i>
                 {busy ? 'Salvando…' : 'Salvar'}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+/* ============================================================
+   MODAL ENVIAR FÓRMULA PARA FARMÁCIA — prévia + confirmação
+   ============================================================ */
+function ModalEnviarFarmacia({ pacienteNome, contato, suplementosAtivos, farmaciaEmail, farmaciaNome, onClose, onEnviar, busy }) {
+  const inicial = (suplementosAtivos ?? [])
+    .map(s => [s.nome, s.dose].filter(Boolean).join(' — '))
+    .join('\n');
+  const [formula, setFormula] = useState(inicial);
+  const semFarmacia = !farmaciaEmail?.trim();
+
+  return (
+    <div onClick={onClose} style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      zIndex: 110, padding: 16,
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: 'var(--white)', borderRadius: 12,
+        maxWidth: 520, width: '100%', maxHeight: '90vh',
+        display: 'flex', flexDirection: 'column', padding: 20,
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <div style={{ fontSize: 16, fontWeight: 500 }}>Enviar fórmula para farmácia</div>
+          <button onClick={onClose} style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            fontSize: 18, color: 'var(--text3)', padding: 4,
+          }}>
+            <i className="ti ti-x" aria-hidden="true"></i>
+          </button>
+        </div>
+
+        {semFarmacia ? (
+          <div style={{
+            padding: '12px 14px', borderRadius: 8, marginBottom: 4,
+            background: 'var(--orange-bg)', border: '0.5px solid var(--orange)',
+            color: 'var(--orange)', fontSize: 13,
+          }}>
+            <i className="ti ti-alert-triangle" aria-hidden="true"></i>{' '}
+            E-mail da farmácia não configurado. Vá em <strong>Personalização</strong> e cadastre o e-mail da farmácia antes de enviar.
+          </div>
+        ) : (
+          <>
+            <div style={{ overflowY: 'auto', flex: 1 }}>
+              <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 10 }}>
+                Para: <strong>{farmaciaNome?.trim() || farmaciaEmail}</strong>
+                {farmaciaNome?.trim() && <span> ({farmaciaEmail})</span>}
+              </div>
+
+              <label className="form-lbl">Fórmula (edite como precisar)</label>
+              <textarea
+                value={formula}
+                onChange={e => setFormula(e.target.value)}
+                rows={8}
+                placeholder={'Ex:\nVitamina D3 5000UI\nMagnésio dimalato 300mg\n— manipular em 60 cápsulas —'}
+                style={{ width: '100%', resize: 'vertical', fontFamily: 'var(--font-sans)', lineHeight: 1.5 }}
+                autoFocus
+              />
+
+              <label className="form-lbl" style={{ marginTop: 12 }}>Contato da paciente (vai no e-mail)</label>
+              <div style={{
+                padding: 12, borderRadius: 8, background: 'var(--bg2)',
+                border: '0.5px solid var(--border)', fontSize: 13, lineHeight: 1.6,
+              }}>
+                <div><strong>Nome:</strong> {pacienteNome}</div>
+                <div><strong>Telefone:</strong> {contato?.telefone || '—'}</div>
+                <div><strong>E-mail:</strong> {contato?.email || '—'}</div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+              <button className="btn-outline" style={{ flex: 1, justifyContent: 'center' }} onClick={onClose}>
+                Cancelar
+              </button>
+              <button
+                className="btn" style={{ flex: 2, justifyContent: 'center' }}
+                onClick={() => onEnviar(formula.trim())}
+                disabled={busy || !formula.trim()}>
+                <i className="ti ti-send" aria-hidden="true"></i>
+                {busy ? 'Enviando…' : 'Confirmar envio'}
               </button>
             </div>
           </>
