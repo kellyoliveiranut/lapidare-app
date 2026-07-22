@@ -140,7 +140,7 @@ export default function Suplementos() {
     <div style={{ padding: '0' }}>
       {erro && (
         <div style={{
-          background: 'var(--red-bg, #fef2f2)', color: 'var(--red, #dc2626)',
+          background: 'var(--red-soft)', color: 'var(--red)',
           padding: '10px 14px', borderRadius: 10, marginBottom: 12,
           fontSize: 13, display: 'flex', alignItems: 'center', gap: 8,
         }}>
@@ -153,7 +153,7 @@ export default function Suplementos() {
         <>
           {/* Resumo do dia */}
           <div style={{
-            background: 'linear-gradient(135deg, var(--gold-soft, var(--bg-soft)), var(--white))',
+            background: 'linear-gradient(135deg, var(--gold-soft, var(--bg-soft)), var(--paper))',
             border: '0.5px solid var(--hair)',
             borderRadius: 16, padding: 18, marginBottom: 14, textAlign: 'center',
           }}>
@@ -170,7 +170,7 @@ export default function Suplementos() {
               <div style={{
                 display: 'inline-flex', alignItems: 'center', gap: 4,
                 marginTop: 10, padding: '4px 10px',
-                background: 'var(--orange-bg, var(--bg-soft))',
+                background: 'var(--orange-soft)',
                 borderRadius: 999, fontSize: 11, color: 'var(--orange, var(--gold-deep))',
                 fontWeight: 500,
               }}>
@@ -192,7 +192,7 @@ export default function Suplementos() {
                   style={{
                     display: 'flex', alignItems: 'center', gap: 12,
                     padding: 14, borderRadius: 12,
-                    background: tomado ? 'var(--green-soft, var(--bg-soft))' : 'var(--white)',
+                    background: tomado ? 'var(--green-soft, var(--bg-soft))' : 'var(--paper)',
                     border: `1px solid ${tomado ? 'var(--green, var(--hair))' : 'var(--hair)'}`,
                     cursor: 'pointer', textAlign: 'left',
                     fontFamily: 'var(--font-sans)',
@@ -201,7 +201,7 @@ export default function Suplementos() {
                   <div style={{
                     width: 28, height: 28, borderRadius: '50%',
                     background: tomado ? 'var(--green, var(--gold-deep))' : 'var(--bg-soft)',
-                    color: tomado ? 'var(--white)' : 'var(--muted)',
+                    color: tomado ? 'var(--paper)' : 'var(--muted)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontSize: 16, flexShrink: 0,
                     border: tomado ? 'none' : '1.5px solid var(--hair)',
@@ -240,7 +240,7 @@ export default function Suplementos() {
             Últimos 7 dias
           </div>
 
-          <div style={{ background: 'var(--white)', border: '0.5px solid var(--hair)', borderRadius: 12, padding: 12, marginBottom: 24 }}>
+          <div style={{ background: 'var(--paper)', border: '0.5px solid var(--hair)', borderRadius: 12, padding: 12, marginBottom: 24 }}>
             {suplementos.map((s, idx) => (
               <div key={s.id} style={{
                 display: 'flex', alignItems: 'center', gap: 8,
@@ -259,7 +259,7 @@ export default function Suplementos() {
                         width: 22, height: 22, borderRadius: 6,
                         background: tomado ? 'var(--green, var(--gold-deep))' : (isHoje ? 'var(--bg-soft)' : 'transparent'),
                         border: tomado ? 'none' : '0.5px solid var(--hair)',
-                        color: tomado ? 'var(--white)' : 'var(--muted-2)',
+                        color: tomado ? 'var(--paper)' : 'var(--muted-2)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         fontSize: 9, fontWeight: 500,
                       }} title={d.iso}>
@@ -286,7 +286,7 @@ export default function Suplementos() {
                 style={{
                   display: 'flex', alignItems: 'center', gap: 12,
                   padding: 14, borderRadius: 12,
-                  background: 'var(--white)', border: '0.5px solid var(--hair)',
+                  background: 'var(--paper)', border: '0.5px solid var(--hair)',
                   cursor: 'pointer', textAlign: 'left',
                   fontFamily: 'var(--font-sans)',
                 }}>

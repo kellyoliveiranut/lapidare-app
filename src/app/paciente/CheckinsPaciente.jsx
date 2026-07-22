@@ -127,8 +127,8 @@ export default function CheckinsPaciente() {
               onClick={() => navigate(`/paciente/checkin/${e.id}`)}
               style={{
                 width: '100%', textAlign: 'left',
-                background: 'var(--bg2, #f5f1e8)',
-                border: '0.5px solid var(--hair, #e8e2d8)',
+                background: 'var(--bg-soft)',
+                border: '0.5px solid var(--hair)',
                 borderRadius: 14, padding: '14px 16px',
                 marginBottom: 8, cursor: 'pointer',
                 display: 'flex', alignItems: 'center',

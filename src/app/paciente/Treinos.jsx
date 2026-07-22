@@ -67,7 +67,7 @@ function AvisoImportante() {
       padding: '12px 14px', borderRadius: 10, marginBottom: 16,
       background: '#fffde7',
       border: '1.5px solid #f5c518',
-      fontSize: 12, color: 'var(--dark)', lineHeight: 1.6,
+      fontSize: 12, color: 'var(--ink)', lineHeight: 1.6,
     }}>
       <i className="ti ti-alert-triangle" style={{ fontSize: 16, color: '#d4a017', flexShrink: 0, marginTop: 1 }} aria-hidden="true" />
       <span>
@@ -100,7 +100,7 @@ function BibliotecaVideos() {
         <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--ink)', marginBottom: 2 }}>
           Movimente-se com segurança 🏃‍♀️
         </div>
-        <div style={{ fontSize: 12, color: 'var(--text3)' }}>
+        <div style={{ fontSize: 12, color: 'var(--muted)' }}>
           Conteúdo baseado nas diretrizes ASCO 2022
         </div>
       </div>
@@ -117,7 +117,7 @@ function BibliotecaVideos() {
           {cat.videos.map(v => (
             <div key={v.id} className="card" style={{ padding: 12, marginBottom: 10 }}>
               <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 2 }}>{v.titulo}</div>
-              <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8 }}>{v.canal}</div>
+              <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 8 }}>{v.canal}</div>
               <div style={{ borderRadius: 8, overflow: 'hidden', aspectRatio: '16/9' }}>
                 <iframe
                   src={`https://www.youtube.com/embed/${v.id}`}
@@ -222,23 +222,23 @@ export default function TreinosPaciente() {
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
               <div style={{
                 width: 44, height: 44, borderRadius: 11, flexShrink: 0,
-                background: 'var(--green-bg)',
+                background: 'var(--green-soft)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}>
                 <i className="ti ti-run" style={{ fontSize: 22, color: 'var(--green)' }} aria-hidden="true" />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="card-title" style={{ marginBottom: 4 }}>{treino.tipo}</div>
-                <div style={{ fontSize: 13, color: 'var(--text2)' }}>
+                <div style={{ fontSize: 13, color: 'var(--ink-soft)' }}>
                   {treino.intensidade} · {treino.frequencia_semanal}×/semana · {treino.duracao_minutos} min/sessão
                 </div>
-                <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>{treino.fase_tratamento}</div>
+                <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{treino.fase_tratamento}</div>
                 {treino.dias_semana?.length > 0 && (
                   <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 6 }}>
                     {treino.dias_semana.map(d => (
                       <span key={d} style={{
                         padding: '2px 7px', borderRadius: 5, fontSize: 11, fontWeight: 500,
-                        background: 'var(--green-bg)', color: 'var(--green)',
+                        background: 'var(--green-soft)', color: 'var(--green)',
                       }}>{d}</span>
                     ))}
                   </div>
@@ -247,26 +247,26 @@ export default function TreinosPaciente() {
             </div>
 
             {treino.objetivo_treino && (
-              <div style={{ marginTop: 12, padding: '8px 12px', borderRadius: 8, background: 'var(--bg2)', fontSize: 13, color: 'var(--text2)' }}>
-                <span style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 500, display: 'block', marginBottom: 2 }}>🎯 Objetivo</span>
+              <div style={{ marginTop: 12, padding: '8px 12px', borderRadius: 8, background: 'var(--bg-soft)', fontSize: 13, color: 'var(--ink-soft)' }}>
+                <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 500, display: 'block', marginBottom: 2 }}>🎯 Objetivo</span>
                 {treino.objetivo_treino}
               </div>
             )}
             {treino.precaucoes && (
-              <div style={{ marginTop: 8, padding: '8px 12px', borderRadius: 8, background: 'var(--orange-bg)', border: '0.5px solid var(--orange)', fontSize: 13, color: 'var(--dark)', lineHeight: 1.5 }}>
+              <div style={{ marginTop: 8, padding: '8px 12px', borderRadius: 8, background: 'var(--orange-soft)', border: '0.5px solid var(--orange)', fontSize: 13, color: 'var(--ink)', lineHeight: 1.5 }}>
                 <span style={{ fontSize: 11, color: 'var(--orange)', fontWeight: 500, display: 'block', marginBottom: 2 }}>⚠️ Precauções</span>
                 {treino.precaucoes}
               </div>
             )}
             {treino.observacoes && (
-              <div style={{ marginTop: 8, padding: '10px 12px', borderRadius: 8, background: 'var(--bg2)', fontSize: 13, color: 'var(--text2)', lineHeight: 1.5 }}>
-                <span style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 500, display: 'block', marginBottom: 3 }}>Orientações da sua nutri</span>
+              <div style={{ marginTop: 8, padding: '10px 12px', borderRadius: 8, background: 'var(--bg-soft)', fontSize: 13, color: 'var(--ink-soft)', lineHeight: 1.5 }}>
+                <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 500, display: 'block', marginBottom: 3 }}>Orientações da sua nutri</span>
                 {treino.observacoes}
               </div>
             )}
             {treino.progressao && (
-              <div style={{ marginTop: 8, padding: '8px 12px', borderRadius: 8, background: 'var(--bg2)', fontSize: 13, color: 'var(--text2)', lineHeight: 1.5 }}>
-                <span style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 500, display: 'block', marginBottom: 2 }}>📈 Como evoluir</span>
+              <div style={{ marginTop: 8, padding: '8px 12px', borderRadius: 8, background: 'var(--bg-soft)', fontSize: 13, color: 'var(--ink-soft)', lineHeight: 1.5 }}>
+                <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 500, display: 'block', marginBottom: 2 }}>📈 Como evoluir</span>
                 {treino.progressao}
               </div>
             )}
@@ -274,20 +274,20 @@ export default function TreinosPaciente() {
             {/* Adesão semanal */}
             <div style={{
               marginTop: 12, padding: '10px 14px', borderRadius: 8,
-              background: metaAtingida ? 'var(--green-bg)' : 'var(--bg2)',
+              background: metaAtingida ? 'var(--green-soft)' : 'var(--bg-soft)',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                 <span style={{ fontSize: 13, fontWeight: 500 }}>
                   {semanaCount} de {treino.frequencia_semanal} sessões esta semana
                 </span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: metaAtingida ? 'var(--green)' : 'var(--text2)' }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: metaAtingida ? 'var(--green)' : 'var(--ink-soft)' }}>
                   {pct}%{metaAtingida ? ' ✓' : ''}
                 </span>
               </div>
               <div style={{ height: 5, borderRadius: 3, background: 'var(--hair)', overflow: 'hidden' }}>
                 <div style={{
                   height: '100%', borderRadius: 3, width: `${pct}%`,
-                  background: metaAtingida ? 'var(--green)' : 'var(--amber)',
+                  background: metaAtingida ? 'var(--green)' : 'var(--gold)',
                   transition: 'width .3s ease',
                 }} />
               </div>
@@ -309,12 +309,12 @@ export default function TreinosPaciente() {
             ) : (
               <div style={{
                 borderRadius: 12, marginBottom: 16, padding: '28px 16px',
-                background: 'var(--bg2)', border: '0.5px solid var(--border)',
+                background: 'var(--bg-soft)', border: '0.5px solid var(--hair)',
                 display: 'flex', flexDirection: 'column', alignItems: 'center',
                 justifyContent: 'center', gap: 6, textAlign: 'center',
               }}>
                 <span style={{ fontSize: 24 }}>🔒</span>
-                <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--text2)' }}>
+                <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--ink-soft)' }}>
                   Vídeo será liberado em {formatDataBR(treino.data_liberacao_video)}
                 </span>
               </div>
@@ -332,8 +332,8 @@ export default function TreinosPaciente() {
                   style={{
                     padding: '10px 8px', borderRadius: 8, fontSize: 13, cursor: 'pointer',
                     fontFamily: 'var(--font-sans)', border: 'none',
-                    background: form.intensidade_sentida === op ? 'var(--ink)' : 'var(--bg2)',
-                    color: form.intensidade_sentida === op ? 'var(--paper)' : 'var(--text2)',
+                    background: form.intensidade_sentida === op ? 'var(--ink)' : 'var(--bg-soft)',
+                    color: form.intensidade_sentida === op ? 'var(--paper)' : 'var(--ink-soft)',
                     fontWeight: form.intensidade_sentida === op ? 600 : 400,
                   }}>{op}</button>
               ))}
@@ -346,8 +346,8 @@ export default function TreinosPaciente() {
                   style={{
                     flex: 1, padding: '12px 4px', borderRadius: 8, fontSize: 14, cursor: 'pointer',
                     fontFamily: 'var(--font-sans)', border: 'none',
-                    background: form.como_se_sentiu === op.value ? 'var(--ink)' : 'var(--bg2)',
-                    color: form.como_se_sentiu === op.value ? 'var(--paper)' : 'var(--text2)',
+                    background: form.como_se_sentiu === op.value ? 'var(--ink)' : 'var(--bg-soft)',
+                    color: form.como_se_sentiu === op.value ? 'var(--paper)' : 'var(--ink-soft)',
                   }}>{op.label}</button>
               ))}
             </div>
@@ -360,7 +360,7 @@ export default function TreinosPaciente() {
             {feedback && (
               <div style={{
                 padding: '8px 12px', borderRadius: 6, fontSize: 13, marginBottom: 10,
-                background: feedback.tipo === 'ok' ? 'var(--green-bg)' : 'var(--red-bg)',
+                background: feedback.tipo === 'ok' ? 'var(--green-soft)' : 'var(--red-soft)',
                 color: feedback.tipo === 'ok' ? 'var(--green)' : 'var(--red)',
               }}>{feedback.msg}</div>
             )}
@@ -390,7 +390,7 @@ export default function TreinosPaciente() {
                   }}>
                     <div style={{
                       width: 36, height: 36, borderRadius: 9, flexShrink: 0,
-                      background: 'var(--green-bg)',
+                      background: 'var(--green-soft)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18,
                     }}>
                       {EMOJI[r.como_se_sentiu] ?? '✅'}
@@ -400,7 +400,7 @@ export default function TreinosPaciente() {
                         {r.intensidade_sentida} · {dataStr} às {horaStr}
                       </div>
                       {r.observacao && (
-                        <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>{r.observacao}</div>
+                        <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{r.observacao}</div>
                       )}
                     </div>
                   </div>

@@ -34,7 +34,7 @@ export function HabitosHoje({
   return (
     <div style={{
       margin: '0 0 14px', padding: 16,
-      background: 'var(--white)',
+      background: 'var(--paper)',
       border: `0.5px solid ${habitosCumpridos === habitos.length ? 'var(--green, var(--hair))' : 'var(--hair)'}`,
       borderRadius: 16,
       ...containerStyle,
@@ -58,7 +58,7 @@ export function HabitosHoje({
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: 4,
             padding: '4px 10px',
-            background: 'var(--orange-bg, var(--bg-soft))',
+            background: 'var(--orange-soft)',
             borderRadius: 999, fontSize: 11,
             color: 'var(--orange, var(--gold-deep))', fontWeight: 500,
           }}>
@@ -93,8 +93,8 @@ export function HabitosHoje({
                 <button onClick={() => setValorHabito(h, ok ? 0 : 1)}
                   style={{
                     width: 32, height: 32, borderRadius: '50%',
-                    background: ok ? 'var(--green, var(--gold-deep))' : 'var(--white)',
-                    color: ok ? '#fff' : 'var(--muted-2)',
+                    background: ok ? 'var(--green, var(--gold-deep))' : 'var(--paper)',
+                    color: ok ? 'var(--paper)' : 'var(--muted-2)',
                     border: `1.5px solid ${ok ? 'var(--green, var(--gold-deep))' : 'var(--hair)'}`,
                     cursor: 'pointer', fontSize: 14, padding: 0,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -113,7 +113,7 @@ export function HabitosHoje({
                       onClick={() => setValorHabito(h, Math.max(0, Number((v - passo).toFixed(1))))}
                       style={{
                         width: 26, height: 26, borderRadius: 6,
-                        background: 'var(--white)', border: '1px solid var(--hair)',
+                        background: 'var(--paper)', border: '1px solid var(--hair)',
                         cursor: 'pointer', fontSize: 14, color: 'var(--ink)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                       }}>−</button>
@@ -126,7 +126,7 @@ export function HabitosHoje({
                       onClick={() => setValorHabito(h, Number((v + passo).toFixed(1)))}
                       style={{
                         width: 26, height: 26, borderRadius: 6,
-                        background: 'var(--white)', border: '1px solid var(--hair)',
+                        background: 'var(--paper)', border: '1px solid var(--hair)',
                         cursor: 'pointer', fontSize: 14, color: 'var(--ink)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                       }}>+</button>

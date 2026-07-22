@@ -191,7 +191,7 @@ export default function SignupPaciente() {
             <button onClick={sairETestar}
               style={{
                 flex: 1, padding: '10px 14px',
-                background: 'var(--white)', color: 'var(--ink)',
+                background: 'var(--paper)', color: 'var(--ink)',
                 border: '0.5px solid var(--hair, #d9d3c9)',
                 borderRadius: 10, fontSize: 12, fontWeight: 500,
                 cursor: 'pointer',

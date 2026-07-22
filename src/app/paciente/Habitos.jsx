@@ -158,7 +158,7 @@ export default function Habitos() {
       }}>Últimos 7 dias</div>
 
       <div style={{
-        background: 'var(--white)', border: '0.5px solid var(--hair)',
+        background: 'var(--paper)', border: '0.5px solid var(--hair)',
         borderRadius: 12, padding: 12, marginBottom: 24,
       }}>
         {habitos.map((h, idx) => (
@@ -183,7 +183,7 @@ export default function Habitos() {
                       ? 'var(--green, var(--gold-deep))'
                       : (isHoje ? 'var(--bg-soft)' : 'transparent'),
                     border: cump ? 'none' : '0.5px solid var(--hair)',
-                    color: cump ? 'var(--white)' : 'var(--muted-2)',
+                    color: cump ? 'var(--paper)' : 'var(--muted-2)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontSize: 9, fontWeight: 500,
                   }} title={d.iso}>

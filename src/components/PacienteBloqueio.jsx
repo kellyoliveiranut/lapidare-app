@@ -26,7 +26,7 @@ export default function PacienteBloqueio({ children }) {
   return (
     <div style={{
       position: 'fixed', inset: 0,
-      background: 'var(--bg, #f5f1e8)',
+      background: 'var(--bg)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       zIndex: 1000, padding: 16,
       fontFamily: 'var(--font-sans)',
@@ -62,7 +62,7 @@ export default function PacienteBloqueio({ children }) {
           marginTop: 24,
           background: 'none', border: '0.5px solid var(--hair, #e6dfd0)',
           borderRadius: 8, padding: '8px 16px',
-          fontSize: 12, color: 'var(--text3, #999)', cursor: 'pointer',
+          fontSize: 12, color: 'var(--muted)', cursor: 'pointer',
           fontFamily: 'var(--font-sans)',
           touchAction: 'manipulation',
           WebkitTapHighlightColor: 'transparent',

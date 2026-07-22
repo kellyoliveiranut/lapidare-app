@@ -619,7 +619,7 @@ export default function Inicio() {
           onClick={() => navigate('/paciente/habitos')}
           style={{
             margin: '0 0 12px', padding: '12px 16px',
-            background: habitosCumpridos === habitos.length ? 'var(--green-bg, #f0fdf4)' : 'var(--paper)',
+            background: habitosCumpridos === habitos.length ? 'var(--green-soft)' : 'var(--paper)',
             border: `0.5px solid ${habitosCumpridos === habitos.length ? 'var(--green)' : 'var(--hair)'}`,
             borderRadius: 14, cursor: 'pointer',
             display: 'flex', alignItems: 'center', gap: 12,

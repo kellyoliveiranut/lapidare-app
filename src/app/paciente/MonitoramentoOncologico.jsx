@@ -252,7 +252,7 @@ export default function MonitoramentoOncologico() {
           <span>Passo {step} de {TOTAL_STEPS}</span>
           <span>{Math.round(progresso * 100)}% completo</span>
         </div>
-        <div style={{ height: 6, background: 'var(--hair, #e8e2d8)', borderRadius: 3, overflow: 'hidden' }}>
+        <div style={{ height: 6, background: 'var(--hair)', borderRadius: 3, overflow: 'hidden' }}>
           <div style={{
             height: '100%', width: `${progresso * 100}%`,
             background: 'var(--gold)', borderRadius: 3,
@@ -643,8 +643,8 @@ function LinhaDoTempoCiclo({ ciclos, intervalo, protocoloNome, standalone }) {
       <div style={wrapStyle}>
         <div style={{
           padding: '16px 18px', borderRadius: 14,
-          background: 'var(--bg2, #f5f1e8)',
-          border: '0.5px solid var(--border, #e8e2d8)',
+          background: 'var(--bg-soft)',
+          border: '0.5px solid var(--hair)',
           fontSize: 13, color: 'var(--muted)',
           textAlign: 'center', lineHeight: 1.6,
         }}>
@@ -702,12 +702,12 @@ function LinhaDoTempoCiclo({ ciclos, intervalo, protocoloNome, standalone }) {
       )}
 
       <div style={{
-        background: 'var(--white, #fff)', borderRadius: 14,
-        border: '0.5px solid var(--border, #e8e2d8)',
+        background: 'var(--paper)', borderRadius: 14,
+        border: '0.5px solid var(--hair)',
         padding: '14px 16px 20px',
       }}>
         <div style={{
-          fontSize: 11, fontWeight: 600, color: 'var(--text3)',
+          fontSize: 11, fontWeight: 600, color: 'var(--muted)',
           marginBottom: 14, textTransform: 'uppercase', letterSpacing: '.05em',
         }}>
           Linha do tempo · Ciclo {uc.numero_ciclo} · {dataBR(uc.data_quimio)}
@@ -715,7 +715,7 @@ function LinhaDoTempoCiclo({ ciclos, intervalo, protocoloNome, standalone }) {
         <div style={{ position: 'relative', padding: '0 6px 28px' }}>
           <div style={{
             position: 'absolute', top: 10, left: 6, right: 6,
-            height: 2, background: 'var(--bg3, #e8e2d8)', borderRadius: 1,
+            height: 2, background: 'var(--bg-deep)', borderRadius: 1,
           }} />
           <div style={{ display: 'flex', justifyContent: 'space-between', position: 'relative' }}>
             {marcos.map((m, i) => {
@@ -730,8 +730,8 @@ function LinhaDoTempoCiclo({ ciclos, intervalo, protocoloNome, standalone }) {
                     boxShadow: isHoje ? `0 0 0 3px ${m.cor}55` : 'none',
                   }} />
                   <div style={{ fontSize: 10, fontWeight: 700, color: m.cor, textAlign: 'center', lineHeight: 1.3 }}>{m.label}</div>
-                  <div style={{ fontSize: 9, color: 'var(--text3)', textAlign: 'center', lineHeight: 1.3 }}>{dataBR(m.d)}</div>
-                  <div style={{ fontSize: 9, color: 'var(--text3)', textAlign: 'center', lineHeight: 1.3, maxWidth: 56 }}>{m.desc}</div>
+                  <div style={{ fontSize: 9, color: 'var(--muted)', textAlign: 'center', lineHeight: 1.3 }}>{dataBR(m.d)}</div>
+                  <div style={{ fontSize: 9, color: 'var(--muted)', textAlign: 'center', lineHeight: 1.3, maxWidth: 56 }}>{m.desc}</div>
                 </div>
               );
             })}
@@ -756,7 +756,7 @@ function JaPreenchidoHoje({ registro, onEditar }) {
           {dataBRHoje.charAt(0).toUpperCase() + dataBRHoje.slice(1)}<br />
           Sua nutricionista já consegue ver como você está. 💛
         </div>
-        <div style={{ background: 'var(--bg2, #f5f1e8)', borderRadius: 14, padding: '16px 18px', textAlign: 'left', marginBottom: 20 }}>
+        <div style={{ background: 'var(--bg-soft)', borderRadius: 14, padding: '16px 18px', textAlign: 'left', marginBottom: 20 }}>
           <ResumoRow label="Apetite" value={registro.apetite != null ? `${registro.apetite}/10` : '—'} />
           <ResumoRow label="Energia" value={registro.energia != null ? `${registro.energia}/10` : '—'} />
           <ResumoRow label="Náusea"  value={registro.nausea  != null ? `${registro.nausea}/10`  : '—'} />

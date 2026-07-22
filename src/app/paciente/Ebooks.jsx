@@ -75,7 +75,7 @@ export default function Ebooks() {
 
   const cardBase = {
     width: '100%', textAlign: 'left',
-    background: 'var(--white)',
+    background: 'var(--paper)',
     border: '0.5px solid var(--hair)', borderRadius: 14,
     padding: 14, marginBottom: 10,
     display: 'flex', gap: 12, alignItems: 'center',
@@ -86,7 +86,7 @@ export default function Ebooks() {
     <>
       {erros.length > 0 && (
         <div style={{
-          background: 'var(--red-bg, #fef2f2)', color: 'var(--red, #dc2626)',
+          background: 'var(--red-soft)', color: 'var(--red)',
           padding: '10px 14px', borderRadius: 10, marginBottom: 12,
           fontSize: 13, display: 'flex', alignItems: 'flex-start', gap: 8,
         }}>
@@ -145,7 +145,7 @@ export default function Ebooks() {
                 </div>
                 <i
                   className={`ti ${carregando ? 'ti-loader-2' : falhou ? 'ti-alert-circle' : 'ti-download'}`}
-                  style={{ fontSize: 18, color: falhou ? 'var(--red, #dc2626)' : 'var(--muted)', flexShrink: 0 }}
+                  style={{ fontSize: 18, color: falhou ? 'var(--red)' : 'var(--muted)', flexShrink: 0 }}
                   aria-hidden="true"
                 />
               </>
