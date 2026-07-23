@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { iniciais } from '../../lib/utils.js';
+import { comprimirImagem, getAnexoUrl } from '../../lib/imagem.js';
 
 function fmtHora(iso) {
   if (!iso) return '';
@@ -45,7 +46,7 @@ export default function ChatNutri() {
     await Promise.all(dadosPacientes.map(async p => {
       const [ultRes, naoLidasRes] = await Promise.all([
         supabase.from('mensagens')
-          .select('texto, created_at, de')
+          .select('texto, imagem_path, created_at, de')
           .eq('paciente_id', p.id).eq('nutri_id', user.id)
           .order('created_at', { ascending: false }).limit(1).maybeSingle(),
         supabase.from('mensagens')
@@ -149,7 +150,7 @@ export default function ChatNutri() {
                       flex: 1,
                     }}>
                       {c.ultima
-                        ? (c.ultima.de === 'nutri' ? 'Você: ' : '') + c.ultima.texto
+                        ? (c.ultima.de === 'nutri' ? 'Você: ' : '') + (c.ultima.texto || (c.ultima.imagem_path ? '📷 Foto' : ''))
                         : 'Sem mensagens ainda'}
                     </span>
                     {c.naoLidas > 0 && (
@@ -193,12 +194,16 @@ function ConversaPanel({ paciente, nutriId, onAfterAction }) {
   const [msgs, setMsgs] = useState(undefined);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
+  const [anexo, setAnexo] = useState(null);
+  const [anexoPreview, setAnexoPreview] = useState(null);
+  const [urls, setUrls] = useState({});   // { imagem_path: signedUrl }
   const scrollRef = useRef(null);
+  const fileRef = useRef(null);
 
   async function carregar(marcarLidas) {
     const { data } = await supabase
       .from('mensagens')
-      .select('id, de, texto, created_at, lida')
+      .select('id, de, texto, imagem_path, created_at, lida')
       .eq('paciente_id', paciente.id).eq('nutri_id', nutriId)
       .order('created_at', { ascending: true });
     setMsgs(data ?? []);
@@ -242,23 +247,70 @@ function ConversaPanel({ paciente, nutriId, onAfterAction }) {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [msgs]);
 
+  // Busca signed URLs das mensagens com imagem (inclusive as que chegam via realtime)
+  useEffect(() => {
+    if (!msgs) return;
+    let active = true;
+    (async () => {
+      const faltando = msgs.filter(m => m.imagem_path && !urls[m.imagem_path]);
+      if (faltando.length === 0) return;
+      const novas = {};
+      for (const m of faltando) {
+        const u = await getAnexoUrl(m.imagem_path);
+        if (u) novas[m.imagem_path] = u;
+      }
+      if (active && Object.keys(novas).length) setUrls(prev => ({ ...prev, ...novas }));
+    })();
+    return () => { active = false; };
+  }, [msgs]);
+
+  function selecionarAnexo(e) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (!f.type.startsWith('image/')) { alert('Selecione uma imagem.'); return; }
+    if (f.size > 20 * 1024 * 1024) { alert('Imagem muito grande (máximo 20MB).'); return; }
+    setAnexo(f);
+    setAnexoPreview(URL.createObjectURL(f));
+  }
+
+  function limparAnexo() {
+    if (anexoPreview) URL.revokeObjectURL(anexoPreview);
+    setAnexo(null);
+    setAnexoPreview(null);
+    if (fileRef.current) fileRef.current.value = '';
+  }
+
   async function enviar() {
-    if (!text.trim()) return;
     const conteudo = text.trim();
-    setText('');
+    if (!conteudo && !anexo) return;
     setBusy(true);
+
+    let imagem_path = null;
+    if (anexo) {
+      const blob = await comprimirImagem(anexo);
+      const path = `${paciente.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+      const { error: upErr } = await supabase.storage
+        .from('chat_anexos').upload(path, blob, { contentType: 'image/jpeg' });
+      if (upErr) { setBusy(false); alert('Erro ao enviar a foto: ' + upErr.message); return; }
+      imagem_path = path;
+    }
+
     const { error } = await supabase.from('mensagens').insert({
       paciente_id: paciente.id,
       nutri_id: nutriId,
       de: 'nutri',
-      texto: conteudo,
+      texto: conteudo || null,
+      imagem_path,
     });
     setBusy(false);
     if (error) {
+      if (imagem_path) await supabase.storage.from('chat_anexos').remove([imagem_path]);
       alert('Erro: ' + error.message);
-      setText(conteudo);
       return;
     }
+
+    setText('');
+    limparAnexo();
     onAfterAction?.();
     // Notifica a paciente via push (fire-and-forget)
     supabase.auth.getSession().then(({ data }) => {
@@ -267,7 +319,7 @@ function ConversaPanel({ paciente, nutriId, onAfterAction }) {
       fetch('/.netlify/functions/send-push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
-        body: JSON.stringify({ mode: 'notify_paciente', paciente_id: paciente.id, kind: 'mensagem' }),
+        body: JSON.stringify({ mode: 'notify_paciente', paciente_id: paciente.id, kind: imagem_path ? 'mensagem_foto' : 'mensagem' }),
       }).catch(() => {});
     });
   }
@@ -324,6 +376,25 @@ function ConversaPanel({ paciente, nutriId, onAfterAction }) {
                 maxWidth: '75%', fontSize: 14, lineHeight: 1.4,
                 wordWrap: 'break-word',
               }}>
+                {m.imagem_path && (
+                  urls[m.imagem_path] ? (
+                    <img src={urls[m.imagem_path]} alt="Foto"
+                      loading="lazy" decoding="async"
+                      onClick={() => window.open(urls[m.imagem_path], '_blank', 'noopener')}
+                      style={{
+                        maxWidth: '100%', borderRadius: 8, display: 'block',
+                        marginBottom: m.texto ? 6 : 0, cursor: 'pointer',
+                      }} />
+                  ) : (
+                    <div style={{
+                      width: 180, height: 140, borderRadius: 8,
+                      background: 'rgba(0,0,0,.06)', marginBottom: m.texto ? 6 : 0,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      <i className="ti ti-photo" style={{ fontSize: 24, opacity: .5 }} aria-hidden="true"></i>
+                    </div>
+                  )
+                )}
                 {m.texto}
                 <div style={{ fontSize: 11, opacity: .55, marginTop: 3, textAlign: 'right' }}>
                   {fmtHora(m.created_at)}
@@ -335,7 +406,24 @@ function ConversaPanel({ paciente, nutriId, onAfterAction }) {
         )}
       </div>
 
+      {/* Preview do anexo escolhido */}
+      {anexoPreview && (
+        <div style={{
+          padding: '8px 16px 0', display: 'flex', alignItems: 'center', gap: 8,
+          flexShrink: 0, background: 'var(--white)',
+        }}>
+          <img src={anexoPreview} alt="prévia" loading="lazy" decoding="async"
+            style={{ width: 52, height: 52, borderRadius: 8, objectFit: 'cover' }} />
+          <span style={{ fontSize: 12, color: 'var(--text3)', flex: 1 }}>Foto pronta pra enviar</span>
+          <button onClick={limparAnexo} aria-label="Remover foto"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', fontSize: 18 }}>
+            <i className="ti ti-x" aria-hidden="true"></i>
+          </button>
+        </div>
+      )}
+
       {/* Input */}
+      <input type="file" accept="image/*" ref={fileRef} style={{ display: 'none' }} onChange={selecionarAnexo} />
       <div style={{
         padding: '10px 16px',
         borderTop: '0.5px solid #f5f0e8',
@@ -343,6 +431,13 @@ function ConversaPanel({ paciente, nutriId, onAfterAction }) {
         flexShrink: 0,
         background: 'var(--white)',
       }}>
+        <button onClick={() => fileRef.current?.click()} disabled={busy} aria-label="Anexar foto"
+          style={{
+            background: 'none', border: '0.5px solid var(--border)', borderRadius: 8,
+            padding: '7px 11px', cursor: 'pointer', color: 'var(--text3)',
+          }}>
+          <i className="ti ti-camera" aria-hidden="true"></i>
+        </button>
         <input
           placeholder="Mensagem..."
           value={text}
@@ -351,7 +446,7 @@ function ConversaPanel({ paciente, nutriId, onAfterAction }) {
           disabled={busy}
           style={{ flex: 1, margin: 0 }}
         />
-        <button className="btn" onClick={enviar} disabled={!text.trim() || busy}
+        <button className="btn" onClick={enviar} disabled={busy || (!text.trim() && !anexo)}
           style={{ padding: '8px 14px' }}>
           <i className="ti ti-send" aria-hidden="true"></i>
         </button>

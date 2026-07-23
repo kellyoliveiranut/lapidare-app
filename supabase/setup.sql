@@ -2300,3 +2300,58 @@ create policy fpc_insert_nutri on public.feed_pratos_comentarios
 
 grant select, insert, delete on public.feed_pratos_comentarios
   to anon, authenticated, service_role;
+
+
+-- =============================================================
+-- 21. CHAT: ENVIO DE FOTO (bucket chat_anexos)
+-- =============================================================
+-- Imagem opcional nas mensagens + bucket privado. Policies de storage
+-- com os 3 ramos (auth.uid / user_id da paciente / nutri responsável),
+-- mesmo padrão do fix de fotos_evolucao — paciente de cadastro manual
+-- sobe E vê a própria imagem.
+
+alter table public.mensagens add column if not exists imagem_path text;
+alter table public.mensagens alter column texto drop not null;
+alter table public.mensagens drop constraint if exists mensagens_conteudo_check;
+alter table public.mensagens add constraint mensagens_conteudo_check
+  check (texto is not null or imagem_path is not null);
+
+insert into storage.buckets (id, name, public)
+values ('chat_anexos', 'chat_anexos', false)
+on conflict (id) do nothing;
+
+drop policy if exists chat_anexos_storage_select on storage.objects;
+create policy chat_anexos_storage_select on storage.objects
+  for select using (
+    bucket_id = 'chat_anexos'
+    and (
+      split_part(name, '/', 1) = auth.uid()::text
+      or split_part(name, '/', 1) in (select id::text from public.pacientes where user_id  = auth.uid())
+      or split_part(name, '/', 1) in (select id::text from public.pacientes where nutri_id = auth.uid())
+    )
+  );
+
+drop policy if exists chat_anexos_storage_insert_paciente on storage.objects;
+create policy chat_anexos_storage_insert_paciente on storage.objects
+  for insert with check (
+    bucket_id = 'chat_anexos'
+    and split_part(name, '/', 1) in (select id::text from public.pacientes where user_id = auth.uid())
+  );
+
+drop policy if exists chat_anexos_storage_insert_nutri on storage.objects;
+create policy chat_anexos_storage_insert_nutri on storage.objects
+  for insert with check (
+    bucket_id = 'chat_anexos'
+    and split_part(name, '/', 1) in (select id::text from public.pacientes where nutri_id = auth.uid())
+  );
+
+drop policy if exists chat_anexos_storage_delete on storage.objects;
+create policy chat_anexos_storage_delete on storage.objects
+  for delete using (
+    bucket_id = 'chat_anexos'
+    and (
+      split_part(name, '/', 1) = auth.uid()::text
+      or split_part(name, '/', 1) in (select id::text from public.pacientes where user_id  = auth.uid())
+      or split_part(name, '/', 1) in (select id::text from public.pacientes where nutri_id = auth.uid())
+    )
+  );

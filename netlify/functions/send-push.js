@@ -53,6 +53,7 @@ exports.handler = async (event) => {
       const primeiroNome = paciente.nome.trim().split(/\s+/)[0];
       const NUTRI_PAYLOADS = {
         mensagem:       { title: 'Essentia', body: `Nova mensagem de ${primeiroNome}`,       url: '/nutri/chat' },
+        mensagem_foto:  { title: 'Essentia', body: `📷 Nova foto de ${primeiroNome}`,        url: '/nutri/chat' },
         foto_prato:     { title: 'Essentia', body: `Nova foto do prato de ${primeiroNome}`,  url: '/nutri/feed' },
         resposta_prato: { title: 'Essentia', body: `Nova resposta de ${primeiroNome} num prato`, url: '/nutri/feed' },
       };
@@ -82,6 +83,7 @@ exports.handler = async (event) => {
 
       const PAYLOADS = {
         mensagem:         { title: 'Essentia', body: 'Sua nutri te enviou uma nova mensagem', url: '/paciente/chat' },
+        mensagem_foto:    { title: 'Essentia', body: 'Sua nutri te enviou uma foto', url: '/paciente/chat' },
         material:         { title: 'Essentia', body: 'Sua nutri compartilhou um novo material', url: '/paciente/ebooks' },
         plano:            { title: 'Essentia', body: 'Seu plano alimentar foi atualizado', url: '/paciente/plano' },
         comentario_prato: { title: 'Essentia', body: 'Sua nutri comentou seu prato', url: '/paciente/feed' },
