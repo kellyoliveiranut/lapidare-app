@@ -39,13 +39,15 @@ export default function FeedPaciente() {
   const [preview, setPreview] = useState(null);
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState(null);
+  const [respostas, setRespostas] = useState({});      // {postId: texto}
+  const [enviandoResp, setEnviandoResp] = useState({}); // {postId: bool}
   const fileInputRef = useRef(null);
 
   async function carregar(signal) {
     if (!user) return;
     const { data } = await supabase
       .from('feed_pratos')
-      .select('id, refeicao, legenda, storage_path, comentario_nutri, created_at')
+      .select('id, refeicao, legenda, storage_path, created_at, comentarios:feed_pratos_comentarios(id, autor, texto, created_at)')
       .eq('paciente_id', pacienteId)
       .order('created_at', { ascending: false });
     if (signal.cancelled) return;
@@ -123,6 +125,32 @@ export default function FeedPaciente() {
       }).catch(() => {});
     });
     cancelar();
+    carregar({ cancelled: false });
+  }
+
+  async function responder(post) {
+    const texto = (respostas[post.id] ?? '').trim();
+    if (!texto) return;
+    setEnviandoResp(s => ({ ...s, [post.id]: true }));
+    const { error } = await supabase.from('feed_pratos_comentarios').insert({
+      prato_id: post.id,
+      paciente_id: pacienteId,
+      autor: 'paciente',
+      texto,
+    });
+    setEnviandoResp(s => ({ ...s, [post.id]: false }));
+    if (error) return setErro('Erro ao enviar resposta: ' + error.message);
+    setRespostas(r => { const n = { ...r }; delete n[post.id]; return n; });
+    // Avisa a nutri via push (fire-and-forget — nunca bloqueia a UI)
+    supabase.auth.getSession().then(({ data }) => {
+      const accessToken = data.session?.access_token;
+      if (!accessToken) return;
+      fetch('/.netlify/functions/send-push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+        body: JSON.stringify({ mode: 'notify_nutri', kind: 'resposta_prato' }),
+      }).catch(() => {});
+    });
     carregar({ cancelled: false });
   }
 
@@ -237,12 +265,38 @@ export default function FeedPaciente() {
               )}
             </div>
             {p.legenda && <div className="feed-caption">{p.legenda}</div>}
-            {p.comentario_nutri && (
-              <div className="feed-comment">
-                <span className="who">{nutriNome}</span>
-                {p.comentario_nutri}
-              </div>
-            )}
+
+            {[...(p.comentarios ?? [])]
+              .sort((a, b) => a.created_at.localeCompare(b.created_at))
+              .map(c => (
+                <div key={c.id} className="feed-comment"
+                  style={c.autor === 'paciente'
+                    ? { borderLeftColor: 'var(--muted)', background: 'var(--bg-deep)' }
+                    : undefined}>
+                  <span className="who" style={c.autor === 'paciente' ? { color: 'var(--muted)' } : undefined}>
+                    {c.autor === 'nutri' ? nutriNome : 'Você'}
+                  </span>
+                  {c.texto}
+                </div>
+              ))}
+
+            <div style={{ display: 'flex', gap: 6, padding: '0 12px 12px' }}>
+              <input
+                value={respostas[p.id] ?? ''}
+                onChange={e => setRespostas(r => ({ ...r, [p.id]: e.target.value }))}
+                onKeyDown={e => { if (e.key === 'Enter') responder(p); }}
+                placeholder="Responder a nutri…"
+                style={{
+                  flex: 1, padding: '8px 10px', fontSize: 12,
+                  background: 'var(--bg-soft)', border: '0.5px solid var(--hair)',
+                  borderRadius: 10, outline: 'none', fontFamily: 'var(--font-sans)',
+                }} />
+              <button className="btn primary sm"
+                onClick={() => responder(p)}
+                disabled={enviandoResp[p.id] || !(respostas[p.id] ?? '').trim()}>
+                {enviandoResp[p.id] ? '...' : 'Enviar'}
+              </button>
+            </div>
           </div>
         ))
       )}

@@ -2253,3 +2253,50 @@ alter table public.consultas add column if not exists lembrete_enviado boolean n
 alter table public.pacientes add column if not exists status_paciente text not null default 'ativo'
   check (status_paciente in ('ativo', 'finalizado', 'obito'));
 create index if not exists pacientes_status_nutri_idx on public.pacientes(nutri_id, status_paciente);
+
+
+-- =============================================================
+-- 20. FEED DE PRATOS: THREAD DE COMENTÁRIOS (paciente responde)
+-- =============================================================
+-- Substitui o campo único feed_pratos.comentario_nutri por uma thread
+-- com autor. A paciente responde; a nutri comenta. (comentario_nutri
+-- fica como fallback até ser dropado num release futuro.)
+create table if not exists public.feed_pratos_comentarios (
+  id           uuid primary key default gen_random_uuid(),
+  prato_id     uuid not null references public.feed_pratos(id) on delete cascade,
+  paciente_id  uuid not null references public.pacientes(id)  on delete cascade, -- dona do prato
+  autor        text not null check (autor in ('nutri','paciente')),
+  texto        text not null,
+  created_at   timestamptz not null default now()
+);
+create index if not exists fpc_prato_idx
+  on public.feed_pratos_comentarios(prato_id, created_at);
+
+alter table public.feed_pratos_comentarios enable row level security;
+
+-- Leitura: a dona do prato OU a nutri responsável
+drop policy if exists fpc_select on public.feed_pratos_comentarios;
+create policy fpc_select on public.feed_pratos_comentarios
+  for select using (
+    paciente_id = public.minha_paciente_id()
+    or paciente_id in (select id from public.pacientes where nutri_id = auth.uid())
+  );
+
+-- Paciente responde só nas próprias fotos, e só como 'paciente'
+drop policy if exists fpc_insert_paciente on public.feed_pratos_comentarios;
+create policy fpc_insert_paciente on public.feed_pratos_comentarios
+  for insert with check (
+    autor = 'paciente'
+    and paciente_id = public.minha_paciente_id()
+  );
+
+-- Nutri comenta só nas pacientes dela, e só como 'nutri'
+drop policy if exists fpc_insert_nutri on public.feed_pratos_comentarios;
+create policy fpc_insert_nutri on public.feed_pratos_comentarios
+  for insert with check (
+    autor = 'nutri'
+    and paciente_id in (select id from public.pacientes where nutri_id = auth.uid())
+  );
+
+grant select, insert, delete on public.feed_pratos_comentarios
+  to anon, authenticated, service_role;
