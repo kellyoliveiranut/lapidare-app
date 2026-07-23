@@ -786,6 +786,9 @@ create policy fotos_evolucao_storage_select on storage.objects
     and (
       split_part(name, '/', 1) = auth.uid()::text
       or split_part(name, '/', 1) in (
+        select id::text from public.pacientes where user_id = auth.uid()
+      )
+      or split_part(name, '/', 1) in (
         select id::text from public.pacientes where nutri_id = auth.uid()
       )
     )
@@ -813,6 +816,9 @@ create policy fotos_evolucao_storage_delete on storage.objects
     bucket_id = 'fotos_evolucao'
     and (
       split_part(name, '/', 1) = auth.uid()::text
+      or split_part(name, '/', 1) in (
+        select id::text from public.pacientes where user_id = auth.uid()
+      )
       or split_part(name, '/', 1) in (
         select id::text from public.pacientes where nutri_id = auth.uid()
       )
