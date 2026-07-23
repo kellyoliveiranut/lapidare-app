@@ -145,6 +145,11 @@ export function ThemeProvider({ children }) {
     r.style.setProperty('--bg-soft', mistura(primaria, '#faf7f2', 0.92));
     r.style.setProperty('--bg-deep', mistura(primaria, '#faf7f2', 0.86));
 
+    // Barra do sistema (mobile) acompanha a cor primária personalizada,
+    // em vez do verde fixo do index.html.
+    document.querySelectorAll('meta[name="theme-color"]')
+      .forEach(m => m.setAttribute('content', primaria));
+
     r.dataset.tipografia = tema.tipografia ?? 'classica';
   }, [tema.cor_primaria, tema.cor_secundaria, tema.tipografia, tema.cor_texto_sidebar]);
 
