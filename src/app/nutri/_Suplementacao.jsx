@@ -29,7 +29,7 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
 
   async function carregar(signal = { cancelled: false }) {
     const [supRes, logRes, pdfRes, envRes, pacRes] = await Promise.all([
-      supabase.from('suplementos').select('id, nome, dose, horario, obs, foto_url, ativo, data_inicio').eq('paciente_id', pacienteId).order('ordem'),
+      supabase.from('suplementos').select('id, nome, dose, horario, obs, foto_url, ativo, data_inicio, manipulado').eq('paciente_id', pacienteId).order('ordem'),
       supabase.from('suplementos_logs').select('tomado, data, suplemento_id')
         .eq('paciente_id', pacienteId)
         .gte('data', new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10))
@@ -99,6 +99,7 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
           horario: s.horario?.trim() || null, obs: s.obs?.trim() || null,
           foto_url, ativo: true, ordem: suplementos?.length ?? 0,
           data_inicio: s.data_inicio || HOJE_ISO(),
+          manipulado: !!s.manipulado,
         });
         if (error) throw error;
       } else {
@@ -107,6 +108,7 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
           horario: s.horario?.trim() || null, obs: s.obs?.trim() || null,
           foto_url, ativo: s.ativo,
           data_inicio: s.data_inicio || null,
+          manipulado: !!s.manipulado,
           updated_at: new Date().toISOString(),
         }).eq('id', s.id);
         if (error) throw error;
@@ -137,6 +139,7 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
         foto_url: item.foto_url || null,
         ativo: true, ordem: base + i,
         data_inicio: item.data_inicio || HOJE_ISO(),
+        manipulado: !!item.manipulado,
       }));
       const { error } = await supabase.from('suplementos').insert(rows);
       if (error) throw error;
@@ -238,6 +241,16 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
     ).length;
     return Math.round((cumprido / esperado) * 100);
   }, [suplementos, logs]);
+
+  const manipuladosAtivos = (suplementos ?? []).filter(s => s.ativo && s.manipulado);
+
+  function abrirEnviarFarmacia() {
+    if (manipuladosAtivos.length === 0) {
+      alert('Nenhuma fórmula manipulada prescrita.');
+      return;
+    }
+    setEnviarFarmaciaOpen(true);
+  }
 
   return (
     <>
@@ -364,7 +377,7 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
 
           {/* Enviar fórmula pra farmácia de manipulação */}
           <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            <button className="btn-outline" onClick={() => setEnviarFarmaciaOpen(true)}>
+            <button className="btn-outline" onClick={abrirEnviarFarmacia}>
               <i className="ti ti-send" aria-hidden="true"></i> Enviar para farmácia
             </button>
             {ultimoEnvio && (
@@ -447,7 +460,7 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
         <ModalEnviarFarmacia
           pacienteNome={pacienteNome}
           contato={contato}
-          suplementosAtivos={(suplementos ?? []).filter(s => s.ativo)}
+          suplementosAtivos={manipuladosAtivos}
           farmaciaEmail={profile?.farmacia_email}
           farmaciaNome={profile?.farmacia_nome}
           onClose={() => setEnviarFarmaciaOpen(false)}
@@ -473,6 +486,7 @@ function ModalAdicionarSuplemento({ favoritos, onClose, onSalvarBiblioteca, onSa
   const [form, setForm] = useState({
     nome: '', dose: '', horario: '', obs: '', foto_url: null,
     data_inicio: new Date().toISOString().slice(0, 10),
+    manipulado: false,
   });
   const [fotoFile, setFotoFile] = useState(null);
   const [fotoPreview, setFotoPreview] = useState(null);
@@ -493,6 +507,7 @@ function ModalAdicionarSuplemento({ favoritos, onClose, onSalvarBiblioteca, onSa
           obs: fav.descricao ?? '',
           foto_url: fav.foto_url ?? null,
           data_inicio: new Date().toISOString().slice(0, 10),
+          manipulado: false,
           favorito_id: fav.id,
         },
       };
@@ -690,6 +705,14 @@ function ModalAdicionarSuplemento({ favoritos, onClose, onSalvarBiblioteca, onSa
                             />
                           </div>
                         </div>
+                        <label style={{
+                          display: 'flex', alignItems: 'center', gap: 8,
+                          fontSize: 12, cursor: 'pointer',
+                        }}>
+                          <input type="checkbox" checked={!!sel.manipulado}
+                            onChange={e => updateSel(favId, 'manipulado', e.target.checked)} />
+                          É fórmula manipulada (vai pra farmácia)
+                        </label>
                       </div>
                     </div>
                   );
@@ -807,6 +830,15 @@ function ModalAdicionarSuplemento({ favoritos, onClose, onSalvarBiblioteca, onSa
                 <input type="file" accept="image/*" onChange={handleFotoChange}
                   style={{ flex: 1, fontSize: 12 }} />
               </div>
+
+              <label style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                marginTop: 14, fontSize: 13, cursor: 'pointer',
+              }}>
+                <input type="checkbox" checked={!!form.manipulado}
+                  onChange={e => setForm({ ...form, manipulado: e.target.checked })} />
+                É fórmula manipulada (vai pra farmácia)
+              </label>
             </div>
 
             <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
@@ -894,7 +926,6 @@ function ModalEnviarFarmacia({ pacienteNome, contato, suplementosAtivos, farmaci
               }}>
                 <div><strong>Nome:</strong> {pacienteNome}</div>
                 <div><strong>Telefone:</strong> {contato?.telefone || '—'}</div>
-                <div><strong>E-mail:</strong> {contato?.email || '—'}</div>
               </div>
             </div>
 
@@ -1002,6 +1033,15 @@ function ModalSuplemento({ s, onClose, onSave, busy }) {
           <input type="checkbox" checked={!form.ativo}
             onChange={e => setForm({ ...form, ativo: !e.target.checked })} />
           Pausar (paciente não vê na lista do dia)
+        </label>
+
+        <label style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          marginTop: 10, fontSize: 13, cursor: 'pointer',
+        }}>
+          <input type="checkbox" checked={!!form.manipulado}
+            onChange={e => setForm({ ...form, manipulado: e.target.checked })} />
+          É fórmula manipulada (vai pra farmácia)
         </label>
 
         <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>

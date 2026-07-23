@@ -48,7 +48,7 @@ exports.handler = async (event) => {
     //    O servidor resolve o contato — o frontend nunca passa dados arbitrários.
     const { data: paciente, error: pacErr } = await supabase
       .from('pacientes')
-      .select('nome, telefone, email')
+      .select('nome, telefone')
       .eq('id', paciente_id)
       .eq('nutri_id', caller.id)
       .maybeSingle();
@@ -74,7 +74,6 @@ exports.handler = async (event) => {
     const contato = [
       `Nome: ${paciente.nome}`,
       paciente.telefone ? `Telefone: ${paciente.telefone}` : null,
-      paciente.email    ? `E-mail: ${paciente.email}`      : null,
     ].filter(Boolean).join('\n');
 
     const textContent =
