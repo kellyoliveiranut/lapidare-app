@@ -804,7 +804,7 @@ function ConsultaModal({ consulta, pacientes, nutriId, onClose, onSaved }) {
       return;
     }
     if (!horaConsultaValida(hora)) {
-      setErro('O horário deve ser um dos valores entre 08:00 e 17:00 (de 30 em 30 min).');
+      setErro('O horário deve ser um dos valores entre 08:00 e 18:00 (de 30 em 30 min).');
       return;
     }
     setBusy(true);
