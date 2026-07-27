@@ -2355,3 +2355,44 @@ create policy chat_anexos_storage_delete on storage.objects
       or split_part(name, '/', 1) in (select id::text from public.pacientes where nutri_id = auth.uid())
     )
   );
+
+
+-- =============================================================
+-- 22. AGENDA: CONFIRMAÇÃO DE PRESENÇA
+-- =============================================================
+-- Eixo independente de `status`: uma consulta pode ser agendada+confirmada ou
+-- agendada+não-confirmada. NULL = não confirmada; com data = confirmada (mesma
+-- convenção de encerrada_em / lembrete_enviado_em). A confirmação acontece por
+-- WhatsApp, fora do app — a nutri só registra o resultado na Agenda.
+-- RLS: nada a mudar, consultas_write_nutri já cobre (for all, nutri_id).
+alter table public.consultas add column if not exists confirmada_em  timestamptz;
+alter table public.consultas add column if not exists confirmada_por text;
+alter table public.consultas drop constraint if exists consultas_confirmada_por_check;
+alter table public.consultas add constraint consultas_confirmada_por_check
+  check (confirmada_por is null or confirmada_por in ('nutri', 'paciente'));
+
+-- Reagendar limpa a confirmação: a paciente confirmou OUTRO horário.
+-- No banco (e não no JS) porque data_hora muda em dois caminhos — Agenda.jsx e
+-- PacientePerfil.jsx (salvarDataConsulta) — e um terceiro é questão de tempo.
+-- Guard 1: só age se data_hora mudou de valor (o payload do modal manda
+-- data_hora sempre, mesmo salvando só a obs).
+-- Guard 2: não zera se o mesmo UPDATE já está setando confirmada_em de propósito.
+create or replace function public.consultas_limpa_confirmacao()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.data_hora is distinct from old.data_hora
+     and new.confirmada_em is not distinct from old.confirmada_em then
+    new.confirmada_em  := null;
+    new.confirmada_por := null;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists consultas_limpa_confirmacao_tg on public.consultas;
+create trigger consultas_limpa_confirmacao_tg
+  before update of data_hora on public.consultas
+  for each row
+  execute function public.consultas_limpa_confirmacao();

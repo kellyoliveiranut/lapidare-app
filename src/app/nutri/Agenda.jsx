@@ -44,6 +44,13 @@ function tipoColor(tipo) {
   return 'var(--green)';
 }
 
+// Confirmação de presença só faz sentido para consulta futura, agendada e com
+// data marcada — em realizada/cancelada/passada/"a definir" o estado é ruído.
+// Fonte única da verdade: usada tanto no contador do topo quanto na linha.
+function podeConfirmar(c) {
+  return c.status === 'agendada' && !!c.data_hora && new Date(c.data_hora) >= new Date();
+}
+
 // Normaliza número brasileiro para formato wa.me (sem +, sem espaços).
 // Aceita: "(11) 99999-9999", "011 9 9999-9999", "+55 11 99999-9999", etc.
 function normalizarTelefone(raw) {
@@ -79,6 +86,7 @@ export default function Agenda() {
       .select(`
         id, data_hora, duracao_min, tipo, status, obs, meet_link, links_extras,
         lembrete_ativo, lembrete_enviado,
+        confirmada_em, confirmada_por,
         paciente:pacientes(id, nome)
       `)
       .eq('nutri_id', user.id)
@@ -142,6 +150,32 @@ export default function Agenda() {
     ));
   }
 
+  // Confirmação de presença (a nutri anota o que veio pelo WhatsApp).
+  // UPDATE ISOLADO, só com as duas colunas: nunca passa pelo payload completo
+  // do salvar() do modal, que sobrescreveria com um state possivelmente velho.
+  // Atualiza o state local direto (igual marcarEnviado) — sem carregar(), que
+  // refaz a lista inteira e faz o calendário piscar a cada clique.
+  async function toggleConfirmada(consultaId, confirmar) {
+    const patch = confirmar
+      ? { confirmada_em: new Date().toISOString(), confirmada_por: 'nutri' }
+      : { confirmada_em: null, confirmada_por: null };
+
+    // Guarda o valor anterior para reverter se o banco recusar
+    const anterior = (consultas ?? []).find(c => c.id === consultaId);
+    setConsultas(prev => (prev ?? []).map(c => c.id === consultaId ? { ...c, ...patch } : c));
+
+    const { error } = await supabase.from('consultas').update(patch).eq('id', consultaId);
+    if (error) {
+      setConsultas(prev => (prev ?? []).map(c => c.id === consultaId ? {
+        ...c,
+        confirmada_em:  anterior?.confirmada_em  ?? null,
+        confirmada_por: anterior?.confirmada_por ?? null,
+      } : c));
+      setErroLembrete('Não consegui salvar a confirmação, tente novamente');
+      setTimeout(() => setErroLembrete(null), 4000);
+    }
+  }
+
   useEffect(() => {
     carregar();
     carregarPacientes();
@@ -156,6 +190,7 @@ export default function Agenda() {
   const passadas = ativas.filter(c => c.data_hora && c.data_hora < agora);
   const aDefinir = ativas.filter(c => !c.data_hora);
   const canceladas = (consultas ?? []).filter(c => c.status === 'cancelada');
+  const aConfirmar = futuras.filter(c => podeConfirmar(c) && !c.confirmada_em).length;
 
   // Consultas do dia selecionado
   const consultasDoDia = useMemo(() => {
@@ -175,8 +210,14 @@ export default function Agenda() {
     <>
       <div className="page-title">Agenda</div>
       <div className="page-sub">
-        {consultas === undefined ? 'Carregando…' :
-          `${futuras.length} consulta${futuras.length === 1 ? '' : 's'} agendada${futuras.length === 1 ? '' : 's'}`}
+        {consultas === undefined ? 'Carregando…' : (
+          <>
+            {`${futuras.length} consulta${futuras.length === 1 ? '' : 's'} agendada${futuras.length === 1 ? '' : 's'}`}
+            {aConfirmar > 0 && (
+              <span style={{ color: 'var(--orange)' }}> · {aConfirmar} a confirmar</span>
+            )}
+          </>
+        )}
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 14 }}>
@@ -235,7 +276,8 @@ export default function Agenda() {
       ) : (
         <div className="card" style={{ padding: 0 }}>
           {consultasDoDia.map((c, i) => (
-            <ConsultaRow key={c.id} c={c} isLast={i === consultasDoDia.length - 1} onClick={() => abrirEdit(c)} />
+            <ConsultaRow key={c.id} c={c} isLast={i === consultasDoDia.length - 1} onClick={() => abrirEdit(c)}
+              onToggleConfirmada={toggleConfirmada} />
           ))}
         </div>
       )}
@@ -259,7 +301,8 @@ export default function Agenda() {
               <div className="section-label" style={{ marginTop: 20 }}>Todas as próximas</div>
               <div className="card" style={{ padding: 0 }}>
                 {futuras.map((c, i) => (
-                  <ConsultaRow key={c.id} c={c} isLast={i === futuras.length - 1} onClick={() => abrirEdit(c)} />
+                  <ConsultaRow key={c.id} c={c} isLast={i === futuras.length - 1} onClick={() => abrirEdit(c)}
+                    onToggleConfirmada={toggleConfirmada} />
                 ))}
               </div>
             </>
@@ -301,6 +344,7 @@ export default function Agenda() {
           nutriId={user.id}
           onClose={fechar}
           onSaved={async () => { fechar(); await carregar(); }}
+          onToggleConfirmada={toggleConfirmada}
         />
       )}
     </>
@@ -648,14 +692,23 @@ function Legenda({ cor, label }) {
 /* ============================================================
    LINHA DE CONSULTA
    ============================================================ */
-function ConsultaRow({ c, isLast, isPast, isCanceled, onClick }) {
+function ConsultaRow({ c, isLast, isPast, isCanceled, onClick, onToggleConfirmada }) {
   const cor = tipoColor(c.tipo);
   const emBreve = !isPast && !isCanceled && consultaEmBreve(c.data_hora);
   const link = linkCall(c);
+  const confirmavel = podeConfirmar(c) && typeof onToggleConfirmada === 'function';
+  const confirmada = !!c.confirmada_em;
 
   function abrirCall(e) {
     e.stopPropagation();
     if (link) window.open(link, '_blank', 'noopener');
+  }
+
+  // stopPropagation obrigatório: o wrapper da linha tem onClick que abre o
+  // modal — sem isso, cada marcação abriria o modal por cima.
+  function alternarConfirmada(e) {
+    e.stopPropagation();
+    onToggleConfirmada(c.id, !confirmada);
   }
 
   return (
@@ -665,6 +718,9 @@ function ConsultaRow({ c, isLast, isPast, isCanceled, onClick }) {
         display: 'flex', alignItems: 'center', gap: 12,
         padding: '12px 16px',
         borderBottom: isLast ? 'none' : '0.5px solid #f5f0e8',
+        // Faixa laranja à esquerda = falta confirmar. Transparente nos outros
+        // casos para o conteúdo não deslocar 3px entre linhas.
+        borderLeft: `3px solid ${confirmavel && !confirmada ? 'var(--orange)' : 'transparent'}`,
         cursor: 'pointer', transition: 'background .15s',
       }}
       onMouseEnter={e => e.currentTarget.style.background = '#faf8f5'}
@@ -686,6 +742,26 @@ function ConsultaRow({ c, isLast, isPast, isCanceled, onClick }) {
           {isPast && c.status === 'agendada' && ' · sem status'}
           {c.status === 'realizada' && ' · ✓ realizada'}
         </div>
+        {confirmavel && (
+          <button
+            onClick={alternarConfirmada}
+            title={confirmada
+              ? 'Confirmada — toque para desmarcar'
+              : 'Marcar como confirmada (a paciente avisou pelo WhatsApp)'}
+            style={{
+              marginTop: 6, minHeight: 30, padding: '0 11px',
+              borderRadius: 20, cursor: 'pointer',
+              fontFamily: 'var(--font-sans)', fontSize: 11.5, fontWeight: 500,
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              background: confirmada ? '#dcfce7' : 'var(--orange-bg)',
+              color:      confirmada ? '#15803d' : 'var(--orange)',
+              border: `1px solid ${confirmada ? '#bbf7d0' : 'var(--orange)'}`,
+            }}>
+            {confirmada
+              ? <><i className="ti ti-check" aria-hidden="true" /> Confirmada</>
+              : 'Marcar confirmada'}
+          </button>
+        )}
       </div>
 
       {emBreve && link && (
@@ -720,7 +796,7 @@ function ConsultaRow({ c, isLast, isPast, isCanceled, onClick }) {
 /* ============================================================
    MODAL CONSULTA
    ============================================================ */
-function ConsultaModal({ consulta, pacientes, nutriId, onClose, onSaved }) {
+function ConsultaModal({ consulta, pacientes, nutriId, onClose, onSaved, onToggleConfirmada }) {
   const isEdit = !!consulta;
 
   const initial = consulta
@@ -747,6 +823,7 @@ function ConsultaModal({ consulta, pacientes, nutriId, onClose, onSaved }) {
   const [meetLink, setMeetLink] = useState(initial.meetLink);
   const [linksExtras, setLinksExtras] = useState(initial.linksExtras);
   const [lembreteAtivo, setLembreteAtivo] = useState(consulta?.lembrete_ativo ?? true);
+  const [confirmada, setConfirmada] = useState(!!consulta?.confirmada_em);
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState(null);
   const [copiado, setCopiado] = useState(false);
@@ -940,6 +1017,24 @@ function ConsultaModal({ consulta, pacientes, nutriId, onClose, onSaved }) {
             onChange={e => setLembreteAtivo(e.target.checked)} />
           Enviar lembrete 24h antes (via WhatsApp)
         </label>
+
+        {/* Confirmação: grava na hora, por UPDATE próprio — NÃO entra no payload
+            do salvar(), que sobrescreveria a coluna com um state velho. */}
+        {isEdit && podeConfirmar({ ...consulta, status }) && (
+          <>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, fontSize: 13, cursor: 'pointer' }}>
+              <input type="checkbox" checked={confirmada}
+                onChange={e => {
+                  setConfirmada(e.target.checked);
+                  onToggleConfirmada?.(consulta.id, e.target.checked);
+                }} />
+              Presença confirmada pela paciente
+            </label>
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4, lineHeight: 1.5 }}>
+              Salva na hora, sem precisar clicar em salvar. Reagendar limpa a confirmação.
+            </div>
+          </>
+        )}
 
         <label className="form-lbl">Link da call (opcional)</label>
         <input type="url" value={meetLink} onChange={e => setMeetLink(e.target.value)}
