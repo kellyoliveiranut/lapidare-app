@@ -5,6 +5,29 @@ import { useSession } from '../../lib/session.jsx';
 import { iniciais, textoDias } from '../../lib/utils.js';
 import ImportarCsv from './_ImportarCsv.jsx';
 
+// Seções da lista, na ordem em que aparecem na tela.
+const SECOES_PLANO = [
+  { id: 'avulsa',  titulo: 'Avulsa' },
+  { id: 'onco',    titulo: 'Essentia · Oncologia' },
+  { id: 'emagrec', titulo: 'Essentia · Emagrecimento' },
+];
+
+// Particionamento EXAUSTIVO: todo caminho devolve uma das três chaves, então a
+// soma das seções é sempre igual à lista filtrada e ninguém some da tela.
+//
+// "não-avulsa = essentia" é o mesmo critério do gate em PacienteLayout.jsx:87
+// (`!== 'avulsa'` → plano completo), então plano nulo ou inesperado cai em
+// Essentia em vez de desaparecer. Mesma coisa para o objetivo: só
+// 'Emagrecimento' exato é emagrecimento, igual a Inicio.jsx e PacienteLayout.
+//
+// O trim/toLowerCase do plano acompanha o gate: hoje o banco está limpo
+// (essentia/avulsa minúsculo), mas um CSV importado com 'Avulsa' cairia
+// silenciosamente em Oncologia sem isso.
+function secaoDaPaciente(p) {
+  if ((p.tipo_plano ?? '').trim().toLowerCase() === 'avulsa') return 'avulsa';
+  return (p.objetivo ?? '').trim() === 'Emagrecimento' ? 'emagrec' : 'onco';
+}
+
 export default function Pacientes() {
   const navigate = useNavigate();
   const { user } = useSession();
@@ -85,6 +108,15 @@ export default function Pacientes() {
       p.nome?.toLowerCase().includes(q) || p.email?.toLowerCase().includes(q)
     );
   }, [pacientes, busca, filtroStatus]);
+
+  // Agrupa DEPOIS de filtrar/ordenar: as seções refletem o que está na tela
+  // (busca e aba de status já aplicadas) e a ordem interna vem de graça —
+  // alfabética na aba Ativas, created_at desc nas outras, exatamente como hoje.
+  const porSecao = useMemo(() => {
+    const m = { avulsa: [], onco: [], emagrec: [] };
+    for (const p of filtradas) m[secaoDaPaciente(p)].push(p);
+    return m;
+  }, [filtradas]);
 
   return (
     <>
@@ -247,15 +279,41 @@ export default function Pacientes() {
           <div className="empty-sub">Nenhuma paciente encontrada para "{busca}".</div>
         </div>
       ) : (
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-          gap: 14,
-        }}>
-          {filtradas.map(p => (
-            <PacienteCard key={p.id} paciente={p} enviado={!p.user_id && enviadoEmails.has((p.email ?? '').trim().toLowerCase())} onNavigate={navigate} onReativar={reativar} />
-          ))}
-        </div>
+        SECOES_PLANO.map(secao => {
+          const doGrupo = porSecao[secao.id];
+          // Seção vazia não vira bloco: com busca ativa, três "nenhuma
+          // paciente" seriam só ruído. O caso "tudo vazio" já é tratado acima,
+          // pelo empty state de filtradas.length === 0.
+          if (doGrupo.length === 0) return null;
+          return (
+            <section key={secao.id} style={{ marginBottom: 26 }}>
+              <div style={{
+                display: 'flex', alignItems: 'baseline', gap: 8,
+                marginBottom: 10, paddingBottom: 6,
+                borderBottom: '0.5px solid var(--border)',
+              }}>
+                <h2 style={{
+                  margin: 0, fontFamily: 'var(--font-serif)', fontSize: 16,
+                  fontWeight: 500, color: 'var(--dark)', lineHeight: 1.2,
+                }}>
+                  {secao.titulo}
+                </h2>
+                <span style={{ fontSize: 12, color: 'var(--text3)' }}>
+                  ({doGrupo.length})
+                </span>
+              </div>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+                gap: 14,
+              }}>
+                {doGrupo.map(p => (
+                  <PacienteCard key={p.id} paciente={p} enviado={!p.user_id && enviadoEmails.has((p.email ?? '').trim().toLowerCase())} onNavigate={navigate} onReativar={reativar} />
+                ))}
+              </div>
+            </section>
+          );
+        })
       )}
     </>
   );
