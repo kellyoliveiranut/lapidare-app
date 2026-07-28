@@ -2450,3 +2450,143 @@ create trigger trg_protege_acesso_pausado
     or old.acesso_pausado_em is distinct from new.acesso_pausado_em
   )
   execute function public.protege_acesso_pausado();
+
+
+-- =============================================================
+-- 25. TELEFONE NORMALIZADO E LOGIN POR TELEFONE
+-- =============================================================
+-- Telefone é digitado à mão em vários caminhos e chega em formatos diferentes.
+-- A coluna normalizada guarda a forma canônica 55DDD9XXXXXXXX e é ela que o
+-- índice cobre — é assim que o login por telefone acha a paciente sem varrer a
+-- tabela. Nono dígito só entra em número de 10 dígitos cujo primeiro dígito é
+-- 8 ou 9; fixo continua com 10; entrada desconhecida volta só com os dígitos.
+-- resolver_email_por_telefone é a em uso (login-telefone.js, service key);
+-- buscar_email_por_telefone é a anterior, sem referência no repo.
+alter table public.pacientes add column if not exists telefone_normalizado text;
+create index if not exists pacientes_telefone_normalizado_idx
+  on public.pacientes using btree (telefone_normalizado);
+
+create or replace function public.normalizar_telefone(p_tel text)
+returns text
+language plpgsql
+immutable
+as $function$
+declare
+  d   text;
+  nac text;
+  res text;
+begin
+  if p_tel is null then return null; end if;
+  d := regexp_replace(p_tel, '\D', '', 'g');
+  if d = '' then return null; end if;
+  if length(d) in (12,13) and left(d,2) = '55' then
+    nac := substr(d, 3);
+  elsif length(d) in (10,11) then
+    nac := d;
+  else
+    return d;
+  end if;
+  if length(nac) = 11 then
+    res := nac;
+  else
+    if substr(nac, 3, 1) in ('8','9') then
+      res := substr(nac,1,2) || '9' || substr(nac,3);
+    else
+      res := nac;
+    end if;
+  end if;
+  return '55' || res;
+end;
+$function$;
+
+create or replace function public.sync_telefone_normalizado()
+returns trigger
+language plpgsql
+as $function$
+begin
+  new.telefone_normalizado := public.normalizar_telefone(new.telefone);
+  return new;
+end; $function$;
+
+drop trigger if exists trg_sync_telefone_normalizado on public.pacientes;
+create trigger trg_sync_telefone_normalizado
+  before insert or update of telefone on public.pacientes
+  for each row
+  execute function public.sync_telefone_normalizado();
+
+create or replace function public.buscar_email_por_telefone(p_telefone text)
+returns text
+language plpgsql
+security definer
+set search_path to 'public'
+as $function$
+DECLARE
+  v_in    text;
+  v_email text;
+BEGIN
+  v_in := regexp_replace(COALESCE(p_telefone, ''), '\D', '', 'g');
+  IF length(v_in) > 11 AND left(v_in, 2) = '55' THEN
+    v_in := substring(v_in from 3);
+  END IF;
+  IF length(v_in) < 10 THEN
+    RETURN NULL;
+  END IF;
+  SELECT p.email INTO v_email
+  FROM pacientes p
+  WHERE CASE
+          WHEN length(regexp_replace(COALESCE(p.telefone,''), '\D','','g')) > 11
+           AND left(regexp_replace(COALESCE(p.telefone,''), '\D','','g'), 2) = '55'
+          THEN substring(regexp_replace(COALESCE(p.telefone,''), '\D','','g') from 3)
+          ELSE regexp_replace(COALESCE(p.telefone,''), '\D','','g')
+        END = v_in
+  LIMIT 1;
+  RETURN v_email;
+END;
+$function$;
+
+create or replace function public.resolver_email_por_telefone(p_telefone text)
+returns text
+language plpgsql
+stable security definer
+set search_path to ''
+as $function$
+declare v_norm text := public.normalizar_telefone(p_telefone); v_email text;
+begin
+  if v_norm is null or length(v_norm) < 12 then return null; end if;
+  select u.email into v_email
+  from public.pacientes p
+  join auth.users u on u.id = p.user_id
+  where p.telefone_normalizado = v_norm
+  limit 1;
+  return v_email;
+end; $function$;
+
+
+-- =============================================================
+-- 26. ENVIO DE FÓRMULA PARA A FARMÁCIA
+-- =============================================================
+-- Histórico dos envios, gravado só APÓS o envio ser confirmado pela function
+-- (netlify/functions/enviar-farmacia.js, via Brevo) — não é fila nem rascunho.
+-- farmacia_email é copiada na linha de propósito: nutris.farmacia_email é a
+-- config atual e muda; a coluna aqui congela para onde AQUELE envio foi.
+-- CASCADE nos dois FKs: o histórico não sobrevive à paciente nem à nutri.
+create table if not exists public.envios_farmacia (
+  id             uuid primary key default gen_random_uuid(),
+  paciente_id    uuid not null references public.pacientes(id) on delete cascade,
+  nutri_id       uuid not null references public.nutris(id) on delete cascade,
+  farmacia_email text not null,
+  formula        text not null,
+  enviado_em     timestamptz not null default now()
+);
+create index if not exists envios_farmacia_paciente_idx
+  on public.envios_farmacia using btree (paciente_id, enviado_em desc);
+
+alter table public.nutris add column if not exists farmacia_email text;
+alter table public.nutris add column if not exists farmacia_nome  text;
+
+alter table public.envios_farmacia enable row level security;
+drop policy if exists envios_farmacia_nutri on public.envios_farmacia;
+create policy envios_farmacia_nutri on public.envios_farmacia
+  for all
+  using (nutri_id = auth.uid())
+  with check (nutri_id = auth.uid());
