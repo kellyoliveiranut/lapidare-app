@@ -2460,8 +2460,15 @@ create trigger trg_protege_acesso_pausado
 -- índice cobre — é assim que o login por telefone acha a paciente sem varrer a
 -- tabela. Nono dígito só entra em número de 10 dígitos cujo primeiro dígito é
 -- 8 ou 9; fixo continua com 10; entrada desconhecida volta só com os dígitos.
--- resolver_email_por_telefone é a em uso (login-telefone.js, service key);
--- buscar_email_por_telefone é a anterior, sem referência no repo.
+-- resolver_email_por_telefone resolve telefone -> e-mail e é chamada só pela
+-- Netlify function login-telefone.js, com service key (anon não executa).
+--
+-- HISTÓRICO, para ninguém recriar: existiu uma buscar_email_por_telefone, a
+-- primeira versão do login por telefone, chamada direto do front com a chave
+-- anon. Foi substituída em 15/07 (commit 170e492) e dropada do banco em
+-- 28/07 — era código morto E tinha EXECUTE aberto para anon, o que permitia
+-- testar telefones e descobrir e-mails de pacientes pelo PostgREST.
+-- Ver supabase/migrations/2026-07-28_drop_buscar_email_por_telefone.sql.
 alter table public.pacientes add column if not exists telefone_normalizado text;
 create index if not exists pacientes_telefone_normalizado_idx
   on public.pacientes using btree (telefone_normalizado);
@@ -2513,36 +2520,6 @@ create trigger trg_sync_telefone_normalizado
   before insert or update of telefone on public.pacientes
   for each row
   execute function public.sync_telefone_normalizado();
-
-create or replace function public.buscar_email_por_telefone(p_telefone text)
-returns text
-language plpgsql
-security definer
-set search_path to 'public'
-as $function$
-DECLARE
-  v_in    text;
-  v_email text;
-BEGIN
-  v_in := regexp_replace(COALESCE(p_telefone, ''), '\D', '', 'g');
-  IF length(v_in) > 11 AND left(v_in, 2) = '55' THEN
-    v_in := substring(v_in from 3);
-  END IF;
-  IF length(v_in) < 10 THEN
-    RETURN NULL;
-  END IF;
-  SELECT p.email INTO v_email
-  FROM pacientes p
-  WHERE CASE
-          WHEN length(regexp_replace(COALESCE(p.telefone,''), '\D','','g')) > 11
-           AND left(regexp_replace(COALESCE(p.telefone,''), '\D','','g'), 2) = '55'
-          THEN substring(regexp_replace(COALESCE(p.telefone,''), '\D','','g') from 3)
-          ELSE regexp_replace(COALESCE(p.telefone,''), '\D','','g')
-        END = v_in
-  LIMIT 1;
-  RETURN v_email;
-END;
-$function$;
 
 create or replace function public.resolver_email_por_telefone(p_telefone text)
 returns text

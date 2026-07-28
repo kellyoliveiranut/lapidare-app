@@ -1,0 +1,57 @@
+-- =============================================================
+-- Migration 2026-07-29
+-- Remove public.buscar_email_por_telefone(text)
+-- =============================================================
+-- APLICADA NO SUPABASE EM 2026-07-28. O nome do arquivo diz 29 só por ORDEM:
+-- 2026-07-28_telefone_normalizado.sql ainda contém o `create or replace` desta
+-- função (era o estado do banco quando aquele arquivo foi escrito). Com os dois
+-- datados de 28, o drop ordenaria ANTES do create e um banco reconstruído
+-- replicando as migrations recriaria a função — trazendo de volta o código
+-- morto e a exposição. Datar 29 garante que o drop venha por último.
+--
+-- Diferente das outras migrations de 28/07, esta NÃO é documentação retroativa:
+-- ela alterou a produção.
+--
+-- MOTIVO 1 — CÓDIGO MORTO: era a primeira implementação do login por telefone
+-- (commit d68f432), chamada direto do front com a chave anon. O commit 170e492,
+-- de 15/07 — "login por telefone via Netlify Function segura (rate-limit,
+-- anti-enumeração)" — removeu essa chamada e a substituiu por
+-- resolver_email_por_telefone, executada server-side com service key. A função
+-- velha ficou para trás. Verificado por grep no repo inteiro em 2026-07-28:
+-- zero call sites.
+--
+-- MOTIVO 2 — PRIVACIDADE: has_function_privilege('anon', ...) devolvia true.
+-- Como é SECURITY DEFINER e recebe telefone devolvendo e-mail, qualquer um com
+-- a chave anon (que vai no bundle do front) podia chamá-la pelo PostgREST, sem
+-- passar pela Netlify function nem pelo rate-limit, e testar números para
+-- descobrir quais são de paciente e qual o e-mail. A resolver_email_por_telefone
+-- já estava com anon false — a antiga é que tinha ficado aberta.
+--
+-- POR QUE DROPAR E NÃO SÓ REVOGAR: revogar resolveria o motivo 2 e deixaria o 1
+-- de pé. Dropar fecha os dois de uma vez.
+--
+-- NÃO AFETA: resolver_email_por_telefone (a que está em uso), normalizar_telefone,
+-- sync_telefone_normalizado e o trigger trg_sync_telefone_normalizado.
+--
+-- SUPERSEDE o bloco 4 de 2026-07-28_telefone_normalizado.sql, que documenta a
+-- função como "mantida porque existe no banco" — deixou de valer no mesmo dia.
+-- Aquele arquivo ficou como está, por ser registro histórico; o setup.sql é que
+-- foi atualizado, e é ele o caminho de recriação do banco do zero.
+-- =============================================================
+
+-- Assinatura completa de propósito: garante que é esta função e não uma
+-- sobrecarga homônima. RESTRICT (padrão, implícito) faz o Postgres recusar o
+-- drop se algo depender dela — rede de segurança. NÃO trocar por CASCADE: erro
+-- de dependência aqui significa que algo usa a função e a decisão precisa ser
+-- revista, não forçada.
+drop function if exists public.buscar_email_por_telefone(text);
+
+
+-- =============================================================
+-- Conferência (rodada em 2026-07-28: sobrou só resolver_email_por_telefone,
+-- e o login por telefone seguiu entrando normalmente)
+--   select p.proname, p.prosecdef as security_definer
+--     from pg_proc p
+--     join pg_namespace n on n.oid = p.pronamespace
+--    where n.nspname = 'public' and p.proname like '%email_por_telefone%';
+-- =============================================================
