@@ -2396,3 +2396,18 @@ create trigger consultas_limpa_confirmacao_tg
   before update of data_hora on public.consultas
   for each row
   execute function public.consultas_limpa_confirmacao();
+
+
+-- =============================================================
+-- 23. AGENDA: MODALIDADE DA CONSULTA (online / presencial)
+-- =============================================================
+-- Por consulta, não por paciente: pacientes.modalidade descreve o acordo
+-- ('Online' | 'Presencial' | 'Híbrido'), esta coluna diz como cada encontro
+-- acontece de fato. Só dois valores — 'Híbrido' não faz sentido numa consulta
+-- específica; o front normaliza ao sugerir (Híbrido/vazio → 'online').
+-- Minúsculo igual a consultas.tipo e consultas.status; o CHECK trava a caixa.
+-- RLS: nada a mudar, consultas_write_nutri já cobre (for all, nutri_id).
+alter table public.consultas add column if not exists modalidade text not null default 'online';
+alter table public.consultas drop constraint if exists consultas_modalidade_check;
+alter table public.consultas add constraint consultas_modalidade_check
+  check (modalidade in ('online', 'presencial'));

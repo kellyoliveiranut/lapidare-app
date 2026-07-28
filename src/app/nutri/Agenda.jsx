@@ -44,6 +44,25 @@ function tipoColor(tipo) {
   return 'var(--green)';
 }
 
+// Modalidade da consulta. O banco só aceita 'online' | 'presencial'
+// (check consultas_modalidade_check). Híbrido não existe aqui — segue só em
+// pacientes.modalidade, no perfil da paciente.
+const MODALIDADES_CONSULTA = [
+  { value: 'online',     label: 'Online',     icone: 'ti-video'   },
+  { value: 'presencial', label: 'Presencial', icone: 'ti-map-pin' },
+];
+
+function modalidadeInfo(modalidade) {
+  return MODALIDADES_CONSULTA.find(m => m.value === modalidade) ?? MODALIDADES_CONSULTA[0];
+}
+
+// pacientes.modalidade é capitalizada ('Online'/'Presencial'/'Híbrido') e a
+// coluna da consulta é minúscula. Só 'presencial' é herdado: Híbrido, vazio e
+// qualquer valor inesperado caem em 'online', o default do banco.
+function modalidadeDaPaciente(modalidade) {
+  return (modalidade ?? '').trim().toLowerCase() === 'presencial' ? 'presencial' : 'online';
+}
+
 // Confirmação de presença só faz sentido para consulta futura, agendada e com
 // data marcada — em realizada/cancelada/passada/"a definir" o estado é ruído.
 // Fonte única da verdade: usada tanto no contador do topo quanto na linha.
@@ -84,7 +103,7 @@ export default function Agenda() {
     const { data } = await supabase
       .from('consultas')
       .select(`
-        id, data_hora, duracao_min, tipo, status, obs, meet_link, links_extras,
+        id, data_hora, duracao_min, tipo, status, modalidade, obs, meet_link, links_extras,
         lembrete_ativo, lembrete_enviado,
         confirmada_em, confirmada_por,
         paciente:pacientes(id, nome)
@@ -97,7 +116,7 @@ export default function Agenda() {
   async function carregarPacientes() {
     if (!user) return;
     const { data } = await supabase
-      .from('pacientes').select('id, nome')
+      .from('pacientes').select('id, nome, modalidade')
       .eq('nutri_id', user.id).order('nome');
     setPacientes(data ?? []);
   }
@@ -698,6 +717,7 @@ function ConsultaRow({ c, isLast, isPast, isCanceled, onClick, onToggleConfirmad
   const link = linkCall(c);
   const confirmavel = podeConfirmar(c) && typeof onToggleConfirmada === 'function';
   const confirmada = !!c.confirmada_em;
+  const mod = modalidadeInfo(c.modalidade);
 
   function abrirCall(e) {
     e.stopPropagation();
@@ -737,10 +757,23 @@ function ConsultaRow({ c, isLast, isPast, isCanceled, onClick, onToggleConfirmad
         <div style={{ fontSize: 14, fontWeight: 500, textDecoration: isCanceled ? 'line-through' : 'none' }}>
           {c.paciente?.nome ?? '—'}
         </div>
-        <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>
-          {c.data_hora ? dataConsultaBR(c.data_hora) : 'A definir'} · {c.duracao_min}min
-          {isPast && c.status === 'agendada' && ' · sem status'}
-          {c.status === 'realizada' && ' · ✓ realizada'}
+        <div style={{
+          fontSize: 12, color: 'var(--text3)', marginTop: 2,
+          display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap',
+        }}>
+          <span>
+            {c.data_hora ? dataConsultaBR(c.data_hora) : 'A definir'} · {c.duracao_min}min
+            {isPast && c.status === 'agendada' && ' · sem status'}
+            {c.status === 'realizada' && ' · ✓ realizada'}
+          </span>
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: 3,
+            padding: '1px 7px', borderRadius: 20, whiteSpace: 'nowrap',
+            background: 'var(--bg2)', color: 'var(--text2)',
+            fontSize: 11, fontWeight: 500,
+          }}>
+            <i className={`ti ${mod.icone}`} aria-hidden="true" style={{ fontSize: 12 }} /> {mod.label}
+          </span>
         </div>
         {confirmavel && (
           <button
@@ -806,18 +839,20 @@ function ConsultaModal({ consulta, pacientes, nutriId, onClose, onSaved, onToggl
         hora: consulta.data_hora ? new Date(consulta.data_hora).toTimeString().slice(0, 5) : HORARIO_CONSULTA_PADRAO,
         duracao: consulta.duracao_min ?? 45,
         tipo: consulta.tipo ?? 'primeira',
+        modalidade: consulta.modalidade ?? 'online',
         status: consulta.status ?? 'agendada',
         obs: consulta.obs ?? '',
         meetLink: consulta.meet_link ?? '',
         linksExtras: Array.isArray(consulta.links_extras) ? consulta.links_extras : [],
       }
-    : { pacienteId: pacientes[0]?.id ?? '', data: '', hora: HORARIO_CONSULTA_PADRAO, duracao: 45, tipo: 'primeira', status: 'agendada', obs: '', meetLink: '', linksExtras: [] };
+    : { pacienteId: pacientes[0]?.id ?? '', data: '', hora: HORARIO_CONSULTA_PADRAO, duracao: 45, tipo: 'primeira', modalidade: modalidadeDaPaciente(pacientes[0]?.modalidade), status: 'agendada', obs: '', meetLink: '', linksExtras: [] };
 
   const [pacienteId, setPacienteId] = useState(initial.pacienteId);
   const [data, setData] = useState(initial.data);
   const [hora, setHora] = useState(initial.hora);
   const [duracao, setDuracao] = useState(initial.duracao);
   const [tipo, setTipo] = useState(initial.tipo);
+  const [modalidade, setModalidade] = useState(initial.modalidade);
   const [status, setStatus] = useState(initial.status);
   const [obs, setObs] = useState(initial.obs);
   const [meetLink, setMeetLink] = useState(initial.meetLink);
@@ -858,6 +893,16 @@ function ConsultaModal({ consulta, pacientes, nutriId, onClose, onSaved, onToggl
     return () => { active = false; };
   }, [pacienteId, isEdit]);
 
+  // Troca de paciente no dropdown: além do id, re-sugere a modalidade a partir
+  // do perfil dela. Só ao CRIAR — em edição o select fica desabilitado e o que
+  // vale é o que já está salvo na consulta. A primeira sugestão vem do initial.
+  function trocarPaciente(novoId) {
+    setPacienteId(novoId);
+    if (isEdit) return;
+    const p = pacientes.find(x => x.id === novoId);
+    setModalidade(modalidadeDaPaciente(p?.modalidade));
+  }
+
   // Link efetivo da call (custom se preenchido, senão Jitsi auto-gerado)
   const consultaIdEfetiva = consulta?.id ?? null;
   const linkEfetivo = meetLink.trim()
@@ -871,7 +916,7 @@ function ConsultaModal({ consulta, pacientes, nutriId, onClose, onSaved, onToggl
     dataHoraInicio: dataHoraIso,
     duracaoMin: Number(duracao),
     descricao: `Link da call: ${linkEfetivo}\n\n${obs || ''}`.trim(),
-    local: 'Online',
+    local: modalidadeInfo(modalidade).label,
   }) : null;
 
   async function salvar() {
@@ -896,6 +941,7 @@ function ConsultaModal({ consulta, pacientes, nutriId, onClose, onSaved, onToggl
         data_hora: dataHora,
         duracao_min: Number(duracao),
         tipo,
+        modalidade,
         status,
         obs: obs.trim() || null,
         meet_link: meetLink.trim() || null,
@@ -970,7 +1016,7 @@ function ConsultaModal({ consulta, pacientes, nutriId, onClose, onSaved, onToggl
         </div>
 
         <label className="form-lbl">Paciente</label>
-        <select value={pacienteId} onChange={e => setPacienteId(e.target.value)} disabled={isEdit}>
+        <select value={pacienteId} onChange={e => trocarPaciente(e.target.value)} disabled={isEdit}>
           {pacientes.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
         </select>
 
@@ -1001,6 +1047,28 @@ function ConsultaModal({ consulta, pacientes, nutriId, onClose, onSaved, onToggl
               <option value="90">90 min</option>
             </select>
           </div>
+        </div>
+
+        <label className="form-lbl">Modalidade</label>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {MODALIDADES_CONSULTA.map(m => {
+            const ativa = modalidade === m.value;
+            return (
+              <button key={m.value} type="button" onClick={() => setModalidade(m.value)}
+                aria-pressed={ativa}
+                style={{
+                  flex: 1, minHeight: 38, borderRadius: 8, cursor: 'pointer',
+                  fontFamily: 'var(--font-sans)', fontSize: 13,
+                  fontWeight: ativa ? 600 : 400,
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                  background: ativa ? 'var(--green)' : 'var(--white)',
+                  color:      ativa ? 'var(--white)' : 'var(--text2)',
+                  border: `1px solid ${ativa ? 'var(--green)' : 'var(--border)'}`,
+                }}>
+                <i className={`ti ${m.icone}`} aria-hidden="true" /> {m.label}
+              </button>
+            );
+          })}
         </div>
 
         {isEdit && (
