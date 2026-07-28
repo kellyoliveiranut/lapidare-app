@@ -55,7 +55,7 @@ export default function Ebooks() {
         .select('*')
         .in('id', ids)
         .not('tag', 'in', '("manipulados","suplementacao","formulacoes")')
-        .order('created_at', { ascending: false });
+        .order('titulo');
       const lista = data ?? [];
       ebooksRef.current = lista;
       setEbooks(lista);

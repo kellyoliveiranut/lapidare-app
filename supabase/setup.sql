@@ -2411,3 +2411,42 @@ alter table public.consultas add column if not exists modalidade text not null d
 alter table public.consultas drop constraint if exists consultas_modalidade_check;
 alter table public.consultas add constraint consultas_modalidade_check
   check (modalidade in ('online', 'presencial'));
+
+
+-- =============================================================
+-- 24. PAUSA DE ACESSO DA PACIENTE
+-- =============================================================
+-- pacientes_update permite `id = auth.uid()`, então a paciente pode dar UPDATE
+-- na própria linha e RLS não restringe coluna no PostgREST. O trigger é a única
+-- coisa que impede ela de despausar o próprio acesso pela API — o bloqueio de
+-- tela (PacienteBloqueio.jsx) é só visual.
+-- acesso_pausado_em é derivada: o trigger recalcula sempre a partir do boolean,
+-- então o app manda só o flag. Com auth.uid() null (service_role, SQL Editor) o
+-- guard é pulado de propósito, senão manutenção pelo painel ficaria impossível.
+alter table public.pacientes add column if not exists acesso_pausado boolean not null default false;
+alter table public.pacientes add column if not exists acesso_pausado_em timestamptz;
+
+create or replace function public.protege_acesso_pausado()
+returns trigger
+language plpgsql
+set search_path to 'public'
+as $function$
+begin
+  if auth.uid() is not null and auth.uid() is distinct from old.nutri_id then
+    raise exception 'Somente a nutricionista responsável pode alterar o acesso desta paciente.'
+      using errcode = '42501';
+  end if;
+  new.acesso_pausado_em := case when new.acesso_pausado then now() else null end;
+  return new;
+end;
+$function$;
+
+drop trigger if exists trg_protege_acesso_pausado on public.pacientes;
+create trigger trg_protege_acesso_pausado
+  before update on public.pacientes
+  for each row
+  when (
+    old.acesso_pausado    is distinct from new.acesso_pausado
+    or old.acesso_pausado_em is distinct from new.acesso_pausado_em
+  )
+  execute function public.protege_acesso_pausado();

@@ -53,7 +53,7 @@ export default function Suplementos() {
         .select('*')
         .in('id', ids)
         .in('tag', ['manipulados', 'suplementacao'])
-        .order('created_at', { ascending: false });
+        .order('titulo');
       if (!signal.cancelled) setBiblioItems(bib ?? []);
     } else {
       if (!signal.cancelled) setBiblioItems([]);
