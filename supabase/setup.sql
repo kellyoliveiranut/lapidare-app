@@ -2577,10 +2577,14 @@ alter table public.pacientes add column if not exists telefone_normalizado text;
 create index if not exists pacientes_telefone_normalizado_idx
   on public.pacientes using btree (telefone_normalizado);
 
+-- search_path fixo: a função é chamada de dentro da
+-- resolver_email_por_telefone, que roda com search_path vazio. Só usa
+-- built-ins de pg_catalog, que segue no caminho mesmo com search_path ''.
 create or replace function public.normalizar_telefone(p_tel text)
 returns text
 language plpgsql
 immutable
+set search_path = ''
 as $function$
 declare
   d   text;
@@ -2610,9 +2614,12 @@ begin
 end;
 $function$;
 
+-- search_path fixo: chama public.normalizar_telefone() já qualificado, e o
+-- resto é atribuição em new.
 create or replace function public.sync_telefone_normalizado()
 returns trigger
 language plpgsql
+set search_path = ''
 as $function$
 begin
   new.telefone_normalizado := public.normalizar_telefone(new.telefone);
