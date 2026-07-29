@@ -4,13 +4,21 @@ import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { brl, dataBR, iniciais, statusParcela, TZ_CLINICA } from '../../lib/utils.js';
 
-// Nº esperado de consultas por tipo de plano (para alertar planos chegando ao fim)
+// Nº esperado de consultas por tipo de plano (para alertar planos chegando ao fim).
+// Só entra aqui plano com pacote fechado: 'avulsa' fica de fora de propósito —
+// é atendimento único, não tem fim de pacote pra renovar.
+// A chave é comparada com o tipo_plano normalizado (trim + minúsculo).
 const CONSULTAS_POR_PLANO = {
-  trimestral:     6,
-  semestral:      12,
-  consultoria:    1,
-  // 'acompanhamento' = contínuo, sem alerta de fim
+  essentia: 6,
 };
+
+// Consultas que contam pro pacote: 'primeira' e 'consulta_2'…'consulta_12'
+// (ver TIPO_OPCOES em Agenda.jsx). 'avaliacao', 'retorno' e 'avulsa' são
+// atendimentos fora do pacote e não avançam o plano.
+const RE_CONSULTA_PACOTE = /^consulta_\d+$/;
+function ehConsultaDoPacote(tipo) {
+  return tipo === 'primeira' || RE_CONSULTA_PACOTE.test(tipo ?? '');
+}
 
 const STORAGE_OCULTAR_META = 'lapidare:ocultarMeta';
 
@@ -58,7 +66,7 @@ export default function Visao() {
 
       const [
         pacRes, agSemanaRes, parcRes, checkRes,
-        parcelasMesRes, allConsultasRes, nutriRes,
+        parcelasMesRes, realizadasRes, nutriRes,
         msgRes, feedRes, supRes, supLogRes,
       ] = await Promise.all([
         // pacientes ativas (com nascimento pra aniversário)
@@ -81,9 +89,9 @@ export default function Visao() {
         supabase.from('parcelas').select('valor, data_pgto')
           .eq('nutri_id', user.id).eq('status', 'pago')
           .gte('data_pgto', inicioMes).lte('data_pgto', fimMes),
-        // todas as consultas não canceladas (para contar por paciente)
-        supabase.from('consultas').select('paciente_id, status')
-          .eq('nutri_id', user.id).neq('status', 'cancelada'),
+        // consultas já realizadas (para medir o avanço do pacote de cada paciente)
+        supabase.from('consultas').select('paciente_id, tipo')
+          .eq('nutri_id', user.id).eq('status', 'realizada'),
         // perfil da nutri (meta_mensal)
         supabase.from('nutris').select('meta_mensal').eq('id', user.id).maybeSingle(),
         // mensagens das pacientes (últimos 30 dias) — pra detectar quem sumiu
@@ -116,20 +124,25 @@ export default function Visao() {
       const meta = nutriRes.data?.meta_mensal ?? null;
       setMetaMensal(meta);
 
-      // Planos chegando ao fim
+      // Planos chegando ao fim — conta só as consultas do pacote já realizadas.
+      // A nutri agenda o pacote de 6 inteiro de uma vez e vai marcando como
+      // 'realizada'; contar as agendadas daria 6 pra todo mundo no dia 1.
       const contagem = {};
-      for (const c of allConsultasRes.data ?? []) {
+      for (const c of realizadasRes.data ?? []) {
+        if (!ehConsultaDoPacote(c.tipo)) continue;
         contagem[c.paciente_id] = (contagem[c.paciente_id] ?? 0) + 1;
       }
       const terminando = (pacRes.data ?? [])
         .map(p => {
-          const esperado = CONSULTAS_POR_PLANO[p.tipo_plano];
+          // normaliza a caixa: CSV importado pode trazer 'Essentia' capitalizado
+          const plano = (p.tipo_plano ?? '').trim().toLowerCase();
+          const esperado = CONSULTAS_POR_PLANO[plano];
           if (!esperado) return null;
           const feitas = contagem[p.id] ?? 0;
           const restam = esperado - feitas;
           if (restam > 2) return null;  // só alerta quando faltam 2 ou menos
           return {
-            id: p.id, nome: p.nome, tipo_plano: p.tipo_plano,
+            id: p.id, nome: p.nome, tipo_plano: plano,
             feitas, esperado, restam,
             vencido: restam <= 0,
           };
@@ -413,7 +426,7 @@ export default function Visao() {
           itens={planosTerminando.slice(0, 3).map(p => ({
             label: p.nome,
             sub: p.vencido
-              ? `Plano ${p.tipo_plano} vencido (${p.feitas}/${p.esperado})`
+              ? `Plano ${p.tipo_plano.charAt(0).toUpperCase() + p.tipo_plano.slice(1)} vencido (${p.feitas}/${p.esperado})`
               : `${p.feitas}/${p.esperado} consultas · faltam ${p.restam}`,
           }))}
           onClick={() => navigate('/nutri/pacientes')}
