@@ -2298,8 +2298,35 @@ create policy fpc_insert_nutri on public.feed_pratos_comentarios
     and paciente_id in (select id from public.pacientes where nutri_id = auth.uid())
   );
 
+-- Nutri edita o próprio comentário. USING = quais linhas ela pode editar;
+-- WITH CHECK = como a linha pode ficar depois. Juntos impedem que o update
+-- vire autor = 'paciente' ou mova o comentário pra paciente de outra nutri.
+drop policy if exists fpc_update_nutri on public.feed_pratos_comentarios;
+create policy fpc_update_nutri on public.feed_pratos_comentarios
+  for update
+  using (
+    autor = 'nutri'
+    and paciente_id in (select id from public.pacientes where nutri_id = auth.uid())
+  )
+  with check (
+    autor = 'nutri'
+    and paciente_id in (select id from public.pacientes where nutri_id = auth.uid())
+  );
+
+-- Nutri apaga o próprio comentário (mesma regra de posse).
+-- O comentário da paciente segue imutável, de propósito.
+drop policy if exists fpc_delete_nutri on public.feed_pratos_comentarios;
+create policy fpc_delete_nutri on public.feed_pratos_comentarios
+  for delete
+  using (
+    autor = 'nutri'
+    and paciente_id in (select id from public.pacientes where nutri_id = auth.uid())
+  );
+
 grant select, insert, delete on public.feed_pratos_comentarios
   to anon, authenticated, service_role;
+-- update sem 'anon' de propósito: as policies exigem auth.uid()
+grant update on public.feed_pratos_comentarios to authenticated, service_role;
 
 
 -- =============================================================

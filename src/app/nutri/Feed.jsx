@@ -32,6 +32,8 @@ export default function FeedNutri() {
   const [filtro, setFiltro] = useState('todas');
   const [comentarioEdit, setComentarioEdit] = useState({}); // {postId: text}
   const [salvando, setSalvando] = useState({});
+  const [edicao, setEdicao] = useState({});                 // {comentarioId: text}
+  const [salvandoEdicao, setSalvandoEdicao] = useState({});
 
   async function carregar() {
     if (!user) return;
@@ -88,6 +90,35 @@ export default function FeedNutri() {
         body: JSON.stringify({ mode: 'notify_paciente', paciente_id: post.paciente.id, kind: 'comentario_prato' }),
       }).catch(() => {});
     });
+    carregar();
+  }
+
+  // Editar e apagar valem só pro comentário da própria nutri: as policies
+  // fpc_update_nutri / fpc_delete_nutri recusam o resto no banco, e os
+  // botões só aparecem em c.autor === 'nutri'.
+  async function salvarEdicao(comentario) {
+    const texto = (edicao[comentario.id] ?? '').trim();
+    if (!texto) return;
+    setSalvandoEdicao(s => ({ ...s, [comentario.id]: true }));
+    const { error } = await supabase.from('feed_pratos_comentarios')
+      .update({ texto })
+      .eq('id', comentario.id);
+    setSalvandoEdicao(s => ({ ...s, [comentario.id]: false }));
+    if (error) { alert('Erro ao editar comentário: ' + error.message); return; }
+    setEdicao(e => {
+      const novo = { ...e };
+      delete novo[comentario.id];
+      return novo;
+    });
+    carregar();
+  }
+
+  async function apagarComentario(comentario) {
+    if (!window.confirm('Apagar este comentário? A paciente deixa de vê-lo.')) return;
+    const { error } = await supabase.from('feed_pratos_comentarios')
+      .delete()
+      .eq('id', comentario.id);
+    if (error) { alert('Erro ao apagar comentário: ' + error.message); return; }
     carregar();
   }
 
@@ -195,22 +226,75 @@ export default function FeedNutri() {
                   borderTop: '0.5px solid #f5f0e8',
                   background: '#faf8f5',
                 }}>
-                  {comentariosOrdenados(p).map(c => (
-                    <div key={c.id} style={{
-                      background: 'var(--white)',
-                      borderLeft: `2px solid ${c.autor === 'nutri' ? 'var(--amber)' : 'var(--blue, #1a5a8c)'}`,
-                      borderRadius: 6, padding: '8px 10px', marginBottom: 8,
-                      fontSize: 13, lineHeight: 1.5, color: 'var(--text2)',
-                    }}>
-                      <div style={{
-                        fontSize: 11, fontWeight: 600, marginBottom: 3, letterSpacing: '.5px',
-                        color: c.autor === 'nutri' ? 'var(--amber)' : 'var(--blue, #1a5a8c)',
+                  {comentariosOrdenados(p).map(c => {
+                    const editandoEste = edicao[c.id] !== undefined;
+                    return (
+                      <div key={c.id} style={{
+                        background: 'var(--white)',
+                        borderLeft: `2px solid ${c.autor === 'nutri' ? 'var(--amber)' : 'var(--blue, #1a5a8c)'}`,
+                        borderRadius: 6, padding: '8px 10px', marginBottom: 8,
+                        fontSize: 13, lineHeight: 1.5, color: 'var(--text2)',
                       }}>
-                        {c.autor === 'nutri' ? 'VOCÊ' : (p.paciente?.nome?.split(' ')[0] ?? 'Paciente').toUpperCase()}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 3 }}>
+                          <div style={{
+                            flex: 1, fontSize: 11, fontWeight: 600, letterSpacing: '.5px',
+                            color: c.autor === 'nutri' ? 'var(--amber)' : 'var(--blue, #1a5a8c)',
+                          }}>
+                            {c.autor === 'nutri' ? 'VOCÊ' : (p.paciente?.nome?.split(' ')[0] ?? 'Paciente').toUpperCase()}
+                          </div>
+                          {c.autor === 'nutri' && !editandoEste && (
+                            <>
+                              <button onClick={() => setEdicao(e => ({ ...e, [c.id]: c.texto }))}
+                                title="Editar comentário" aria-label="Editar comentário"
+                                style={{
+                                  background: 'none', border: 'none', padding: 2,
+                                  color: 'var(--text3)', cursor: 'pointer', fontSize: 14, lineHeight: 1,
+                                }}>
+                                <i className="ti ti-pencil" aria-hidden="true"></i>
+                              </button>
+                              <button onClick={() => apagarComentario(c)}
+                                title="Apagar comentário" aria-label="Apagar comentário"
+                                style={{
+                                  background: 'none', border: 'none', padding: 2,
+                                  color: 'var(--red)', cursor: 'pointer', fontSize: 14, lineHeight: 1,
+                                }}>
+                                <i className="ti ti-trash" aria-hidden="true"></i>
+                              </button>
+                            </>
+                          )}
+                        </div>
+
+                        {editandoEste ? (
+                          <>
+                            <textarea
+                              rows={3}
+                              autoFocus
+                              value={edicao[c.id] ?? ''}
+                              onChange={ev => setEdicao(e => ({ ...e, [c.id]: ev.target.value }))}
+                              style={{
+                                width: '100%', padding: '8px 10px', fontSize: 13,
+                                border: '0.5px solid var(--border)',
+                                borderRadius: 6, outline: 'none',
+                                fontFamily: 'var(--font-sans)', resize: 'vertical',
+                                boxSizing: 'border-box',
+                              }} />
+                            <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                              <button onClick={() => setEdicao(e => { const n = { ...e }; delete n[c.id]; return n; })}
+                                className="btn-outline" style={{ flex: 1, fontSize: 12, padding: '5px 10px' }}>
+                                Cancelar
+                              </button>
+                              <button onClick={() => salvarEdicao(c)}
+                                disabled={salvandoEdicao[c.id]}
+                                className="btn" style={{ flex: 1, fontSize: 12, padding: '5px 10px' }}>
+                                <i className="ti ti-check" aria-hidden="true"></i>
+                                {salvandoEdicao[c.id] ? '...' : 'Salvar'}
+                              </button>
+                            </div>
+                          </>
+                        ) : c.texto}
                       </div>
-                      {c.texto}
-                    </div>
-                  ))}
+                    );
+                  })}
 
                   {!emEdicao ? (
                     <button
