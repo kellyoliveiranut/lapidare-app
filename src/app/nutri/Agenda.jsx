@@ -203,6 +203,29 @@ export default function Agenda() {
     return () => clearInterval(intervalo);
   }, [user]);
 
+  // Realtime: a paciente confirma pelo app e o chip vira verde sem F5.
+  // Aplica só as duas colunas de confirmação no state, em vez de chamar
+  // carregar() — que refaz a lista e faz o calendário piscar (mesma razão do
+  // toggleConfirmada). Espalhar payload.new inteiro apagaria o join
+  // `paciente:pacientes(...)`, que o realtime não traz.
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel(`agenda-consultas-${user.id}`)
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'consultas',
+        filter: `nutri_id=eq.${user.id}`,
+      }, payload => {
+        const nova = payload.new;
+        if (!nova?.id) return;
+        setConsultas(prev => (prev ?? []).map(c => c.id === nova.id
+          ? { ...c, confirmada_em: nova.confirmada_em, confirmada_por: nova.confirmada_por }
+          : c));
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user]);
+
   const agora = new Date().toISOString();
   const ativas = (consultas ?? []).filter(c => c.status !== 'cancelada');
   const futuras = ativas.filter(c => c.data_hora && c.data_hora >= agora);

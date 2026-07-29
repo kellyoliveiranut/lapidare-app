@@ -592,6 +592,9 @@ create policy pacientes_pendentes_all_nutri on public.pacientes_pendentes
   for all using (nutri_id = auth.uid()) with check (nutri_id = auth.uid());
 
 -- 4.11 consultas (nutri gerencia; paciente vê só as próprias) ------
+-- Versão inicial (dois ramos). A definitiva, com o ramo user_id, é recriada
+-- na seção 16.8 — minha_paciente_id() só existe a partir da 16.6, e o
+-- CREATE POLICY resolve a função na hora, não no primeiro select.
 drop policy if exists consultas_select on public.consultas;
 create policy consultas_select on public.consultas
   for select using (paciente_id = auth.uid() or nutri_id = auth.uid());
@@ -1932,6 +1935,18 @@ create policy pacientes_update_self on public.pacientes for update
   using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 -- 16.8 Atualizar políticas das tabelas filho (paciente_id = auth.uid() → usa minha_paciente_id())
+
+-- consultas mantém os TRÊS ramos: o `paciente_id = auth.uid()` original cobre
+-- as pacientes antigas (id = uuid do auth) e o ramo novo cobre as de cadastro
+-- manual, cujo vínculo com o auth vive em user_id. Sem o ramo do meio, quem foi
+-- criada pela nutri não enxerga nenhuma consulta própria.
+drop policy if exists consultas_select on public.consultas;
+create policy consultas_select on public.consultas for select using (
+  paciente_id = auth.uid()
+  or paciente_id = public.minha_paciente_id()
+  or nutri_id = auth.uid()
+);
+
 drop policy if exists planos_select on public.planos;
 create policy planos_select on public.planos for select using (
   paciente_id = public.minha_paciente_id() or nutri_id = auth.uid()
@@ -2423,6 +2438,68 @@ create trigger consultas_limpa_confirmacao_tg
   before update of data_hora on public.consultas
   for each row
   execute function public.consultas_limpa_confirmacao();
+
+-- Etapa 2: a PACIENTE confirma pelo app. Ela NÃO ganha UPDATE em consultas —
+-- RLS no PostgREST não restringe coluna, então com UPDATE na tabela ela
+-- poderia mandar data_hora, status e meet_link no mesmo payload. Esta função
+-- é o único caminho de escrita dela: o SET tem duas colunas, com valores
+-- calculados no servidor, e a posse é checada contra o auth.uid().
+create or replace function public.confirmar_consulta(p_consulta_id uuid)
+returns timestamptz
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_paciente_id uuid;
+  v_confirmada  timestamptz;
+begin
+  -- user_id = auth.uid() → cadastro normal, e manual depois de vinculado
+  -- id      = auth.uid() → pacientes antigas, anteriores à coluna user_id
+  select p.id into v_paciente_id
+  from public.pacientes p
+  where p.user_id = auth.uid() or p.id = auth.uid()
+  limit 1;
+
+  if v_paciente_id is null then
+    raise exception 'Paciente não encontrada para o usuário atual'
+      using errcode = '42501';
+  end if;
+
+  -- Mesma regra do podeConfirmar() da Agenda: futura, agendada, com data.
+  update public.consultas c
+     set confirmada_em  = now(),
+         confirmada_por = 'paciente'
+   where c.id           = p_consulta_id
+     and c.paciente_id  = v_paciente_id
+     and c.status       = 'agendada'
+     and c.data_hora is not null
+     and c.data_hora   >= now()
+     and c.confirmada_em is null     -- não reescreve carimbo já existente
+  returning c.confirmada_em into v_confirmada;
+
+  if v_confirmada is null then
+    -- Não é dela, não está confirmável, ou já estava confirmada. Só o
+    -- último é benigno: devolve o carimbo e deixa o clique repetido ser
+    -- inofensivo.
+    select c.confirmada_em into v_confirmada
+    from public.consultas c
+    where c.id = p_consulta_id and c.paciente_id = v_paciente_id;
+
+    if v_confirmada is null then
+      raise exception 'Consulta não encontrada ou não pode ser confirmada'
+        using errcode = '42501';
+    end if;
+  end if;
+
+  return v_confirmada;
+end;
+$$;
+
+-- O Postgres concede execute a `public` por padrão em função nova, então o
+-- revoke tem que vir antes do grant.
+revoke all on function public.confirmar_consulta(uuid) from public, anon;
+grant execute on function public.confirmar_consulta(uuid) to authenticated;
 
 
 -- =============================================================

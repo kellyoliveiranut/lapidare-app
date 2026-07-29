@@ -26,6 +26,40 @@ function labelTipo(tipo) {
   return m ? `Consulta ${m[1]}` : tipo;
 }
 
+// Botão/selo de confirmação de presença. `escuro` = card verde do "hoje",
+// que precisa de contraste invertido. Sem estado próprio: quem confirma é
+// a Inicio, que segura a consulta.
+function ConfirmarPresenca({ confirmada, escuro, ocupado, onConfirmar }) {
+  if (confirmada) {
+    return (
+      <div style={{
+        display: 'inline-flex', alignItems: 'center', gap: 5,
+        padding: '6px 12px', borderRadius: 10, fontSize: 11, fontWeight: 500,
+        background: escuro ? 'rgba(255,255,255,.15)' : 'rgba(58,122,70,.10)',
+        color:      escuro ? '#fff' : 'var(--green, #3a7a46)',
+        border: `0.5px solid ${escuro ? 'rgba(255,255,255,.3)' : 'rgba(58,122,70,.35)'}`,
+      }}>
+        <i className="ti ti-check" style={{ fontSize: 13 }} aria-hidden="true" />
+        Presença confirmada
+      </div>
+    );
+  }
+  return (
+    <button onClick={onConfirmar} disabled={ocupado}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 5,
+        padding: '6px 12px', borderRadius: 10, cursor: 'pointer',
+        fontFamily: 'var(--font-sans)', fontSize: 11, fontWeight: 600,
+        background: escuro ? '#fff' : 'var(--green, #3a7a46)',
+        color:      escuro ? 'var(--green, #3a7a46)' : '#fff',
+        border: 'none',
+      }}>
+      <i className="ti ti-circle-check" style={{ fontSize: 13 }} aria-hidden="true" />
+      {ocupado ? 'Confirmando…' : 'Confirmar presença'}
+    </button>
+  );
+}
+
 
 export default function Inicio() {
   const tema = useTheme();
@@ -37,6 +71,8 @@ export default function Inicio() {
   const [dietaPdf, setDietaPdf] = useState(null);
   const [compras, setCompras] = useState(null);
   const [proximaConsulta, setProximaConsulta] = useState(null);
+  const [confirmando, setConfirmando] = useState(false);
+  const [erroConfirmar, setErroConfirmar] = useState(null);
   const [checkinPendente, setCheckinPendente] = useState(null);
   const [habitos, setHabitos] = useState([]);
   const [habitosLogs, setHabitosLogs] = useState({});  // { habito_id: valor } — hoje
@@ -57,7 +93,7 @@ export default function Inicio() {
           .eq('paciente_id', pacienteId).eq('tipo', 'dieta').order('created_at', { ascending: false }).limit(1).maybeSingle(),
         supabase.from('listas_compras').select('dados, publicado_em')
           .eq('paciente_id', pacienteId).order('publicado_em', { ascending: false }).limit(1).maybeSingle(),
-        supabase.from('consultas').select('id, data_hora, tipo, duracao_min, meet_link, links_extras')
+        supabase.from('consultas').select('id, data_hora, tipo, duracao_min, meet_link, links_extras, confirmada_em')
           .eq('paciente_id', pacienteId).eq('status', 'agendada')
           .gte('data_hora', agora).order('data_hora', { ascending: true }).limit(1).maybeSingle(),
         supabase.from('checkin_envios').select('id, enviado_em, lembrete_enviado_em, nome, tipo')
@@ -147,6 +183,36 @@ export default function Inicio() {
 
     return () => { active = false; };
   }, [profile?.nutri_id, profile?.objetivo]);
+
+  // Confirmação de presença. A paciente NÃO tem UPDATE em consultas — vai
+  // pela RPC security definer confirmar_consulta, que só toca
+  // confirmada_em/confirmada_por e checa que a consulta é dela.
+  async function confirmarPresenca() {
+    if (!proximaConsulta || confirmando) return;
+    setConfirmando(true);
+    setErroConfirmar(null);
+    const { data, error } = await supabase.rpc('confirmar_consulta', {
+      p_consulta_id: proximaConsulta.id,
+    });
+    setConfirmando(false);
+    if (error) {
+      setErroConfirmar('Não consegui confirmar agora. Tente de novo.');
+      setTimeout(() => setErroConfirmar(null), 4000);
+      return;
+    }
+    // A RPC devolve o carimbo — atualiza local, sem refazer a query.
+    setProximaConsulta(c => (c ? { ...c, confirmada_em: data } : c));
+    // Avisa a nutri (fire-and-forget — nunca bloqueia a UI)
+    supabase.auth.getSession().then(({ data: s }) => {
+      const accessToken = s.session?.access_token;
+      if (!accessToken) return;
+      fetch('/.netlify/functions/send-push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ mode: 'notify_nutri', kind: 'consulta_confirmada' }),
+      }).catch(() => {});
+    });
+  }
 
   // ─── Derivados básicos ────────────────────────────────────────────────────
   const proximaRef = plano?.refeicoes?.find(r => !r.feita) ?? plano?.refeicoes?.[0] ?? null;
@@ -326,10 +392,17 @@ export default function Inicio() {
           <div className="serif" style={{ fontSize: 22, lineHeight: 1.1, marginBottom: 4, color: 'var(--ink)' }}>
             {textoDias(proximaConsulta.data_hora)}
           </div>
-          <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: gcalUrl || (Array.isArray(proximaConsulta.links_extras) && proximaConsulta.links_extras.length > 0) ? 10 : 0 }}>
+          {/* A linha de ações agora sempre tem conteúdo (botão ou selo de
+              confirmação), então o respiro deixa de ser condicional. */}
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 10 }}>
             {labelTipo(proximaConsulta.tipo)} · {dataConsultaBR(proximaConsulta.data_hora)} · {nutriNome}
           </div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <ConfirmarPresenca
+              confirmada={!!proximaConsulta.confirmada_em}
+              escuro={false}
+              ocupado={confirmando}
+              onConfirmar={confirmarPresenca} />
             {gcalUrl && (
               <a href={gcalUrl} target="_blank" rel="noreferrer"
                 onClick={e => e.stopPropagation()}
@@ -357,6 +430,9 @@ export default function Inicio() {
               </a>
             ))}
           </div>
+          {erroConfirmar && (
+            <div style={{ marginTop: 8, fontSize: 11, color: 'var(--red)' }}>{erroConfirmar}</div>
+          )}
         </div>
       )}
 
@@ -364,8 +440,6 @@ export default function Inicio() {
       {proximaConsulta && dentroJanelaBanner && (() => {
         const eHoje = dias === 0;
         const hora  = horaConsultaBR(proximaConsulta.data_hora);
-        const temLinks = gcalUrl ||
-          (Array.isArray(proximaConsulta.links_extras) && proximaConsulta.links_extras.length > 0);
         return (
           <div style={{
             margin: '0 0 12px',
@@ -376,7 +450,7 @@ export default function Inicio() {
             borderRadius: 14,
             padding: '18px',
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: temLinks ? 14 : 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 14 }}>
               <div style={{
                 width: 56, height: 56, borderRadius: 14, flexShrink: 0,
                 background: eHoje ? 'rgba(255,255,255,.15)' : 'rgba(196,168,130,.25)',
@@ -405,35 +479,45 @@ export default function Inicio() {
                 </div>
               </div>
             </div>
-            {temLinks && (
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {gcalUrl && (
-                  <a href={gcalUrl} target="_blank" rel="noreferrer"
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 5,
-                      background: eHoje ? 'rgba(255,255,255,.15)' : 'transparent',
-                      color: eHoje ? '#fff' : 'var(--muted)',
-                      border: eHoje ? '0.5px solid rgba(255,255,255,.3)' : '0.5px solid var(--hair)',
-                      padding: '6px 12px', borderRadius: 10, fontSize: 11, fontWeight: 500, textDecoration: 'none',
-                    }}>
-                    <i className="ti ti-calendar-plus" style={{ fontSize: 13 }} aria-hidden="true" />
-                    Adicionar à agenda
-                  </a>
-                )}
-                {Array.isArray(proximaConsulta.links_extras) && proximaConsulta.links_extras.map((link, i) => (
-                  <a key={i} href={link.url} target="_blank" rel="noreferrer"
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 5,
-                      background: 'transparent',
-                      color: eHoje ? '#fff' : 'var(--gold-deep)',
-                      border: eHoje ? '0.5px solid rgba(255,255,255,.4)' : '0.5px solid var(--gold)',
-                      padding: '5px 10px', borderRadius: 10, fontSize: 11, fontWeight: 500, textDecoration: 'none',
-                    }}>
-                    <i className="ti ti-external-link" style={{ fontSize: 12 }} aria-hidden="true" />
-                    {link.label || 'Link'}
-                  </a>
-                ))}
-              </div>
+            {/* Sempre renderiza: mesmo sem links, tem o botão/selo de confirmação */}
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              <ConfirmarPresenca
+                confirmada={!!proximaConsulta.confirmada_em}
+                escuro={eHoje}
+                ocupado={confirmando}
+                onConfirmar={confirmarPresenca} />
+              {gcalUrl && (
+                <a href={gcalUrl} target="_blank" rel="noreferrer"
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 5,
+                    background: eHoje ? 'rgba(255,255,255,.15)' : 'transparent',
+                    color: eHoje ? '#fff' : 'var(--muted)',
+                    border: eHoje ? '0.5px solid rgba(255,255,255,.3)' : '0.5px solid var(--hair)',
+                    padding: '6px 12px', borderRadius: 10, fontSize: 11, fontWeight: 500, textDecoration: 'none',
+                  }}>
+                  <i className="ti ti-calendar-plus" style={{ fontSize: 13 }} aria-hidden="true" />
+                  Adicionar à agenda
+                </a>
+              )}
+              {Array.isArray(proximaConsulta.links_extras) && proximaConsulta.links_extras.map((link, i) => (
+                <a key={i} href={link.url} target="_blank" rel="noreferrer"
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 5,
+                    background: 'transparent',
+                    color: eHoje ? '#fff' : 'var(--gold-deep)',
+                    border: eHoje ? '0.5px solid rgba(255,255,255,.4)' : '0.5px solid var(--gold)',
+                    padding: '5px 10px', borderRadius: 10, fontSize: 11, fontWeight: 500, textDecoration: 'none',
+                  }}>
+                  <i className="ti ti-external-link" style={{ fontSize: 12 }} aria-hidden="true" />
+                  {link.label || 'Link'}
+                </a>
+              ))}
+            </div>
+            {erroConfirmar && (
+              <div style={{
+                marginTop: 8, fontSize: 11,
+                color: eHoje ? 'rgba(255,255,255,.9)' : 'var(--red)',
+              }}>{erroConfirmar}</div>
             )}
           </div>
         );

@@ -369,13 +369,19 @@ export default function PacienteLayout() {
 
       {/* Banner de lembrete de consulta — fixo entre header e body, sem scroll */}
       {mostrarBanner && (
-        <div style={{
+        <div
+          onClick={() => navigate('/paciente/inicio')}
+          role="button"
+          tabIndex={0}
+          onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') navigate('/paciente/inicio'); }}
+          title="Ver a consulta e confirmar presença"
+          style={{
           padding: '9px max(16px, env(safe-area-inset-right)) 9px max(16px, env(safe-area-inset-left))',
           background: 'var(--paper)',
           borderBottom: '0.5px solid var(--hair)',
           borderLeft: '3px solid var(--green, #3a7a46)',
           display: 'flex', alignItems: 'center', gap: 10,
-          flexShrink: 0,
+          flexShrink: 0, cursor: 'pointer',
         }}>
           <span style={{ fontSize: 15, lineHeight: 1, flexShrink: 0 }}>📅</span>
           <div style={{ minWidth: 0 }}>
