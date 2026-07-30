@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
-import { iniciais } from '../../lib/utils.js';
+import { iniciais, dataLocalISO } from '../../lib/utils.js';
 import { comprimirImagem, getAnexoUrl } from '../../lib/imagem.js';
 
 function fmtHora(iso) {
@@ -19,6 +19,40 @@ function fmtDataCurta(iso) {
   if (sameDay(d, hoje)) return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   if (sameDay(d, ontem)) return 'ontem';
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+}
+
+const MESES_MINUSCULO = [
+  'janeiro', 'fevereiro', 'marÃ§o', 'abril', 'maio', 'junho',
+  'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro',
+];
+
+/**
+ * Chave "YYYY-MM-DD" do dia LOCAL de um timestamp â€” mesma base do fmtHora,
+ * pra separador e hora nunca discordarem na mesma tela.
+ */
+function diaLocal(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+const ESTILO_SEPARADOR = {
+  alignSelf: 'center', fontSize: 10, color: 'var(--text3)',
+  marginBottom: 8, letterSpacing: '.03em',
+};
+
+/** "Hoje" / "Ontem" / "12 de julho" (mesmo ano) / "12/07/2025" (ano anterior) */
+function rotuloDia(dia) {
+  if (!dia) return '';
+  if (dia === dataLocalISO(0)) return 'Hoje';
+  if (dia === dataLocalISO(-1)) return 'Ontem';
+  const [ano, mes, d] = dia.split('-');
+  if (Number(ano) === new Date().getFullYear()) {
+    return `${Number(d)} de ${MESES_MINUSCULO[Number(mes) - 1]}`;
+  }
+  return `${d}/${mes}/${ano}`;
 }
 
 export default function ChatNutri() {
@@ -360,47 +394,54 @@ function ConversaPanel({ paciente, nutriId, onAfterAction }) {
             Nenhuma mensagem ainda. Envie a primeira.
           </div>
         ) : (
-          msgs.map(m => {
+          msgs.map((m, i) => {
             const minha = m.de === 'nutri';
+            const dia = diaLocal(m.created_at);
+            const novoDia = i === 0 || dia !== diaLocal(msgs[i - 1].created_at);
             return (
-              <div key={m.id} style={{
-                alignSelf: minha ? 'flex-end' : 'flex-start',
-                background: minha ? 'var(--dark)' : 'var(--white)',
-                color: minha ? 'var(--white)' : 'var(--dark)',
-                border: minha ? 'none' : '0.5px solid var(--border)',
-                padding: '8px 12px',
-                borderRadius: 14,
-                borderBottomRightRadius: minha ? 3 : 14,
-                borderBottomLeftRadius: minha ? 14 : 3,
-                marginBottom: 6,
-                maxWidth: '75%', fontSize: 14, lineHeight: 1.4,
-                wordWrap: 'break-word',
-              }}>
-                {m.imagem_path && (
-                  urls[m.imagem_path] ? (
-                    <img src={urls[m.imagem_path]} alt="Foto"
-                      loading="lazy" decoding="async"
-                      onClick={() => window.open(urls[m.imagem_path], '_blank', 'noopener')}
-                      style={{
-                        maxWidth: '100%', borderRadius: 8, display: 'block',
-                        marginBottom: m.texto ? 6 : 0, cursor: 'pointer',
-                      }} />
-                  ) : (
-                    <div style={{
-                      width: 180, height: 140, borderRadius: 8,
-                      background: 'rgba(0,0,0,.06)', marginBottom: m.texto ? 6 : 0,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}>
-                      <i className="ti ti-photo" style={{ fontSize: 24, opacity: .5 }} aria-hidden="true"></i>
-                    </div>
-                  )
+              <Fragment key={m.id}>
+                {novoDia && (
+                  <div style={{ ...ESTILO_SEPARADOR, marginTop: i === 0 ? 2 : 12 }}>{rotuloDia(dia)}</div>
                 )}
-                {m.texto}
-                <div style={{ fontSize: 11, opacity: .55, marginTop: 3, textAlign: 'right' }}>
-                  {fmtHora(m.created_at)}
-                  {minha && m.lida && ' ✓✓'}
+                <div style={{
+                  alignSelf: minha ? 'flex-end' : 'flex-start',
+                  background: minha ? 'var(--dark)' : 'var(--white)',
+                  color: minha ? 'var(--white)' : 'var(--dark)',
+                  border: minha ? 'none' : '0.5px solid var(--border)',
+                  padding: '8px 12px',
+                  borderRadius: 14,
+                  borderBottomRightRadius: minha ? 3 : 14,
+                  borderBottomLeftRadius: minha ? 14 : 3,
+                  marginBottom: 6,
+                  maxWidth: '75%', fontSize: 14, lineHeight: 1.4,
+                  wordWrap: 'break-word',
+                }}>
+                  {m.imagem_path && (
+                    urls[m.imagem_path] ? (
+                      <img src={urls[m.imagem_path]} alt="Foto"
+                        loading="lazy" decoding="async"
+                        onClick={() => window.open(urls[m.imagem_path], '_blank', 'noopener')}
+                        style={{
+                          maxWidth: '100%', borderRadius: 8, display: 'block',
+                          marginBottom: m.texto ? 6 : 0, cursor: 'pointer',
+                        }} />
+                    ) : (
+                      <div style={{
+                        width: 180, height: 140, borderRadius: 8,
+                        background: 'rgba(0,0,0,.06)', marginBottom: m.texto ? 6 : 0,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        <i className="ti ti-photo" style={{ fontSize: 24, opacity: .5 }} aria-hidden="true"></i>
+                      </div>
+                    )
+                  )}
+                  {m.texto}
+                  <div style={{ fontSize: 11, opacity: .55, marginTop: 3, textAlign: 'right' }}>
+                    {fmtHora(m.created_at)}
+                    {minha && m.lida && ' ✓✓'}
+                  </div>
                 </div>
-              </div>
+              </Fragment>
             );
           })
         )}

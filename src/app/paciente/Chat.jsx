@@ -1,14 +1,49 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { useTheme } from '../../lib/theme.jsx';
-import { iniciais } from '../../lib/utils.js';
+import { iniciais, dataLocalISO } from '../../lib/utils.js';
 import { comprimirImagem, getAnexoUrl } from '../../lib/imagem.js';
 
 function fmtHora(iso) {
   if (!iso) return '';
   const d = new Date(iso);
   return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
+
+const MESES_MINUSCULO = [
+  'janeiro', 'fevereiro', 'marÃ§o', 'abril', 'maio', 'junho',
+  'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro',
+];
+
+/**
+ * Chave "YYYY-MM-DD" do dia LOCAL de um timestamp â€” mesma base do fmtHora,
+ * pra separador e hora nunca discordarem na mesma tela. NÃ£o usa toISOString():
+ * em fuso negativo a mensagem da noite cairia no dia seguinte.
+ */
+function diaLocal(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+const ESTILO_SEPARADOR = {
+  alignSelf: 'center', fontSize: 10, color: 'var(--muted)',
+  marginBottom: 8, letterSpacing: '.03em',
+};
+
+/** "Hoje" / "Ontem" / "12 de julho" (mesmo ano) / "12/07/2025" (ano anterior) */
+function rotuloDia(dia) {
+  if (!dia) return '';
+  if (dia === dataLocalISO(0)) return 'Hoje';
+  if (dia === dataLocalISO(-1)) return 'Ontem';
+  const [ano, mes, d] = dia.split('-');
+  if (Number(ano) === new Date().getFullYear()) {
+    return `${Number(d)} de ${MESES_MINUSCULO[Number(mes) - 1]}`;
+  }
+  return `${d}/${mes}/${ano}`;
 }
 
 export default function ChatPaciente() {
@@ -39,7 +74,7 @@ export default function ChatPaciente() {
       if (!active) return;
       setMsgs(data ?? []);
 
-      // marca como lidas todas as mensagens da nutri ainda não lidas
+      // marca como lidas todas as mensagens da nutri ainda nÃ£o lidas
       const naoLidas = (data ?? []).filter(m => m.de === 'nutri' && !m.lida).map(m => m.id);
       if (naoLidas.length > 0) {
         await supabase.from('mensagens').update({ lida: true }).in('id', naoLidas);
@@ -67,7 +102,7 @@ export default function ChatPaciente() {
           if (curr.some(x => x.id === m.id)) return curr;
           return [...curr, m];
         });
-        // Se for da nutri, marca como lida imediatamente (paciente está vendo)
+        // Se for da nutri, marca como lida imediatamente (paciente estÃ¡ vendo)
         if (m.de === 'nutri') {
           await supabase.from('mensagens').update({ lida: true }).eq('id', m.id);
         }
@@ -102,7 +137,7 @@ export default function ChatPaciente() {
     const f = e.target.files?.[0];
     if (!f) return;
     if (!f.type.startsWith('image/')) { alert('Selecione uma imagem.'); return; }
-    if (f.size > 20 * 1024 * 1024) { alert('Imagem muito grande (máximo 20MB).'); return; }
+    if (f.size > 20 * 1024 * 1024) { alert('Imagem muito grande (mÃ¡ximo 20MB).'); return; }
     setAnexo(f);
     setAnexoPreview(URL.createObjectURL(f));
   }
@@ -145,7 +180,7 @@ export default function ChatPaciente() {
 
     setText('');
     limparAnexo();
-    // Notifica a nutri via push (fire-and-forget — nunca bloqueia a UI)
+    // Notifica a nutri via push (fire-and-forget â€” nunca bloqueia a UI)
     supabase.auth.getSession().then(({ data }) => {
       const accessToken = data.session?.access_token;
       if (!accessToken) return;
@@ -155,7 +190,7 @@ export default function ChatPaciente() {
         body: JSON.stringify(imagem_path ? { mode: 'notify_nutri', kind: 'mensagem_foto' } : { mode: 'notify_nutri' }),
       }).catch(() => {});
     });
-    // a UI atualiza via realtime — não precisa recarregar
+    // a UI atualiza via realtime â€” nÃ£o precisa recarregar
   }
 
   return (
@@ -176,7 +211,7 @@ export default function ChatPaciente() {
         )}
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 13, fontWeight: 600 }}>{nutriNome}</div>
-          <div style={{ fontSize: 10, color: 'var(--green)' }}>● Disponível por mensagem</div>
+          <div style={{ fontSize: 10, color: 'var(--green)' }}>â— DisponÃ­vel por mensagem</div>
         </div>
       </div>
 
@@ -185,7 +220,7 @@ export default function ChatPaciente() {
         fontSize: 10.5, color: 'var(--muted)', textAlign: 'center',
         padding: '0 10px 8px', lineHeight: 1.4,
       }}>
-        Este espaço é para o acompanhamento nutricional. Em caso de urgência, procure sua equipe médica.
+        Este espaÃ§o Ã© para o acompanhamento nutricional. Em caso de urgÃªncia, procure sua equipe mÃ©dica.
       </div>
 
       {/* Mensagens */}
@@ -196,45 +231,54 @@ export default function ChatPaciente() {
       }}>
         {msgs === undefined ? (
           <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--muted)', fontSize: 12 }}>
-            Carregando…
+            Carregandoâ€¦
           </div>
         ) : msgs.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--muted)', fontSize: 12 }}>
             Envie uma mensagem para {nutriNome}
           </div>
         ) : (
-          msgs.map(m => (
-            <div key={m.id} className={`bubble ${m.de === 'paciente' ? 'me' : 'dr'}`}>
-              {m.imagem_path && (
-                urls[m.imagem_path] ? (
-                  <img src={urls[m.imagem_path]} alt="Foto"
-                    loading="lazy" decoding="async"
-                    onClick={() => window.open(urls[m.imagem_path], '_blank', 'noopener')}
-                    style={{
-                      maxWidth: '100%', borderRadius: 8, display: 'block',
-                      marginBottom: m.texto ? 6 : 0, cursor: 'pointer',
-                    }} />
-                ) : (
-                  <div style={{
-                    width: 180, height: 140, borderRadius: 8,
-                    background: 'rgba(0,0,0,.06)', marginBottom: m.texto ? 6 : 0,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>
-                    <i className="ti ti-photo" style={{ fontSize: 24, opacity: .5 }} aria-hidden="true"></i>
-                  </div>
-                )
-              )}
-              {m.texto}
-              <div className="ts">{fmtHora(m.created_at)}</div>
-            </div>
-          ))
+          msgs.map((m, i) => {
+            const dia = diaLocal(m.created_at);
+            const novoDia = i === 0 || dia !== diaLocal(msgs[i - 1].created_at);
+            return (
+              <Fragment key={m.id}>
+                {novoDia && (
+                  <div style={{ ...ESTILO_SEPARADOR, marginTop: i === 0 ? 2 : 12 }}>{rotuloDia(dia)}</div>
+                )}
+                <div className={`bubble ${m.de === 'paciente' ? 'me' : 'dr'}`}>
+                  {m.imagem_path && (
+                    urls[m.imagem_path] ? (
+                      <img src={urls[m.imagem_path]} alt="Foto"
+                        loading="lazy" decoding="async"
+                        onClick={() => window.open(urls[m.imagem_path], '_blank', 'noopener')}
+                        style={{
+                          maxWidth: '100%', borderRadius: 8, display: 'block',
+                          marginBottom: m.texto ? 6 : 0, cursor: 'pointer',
+                        }} />
+                    ) : (
+                      <div style={{
+                        width: 180, height: 140, borderRadius: 8,
+                        background: 'rgba(0,0,0,.06)', marginBottom: m.texto ? 6 : 0,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        <i className="ti ti-photo" style={{ fontSize: 24, opacity: .5 }} aria-hidden="true"></i>
+                      </div>
+                    )
+                  )}
+                  {m.texto}
+                  <div className="ts">{fmtHora(m.created_at)}</div>
+                </div>
+              </Fragment>
+            );
+          })
         )}
       </div>
 
       {/* Preview do anexo escolhido */}
       {anexoPreview && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 16px 8px' }}>
-          <img src={anexoPreview} alt="prévia" loading="lazy" decoding="async"
+          <img src={anexoPreview} alt="prÃ©via" loading="lazy" decoding="async"
             style={{ width: 52, height: 52, borderRadius: 8, objectFit: 'cover' }} />
           <span style={{ fontSize: 12, color: 'var(--muted)', flex: 1 }}>Foto pronta pra enviar</span>
           <button onClick={limparAnexo} aria-label="Remover foto"
