@@ -284,11 +284,17 @@ export default function PacientePerfil() {
     const tel = normalizarTelefone(paciente.telefone);
     const primeiroNome = paciente.nome?.split(' ')[0] ?? '';
 
+    // Abre a aba AGORA, com o gesto do clique ainda válido. O await abaixo
+    // consome a transient activation e o Safari barra window.open como popup.
+    // Sem 'noopener' de propósito: precisamos de janela.location adiante.
+    const janela = window.open('', '_blank');
+
     let msg;
     if (!paciente.user_id) {
       // Caso A: sem conta — reaproveita a geração do link de convite
       const linkSignup = await gerarLinkConvite();
       if (!linkSignup) {
+        janela?.close();
         alert('Não consegui gerar o link agora, tente novamente.');
         return;
       }
@@ -329,7 +335,9 @@ export default function PacientePerfil() {
         `Instalar assim deixa o app na sua tela como qualquer outro aplicativo — e é o que permite receber os avisos e lembretes direto no celular.`;
     }
 
-    window.open(`https://wa.me/${tel}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
+    const url = `https://wa.me/${tel}?text=${encodeURIComponent(msg)}`;
+    if (janela) janela.location.href = url;
+    else window.open(url, '_blank', 'noopener');
   }
 
   // Pausa/reativa o acesso da paciente. O carimbo acesso_pausado_em é
