@@ -52,11 +52,11 @@ exports.handler = async (event) => {
 
       const primeiroNome = paciente.nome.trim().split(/\s+/)[0];
       const NUTRI_PAYLOADS = {
-        mensagem:       { title: 'Essentia', body: `Nova mensagem de ${primeiroNome}`,       url: '/nutri/chat' },
-        mensagem_foto:  { title: 'Essentia', body: `📷 Nova foto de ${primeiroNome}`,        url: '/nutri/chat' },
-        foto_prato:     { title: 'Essentia', body: `Nova foto do prato de ${primeiroNome}`,  url: '/nutri/feed' },
-        resposta_prato: { title: 'Essentia', body: `Nova resposta de ${primeiroNome} num prato`, url: '/nutri/feed' },
-        consulta_confirmada: { title: 'Essentia', body: `${primeiroNome} confirmou a consulta`, url: '/nutri/agenda' },
+        mensagem:       { title: primeiroNome, body: 'Nova mensagem',            url: '/nutri/chat' },
+        mensagem_foto:  { title: primeiroNome, body: '📷 Nova foto',             url: '/nutri/chat' },
+        foto_prato:     { title: primeiroNome, body: 'Nova foto do prato',       url: '/nutri/feed' },
+        resposta_prato: { title: primeiroNome, body: 'Nova resposta num prato',  url: '/nutri/feed' },
+        consulta_confirmada: { title: primeiroNome, body: 'Confirmou a consulta', url: '/nutri/agenda' },
       };
       const payload = NUTRI_PAYLOADS[body.kind] ?? NUTRI_PAYLOADS.mensagem;
 
