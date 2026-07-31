@@ -145,8 +145,9 @@ export function ThemeProvider({ children }) {
     r.style.setProperty('--bg-soft', mistura(primaria, '#faf7f2', 0.92));
     r.style.setProperty('--bg-deep', mistura(primaria, '#faf7f2', 0.86));
 
-    // Barra do sistema (mobile) acompanha a cor primária personalizada,
-    // em vez do verde fixo do index.html.
+    // Barra do sistema (mobile) acompanha a cor primária personalizada.
+    // O index.html e o manifest trazem a mesma cor fixa, que vale só até
+    // a hidratação (splash e primeiro paint); daqui pra frente manda o tema.
     document.querySelectorAll('meta[name="theme-color"]')
       .forEach(m => m.setAttribute('content', primaria));
 
