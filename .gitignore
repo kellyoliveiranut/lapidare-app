@@ -33,3 +33,6 @@ bep_protocolo.json
 protocolos_54_rascunho.json
 mensagens_arsenal_seed.json
 insert_pacientes_essentia.sql
+
+# Documentos de passagem — trazem nome e dado clínico de paciente
+essentia-passagem-*.md
