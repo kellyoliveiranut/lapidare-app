@@ -43,7 +43,7 @@ exports.handler = async (event) => {
     // Busca todas as pacientes ativas com nascimento e conta (user_id) cadastrados
     const { data: pacientes, error: qErr } = await supabase
       .from('pacientes')
-      .select('id, nome, nascimento, nutri_id, user_id, aniversario_felicitado_em')
+      .select('id, nome, nascimento, nutri_id, user_id, tipo_plano, aniversario_felicitado_em')
       .eq('status_paciente', 'ativo')
       .not('nascimento', 'is', null)
       .not('user_id', 'is', null);
@@ -53,6 +53,17 @@ exports.handler = async (event) => {
     let enviados = 0, sem_inscricao = 0, falhas = 0;
 
     for (const p of pacientes ?? []) {
+      // Plano avulsa não recebe: o Chat fica bloqueado com cadeado, então a
+      // mensagem cairia numa tela que a paciente não consegue abrir — e o push
+      // levaria ela até o redirect com o aviso de bloqueio.
+      //
+      // A normalização é aqui em JS, e não um .neq('tipo_plano', 'avulsa') no
+      // select, porque o PostgREST compara sensível a caixa e a espaço: uma
+      // linha gravada como Avulsa ou com espaço sobrando passaria batido e a
+      // paciente receberia a mensagem. Esta é a mesma regra do gate do front
+      // (PacienteLayout.jsx:87), e as duas precisam concordar.
+      if (p.tipo_plano?.trim().toLowerCase() === 'avulsa') continue;
+
       // Verifica se o dia e mês de nascimento batem com hoje em Belém.
       // 'T12:00:00' evita desvio de dia por fuso — mesmo padrão de Visao.jsx.
       const nasc = new Date(p.nascimento + 'T12:00:00');
