@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import DateInput from '../../components/DateInput.jsx';
@@ -854,6 +855,7 @@ function ConsultaRow({ c, isLast, isPast, isCanceled, onClick, onToggleConfirmad
    ============================================================ */
 function ConsultaModal({ consulta, pacientes, nutriId, onClose, onSaved, onToggleConfirmada }) {
   const isEdit = !!consulta;
+  const navigate = useNavigate();
 
   const initial = consulta
     ? {
@@ -1200,6 +1202,26 @@ function ConsultaModal({ consulta, pacientes, nutriId, onClose, onSaved, onToggl
             <i className="ti ti-check" aria-hidden="true"></i> {busy ? '...' : (isEdit ? 'Salvar alterações' : 'Agendar')}
           </button>
         </div>
+
+        {/* Navegação, não ação — cor neutra pra não competir com os botões
+            semânticos abaixo. Lê de consulta.paciente.id, e não do select:
+            se a nutri trocou a paciente sem salvar, o perfil certo ainda é
+            o da paciente gravada na consulta. */}
+        {isEdit && consulta.paciente?.id && (
+          <button
+            type="button"
+            onClick={() => { onClose(); navigate(`/nutri/pacientes/${consulta.paciente.id}`); }}
+            style={{
+              marginTop: 14, width: '100%', padding: '10px 14px',
+              background: 'transparent', color: 'var(--text2)',
+              border: '0.5px solid var(--border)', borderRadius: 6,
+              fontSize: 13, cursor: 'pointer',
+              fontFamily: 'var(--font-sans)',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            }}>
+            <i className="ti ti-user" aria-hidden="true"></i> Ver perfil da paciente
+          </button>
+        )}
 
         {isEdit && consulta.status === 'agendada' && (
           <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
