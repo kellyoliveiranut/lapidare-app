@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase.js';
-import { dataBR } from '../../lib/utils.js';
+import { dataBR, dataLocalISO } from '../../lib/utils.js';
 import DateInput from '../../components/DateInput.jsx';
 import protocolosEfeitosData from '../../data/protocolos_efeitos.json';
 import { getProtocolo, temEstruturaCiclo, janelaRisco, marcosEfeitoAplicacao, datasAplicacoesCiclo } from '../../lib/protocoloCiclo.js';
@@ -352,8 +352,12 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
   }
 
   // Janela de risco atual
-  const hoje = new Date().toISOString().slice(0, 10);
-  const ultimoCiclo = ciclos[0];
+  const hoje = dataLocalISO();
+  // A nutri pode cadastrar ciclos futuros, então o mais recente da lista não é
+  // necessariamente o último aplicado. Banner e linha do tempo olham só o que
+  // já aconteceu; as tabelas abaixo seguem mostrando a série inteira.
+  const ciclosPassados = ciclos.filter(c => c.data_quimio <= hoje);
+  const ultimoCiclo = ciclosPassados[0];
   const emJanelaRisco = ultimoCiclo &&
     hoje >= addDays(ultimoCiclo.data_quimio, inicioRisco) &&
     hoje <= addDays(ultimoCiclo.data_quimio, fimRisco);
@@ -557,8 +561,8 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
             </div>
           </div>
 
-          {!estruturado && ciclos.length > 0 && (() => {
-            const uc = ciclos[0];
+          {!estruturado && ultimoCiclo && (() => {
+            const uc = ultimoCiclo;
             const marcos = [
               ...timelineBase.map(m => ({
                 d:     addDays(uc.data_quimio, m.dia),
@@ -647,8 +651,8 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
           )}
 
           {/* ── Timeline estruturada (última aplicação) ── */}
-          {estruturado && ciclos.length > 0 && (() => {
-            const ucApp = ciclos[0];
+          {estruturado && ultimoCiclo && (() => {
+            const ucApp = ultimoCiclo;
             const marcos = [
               { d: ucApp.data_quimio, label: `Aplic. ${ucApp.aplicacao_no_ciclo ?? ''}`.trim(), desc: 'Infusão', cor: COR_FASE.quimio },
               ...marcosEfeitoAplicacao(proto, ucApp.data_quimio).map(m => ({

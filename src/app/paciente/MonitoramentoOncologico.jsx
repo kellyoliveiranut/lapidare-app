@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
-import { dataBR } from '../../lib/utils.js';
+import { dataBR, dataLocalISO } from '../../lib/utils.js';
 import { getProtocolo, temEstruturaCiclo, janelaRisco, marcosEfeitoAplicacao } from '../../lib/protocoloCiclo.js';
 
 const TOTAL_STEPS = 11;
@@ -115,10 +115,15 @@ export default function MonitoramentoOncologico() {
   // Busca ciclos de quimio e intervalo (somente leitura)
   useEffect(() => {
     if (!pacienteId) return;
+    // Só ciclos já aplicados: a nutri cadastra ciclos futuros, e sem o filtro
+    // o limit(5) traria só datas à frente — a linha do tempo apontaria para um
+    // ciclo que ainda não aconteceu.
+    const hoje = dataLocalISO();
     Promise.all([
       supabase.from('ciclos_quimio')
         .select('id,numero_ciclo,data_quimio,d3,d7,d10,d14')
         .eq('paciente_id', pacienteId)
+        .lte('data_quimio', hoje)
         .order('data_quimio', { ascending: false })
         .limit(5),
       supabase.from('tratamentos_oncologicos')
@@ -631,7 +636,7 @@ export default function MonitoramentoOncologico() {
 
 // ── Linha do tempo de ciclo (somente leitura) ─────────────────────
 function LinhaDoTempoCiclo({ ciclos, intervalo, protocoloNome, standalone }) {
-  const hoje = new Date().toISOString().slice(0, 10);
+  const hoje = dataLocalISO();
 
   // standalone = usado fora do <Wrap>, precisa do próprio centramento
   const wrapStyle = standalone
@@ -648,7 +653,7 @@ function LinhaDoTempoCiclo({ ciclos, intervalo, protocoloNome, standalone }) {
           fontSize: 13, color: 'var(--muted)',
           textAlign: 'center', lineHeight: 1.6,
         }}>
-          Seu acompanhamento de ciclo aparecerá aqui assim que for cadastrado pela sua nutricionista.
+          Seu primeiro ciclo ainda não aconteceu — sua linha do tempo aparece aqui quando ele começar.
         </div>
       </div>
     );
