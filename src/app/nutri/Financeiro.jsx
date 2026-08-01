@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import DateInput from '../../components/DateInput.jsx';
 import {
-  brl, dataBR,
+  brl, dataBR, dataLocalISO,
   gerarParcelas, statusParcela,
   labelFormaPgto, iconFormaPgto, FORMAS_PGTO_LIST,
 } from '../../lib/utils.js';
@@ -399,7 +399,7 @@ export default function Financeiro() {
    NOVA VENDA — modal
    ============================================================ */
 function NovaVendaModal({ pacientes, servicos, nutriId, onClose, onSaved }) {
-  const hoje = new Date().toISOString().slice(0, 10);
+  const hoje = dataLocalISO();
   const [pacienteId, setPacienteId] = useState('');
   const [servicoId, setServicoId] = useState('');  // '' = manual/custom
   const [servico, setServico] = useState('');

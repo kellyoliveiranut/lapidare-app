@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
-import { dataBR, brl, gerarParcelas, FORMAS_PGTO_LIST, normalizarTelefone, telefoneValido } from '../../lib/utils.js';
+import { dataBR, brl, gerarParcelas, FORMAS_PGTO_LIST, normalizarTelefone, telefoneValido, dataLocalISO } from '../../lib/utils.js';
 import { criarVendaComParcelas } from '../../lib/vendas.js';
 import DateInput from '../../components/DateInput.jsx';
 
@@ -31,7 +31,7 @@ export default function Cadastrar() {
   const [templatesPreConsulta, setTemplatesPreConsulta] = useState([]);
 
   // ─── Pagamento (opcional) — mesma lógica do modal "Nova venda" ───
-  const hoje = new Date().toISOString().slice(0, 10);
+  const hoje = dataLocalISO();
   const [pagOpen, setPagOpen] = useState(false);
   const [servicos, setServicos] = useState([]);
   const [pgServicoId, setPgServicoId] = useState('');   // '' = manual/custom
