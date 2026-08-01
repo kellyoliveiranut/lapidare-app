@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase.js';
 import { dataBR, dataLocalISO } from '../../lib/utils.js';
 import DateInput from '../../components/DateInput.jsx';
 import protocolosEfeitosData from '../../data/protocolos_efeitos.json';
-import { getProtocolo, temEstruturaCiclo, janelaRisco, marcosEfeitoAplicacao, datasAplicacoesCiclo } from '../../lib/protocoloCiclo.js';
+import { getProtocolo, temEstruturaCiclo, janelaRisco, marcosEfeitoAplicacao, datasAplicacoesCiclo, datasSerieCiclos, intervaloMinimoSerie, linhasDoCiclo } from '../../lib/protocoloCiclo.js';
 
 const GRUPOS_EFEITOS = (() => {
   const groups = {};
@@ -100,6 +100,7 @@ export default function TratamentoOncologico({ pacienteId, nutriId }) {
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState(null);
   const [comparar, setComparar] = useState(false);
+  const [gerarSerie, setGerarSerie] = useState(false);
   const [lendoPdf, setLendoPdf] = useState(false);
   const [efeitoProtocolo, setEfeitoProtocolo] = useState('');
   const fileInputRef = useRef(null);
@@ -555,9 +556,14 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
                   <input value={novoCiclo.obs} onChange={e => setNovoCiclo(p => ({ ...p, obs: e.target.value }))} placeholder="Opcional" />
                 </div>
               </div>
-              <button className="btn" style={{ marginTop: 10 }} onClick={adicionarCiclo} disabled={busy}>
-                <i className="ti ti-plus" /> Adicionar ciclo
-              </button>
+              <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                <button className="btn" onClick={adicionarCiclo} disabled={busy}>
+                  <i className="ti ti-plus" /> Adicionar ciclo
+                </button>
+                <button className="btn-outline" onClick={() => setGerarSerie(true)} disabled={busy}>
+                  <i className="ti ti-calendar-plus" /> Gerar série…
+                </button>
+              </div>
             </div>
           </div>
 
@@ -741,6 +747,15 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
               </div>
             );
           })()}
+          {gerarSerie && (
+            <ModalGerarSerieCiclos
+              proto={proto} ciclos={ciclos}
+              intervaloCiclos={dados.intervalo_ciclos} totalCiclos={dados.total_ciclos}
+              tratamentoId={tratamentoId} pacienteId={pacienteId} nutriId={nutriId}
+              onClose={() => setGerarSerie(false)}
+              onSalvo={() => { setGerarSerie(false); carregar(); }}
+            />
+          )}
         </>
       )}
 
@@ -1226,6 +1241,213 @@ const PROTOCOLOS = {
     obs: 'Monitorar tolerância gastrointestinal no pós-operatório. Ajustar conforme evolução clínica, aceitação alimentar e orientação da equipe médica.',
   },
 };
+
+// ─── Modal: gerar série de ciclos (1ª data + intervalo + quantidade) ─────────
+function ModalGerarSerieCiclos({ proto, ciclos, intervaloCiclos, totalCiclos,
+                                 tratamentoId, pacienteId, nutriId, onClose, onSalvo }) {
+  const estruturado  = temEstruturaCiclo(proto);
+  const ec           = proto?.estruturaCiclo;
+  const minIntervalo = intervaloMinimoSerie(proto);
+
+  const numerosExistentes = new Set(ciclos.map(c => c.numero_ciclo));
+  const maiorNumero = ciclos.length ? Math.max(...ciclos.map(c => c.numero_ciclo ?? 0)) : 0;
+
+  // Quantidade restante conta CICLOS distintos, não linhas: no estruturado
+  // 4 ciclos são 12 linhas.
+  const qtdDefault = (() => {
+    const restantes = parseInt(totalCiclos) - numerosExistentes.size;
+    if (Number.isFinite(restantes) && restantes > 0) return restantes;
+    return estruturado ? (ec.totalCiclos ?? 4) : 6;
+  })();
+
+  const [numeroInicial, setNumeroInicial] = useState(maiorNumero + 1);
+  const [primeiraData,  setPrimeiraData]  = useState('');
+  const [intervalo,     setIntervalo]     = useState(
+    estruturado ? (proto.duracaoCiclo ?? minIntervalo) : (parseInt(intervaloCiclos) || 21));
+  const [quantidade,    setQuantidade]    = useState(qtdDefault);
+  const [datas,         setDatas]         = useState([]);   // [{ numero_ciclo, dataD1 }]
+  const [salvando,      setSalvando]      = useState(false);
+  const [erro,          setErro]          = useState(null);
+
+  function recalcular(nNum, nData, nIv, nQtd) {
+    const serie = datasSerieCiclos(proto, {
+      dataInicial: nData, intervaloDias: nIv, quantidade: nQtd, numeroInicial: nNum,
+    });
+    // Campo apagado no meio da digitação devolve [] — mantém a última série
+    // válida em vez de piscar a tabela.
+    if (!serie.length) return;
+    setDatas(serie
+      .filter(l => l.aplicacao_no_ciclo === 1)
+      .map(l => ({ numero_ciclo: l.numero_ciclo, dataD1: l.data_quimio })));
+  }
+
+  const mudaNumero = v => { setNumeroInicial(v); recalcular(v, primeiraData, intervalo, quantidade); };
+  const mudaData   = v => { setPrimeiraData(v);  recalcular(numeroInicial, v, intervalo, quantidade); };
+  const mudaIv     = v => { setIntervalo(v);     recalcular(numeroInicial, primeiraData, v, quantidade); };
+  const mudaQtd    = v => { setQuantidade(v);    recalcular(numeroInicial, primeiraData, intervalo, v); };
+  const editarD1   = (idx, v) => setDatas(p => p.map((d, i) => i === idx ? { ...d, dataD1: v } : d));
+
+  // Expande uma vez só: a tabela mostra as aplicações derivadas e o insert usa
+  // as mesmas linhas.
+  const porCiclo = datas.map(d => ({ ...d, linhas: linhasDoCiclo(proto, d.numero_ciclo, d.dataD1) }));
+  const linhas   = porCiclo.flatMap(c => c.linhas);
+
+  const contagem = {};
+  for (const l of linhas) contagem[l.data_quimio] = (contagem[l.data_quimio] ?? 0) + 1;
+  const datasRepetidas = new Set(Object.keys(contagem).filter(d => contagem[d] > 1));
+
+  const colidem        = porCiclo.filter(c => numerosExistentes.has(c.numero_ciclo)).map(c => c.numero_ciclo);
+  const intervaloCurto = estruturado && Number(intervalo) < minIntervalo;
+
+  async function salvar() {
+    setErro(null);
+    if (!tratamentoId) return setErro('Salve os dados do tratamento primeiro.');
+    if (!datas.length) return setErro('Informe a data do primeiro ciclo.');
+    if (datas.some(d => !d.dataD1)) return setErro('Preencha todas as datas.');
+    if (intervaloCurto) return setErro(
+      `Intervalo curto demais: ${ec.aplicacoes} aplicações a cada ${ec.cadenciaDias} dias ocupam ` +
+      `${minIntervalo} dias. Abaixo disso o 1º dia de um ciclo cai em cima de uma aplicação do anterior.`);
+    if (colidem.length) return setErro(
+      `Já existe ciclo com o número ${colidem.join(', ')}. Ajuste o nº do primeiro ciclo.`);
+    if (datasRepetidas.size) return setErro(
+      `Há datas repetidas na série: ${[...datasRepetidas].map(dataBR).join(', ')}. ` +
+      `Cada aplicação precisa de uma data própria.`);
+
+    setSalvando(true);
+    const { error } = await supabase.from('ciclos_quimio').insert(
+      linhas.map(l => ({
+        tratamento_id: tratamentoId, paciente_id: pacienteId, nutri_id: nutriId,
+        numero_ciclo: l.numero_ciclo, data_quimio: l.data_quimio,
+        aplicacao_no_ciclo: l.aplicacao_no_ciclo, obs: null,
+      }))
+    );
+    setSalvando(false);
+    if (error) return setErro('Erro ao salvar: ' + error.message);
+    onSalvo();
+  }
+
+  const selStyle = { padding: '8px 10px', borderRadius: 8, border: '1px solid var(--hair)',
+                     fontSize: 13, background: 'var(--white)', fontFamily: 'var(--font-sans)' };
+  const lblStyle = { fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase',
+                     letterSpacing: '.1em', fontWeight: 500 };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 1100, background: 'rgba(0,0,0,.45)',
+                  display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
+         onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{ background: 'var(--paper, #faf7f2)', borderRadius: '20px 20px 0 0',
+                    padding: '24px 20px 32px', width: '100%', maxWidth: 540,
+                    maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 -4px 30px rgba(0,0,0,.15)' }}>
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+          <span style={{ fontFamily: 'var(--font-serif)', fontSize: 18, color: 'var(--ink)' }}>
+            Gerar série de ciclos
+          </span>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer',
+                                             fontSize: 18, color: 'var(--muted)', padding: 4 }}>
+            <i className="ti ti-x" aria-hidden="true" />
+          </button>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span style={lblStyle}>Nº do 1º ciclo</span>
+            <input type="number" min="1" value={numeroInicial}
+                   onChange={e => mudaNumero(e.target.value)} style={selStyle} />
+          </label>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span style={lblStyle}>{estruturado ? 'Data do D1' : 'Data do 1º ciclo'}</span>
+            <DateInput value={primeiraData} onChange={e => mudaData(e.target.value)} />
+          </label>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span style={lblStyle}>Intervalo (dias)</span>
+            <input type="number" min="1" max="90" value={intervalo}
+                   onChange={e => mudaIv(e.target.value)} style={selStyle} />
+          </label>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span style={lblStyle}>Quantidade de ciclos</span>
+            <input type="number" min="1" max="24" value={quantidade}
+                   onChange={e => mudaQtd(e.target.value)} style={selStyle} />
+          </label>
+        </div>
+
+        {intervaloCurto && (
+          <div style={{ fontSize: 12, color: '#991b1b', background: '#fef2f2', border: '1px solid #fca5a5',
+                        borderRadius: 8, padding: '8px 12px', marginBottom: 14, lineHeight: 1.5 }}>
+            No {proto.nome}, {ec.aplicacoes} aplicações a cada {ec.cadenciaDias} dias ocupam {minIntervalo} dias.
+            Com {intervalo}, o 1º dia de um ciclo cai em cima de uma aplicação do anterior.
+          </div>
+        )}
+
+        {estruturado && porCiclo.length > 0 && (
+          <div style={{ fontSize: 12, color: 'var(--gold-deep)', marginBottom: 12, fontFamily: 'var(--font-sans)' }}>
+            {porCiclo.length} ciclos × {ec.aplicacoes} aplicações = <strong>{linhas.length} linhas</strong>
+          </div>
+        )}
+
+        {porCiclo.length > 0 && (<>
+          <div style={{ ...lblStyle, marginBottom: 8 }}>
+            Confirme as datas{estruturado ? ' (o D1 de cada ciclo)' : ''}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
+            {porCiclo.map((c, i) => {
+              const colide   = numerosExistentes.has(c.numero_ciclo);
+              const repetida = c.linhas.some(l => datasRepetidas.has(l.data_quimio));
+              const alerta   = colide || repetida;
+              return (
+                <div key={i}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '64px 1fr', gap: 8, alignItems: 'center' }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, textAlign: 'right', paddingRight: 4,
+                                   color: alerta ? 'var(--red, #dc2626)' : 'var(--gold-deep)' }}>
+                      C{c.numero_ciclo}
+                    </span>
+                    <DateInput value={c.dataD1} onChange={e => editarD1(i, e.target.value)} />
+                  </div>
+                  {colide && (
+                    <div style={{ fontSize: 11, color: 'var(--red, #dc2626)', paddingLeft: 72, marginTop: 3 }}>
+                      Já existe um ciclo {c.numero_ciclo} cadastrado
+                    </div>
+                  )}
+                  {repetida && (
+                    <div style={{ fontSize: 11, color: 'var(--red, #dc2626)', paddingLeft: 72, marginTop: 3 }}>
+                      Data repetida em outro ponto da série
+                    </div>
+                  )}
+                  {c.linhas.length > 1 && (
+                    <div style={{ fontSize: 11, color: 'var(--text3)', paddingLeft: 72, marginTop: 3 }}>
+                      {c.linhas.slice(1).map(l => `${l.label} ${dataBR(l.data_quimio)}`).join(' · ')}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </>)}
+
+        {erro && (
+          <div style={{ color: 'var(--red, #dc2626)', fontSize: 13, marginBottom: 12, padding: '8px 12px',
+                        background: 'var(--red-bg, #fef2f2)', borderRadius: 8, lineHeight: 1.5 }}>
+            {erro}
+          </div>
+        )}
+
+        <button onClick={salvar} disabled={salvando || !linhas.length}
+                style={{ width: '100%', padding: '13px', borderRadius: 12,
+                         background: 'var(--gold-deep, #a08456)', color: '#fff', border: 'none',
+                         fontSize: 14, fontWeight: 600, fontFamily: 'var(--font-sans)',
+                         cursor: salvando || !linhas.length ? 'default' : 'pointer',
+                         opacity: salvando || !linhas.length ? 0.7 : 1 }}>
+          {salvando ? 'Salvando…'
+            : estruturado ? `Salvar ${porCiclo.length} ciclos (${linhas.length} linhas)`
+            : `Salvar ${linhas.length} ciclos`}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 function ProtocoloImunonutricao({ pacienteId, nutriId }) {
   const [risco, setRisco] = useState('sem_risco');
