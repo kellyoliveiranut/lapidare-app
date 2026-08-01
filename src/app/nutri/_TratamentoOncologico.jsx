@@ -86,7 +86,7 @@ function addDays(dateStr, n) {
 }
 
 function exameDefault() {
-  return { data_exame: new Date().toISOString().slice(0, 10), hemoglobina: '', leucocitos: '', neutrofilos: '', linfocitos: '', plaquetas: '', pcr: '', albumina: '', glicemia: '', obs: '' };
+  return { data_exame: dataLocalISO(), hemoglobina: '', leucocitos: '', neutrofilos: '', linfocitos: '', plaquetas: '', pcr: '', albumina: '', glicemia: '', obs: '' };
 }
 
 export default function TratamentoOncologico({ pacienteId, nutriId }) {

@@ -99,7 +99,7 @@ export default function MonitoramentoOncologico() {
   // Busca registro de check-in de hoje
   useEffect(() => {
     if (!user) return;
-    const hoje = new Date().toISOString().split('T')[0];
+    const hoje = dataLocalISO();
     supabase
       .from('monitoramento_oncologico')
       .select('*')
@@ -179,7 +179,7 @@ export default function MonitoramentoOncologico() {
   async function salvar() {
     setErro(null);
     setSalvando(true);
-    const hoje = new Date().toISOString().split('T')[0];
+    const hoje = dataLocalISO();
     const payload = {
       paciente_id:  pacienteId,
       nutri_id:     profile?.nutri_id ?? null,
