@@ -1037,9 +1037,13 @@ export default function PacientePerfil() {
             const onco = todas.splice(todas.findIndex(t => t.id === 'oncologia'), 1)[0];
             todas.push(onco);
           }
-          // Financeiro entra depois da reordenação para ficar sempre por
-          // último, com ou sem oncologia — é a única aba administrativa.
-          todas.push({ id: 'financeiro', label: 'Financeiro', icon: 'cash' });
+          // Financeiro entra depois da reordenação, logo após Relatório: no fim
+          // da lista ela nasceria fora da área visível da barra, que rola na
+          // horizontal. O índice sai do próprio Relatório porque a posição dele
+          // muda entre os dois perfis — em não-onco, Emagrecimento sobe para o
+          // índice 1 e empurra Relatório para o 2.
+          todas.splice(todas.findIndex(t => t.id === 'relatorio') + 1, 0,
+            { id: 'financeiro', label: 'Financeiro', icon: 'cash' });
           return todas;
         })().map(t => (
           <button
