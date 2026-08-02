@@ -51,9 +51,8 @@ const Financeiro = lazy(() => import('./app/nutri/Financeiro.jsx'));
 const Biblioteca = lazy(() => import('./app/nutri/Biblioteca.jsx'));
 const Personalizacao = lazy(() => import('./app/nutri/Personalizacao.jsx'));
 const MonitoramentoOncologicoNutri = lazy(() => import('./app/nutri/MonitoramentoOncologico.jsx'));
-const MensagensCiclo = lazy(() => import('./app/nutri/MensagensCiclo.jsx'));
+const MensagemMotivacional = lazy(() => import('./app/nutri/MensagemMotivacional.jsx'));
 const MensagensArsenal = lazy(() => import('./app/nutri/MensagensArsenal.jsx'));
-const MensagensEmagrecimento = lazy(() => import('./app/nutri/MensagensEmagrecimento.jsx'));
 
 const Inicio = lazy(() => import('./app/paciente/Inicio.jsx'));
 const Plano = lazy(() => import('./app/paciente/Plano.jsx'));
@@ -103,9 +102,17 @@ export default function App() {
                 <Route path="/nutri/financeiro" element={<Financeiro />} />
                 <Route path="/nutri/biblioteca" element={<Biblioteca />} />
                 <Route path="/nutri/monitoramento-oncologico" element={<MonitoramentoOncologicoNutri />} />
-                <Route path="/nutri/mensagens-ciclo" element={<MensagensCiclo />} />
+                <Route path="/nutri/mensagem-motivacional" element={<MensagemMotivacional />} />
                 <Route path="/nutri/mensagens-arsenal" element={<MensagensArsenal />} />
-                <Route path="/nutri/mensagens-emagrecimento" element={<MensagensEmagrecimento />} />
+                {/* Rotas antigas — as duas telas viraram abas de
+                    /nutri/mensagem-motivacional em 2026-08-02. Redirecionam em
+                    vez de sumir porque o catch-all no fim deste arquivo jogaria
+                    um atalho salvo para a visão geral, sem explicação. Podem ser
+                    removidas quando não houver mais atalho apontando pra cá. */}
+                <Route path="/nutri/mensagens-ciclo"
+                       element={<Navigate to="/nutri/mensagem-motivacional" replace />} />
+                <Route path="/nutri/mensagens-emagrecimento"
+                       element={<Navigate to="/nutri/mensagem-motivacional?publico=emagrecimento" replace />} />
                 <Route path="/nutri/personalizacao" element={<Personalizacao />} />
               </Route>
 

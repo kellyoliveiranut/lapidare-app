@@ -2,7 +2,11 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 
-// Grupos apenas para organizar a biblioteca de exemplos
+// NÃO APAGAR como código morto. Hoje GRUPOS e EXEMPLOS só organizam a
+// biblioteca de sugestões da interface — nada disso vai para o banco, e a
+// coluna `fase` de mensagens_ciclo é sempre o literal 'ativa'. Mas os seis
+// grupos são a base da feature de mensagens por fase do ciclo, já desenhada e
+// aprovada; some com eles e a feature perde o ponto de partida.
 const GRUPOS = [
   { id: 'quimio',        label: 'Dia da químio' },
   { id: 'inicio_piora',  label: 'Início da piora' },
@@ -45,7 +49,7 @@ const EXEMPLOS = {
   ],
 };
 
-export default function MensagensCiclo() {
+export default function MensagemDemaisObjetivos() {
   const { user } = useSession();
   const [ativa, setAtiva] = useState(null);   // texto da mensagem ativa
   const [custom, setCustom] = useState('');   // campo de texto livre
@@ -108,9 +112,10 @@ export default function MensagensCiclo() {
         <div className="card-header">
           <div className="card-title">💌 Mensagem motivacional</div>
           <div className="card-sub">
-            A mensagem ativa aparece para <strong>todos os seus pacientes</strong> no topo do app,
-            com o nome de cada uma no lugar de <code style={{ fontSize: 11 }}>{'{nome}'}</code>.
-            Troque quando quiser.
+            A mensagem ativa aparece no topo do app para <strong>todas as pacientes,
+            exceto as de objetivo Emagrecimento</strong> — essas têm mensagens próprias,
+            na outra aba. O nome de cada uma entra no lugar de{' '}
+            <code style={{ fontSize: 11 }}>{'{nome}'}</code>. Troque quando quiser.
           </div>
         </div>
         <div className="card-body">

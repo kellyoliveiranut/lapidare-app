@@ -23,7 +23,7 @@ function restanteFixada(fixadaEm) {
   return d > 0 ? `expira em ${d}d ${h}h` : `expira em ${h}h`;
 }
 
-export default function MensagensEmagrecimento() {
+export default function MensagemEmagrecimento() {
   const { user } = useSession();
   const [msgs, setMsgs] = useState([]);        // todas as mensagens da nutri
   const [loading, setLoading] = useState(true);
