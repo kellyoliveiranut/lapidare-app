@@ -1,17 +1,45 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { iniciais, dataBR } from '../../lib/utils.js';
 
+const PAGINA = 12;
+const TTL = 3600;                          // era 300 — evita expirar durante o lazy-load
+const THUMB = { width: 800, quality: 70 }; // 800px num quadro de ~383 CSS px = 2,09x no Retina
+
 const urlCache = new Map();
 
-async function getSignedUrl(path) {
-  const cached = urlCache.get(path);
-  if (cached && cached.exp > Date.now()) return cached.url;
-  const { data, error } = await supabase.storage.from('fotos_pratos').createSignedUrl(path, 300);
+// A transformação vai dentro do token assinado, então a mesma foto em
+// tamanhos diferentes são entradas diferentes do cache.
+function chaveCache(path, transform) {
+  return transform ? `${path}|${transform.width}|${transform.quality}` : `${path}|full`;
+}
+
+async function getSignedUrl(path, transform) {
+  if (!path) return null;
+  const now = Date.now();
+  const chave = chaveCache(path, transform);
+  const cached = urlCache.get(chave);
+  if (cached && cached.exp > now) return cached.url;
+  for (const [k, v] of urlCache) { if (v.exp <= now) urlCache.delete(k); }
+  const { data, error } = await supabase.storage
+    .from('fotos_pratos')
+    .createSignedUrl(path, TTL, transform ? { transform } : undefined);
   if (error) return null;
-  urlCache.set(path, { url: data.signedUrl, exp: Date.now() + 280_000 });
+  urlCache.set(chave, { url: data.signedUrl, exp: now + (TTL - 200) * 1000 });
   return data.signedUrl;
+}
+
+// O <img> mostra os 800px; o clique assina a URL sem transform, na hora.
+// A janela abre ANTES do await: o Safari bloqueia popup aberto depois.
+async function abrirOriginal(ev, path) {
+  ev.preventDefault();
+  const janela = window.open('', '_blank');
+  if (janela) janela.opener = null;
+  const url = await getSignedUrl(path);
+  if (!url) { janela?.close(); return; }
+  if (janela) janela.location = url;
+  else window.location.href = url;
 }
 
 function comentariosOrdenados(p) {
@@ -34,23 +62,19 @@ export default function FeedNutri() {
   const [salvando, setSalvando] = useState({});
   const [edicao, setEdicao] = useState({});                 // {comentarioId: text}
   const [salvandoEdicao, setSalvandoEdicao] = useState({});
+  const [visiveis, setVisiveis] = useState(PAGINA);
+  const pedidos = useRef(new Set());                        // ids já solicitados
 
   async function carregar() {
     if (!user) return;
     const { data } = await supabase
       .from('feed_pratos')
       .select('id, refeicao, legenda, storage_path, created_at, paciente:pacientes(id, nome, nutri_id), comentarios:feed_pratos_comentarios(id, autor, texto, created_at)')
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(300);
     // Filtrar só os das pacientes dessa nutri
     const filtrados = (data ?? []).filter(p => p.paciente?.nutri_id === user.id);
     setPosts(filtrados);
-
-    const novasUrls = {};
-    for (const p of filtrados) {
-      const url = await getSignedUrl(p.storage_path);
-      if (url) novasUrls[p.id] = url;
-    }
-    setUrls(novasUrls);
   }
   useEffect(() => { carregar(); }, [user]);
 
@@ -62,6 +86,29 @@ export default function FeedNutri() {
     if (filtro === 'hoje') return posts.filter(p => p.created_at?.slice(0, 10) === hoje);
     return posts;
   }, [posts, filtro]);
+
+  // Só a fatia renderizada. As contagens das pílulas continuam sobre `posts`.
+  const naTela = useMemo(() => filtrados.slice(0, visiveis), [filtrados, visiveis]);
+
+  // Assina em paralelo, e só o que está na tela.
+  useEffect(() => {
+    let cancelado = false;
+    const faltando = naTela.filter(p => p.storage_path && !pedidos.current.has(p.id));
+    if (!faltando.length) return;
+    faltando.forEach(p => pedidos.current.add(p.id));
+
+    Promise.all(faltando.map(p =>
+      getSignedUrl(p.storage_path, THUMB).then(url => [p.id, url])
+    )).then(pares => {
+      if (cancelado) return;
+      // falhou: tira do set para que uma recarga tente de novo
+      pares.filter(([, url]) => !url).forEach(([id]) => pedidos.current.delete(id));
+      const novas = Object.fromEntries(pares.filter(([, url]) => url));
+      if (Object.keys(novas).length) setUrls(u => ({ ...u, ...novas }));
+    });
+
+    return () => { cancelado = true; };
+  }, [naTela]);
 
   async function salvarComentario(post) {
     const texto = (comentarioEdit[post.id] ?? '').trim();
@@ -140,7 +187,7 @@ export default function FeedNutri() {
         ].map(f => (
           <button key={f.id}
             className={filtro === f.id ? 'btn' : 'btn-outline'}
-            onClick={() => setFiltro(f.id)}
+            onClick={() => { setFiltro(f.id); setVisiveis(PAGINA); }}
             style={{ fontSize: 12, padding: '6px 14px' }}>
             {f.label}
           </button>
@@ -162,11 +209,12 @@ export default function FeedNutri() {
           </div>
         </div>
       ) : (
+        <>
         <div style={{
           display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
           gap: 12,
         }}>
-          {filtrados.map(p => {
+          {naTela.map(p => {
             const url = urls[p.id];
             const emEdicao = comentarioEdit[p.id] !== undefined;
             return (
@@ -205,6 +253,7 @@ export default function FeedNutri() {
                 }}>
                   {url ? (
                     <a href={url} target="_blank" rel="noreferrer"
+                       onClick={ev => abrirOriginal(ev, p.storage_path)}
                        style={{ display: 'block', width: '100%', height: '100%' }}>
                       <img src={url} alt={p.legenda ?? 'prato'}
                         loading="lazy" decoding="async"
@@ -338,6 +387,15 @@ export default function FeedNutri() {
             );
           })}
         </div>
+        {filtrados.length > visiveis && (
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 14 }}>
+            <button className="btn-outline" onClick={() => setVisiveis(v => v + PAGINA)}
+              style={{ fontSize: 13, padding: '8px 18px' }}>
+              Carregar mais ({filtrados.length - visiveis} restantes)
+            </button>
+          </div>
+        )}
+        </>
       )}
     </>
   );
