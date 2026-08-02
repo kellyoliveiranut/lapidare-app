@@ -10,6 +10,7 @@ import {
 } from '../../lib/utils.js';
 import { TEMPLATE_PADRAO } from '../../lib/checkinDefault.js';
 import { mensagemAcesso } from '../../lib/mensagemAcesso.js';
+import { OBJETIVOS } from '../../lib/objetivos.js';
 import { callAnthropicComRetry } from '../../lib/anthropic.js';
 import { buscarAlimento, medidaCaseira, kcalDoAlimento, kcalEquivalente, parseGramas } from '../../lib/taco.js';
 import DateInput, { parseDatePaste } from '../../components/DateInput.jsx';
@@ -591,7 +592,7 @@ export default function PacientePerfil() {
             label: 'Objetivo',
             valor: paciente.objetivo,
             tipo: 'select',
-            opcoes: ['Emagrecimento', 'Hipertrofia', 'Reeducação alimentar', 'Saúde geral', 'Performance esportiva', 'Oncologia', 'Outro'],
+            opcoes: OBJETIVOS,
           },
           {
             campo: 'tipo_plano',
@@ -1498,7 +1499,7 @@ function ModalEditarDados({ paciente, onClose, onSaved }) {
             <label className="field-label">Objetivo</label>
             <select value={form.objetivo} onChange={set('objetivo')}>
               <option value="">— sem objetivo definido —</option>
-              {['Emagrecimento', 'Hipertrofia', 'Reeducação alimentar', 'Saúde geral', 'Performance esportiva', 'Oncologia', 'Outro'].map(o => (
+              {OBJETIVOS.map(o => (
                 <option key={o} value={o}>{o}</option>
               ))}
             </select>

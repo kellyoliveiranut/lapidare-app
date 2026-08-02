@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
+import { OBJETIVOS, normalizarObjetivo } from '../../lib/objetivos.js';
 
 // Mapeamento de aliases conhecidos para nossos campos canônicos
 const ALIASES = {
@@ -89,20 +90,39 @@ export default function ImportarCsv({ onClose, onImported }) {
   }
 
   const linhasValidas = useMemo(() => {
-    if (mapa.nome === undefined || mapa.email === undefined) return [];
+    // Devolve o mesmo formato do caminho normal: quem lê faz
+    // linhasValidas.rows.length, e um array cru estouraria aqui.
+    if (mapa.nome === undefined || mapa.email === undefined) {
+      return { rows: [], errors: [], objetivosDescartados: [] };
+    }
     const out = [];
     const errs = [];
+    const descartados = new Map();   // valor original da planilha -> nº de linhas
     csv.rows.forEach((row, i) => {
       const nome = (row[mapa.nome] ?? '').trim();
       const email = (row[mapa.email] ?? '').trim();
       if (!nome) { errs.push(`Linha ${i + 2}: sem nome`); return; }
       if (!email || !email.includes('@')) { errs.push(`Linha ${i + 2}: email inválido (${email || 'vazio'})`); return; }
+      // Objetivo vem como texto livre da planilha. Normaliza contra a lista
+      // canônica e descarta o que não casar — gravar texto solto criaria uma
+      // paciente que não recebe a orientação de tratamento no convite, porque
+      // lib/mensagemAcesso.js compara por 'Oncologia' estrito. O que for
+      // descartado é contabilizado e mostrado antes de importar.
+      let objetivo = null;
+      if (mapa.objetivo != null) {
+        const bruto = (row[mapa.objetivo] ?? '').trim();
+        if (bruto) {
+          objetivo = normalizarObjetivo(bruto);
+          if (!objetivo) descartados.set(bruto, (descartados.get(bruto) ?? 0) + 1);
+        }
+      }
+
       const obj = {
         nome, email,
         whatsapp:   mapa.whatsapp   != null ? (row[mapa.whatsapp]   ?? '').trim() || null : null,
         cpf:        mapa.cpf        != null ? (row[mapa.cpf]        ?? '').trim() || null : null,
         nascimento: mapa.nascimento != null ? parseDataBR(row[mapa.nascimento])           : null,
-        objetivo:   mapa.objetivo   != null ? (row[mapa.objetivo]   ?? '').trim() || null : null,
+        objetivo,
         // minúsculo: o gate do plano avulso compara com 'avulsa' e a planilha
         // costuma trazer "Essentia" capitalizado
         tipo_plano: mapa.tipo_plano != null ? (row[mapa.tipo_plano] ?? '').trim().toLowerCase() || null : null,
@@ -111,8 +131,17 @@ export default function ImportarCsv({ onClose, onImported }) {
       };
       out.push(obj);
     });
-    return { rows: out, errors: errs };
+    return {
+      rows: out,
+      errors: errs,
+      objetivosDescartados: [...descartados.entries()]
+        .map(([valor, linhas]) => ({ valor, linhas }))
+        .sort((a, b) => b.linhas - a.linhas),
+    };
   }, [csv, mapa]);
+
+  const totalObjetivosDescartados = (linhasValidas.objetivosDescartados ?? [])
+    .reduce((s, d) => s + d.linhas, 0);
 
   async function importar() {
     setStep('salvando');
@@ -238,6 +267,43 @@ export default function ImportarCsv({ onClose, onImported }) {
                 )}
               </div>
             </div>
+
+            {/* Âmbar, não vermelho: a linha NÃO é rejeitada — a paciente entra,
+                só sem o campo. Vermelho faria parecer que ela se perdeu. */}
+            {linhasValidas.objetivosDescartados.length > 0 && (
+              <div className="al-b" style={{
+                marginBottom: 14,
+                background: 'var(--amber-bg, #fdf8ee)',
+                borderLeftColor: 'var(--amber)',
+              }}>
+                <i className="ti ti-alert-triangle"
+                   style={{ fontSize: 16, marginTop: 1, color: 'var(--amber)' }}
+                   aria-hidden="true"></i>
+                <div>
+                  <div className="al-t" style={{ color: 'var(--amber)' }}>
+                    {totalObjetivosDescartados} linha{totalObjetivosDescartados === 1 ? '' : 's'} com
+                    objetivo não reconhecido — ficará{totalObjetivosDescartados === 1 ? '' : 'ão'} sem objetivo
+                  </div>
+                  <div className="al-d">
+                    A paciente é importada normalmente; só o objetivo fica em branco,
+                    para você preencher no perfil depois.
+                  </div>
+                  <details style={{ marginTop: 6 }}>
+                    <summary style={{ fontSize: 11, cursor: 'pointer', color: 'var(--text2)' }}>
+                      Ver os valores não reconhecidos
+                    </summary>
+                    <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 6, maxHeight: 100, overflowY: 'auto' }}>
+                      {linhasValidas.objetivosDescartados.map(d => (
+                        <div key={d.valor}>“{d.valor}” — {d.linhas} linha{d.linhas === 1 ? '' : 's'}</div>
+                      ))}
+                    </div>
+                  </details>
+                  <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 6, lineHeight: 1.5 }}>
+                    Valores aceitos: {OBJETIVOS.join(' · ')}
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div style={{ maxHeight: 240, overflowY: 'auto', border: '0.5px solid var(--border)', borderRadius: 6 }}>
               <table className="table">

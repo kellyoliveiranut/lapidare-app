@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import BrandFooter from '../../components/BrandFooter.jsx';
+import { OBJETIVOS } from '../../lib/objetivos.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -267,9 +268,7 @@ export default function SignupPaciente() {
                 <Field label="Confirmar senha" type="password" value={confirmaSenha} onChange={setConfirmaSenha} required minLength={6} />
               </div>
 
-              <SelectField label="Objetivo" value={objetivo} onChange={setObjetivo} options={[
-                'Emagrecimento', 'Hipertrofia', 'Reeducação alimentar', 'Saúde geral', 'Performance esportiva', 'Oncologia', 'Outro',
-              ]} />
+              <SelectField label="Objetivo" value={objetivo} onChange={setObjetivo} options={OBJETIVOS} />
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                 <SelectField label="Tipo de plano" value={tipoPlano} onChange={setTipoPlano} options={[

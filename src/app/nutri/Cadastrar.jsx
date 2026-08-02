@@ -5,9 +5,9 @@ import { useSession } from '../../lib/session.jsx';
 import { dataBR, brl, gerarParcelas, FORMAS_PGTO_LIST, normalizarTelefone, telefoneValido, dataLocalISO } from '../../lib/utils.js';
 import { criarVendaComParcelas } from '../../lib/vendas.js';
 import { mensagemAcesso } from '../../lib/mensagemAcesso.js';
+import { OBJETIVOS } from '../../lib/objetivos.js';
 import DateInput from '../../components/DateInput.jsx';
 
-const OBJETIVOS = ['Emagrecimento', 'Hipertrofia', 'Reeducação alimentar', 'Saúde geral', 'Performance esportiva', 'Oncologia', 'Preparo pré-cirúrgico', 'Outro'];
 const PLANOS    = [
   { v: 'avulsa',   l: 'Avulsa' },
   { v: 'essentia', l: 'Essentia' },
