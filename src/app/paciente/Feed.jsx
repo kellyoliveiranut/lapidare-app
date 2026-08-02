@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { useTheme } from '../../lib/theme.jsx';
 import { iniciais, dataBR } from '../../lib/utils.js';
+import { comprimirImagem } from '../../lib/imagem.js';
 
 const REFEICOES = ['Café da manhã', 'Lanche da manhã', 'Almoço', 'Lanche da tarde', 'Jantar', 'Ceia', 'Outro'];
 
@@ -116,11 +117,22 @@ export default function FeedPaciente() {
     if (!arquivo) return setErro('Selecione uma foto.');
     setBusy(true);
 
-    const ext = arquivo.name.split('.').pop() || 'jpg';
+    // Comprime antes de subir: foto de celular de ~4MB vira ~200-500KB.
+    // Mesma configuração dos chats (1600px no maior lado, JPEG 0.8).
+    const blob = await comprimirImagem(arquivo);
+
+    // A compressão sai sempre em JPEG, mas o fallback devolve o arquivo
+    // original — que num iPhone pode ser HEIC. Por isso o tipo vem do que
+    // será enviado de fato, e não fixo em image/jpeg: gravar bytes HEIC
+    // sob a extensão .jpg quebraria a exibição depois.
+    const tipo = blob.type || 'image/jpeg';
+    const ext = tipo === 'image/jpeg'
+      ? 'jpg'
+      : (tipo.split('/')[1] || 'jpg').replace(/[^a-z0-9]/g, '');
     const path = `${pacienteId}/${Date.now()}-${refeicao.toLowerCase().replace(/[^a-z]/g, '')}.${ext}`;
 
     const { error: upErr } = await supabase.storage
-      .from('fotos_pratos').upload(path, arquivo, { contentType: arquivo.type });
+      .from('fotos_pratos').upload(path, blob, { contentType: tipo });
     if (upErr) {
       setBusy(false);
       return setErro('Upload falhou: ' + upErr.message);
