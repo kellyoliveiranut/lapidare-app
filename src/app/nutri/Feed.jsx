@@ -43,6 +43,7 @@ export default function FeedNutri() {
   const [edicao, setEdicao] = useState({});                 // {comentarioId: text}
   const [salvandoEdicao, setSalvandoEdicao] = useState({});
   const [visiveis, setVisiveis] = useState(PAGINA);
+  const [todosComentarios, setTodosComentarios] = useState({}); // {postId: true}
   const pedidos = useRef(new Set());                        // ids já solicitados
 
   async function carregar() {
@@ -156,10 +157,14 @@ export default function FeedNutri() {
 
   return (
     <>
-      <div className="page-title">Feed de pratos</div>
-      <div className="page-sub">Fotos enviadas pelas pacientes — comente e dê feedback</div>
+      {/* Cabeçalho compactado só nesta tela: page-title/page-sub são classes
+          compartilhadas por todo o painel e não devem mudar por causa do feed */}
+      <div className="page-title" style={{ fontSize: 20 }}>Feed de pratos</div>
+      <div className="page-sub" style={{ fontSize: 13, marginBottom: 10 }}>
+        Fotos enviadas pelas pacientes — comente e dê feedback
+      </div>
 
-      <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
         {[
           { id: 'todas',         label: `Todas (${posts?.length ?? 0})` },
           { id: 'nova_resposta', label: `Nova resposta (${novasRespostas})` },
@@ -198,18 +203,21 @@ export default function FeedNutri() {
           {naTela.map(p => {
             const url = urls[p.id];
             const emEdicao = comentarioEdit[p.id] !== undefined;
+            // marginBottom: 0 — a classe .card traz 12px que, dentro de um
+            // grid com gap, viravam 24px entre fileiras
             return (
-              <div key={p.id} className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                <div style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div key={p.id} className="card"
+                   style={{ padding: 0, overflow: 'hidden', marginBottom: 0 }}>
+                <div style={{ padding: '7px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
                   <div style={{
-                    width: 32, height: 32, borderRadius: '50%',
+                    width: 26, height: 26, borderRadius: '50%',
                     background: 'var(--bg2)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 13, fontWeight: 600, color: 'var(--dark)',
+                    fontSize: 12, fontWeight: 600, color: 'var(--dark)',
                   }}>{iniciais(p.paciente?.nome)}</div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: 500 }}>{p.paciente?.nome ?? '—'}</div>
-                    <div style={{ fontSize: 12, color: 'var(--text3)' }}>
+                    <div style={{ fontSize: 13, fontWeight: 500 }}>{p.paciente?.nome ?? '—'}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text3)' }}>
                       {p.refeicao ?? '—'} · {dataBR(p.created_at)}
                     </div>
                   </div>
@@ -228,8 +236,11 @@ export default function FeedNutri() {
                   ) : null}
                 </div>
 
+                {/* contain, não cover: a 383px de largura o cover cortava ~45%
+                    de uma foto em pé. Aqui a foto aparece inteira, com faixa
+                    neutra nas laterais. */}
                 <div style={{
-                  background: 'var(--bg2)', height: 280,
+                  background: 'var(--bg3)', height: 200,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
                   {url ? (
@@ -237,7 +248,7 @@ export default function FeedNutri() {
                        style={{ display: 'block', width: '100%', height: '100%' }}>
                       <img src={url} alt={p.legenda ?? 'prato'}
                         loading="lazy" decoding="async"
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                     </a>
                   ) : (
                     <i className="ti ti-photo" style={{ fontSize: 36, color: 'var(--border)' }} aria-hidden="true"></i>
@@ -245,26 +256,47 @@ export default function FeedNutri() {
                 </div>
 
                 {p.legenda && (
-                  <div style={{ padding: '10px 14px', fontSize: 14, lineHeight: 1.5, color: 'var(--dark)' }}>
+                  <div style={{
+                    padding: '6px 12px', fontSize: 14, lineHeight: 1.5, color: 'var(--dark)',
+                    display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden',
+                  }} title={p.legenda}>
                     {p.legenda}
                   </div>
                 )}
 
                 <div style={{
-                  padding: '10px 14px 14px',
+                  padding: '8px 12px 10px',
                   borderTop: '0.5px solid #f5f0e8',
                   background: '#faf8f5',
                 }}>
-                  {comentariosOrdenados(p).map(c => {
+                  {/* Só o último comentário fica visível; os anteriores entram
+                      sob demanda. Numa conversa de 3 idas e vindas isso poupa
+                      ~100px de altura do card. */}
+                  {!todosComentarios[p.id] && comentariosOrdenados(p).length > 1 && (
+                    <button
+                      onClick={() => setTodosComentarios(t => ({ ...t, [p.id]: true }))}
+                      style={{
+                        background: 'none', border: 'none', padding: '0 0 6px',
+                        color: 'var(--text3)', fontSize: 11, cursor: 'pointer',
+                        fontFamily: 'var(--font-sans)',
+                      }}>
+                      ver os {comentariosOrdenados(p).length} comentários
+                    </button>
+                  )}
+                  {(todosComentarios[p.id]
+                    ? comentariosOrdenados(p)
+                    : comentariosOrdenados(p).slice(-1)
+                  ).map(c => {
                     const editandoEste = edicao[c.id] !== undefined;
                     return (
                       <div key={c.id} style={{
                         background: 'var(--white)',
                         borderLeft: `2px solid ${c.autor === 'nutri' ? 'var(--amber)' : 'var(--blue, #1a5a8c)'}`,
-                        borderRadius: 6, padding: '8px 10px', marginBottom: 8,
-                        fontSize: 13, lineHeight: 1.5, color: 'var(--text2)',
+                        borderRadius: 6, padding: '6px 8px', marginBottom: 6,
+                        fontSize: 12, lineHeight: 1.5, color: 'var(--text2)',
                       }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 3 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
                           <div style={{
                             flex: 1, fontSize: 11, fontWeight: 600, letterSpacing: '.5px',
                             color: c.autor === 'nutri' ? 'var(--amber)' : 'var(--blue, #1a5a8c)',
@@ -329,7 +361,7 @@ export default function FeedNutri() {
                     <button
                       onClick={() => setComentarioEdit(e => ({ ...e, [p.id]: '' }))}
                       className="btn"
-                      style={{ width: '100%', fontSize: 13, padding: '8px 12px', justifyContent: 'center' }}>
+                      style={{ width: '100%', fontSize: 13, padding: '6px 12px', justifyContent: 'center' }}>
                       <i className="ti ti-message-circle" aria-hidden="true"></i>
                       {temComentarioNutri(p) ? ' Responder' : ' Comentar este prato'}
                     </button>
