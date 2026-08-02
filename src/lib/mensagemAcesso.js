@@ -29,10 +29,10 @@ No Android:
 Instalar assim deixa o app na sua tela como qualquer outro aplicativo — e é o que permite receber os avisos e lembretes direto no celular.`;
 
 const ORIENTACAO_ONCOLOGIA =
-  'Depois de entrar, duas coisas todos os dias, de dois minutos cada: o check-in na aba Tratamento e os seus hábitos do dia. São esses registros que eu leio — é por eles que eu acompanho como você está passando entre as consultas, e não só no dia da consulta. Qualquer dúvida, me escreva pelo Chat com a Dra.';
+  'Depois de entrar, duas coisas todos os dias, de dois minutos cada: o check-in na aba Tratamento e os seus hábitos do dia. São esses registros que eu leio — é por eles que eu acompanho como você está passando entre as consultas, e não só no dia da consulta. Dúvidas sobre o plano ou a rotina, me escreva pelo Chat com a Dra.';
 
 const ORIENTACAO_PADRAO =
-  'Depois de entrar, duas coisas todos os dias, de dois minutos cada: marcar seus hábitos do dia e registrar como você está, nas carinhas da tela de Início. São esses registros que eu leio — é por eles que eu acompanho sua rotina entre as consultas. Qualquer dúvida, me escreva pelo Chat com a Dra.';
+  'Depois de entrar, duas coisas todos os dias, de dois minutos cada: marcar seus hábitos do dia e registrar como você está, nas carinhas da tela de Início. São esses registros que eu leio — é por eles que eu acompanho sua rotina entre as consultas. Dúvidas sobre o plano ou a rotina, me escreva pelo Chat com a Dra.';
 
 /**
  * Orientação de uso, ramificada pelo objetivo da paciente.
