@@ -40,8 +40,6 @@ const PacientePerfil = lazy(() => import('./app/nutri/PacientePerfil.jsx'));
 const Agenda = lazy(() => import('./app/nutri/Agenda.jsx'));
 const ChatNutri = lazy(() => import('./app/nutri/Chat.jsx'));
 const FeedNutri = lazy(() => import('./app/nutri/Feed.jsx'));
-// Tela temporária de backfill — fora do menu, apagar depois da conversão
-const Backfill = lazy(() => import('./app/nutri/_Backfill.jsx'));
 const PrescricoesNutri = lazy(() => import('./app/nutri/Prescricoes.jsx'));
 const Checkins = lazy(() => import('./app/nutri/Checkins.jsx'));
 const Questionarios = lazy(() => import('./app/nutri/Questionarios.jsx'));
@@ -95,7 +93,6 @@ export default function App() {
                 <Route path="/nutri/agenda" element={<Agenda />} />
                 <Route path="/nutri/chat" element={<ChatNutri />} />
                 <Route path="/nutri/feed" element={<FeedNutri />} />
-                <Route path="/nutri/_backfill" element={<Backfill />} />
                 <Route path="/nutri/prescricoes" element={<PrescricoesNutri />} />
                 <Route path="/nutri/checkins" element={<Checkins />} />
                 <Route path="/nutri/questionarios" element={<Questionarios />} />
