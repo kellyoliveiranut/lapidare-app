@@ -8,33 +8,25 @@ const REFEICOES = ['Café da manhã', 'Lanche da manhã', 'Almoço', 'Lanche da 
 
 const PAGINA = 12;
 const TTL = 18000;
-const THUMB = { width: 800, quality: 70 }; // 800px num quadro de ~406 CSS px = 1,97x no Retina
 
 // Cache de signed URLs
 const urlCache = new Map();
 
-// A transformação vai dentro do token assinado, então a mesma foto em
-// tamanhos diferentes são entradas diferentes do cache.
-function chaveCache(path, transform) {
-  return transform ? `${path}|${transform.width}|${transform.quality}` : `${path}|full`;
-}
-
-async function getSignedUrl(path, transform) {
+async function getSignedUrl(path) {
   if (!path) return null;
   const now = Date.now();
-  const chave = chaveCache(path, transform);
-  const cached = urlCache.get(chave);
+  const cached = urlCache.get(path);
   if (cached && cached.exp > now) return cached.url;
   // evict expired entries to prevent unbounded growth
   for (const [k, v] of urlCache) { if (v.exp <= now) urlCache.delete(k); }
   const { data, error } = await supabase.storage
     .from('fotos_pratos')
-    .createSignedUrl(path, TTL, transform ? { transform } : undefined);
+    .createSignedUrl(path, TTL);
   if (error) {
     console.error('[Feed] createSignedUrl falhou:', error.message, '| path:', path);
     return null;
   }
-  urlCache.set(chave, { url: data.signedUrl, exp: now + (TTL - 200) * 1000 });
+  urlCache.set(path, { url: data.signedUrl, exp: now + (TTL - 200) * 1000 });
   return data.signedUrl;
 }
 
@@ -79,23 +71,24 @@ export default function FeedPaciente() {
   const naTela = useMemo(() => (posts ?? []).slice(0, visiveis), [posts, visiveis]);
 
   // Assina em paralelo, e só o que está na tela.
+  // Sem flag de cancelamento: sob StrictMode a limpeza rodaria entre a 1a e a
+  // 2a execução e descartaria o resultado, enquanto os ids já marcados em
+  // `pedidos` impediriam a 2a de pedir de novo — as fotos nunca chegariam.
+  // setUrls em componente desmontado é no-op desde o React 18, e o urlCache
+  // de módulo faz qualquer repetição sair sem rede.
   useEffect(() => {
-    let cancelado = false;
     const faltando = naTela.filter(p => p.storage_path && !pedidos.current.has(p.id));
     if (!faltando.length) return;
     faltando.forEach(p => pedidos.current.add(p.id));
 
     Promise.all(faltando.map(p =>
-      getSignedUrl(p.storage_path, THUMB).then(url => [p.id, url])
+      getSignedUrl(p.storage_path).then(url => [p.id, url])
     )).then(pares => {
-      if (cancelado) return;
       // falhou: tira do set para que uma recarga tente de novo
       pares.filter(([, url]) => !url).forEach(([id]) => pedidos.current.delete(id));
       const novas = Object.fromEntries(pares.filter(([, url]) => url));
       if (Object.keys(novas).length) setUrls(u => ({ ...u, ...novas }));
     });
-
-    return () => { cancelado = true; };
   }, [naTela]);
 
   function selecionarFoto(e) {

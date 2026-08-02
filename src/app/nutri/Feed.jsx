@@ -4,42 +4,22 @@ import { useSession } from '../../lib/session.jsx';
 import { iniciais, dataBR } from '../../lib/utils.js';
 
 const PAGINA = 12;
-const TTL = 3600;                          // era 300 — evita expirar durante o lazy-load
-const THUMB = { width: 800, quality: 70 }; // 800px num quadro de ~383 CSS px = 2,09x no Retina
+const TTL = 3600;   // era 300 — evitava a URL expirar antes do loading="lazy" puxar a imagem
 
 const urlCache = new Map();
 
-// A transformação vai dentro do token assinado, então a mesma foto em
-// tamanhos diferentes são entradas diferentes do cache.
-function chaveCache(path, transform) {
-  return transform ? `${path}|${transform.width}|${transform.quality}` : `${path}|full`;
-}
-
-async function getSignedUrl(path, transform) {
+async function getSignedUrl(path) {
   if (!path) return null;
   const now = Date.now();
-  const chave = chaveCache(path, transform);
-  const cached = urlCache.get(chave);
+  const cached = urlCache.get(path);
   if (cached && cached.exp > now) return cached.url;
   for (const [k, v] of urlCache) { if (v.exp <= now) urlCache.delete(k); }
   const { data, error } = await supabase.storage
     .from('fotos_pratos')
-    .createSignedUrl(path, TTL, transform ? { transform } : undefined);
+    .createSignedUrl(path, TTL);
   if (error) return null;
-  urlCache.set(chave, { url: data.signedUrl, exp: now + (TTL - 200) * 1000 });
+  urlCache.set(path, { url: data.signedUrl, exp: now + (TTL - 200) * 1000 });
   return data.signedUrl;
-}
-
-// O <img> mostra os 800px; o clique assina a URL sem transform, na hora.
-// A janela abre ANTES do await: o Safari bloqueia popup aberto depois.
-async function abrirOriginal(ev, path) {
-  ev.preventDefault();
-  const janela = window.open('', '_blank');
-  if (janela) janela.opener = null;
-  const url = await getSignedUrl(path);
-  if (!url) { janela?.close(); return; }
-  if (janela) janela.location = url;
-  else window.location.href = url;
 }
 
 function comentariosOrdenados(p) {
@@ -91,23 +71,24 @@ export default function FeedNutri() {
   const naTela = useMemo(() => filtrados.slice(0, visiveis), [filtrados, visiveis]);
 
   // Assina em paralelo, e só o que está na tela.
+  // Sem flag de cancelamento: sob StrictMode a limpeza rodaria entre a 1a e a
+  // 2a execução e descartaria o resultado, enquanto os ids já marcados em
+  // `pedidos` impediriam a 2a de pedir de novo — as fotos nunca chegariam.
+  // setUrls em componente desmontado é no-op desde o React 18, e o urlCache
+  // de módulo faz qualquer repetição sair sem rede.
   useEffect(() => {
-    let cancelado = false;
     const faltando = naTela.filter(p => p.storage_path && !pedidos.current.has(p.id));
     if (!faltando.length) return;
     faltando.forEach(p => pedidos.current.add(p.id));
 
     Promise.all(faltando.map(p =>
-      getSignedUrl(p.storage_path, THUMB).then(url => [p.id, url])
+      getSignedUrl(p.storage_path).then(url => [p.id, url])
     )).then(pares => {
-      if (cancelado) return;
       // falhou: tira do set para que uma recarga tente de novo
       pares.filter(([, url]) => !url).forEach(([id]) => pedidos.current.delete(id));
       const novas = Object.fromEntries(pares.filter(([, url]) => url));
       if (Object.keys(novas).length) setUrls(u => ({ ...u, ...novas }));
     });
-
-    return () => { cancelado = true; };
   }, [naTela]);
 
   async function salvarComentario(post) {
@@ -253,7 +234,6 @@ export default function FeedNutri() {
                 }}>
                   {url ? (
                     <a href={url} target="_blank" rel="noreferrer"
-                       onClick={ev => abrirOriginal(ev, p.storage_path)}
                        style={{ display: 'block', width: '100%', height: '100%' }}>
                       <img src={url} alt={p.legenda ?? 'prato'}
                         loading="lazy" decoding="async"
