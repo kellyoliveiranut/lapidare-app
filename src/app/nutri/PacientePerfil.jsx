@@ -24,6 +24,7 @@ const Emagrecimento        = lazy(() => import('./_Emagrecimento.jsx'));
 const Calculos             = lazy(() => import('./_Calculos.jsx'));
 const AnalisarAvaliacao    = lazy(() => import('./_AnalisarAvaliacao.jsx'));
 const Treinos              = lazy(() => import('./_Treinos.jsx'));
+const FinanceiroPaciente   = lazy(() => import('./_Financeiro.jsx'));
 import DicaJSON from '../../components/DicaJSON.jsx';
 import PlanoView from '../../components/PlanoView.jsx';
 
@@ -1036,6 +1037,9 @@ export default function PacientePerfil() {
             const onco = todas.splice(todas.findIndex(t => t.id === 'oncologia'), 1)[0];
             todas.push(onco);
           }
+          // Financeiro entra depois da reordenação para ficar sempre por
+          // último, com ou sem oncologia — é a única aba administrativa.
+          todas.push({ id: 'financeiro', label: 'Financeiro', icon: 'cash' });
           return todas;
         })().map(t => (
           <button
@@ -1075,6 +1079,7 @@ export default function PacientePerfil() {
         {tab === 'checkin'       && <CheckinPersonalizado pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
         {tab === 'calculos'      && <Calculos pacienteId={paciente.id} nutriId={user.id} paciente={paciente} onUsarNaDieta={(vals) => { setCalculosImportados(vals); setTab('plano'); }} />}
         {tab === 'treinos'       && <Treinos pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
+        {tab === 'financeiro'    && <FinanceiroPaciente pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
       </Suspense>
 
       <div style={{ marginTop: 32, paddingTop: 16, borderTop: '0.5px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20 }}>
