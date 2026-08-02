@@ -9,6 +9,7 @@ import {
   dataLocalISO, montarDataHoraISO, partesLocaisISO,
 } from '../../lib/utils.js';
 import { TEMPLATE_PADRAO } from '../../lib/checkinDefault.js';
+import { mensagemAcesso } from '../../lib/mensagemAcesso.js';
 import { callAnthropicComRetry } from '../../lib/anthropic.js';
 import { buscarAlimento, medidaCaseira, kcalDoAlimento, kcalEquivalente, parseGramas } from '../../lib/taco.js';
 import DateInput, { parseDatePaste } from '../../components/DateInput.jsx';
@@ -290,51 +291,26 @@ export default function PacientePerfil() {
     // Sem 'noopener' de propósito: precisamos de janela.location adiante.
     const janela = window.open('', '_blank');
 
-    let msg;
+    // O ramo decide só QUAL link. O texto vem inteiro de lib/mensagemAcesso.js,
+    // fonte única desde 2026-08-02 — antes havia três cópias divergentes.
+    let link;
     if (!paciente.user_id) {
-      // Caso A: sem conta — reaproveita a geração do link de convite
-      const linkSignup = await gerarLinkConvite();
-      if (!linkSignup) {
+      link = await gerarLinkConvite();      // sem conta: link de criar senha
+      if (!link) {
         janela?.close();
         alert('Não consegui gerar o link agora, tente novamente.');
         return;
       }
-      msg =
-        `Olá, ${primeiroNome}! Aqui é a Equipe da Dra Kelly Oliveira. Preparei o seu espaço no app do Essentia, onde você vai acompanhar seu plano alimentar e seu cuidado de pertinho.\n\n` +
-        `Para criar o seu acesso, clique neste link e escolha a sua senha: ${linkSignup}\n\n` +
-        `Qualquer dúvida, é só me chamar por aqui.\n\n` +
-        `---\n\n` +
-        `Pra instalar o app no seu celular:\n\n` +
-        `No iPhone (precisa ser pelo Safari):\n` +
-        `1. Abra este link no Safari.\n` +
-        `2. Toque no botão de compartilhar (o quadradinho com a seta para cima, na barra de baixo).\n` +
-        `3. Role para baixo e toque em "Adicionar à Tela de Início".\n` +
-        `4. Toque em "Adicionar". Depois, abra o app pelo ícone que apareceu na tela.\n\n` +
-        `No Android:\n` +
-        `1. Abra este link no Chrome.\n` +
-        `2. Toque no menu (os três pontinhos no canto superior direito).\n` +
-        `3. Toque em "Instalar app" (ou "Adicionar à tela inicial").\n` +
-        `4. Confirme. Depois, abra o app pelo ícone que apareceu na tela.\n\n` +
-        `Instalar assim deixa o app na sua tela como qualquer outro aplicativo — e é o que permite receber os avisos e lembretes direto no celular.`;
     } else {
-      // Caso B: já tem conta — link de login
-      msg =
-        `Olá, ${primeiroNome}! Para entrar no app do Essentia, acesse: ${window.location.origin}\n\n` +
-        `Use o seu e-mail ou o número do telefone e a senha que você criou. Se esquecer a senha, toque em "Esqueci minha senha".\n\n` +
-        `---\n\n` +
-        `Pra instalar o app no seu celular:\n\n` +
-        `No iPhone (precisa ser pelo Safari):\n` +
-        `1. Abra este link no Safari.\n` +
-        `2. Toque no botão de compartilhar (o quadradinho com a seta para cima, na barra de baixo).\n` +
-        `3. Role para baixo e toque em "Adicionar à Tela de Início".\n` +
-        `4. Toque em "Adicionar". Depois, abra o app pelo ícone que apareceu na tela.\n\n` +
-        `No Android:\n` +
-        `1. Abra este link no Chrome.\n` +
-        `2. Toque no menu (os três pontinhos no canto superior direito).\n` +
-        `3. Toque em "Instalar app" (ou "Adicionar à tela inicial").\n` +
-        `4. Confirme. Depois, abra o app pelo ícone que apareceu na tela.\n\n` +
-        `Instalar assim deixa o app na sua tela como qualquer outro aplicativo — e é o que permite receber os avisos e lembretes direto no celular.`;
+      link = window.location.origin;        // já tem conta: link de login
     }
+
+    const msg = mensagemAcesso({
+      primeiroNome,
+      objetivo: paciente.objetivo,
+      link,
+      temConta: !!paciente.user_id,
+    });
 
     const url = `https://wa.me/${tel}?text=${encodeURIComponent(msg)}`;
     if (janela) janela.location.href = url;

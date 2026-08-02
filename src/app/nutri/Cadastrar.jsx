@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { dataBR, brl, gerarParcelas, FORMAS_PGTO_LIST, normalizarTelefone, telefoneValido, dataLocalISO } from '../../lib/utils.js';
 import { criarVendaComParcelas } from '../../lib/vendas.js';
+import { mensagemAcesso } from '../../lib/mensagemAcesso.js';
 import DateInput from '../../components/DateInput.jsx';
 
 const OBJETIVOS = ['Emagrecimento', 'Hipertrofia', 'Reeducação alimentar', 'Saúde geral', 'Performance esportiva', 'Oncologia', 'Preparo pré-cirúrgico', 'Outro'];
@@ -225,12 +226,19 @@ export default function Cadastrar() {
     return `${window.location.origin}/signup-paciente/${user.id}/${p.token}`;
   }
 
+  // Invólucro do texto canônico de lib/mensagemAcesso.js. O módulo devolve
+  // texto PURO de propósito, mas os quatro pontos de uso interpolam direto na
+  // URL do wa.me — então o encodeURIComponent mora aqui, num lugar só, e
+  // nenhum ponto de uso precisa saber disso.
+  // temConta é sempre false: carregarPendentes() filtra .neq('status','ativado')
+  // e linkDe() monta o link de criar senha.
   function mensagemWhats(p) {
-    const link = linkDe(p);
-    const primeiroNome = p.nome.split(' ')[0];
-    return encodeURIComponent(
-      `Oi ${primeiroNome}! 😊\n\nPreparei seu acesso ao app de acompanhamento nutricional. Clica no link abaixo, cria sua senha e já entra:\n\n${link}\n\nQualquer dúvida, me chama por aqui!\n\n---\n\nPra instalar o app no seu celular:\n\nNo iPhone (precisa ser pelo Safari):\n1. Abra este link no Safari.\n2. Toque no botão de compartilhar (o quadradinho com a seta para cima, na barra de baixo).\n3. Role para baixo e toque em "Adicionar à Tela de Início".\n4. Toque em "Adicionar". Depois, abra o app pelo ícone que apareceu na tela.\n\nNo Android:\n1. Abra este link no Chrome.\n2. Toque no menu (os três pontinhos no canto superior direito).\n3. Toque em "Instalar app" (ou "Adicionar à tela inicial").\n4. Confirme. Depois, abra o app pelo ícone que apareceu na tela.\n\nInstalar assim deixa o app na sua tela como qualquer outro aplicativo — e é o que permite receber os avisos e lembretes direto no celular.`
-    );
+    return encodeURIComponent(mensagemAcesso({
+      primeiroNome: p.nome.split(' ')[0],
+      objetivo: p.objetivo,
+      link: linkDe(p),
+      temConta: false,
+    }));
   }
 
   async function copiarLink(p) {
