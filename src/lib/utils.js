@@ -246,6 +246,17 @@ export function statusParcela(p) {
   return 'pendente';
 }
 
+/**
+ * Apresentação de cada status de parcela — rótulo, cores e ícone.
+ * Fica aqui, junto de statusParcela(), porque é consumida tanto pela listagem
+ * de vendas quanto pelo modal de editar parcela.
+ */
+export const STATUS_PARCELA_INFO = {
+  pago:     { label: 'Pago',     bg: 'var(--green-bg)', color: 'var(--green)', icon: 'check' },
+  pendente: { label: 'Pendente', bg: '#f5f0e8',         color: 'var(--text3)', icon: 'clock' },
+  atrasado: { label: 'Atrasado', bg: 'var(--red-bg)',   color: 'var(--red)',   icon: 'alert-triangle' },
+};
+
 const FORMAS_PGTO = {
   pix:       { label: 'Pix',                 icon: 'qrcode' },
   credito1x: { label: 'Crédito 1x',          icon: 'credit-card' },
