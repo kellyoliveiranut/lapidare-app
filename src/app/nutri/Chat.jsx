@@ -55,50 +55,73 @@ function rotuloDia(dia) {
   return `${d}/${mes}/${ano}`;
 }
 
+/**
+ * Ordem da lista de conversas: atividade primeiro, alfabética no rabo.
+ * Quem nunca mandou mensagem vai para o fim — e entre si fica em ordem de
+ * nome, que é a ordem que a tela sempre teve.
+ */
+function porAtividade(a, b) {
+  const ta = a.ultima?.created_at;
+  const tb = b.ultima?.created_at;
+  if (ta && tb) return new Date(tb) - new Date(ta);  // as duas: mais recente no topo
+  if (ta) return -1;                                  // só `a` tem mensagem: sobe
+  if (tb) return 1;                                   // só `b` tem: sobe
+  // localeCompare com a locale, não comparação crua: sem isso "Ângela" cairia
+  // depois de "Zuleica", porque Â está fora da faixa A–Z da tabela de caracteres.
+  return a.nome.localeCompare(b.nome, 'pt-BR');
+}
+
 export default function ChatNutri() {
   const { user } = useSession();
-  const [pacientes, setPacientes] = useState(undefined);
-  const [conversas, setConversas] = useState({});  // { pacienteId: {ultima, naoLidas} }
+  const [lista, setLista] = useState(undefined);  // [{id, nome, email, ultima, naoLidas}]
   const [selecionada, setSelecionada] = useState(null);
+  const recarregarRef = useRef(null);
 
-  // Carga inicial: pacientes + última mensagem + contagem não-lidas
+  // Duas requisições em paralelo e UM setState: a lista nasce ordenada, então
+  // não existe momento em que a chave de ordenação esteja ausente da tela.
   async function carregar() {
     if (!user) return;
-    const { data: pacs } = await supabase
-      .from('pacientes')
-      .select('id, nome, email')
-      .eq('nutri_id', user.id)
-      .order('nome');
+    const [{ data: pacs }, { data: pend }] = await Promise.all([
+      supabase
+        .from('pacientes')
+        .select('id, nome, email, mensagens(created_at, texto, imagem_path, de)')
+        .eq('nutri_id', user.id)
+        .eq('status_paciente', 'ativo')
+        .eq('tipo_plano', 'essentia')
+        // Sem !inner de propósito: filtro em recurso embutido poda só as
+        // mensagens, nunca a paciente. Quem nunca escreveu tem que continuar
+        // na lista — é ela que vai para o fim, não para fora.
+        .eq('mensagens.nutri_id', user.id)
+        .order('nome')
+        .order('created_at', { referencedTable: 'mensagens', ascending: false })
+        .limit(1, { referencedTable: 'mensagens' }),
+      supabase
+        .from('mensagens')
+        .select('paciente_id')
+        .eq('nutri_id', user.id)
+        .eq('de', 'paciente')
+        .eq('lida', false),
+    ]);
 
-    const dadosPacientes = pacs ?? [];
-    setPacientes(dadosPacientes);
+    const naoLidas = {};
+    for (const m of pend ?? []) naoLidas[m.paciente_id] = (naoLidas[m.paciente_id] ?? 0) + 1;
 
-    if (dadosPacientes.length === 0) return;
-
-    // Para cada paciente: última mensagem + count não-lidas (de='paciente')
-    const novasConversas = {};
-    await Promise.all(dadosPacientes.map(async p => {
-      const [ultRes, naoLidasRes] = await Promise.all([
-        supabase.from('mensagens')
-          .select('texto, imagem_path, created_at, de')
-          .eq('paciente_id', p.id).eq('nutri_id', user.id)
-          .order('created_at', { ascending: false }).limit(1).maybeSingle(),
-        supabase.from('mensagens')
-          .select('id', { count: 'exact', head: true })
-          .eq('paciente_id', p.id).eq('nutri_id', user.id)
-          .eq('de', 'paciente').eq('lida', false),
-      ]);
-      novasConversas[p.id] = {
-        ultima: ultRes.data,
-        naoLidas: naoLidasRes.count ?? 0,
-      };
-    }));
-    setConversas(novasConversas);
+    setLista(
+      (pacs ?? [])
+        .map(p => ({
+          id: p.id, nome: p.nome, email: p.email,
+          ultima: p.mensagens?.[0] ?? null,
+          naoLidas: naoLidas[p.id] ?? 0,
+        }))
+        .sort(porAtividade)
+    );
   }
 
   useEffect(() => { carregar(); }, [user]);
 
-  // Subscribe global: qualquer INSERT em mensagens das pacientes da nutri
+  // Subscribe global: qualquer INSERT em mensagens das pacientes da nutri.
+  // Recarga com debounce: uma troca rápida de mensagens dispara vários INSERT
+  // seguidos, e sem isso a lista se reordenaria a cada um.
   useEffect(() => {
     if (!user) return;
     const channel = supabase
@@ -107,13 +130,17 @@ export default function ChatNutri() {
         event: 'INSERT', schema: 'public', table: 'mensagens',
         filter: `nutri_id=eq.${user.id}`,
       }, () => {
-        carregar();
+        clearTimeout(recarregarRef.current);
+        recarregarRef.current = setTimeout(carregar, 400);
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      clearTimeout(recarregarRef.current);
+      supabase.removeChannel(channel);
+    };
   }, [user]);
 
-  if (pacientes === undefined) {
+  if (lista === undefined) {
     return (
       <>
         <div className="page-title">Chat</div>
@@ -122,15 +149,18 @@ export default function ChatNutri() {
     );
   }
 
-  if (pacientes.length === 0) {
+  if (lista.length === 0) {
     return (
       <>
         <div className="page-title">Chat</div>
         <div className="page-sub">Mensagens com todas as pacientes</div>
         <div className="card empty-card">
           <i className="ti ti-message-circle empty-icon" aria-hidden="true"></i>
-          <div className="empty-title">Nenhuma paciente cadastrada</div>
-          <div className="empty-sub">Cadastre uma paciente para começar a conversar.</div>
+          <div className="empty-title">Nenhuma conversa disponível</div>
+          <div className="empty-sub">
+            O chat é do plano Essentia e mostra apenas pacientes ativas. Quem está
+            em consulta avulsa, ou com o atendimento finalizado, não aparece aqui.
+          </div>
         </div>
       </>
     );
@@ -144,13 +174,12 @@ export default function ChatNutri() {
       <div className="chat-layout">
         {/* Lista de conversas */}
         <div className="card" style={{ padding: 0, overflowY: 'auto' }}>
-          {pacientes.map(p => {
-            const c = conversas[p.id] ?? {};
-            const ativo = selecionada?.id === p.id;
+          {lista.map(c => {
+            const ativo = selecionada?.id === c.id;
             return (
               <button
-                key={p.id}
-                onClick={() => setSelecionada(p)}
+                key={c.id}
+                onClick={() => setSelecionada(c)}
                 style={{
                   display: 'flex', alignItems: 'flex-start', gap: 10,
                   padding: '12px 14px', width: '100%', textAlign: 'left',
@@ -165,11 +194,11 @@ export default function ChatNutri() {
                   background: 'var(--bg2)', display: 'flex',
                   alignItems: 'center', justifyContent: 'center',
                   fontSize: 13, fontWeight: 600, color: 'var(--dark)', flexShrink: 0,
-                }}>{iniciais(p.nome)}</div>
+                }}>{iniciais(c.nome)}</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 6 }}>
                     <span style={{ fontSize: 14, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {p.nome}
+                      {c.nome}
                     </span>
                     {c.ultima && (
                       <span style={{ fontSize: 11, color: 'var(--text3)', flexShrink: 0 }}>
