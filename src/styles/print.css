@@ -153,13 +153,17 @@
     print-color-adjust: exact;
   }
 
-  /* ── 8. Substituições ── */
+  /* ── 8. Substituições ──
+     O avoid NÃO fica no bloco inteiro. Ele é tudo-ou-nada: com a lista
+     cheia o bloco não cabe no que sobra da folha, é empurrado por completo
+     e deixa o pé da anterior em branco — foi o que aconteceu na primeira
+     impressão, três linhas sozinhas numa página 4. A quebra passa a ser
+     por linha: o bloco fragmenta, cada linha fica inteira e o aviso se
+     cola à primeira delas. */
   .pr-subs {
     background: #EEF3E6;
     padding: 10pt 12pt;
     margin-top: 16pt;
-    page-break-inside: avoid;
-    break-inside: avoid;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
@@ -167,11 +171,16 @@
     font-weight: 700;
     font-size: 9.5pt;
     margin-bottom: 6pt;
+    /* o aviso governa as linhas: nunca deve ser a última coisa da folha */
+    page-break-after: avoid;
+    break-after: avoid;
   }
   .pr-subs-linha {
     font-size: 9pt;
     padding: 2.5pt 0;
     border-bottom: .5pt solid #DCE5CE;
+    page-break-inside: avoid;
+    break-inside: avoid;
   }
   .pr-subs-linha:last-child { border-bottom: none; }
 
