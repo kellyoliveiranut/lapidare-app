@@ -1,0 +1,191 @@
+/* =============================================================
+   Impressão do plano alimentar da paciente.
+
+   O documento impresso NÃO é a tela reestilizada: é um bloco
+   próprio (.print-doc), montado dos mesmos dados de planos.dados,
+   invisível na tela e único visível no papel. Isso evita brigar
+   com !important sobre o layout do app e mantém PlanoView.jsx
+   intacto — ele é compartilhado com a tela da nutri.
+   ============================================================= */
+
+.print-doc { display: none; }
+
+@media print {
+  @page { size: A4 portrait; margin: 14mm 12mm 18mm; }
+
+  /* ── 1. Desmonta o app ──
+     Sem isto sai UMA folha cortada na primeira dobra: .body tem
+     overflow-y:auto e .paciente-app é flex com min-height:100dvh —
+     container com scroll próprio imprime só o que está visível. */
+  html, body, #root {
+    height: auto !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+  .paciente-app {
+    display: block !important;
+    min-height: 0 !important;
+    max-width: none !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+  .paciente-app .body {
+    height: auto !important;
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+
+  /* ── 2. Some o app inteiro; sobra só o documento ──
+     Resolve de uma vez tab bar, cabeçalho, botões e card de PDF.
+     .body contém <Outlet/> direto, então o filho direto é a tela. */
+  .paciente-app > *:not(.body) { display: none !important; }
+  .paciente-app .body > *:not(.print-doc) { display: none !important; }
+
+  /* As animações de entrada dos cards poderiam congelar translúcidas */
+  .paciente-app * { animation: none !important; transition: none !important; }
+
+  .print-doc {
+    display: block !important;
+    color: #281b06;
+    font-size: 10pt;
+    line-height: 1.45;
+  }
+
+  /* ── 3. Cabeçalho ── */
+  .pr-marca {
+    font-family: var(--font-serif);
+    font-size: 24pt;
+    color: #281b06;
+    text-align: center;
+    letter-spacing: .01em;
+  }
+  .pr-credencial {
+    font-size: 7pt;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: #a08456;
+    text-align: center;
+    margin-top: 3pt;
+  }
+
+  /* ── 4. Faixa de identificação ──
+     Os fundos dependem de print-color-adjust: o Chrome respeita mesmo
+     com "Gráficos de segundo plano" desmarcado; o Safari é irregular.
+     Por isso a estrutura nunca depende só de cor — ver bordas abaixo. */
+  .pr-identificacao {
+    background: #F4ECDD;
+    padding: 10pt 12pt;
+    margin: 14pt 0;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .pr-id-titulo {
+    text-transform: uppercase;
+    font-weight: 700;
+    font-size: 10pt;
+    letter-spacing: .08em;
+    margin-bottom: 4pt;
+  }
+  .pr-id-linha { font-size: 9pt; }
+
+  /* ── 5. Títulos de seção ── */
+  .pr-secao {
+    font-size: 11pt;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    color: #a08456;
+    border-bottom: .5pt solid #DDD5C4;
+    padding-bottom: 3pt;
+    margin: 16pt 0 8pt;
+  }
+
+  /* ── 6. Resumo nutricional (condicional: 65 de 70 planos têm macros vazio) ── */
+  .pr-resumo { width: 100%; border-collapse: collapse; }
+  .pr-resumo td {
+    padding: 3pt 0;
+    border-bottom: .5pt solid #E6DFD3;
+    font-size: 9.5pt;
+  }
+  .pr-resumo td:last-child {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  /* ── 7. Refeições ──
+     O avoid fica no bloco que envolve nome + tabela, para o nome da
+     refeição nunca ficar órfão no pé da folha, longe da tabela dele. */
+  .pr-refeicao {
+    page-break-inside: avoid;
+    break-inside: avoid;
+    margin-bottom: 12pt;
+  }
+  .pr-refeicao-nome {
+    text-transform: uppercase;
+    font-weight: 700;
+    font-size: 10.5pt;
+    letter-spacing: .06em;
+    margin-bottom: 4pt;
+  }
+  .pr-tabela { width: 100%; border-collapse: collapse; }
+  .pr-tabela th {
+    background: #F4ECDD;
+    text-align: left;
+    font-size: 8pt;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: #6b5c3e;
+    padding: 4pt 6pt;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .pr-tabela td {
+    padding: 3.5pt 6pt;
+    border-bottom: .5pt solid #E6DFD3;
+    font-size: 9.5pt;
+  }
+  .pr-tabela th:last-child,
+  .pr-tabela td:last-child { text-align: right; white-space: nowrap; }
+  /* Zebra é cosmética: se o fundo não imprimir, as bordas seguram a leitura */
+  .pr-tabela tbody tr:nth-child(even) td {
+    background: #FAF7F1;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* ── 8. Substituições ── */
+  .pr-subs {
+    background: #EEF3E6;
+    padding: 10pt 12pt;
+    margin-top: 16pt;
+    page-break-inside: avoid;
+    break-inside: avoid;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .pr-subs-aviso {
+    font-weight: 700;
+    font-size: 9.5pt;
+    margin-bottom: 6pt;
+  }
+  .pr-subs-linha {
+    font-size: 9pt;
+    padding: 2.5pt 0;
+    border-bottom: .5pt solid #DCE5CE;
+  }
+  .pr-subs-linha:last-child { border-bottom: none; }
+
+  /* ── 9. Rodapé — uma vez, no fim ──
+     "Página N" exigiria counter(page) em margin box do @page, que
+     Chrome, Safari e Firefox não implementam. A data de impressão
+     distingue duas versões impressas da mesma dieta. */
+  .pr-rodape {
+    margin-top: 18pt;
+    padding-top: 6pt;
+    border-top: .5pt solid #DDD5C4;
+    text-align: center;
+    font-size: 7pt;
+    color: #a08456;
+    line-height: 1.5;
+  }
+}
