@@ -664,9 +664,13 @@ function LinhaDoTempoCiclo({ ciclos, intervalo, protocoloNome, standalone }) {
   const proto = getProtocolo(protocoloNome);
   const estruturado = temEstruturaCiclo(proto);
 
-  let emJanela, janInicio, janFim, marcos;
+  let emJanela, janInicio, janFim, rotuloJanela, marcos;
   if (estruturado) {
     ({ inicio: janInicio, fim: janFim } = janelaRisco(proto));
+    // O catálogo (protocolos_efeitos.json) ainda conta a infusão como D0. Até
+    // essa revisão clínica sair, o banner segue os números dele em vez de somar
+    // 1 e divergir dos labels dos marcos, que vêm do mesmo catálogo.
+    rotuloJanela = `D+${janInicio} a D+${janFim}`;
     emJanela = hoje >= addDias(uc.data_quimio, janInicio) && hoje <= addDias(uc.data_quimio, janFim);
     marcos = [
       { d: uc.data_quimio, label: 'Aplicação', desc: 'Dia da infusão', cor: '#16a34a' },
@@ -678,14 +682,19 @@ function LinhaDoTempoCiclo({ ciclos, intervalo, protocoloNome, standalone }) {
     ];
   } else {
     janInicio = 7; janFim = 14;
+    // Infusão = D1, então o dia do ciclo é o deslocamento + 1.
+    rotuloJanela = `D${janInicio + 1} a D${janFim + 1}`;
     emJanela = hoje >= uc.d7 && hoje <= uc.d14;
+    // As datas continuam vindo das colunas geradas d3/d7/d10/d14 (deslocamento
+    // a partir da infusão); o label é o dia do ciclo, que é o deslocamento + 1.
     marcos = [
-      { d: uc.data_quimio,          label: 'D0',       desc: 'Quimio',          cor: '#16a34a' },
-      { d: uc.d3,                    label: 'D+3',      desc: 'Início da piora', cor: '#eab308' },
-      { d: uc.d7,                    label: 'D+7',      desc: 'Janela de risco', cor: '#ef4444' },
-      { d: uc.d10,                   label: 'D+10',     desc: 'Pico de risco',   cor: '#dc2626' },
-      { d: uc.d14,                   label: 'D+14',     desc: 'Fim da janela',   cor: '#eab308' },
-      { d: addDias(uc.data_quimio, iv), label: `D+${iv}`, desc: 'Próximo ciclo', cor: '#16a34a' },
+      { d: uc.data_quimio,          label: 'D1',       desc: 'Quimio',          cor: '#16a34a' },
+      { d: uc.d3,                    label: 'D4',       desc: 'Início da piora', cor: '#eab308' },
+      { d: uc.d7,                    label: 'D8',       desc: 'Janela de risco', cor: '#ef4444' },
+      { d: uc.d10,                   label: 'D11',      desc: 'Pico de risco',   cor: '#dc2626' },
+      { d: uc.d14,                   label: 'D15',      desc: 'Fim da janela',   cor: '#eab308' },
+      // Esse dia é o D1 do ciclo seguinte, não um dia do atual — sem número.
+      { d: addDias(uc.data_quimio, iv), label: 'Próximo', desc: 'Próximo ciclo', cor: '#16a34a' },
     ];
   }
 
@@ -700,7 +709,7 @@ function LinhaDoTempoCiclo({ ciclos, intervalo, protocoloNome, standalone }) {
         }}>
           <span style={{ flexShrink: 0 }}>⚠️</span>
           <span>
-            Você está na <strong>janela de risco imunológico</strong> (D+{janInicio} a D+{janFim} do ciclo {uc.numero_ciclo}).
+            Você está na <strong>janela de risco imunológico</strong> ({rotuloJanela} do ciclo {uc.numero_ciclo}).
             Fique atenta a febre e mal-estar — avise sua nutri se precisar.
           </span>
         </div>

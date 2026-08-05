@@ -1,11 +1,18 @@
 import protocolosEfeitosData from '../data/protocolos_efeitos.json';
 
-/** Fallback atual: mesmos offsets/labels/fases de hoje (+3/+7/+10/+14). */
+/**
+ * Fallback atual: mesmos offsets/fases de hoje (+3/+7/+10/+14).
+ *
+ * `dia` é o deslocamento em dias a partir da infusão — é ele que gera a data e
+ * que casa com as colunas d3/d7/d10/d14 do banco. `label` é o dia do ciclo na
+ * nomenclatura de enfermagem, em que a infusão é D1, logo label = dia + 1. Os
+ * dois números não batem de propósito: só o label vai para a tela.
+ */
 export const MARCOS_FALLBACK = [
-  { dia: 3,  label: 'D+3',  desc: 'Início da piora', fase: 'alerta' },
-  { dia: 7,  label: 'D+7',  desc: 'Janela de risco', fase: 'risco'  },
-  { dia: 10, label: 'D+10', desc: 'Pico de risco',   fase: 'risco'  },
-  { dia: 14, label: 'D+14', desc: 'Fim da janela',   fase: 'alerta' },
+  { dia: 3,  label: 'D4',  desc: 'Início da piora', fase: 'alerta' },
+  { dia: 7,  label: 'D8',  desc: 'Janela de risco', fase: 'risco'  },
+  { dia: 10, label: 'D11', desc: 'Pico de risco',   fase: 'risco'  },
+  { dia: 14, label: 'D15', desc: 'Fim da janela',   fase: 'alerta' },
 ];
 
 export function getProtocolo(nome) {

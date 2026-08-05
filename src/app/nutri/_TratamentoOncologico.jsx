@@ -39,12 +39,15 @@ const COR_FASE = {
   risco:  '#dc2626',
 };
 
+// `dia` é o deslocamento a partir da infusão (gera a data); `label` é o dia do
+// ciclo na nomenclatura de enfermagem, em que a infusão é D1 — logo label =
+// dia + 1. Só o label vai para a tela; o deslocamento não muda.
 const TIMELINE_FALLBACK = [
-  { dia: 0,  label: 'D0',    desc: 'Quimio',          fase: 'quimio' },
-  { dia: 3,  label: 'D+3',   desc: 'Início da piora', fase: 'alerta' },
-  { dia: 7,  label: 'D+7',   desc: 'Janela de risco', fase: 'risco'  },
-  { dia: 10, label: 'D+10',  desc: 'Pico de risco',   fase: 'risco'  },
-  { dia: 14, label: 'D+14',  desc: 'Fim da janela',   fase: 'alerta' },
+  { dia: 0,  label: 'D1',    desc: 'Quimio',          fase: 'quimio' },
+  { dia: 3,  label: 'D4',    desc: 'Início da piora', fase: 'alerta' },
+  { dia: 7,  label: 'D8',    desc: 'Janela de risco', fase: 'risco'  },
+  { dia: 10, label: 'D11',   desc: 'Pico de risco',   fase: 'risco'  },
+  { dia: 14, label: 'D15',   desc: 'Fim da janela',   fase: 'alerta' },
 ];
 
 const ESTADIAMENTOS = ['I', 'II', 'III', 'IV', 'IA', 'IB', 'IIA', 'IIB', 'IIIA', 'IIIB', 'IIIC'];
@@ -342,14 +345,21 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
   const estruturado = temEstruturaCiclo(proto);
   const timelineBase = proto?.timeline?.length > 0 ? proto.timeline : TIMELINE_FALLBACK;
   const duracaoCiclo = proto?.duracaoCiclo ?? num(dados.intervalo_ciclos) ?? 21;
-  let inicioRisco, fimRisco;
+  let inicioRisco, fimRisco, rotuloJanela;
   if (estruturado) {
     ({ inicio: inicioRisco, fim: fimRisco } = janelaRisco(proto));
+    // O catálogo (protocolos_efeitos.json) ainda conta a infusão como D0, e os
+    // cabeçalhos da tabela estruturada repetem os labels dele. Enquanto essa
+    // revisão clínica não acontece, o banner fica colado nos números do
+    // catálogo em vez de somar 1 e divergir do resto da tela.
+    rotuloJanela = `D+${inicioRisco} a D+${fimRisco}`;
   } else {
     const diasRisco     = timelineBase.filter(m => m.fase === 'risco').map(m => m.dia);
     inicioRisco         = diasRisco.length > 0 ? Math.min(...diasRisco) : 7;
     const diasAlertaPos = timelineBase.filter(m => m.fase === 'alerta' && m.dia > inicioRisco).map(m => m.dia);
     fimRisco            = diasAlertaPos.length > 0 ? Math.max(...diasAlertaPos) : 14;
+    // Infusão = D1, então o dia do ciclo é o deslocamento + 1.
+    rotuloJanela = `D${inicioRisco + 1} a D${fimRisco + 1}`;
   }
 
   // Janela de risco atual
@@ -373,7 +383,7 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
           display: 'flex', alignItems: 'center', gap: 8,
         }}>
           <i className="ti ti-alert-triangle" style={{ fontSize: 16 }} />
-          ⚠️ Paciente em <strong>janela de risco imunológico</strong> (D+{inicioRisco} a D+{fimRisco} do ciclo {ultimoCiclo.numero_ciclo}).
+          ⚠️ Paciente em <strong>janela de risco imunológico</strong> ({rotuloJanela} do ciclo {ultimoCiclo.numero_ciclo}).
           Monitorar febre, neutropenia e sintomas.
         </div>
       )}
@@ -539,7 +549,7 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
               <div className="card-title">📅 Adicionar ciclo</div>
               <div className="card-sub">{estruturado
                 ? `Informe a data do D1: as ${proto.estruturaCiclo.aplicacoes} aplicações (D1/D8/D15) são geradas automaticamente`
-                : 'D+3, D+7, D+10 e D+14 são calculados automaticamente'}</div>
+                : 'D4, D8, D11 e D15 são calculados automaticamente'}</div>
             </div>
             <div className="card-body">
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: 10, alignItems: 'end' }}>
@@ -578,7 +588,9 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
               })),
               {
                 d:     addDays(uc.data_quimio, duracaoCiclo),
-                label: `D+${duracaoCiclo}`,
+                // Esse dia é o D1 do ciclo seguinte, não um dia do atual — por
+                // isso não leva número.
+                label: 'Próximo',
                 desc:  'Próximo ciclo',
                 cor:   '#16a34a',
               },
@@ -622,10 +634,10 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
                   <tr>
                     <th>Ciclo</th>
                     <th>Quimio</th>
-                    <th>D+3</th>
-                    <th>D+7</th>
-                    <th>D+10</th>
-                    <th>D+14 (fim da janela)</th>
+                    <th>D4</th>
+                    <th>D8</th>
+                    <th>D11</th>
+                    <th>D15 (fim da janela)</th>
                     <th>Obs</th>
                     <th></th>
                   </tr>
