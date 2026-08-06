@@ -56,6 +56,7 @@ export default function Treinos({ pacienteId, nutriId, pacienteNome }) {
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState(null);
   const [ascoOpen, setAscoOpen] = useState(false);
+  const [erroLista, setErroLista] = useState(null);
 
   async function carregar() {
     const { data } = await supabase
@@ -108,6 +109,49 @@ export default function Treinos({ pacienteId, nutriId, pacienteNome }) {
   async function desativar(id) {
     if (!window.confirm('Desativar este treino?')) return;
     await supabase.from('treinos_prescritos').update({ ativo: false }).eq('id', id);
+    carregar();
+  }
+
+  // Exclusão é delete de verdade, e a FK treinos_registros.treino_id é ON DELETE
+  // CASCADE no banco (confirmado por pg_constraint, 2026-08-06 — a migration
+  // 2026-06-05b diz 'set null' e está desatualizada). Ou seja: apagar o treino
+  // apaga junto o histórico de adesão da paciente. Por isso a contagem de
+  // sessões vem ANTES do confirm, e um erro na contagem aborta — avisar "sem
+  // sessões" quando na verdade não deu para contar seria mentir no único
+  // momento em que a nutri decide.
+  async function excluir(t) {
+    setErroLista(null);
+
+    const { count, error: erroContagem } = await supabase
+      .from('treinos_registros')
+      .select('id', { count: 'exact', head: true })
+      .eq('treino_id', t.id);
+
+    if (erroContagem) {
+      setErroLista('Não foi possível verificar o histórico deste treino, então a exclusão foi cancelada. ' + erroContagem.message);
+      return;
+    }
+
+    const primeiro = pacienteNome.split(' ')[0];
+    const aviso = count > 0
+      ? `Excluir o treino "${t.tipo}"?\n\nEste treino tem ${count} ${count === 1 ? 'sessão registrada' : 'sessões registradas'} por ${primeiro}. Excluir vai apagar esse histórico junto, e não pode ser desfeito.`
+      : `Excluir o treino "${t.tipo}"?\n\nEsta ação não pode ser desfeita.`;
+    if (!window.confirm(aviso)) return;
+
+    // O .select() devolve as linhas efetivamente apagadas. Sem ele, um delete
+    // barrado pela RLS volta como sucesso com zero linhas, e a tela recarregaria
+    // com o treino ainda lá, sem explicação.
+    const { data, error } = await supabase
+      .from('treinos_prescritos')
+      .delete()
+      .eq('id', t.id)
+      .select();
+
+    if (error) { setErroLista('Erro ao excluir: ' + error.message); return; }
+    if (!data?.length) {
+      setErroLista('Não foi possível excluir este treino — sem permissão no banco.');
+      return;
+    }
     carregar();
   }
 
@@ -362,6 +406,13 @@ export default function Treinos({ pacienteId, nutriId, pacienteNome }) {
       {/* Lista de treinos prescritos */}
       <div className="section-label">Treinos recomendados ({treinos?.length ?? 0})</div>
 
+      {erroLista && (
+        <div style={{
+          marginBottom: 10, padding: '8px 12px', borderRadius: 6, fontSize: 13,
+          background: 'var(--red-bg)', color: 'var(--red)',
+        }}>{erroLista}</div>
+      )}
+
       {treinos === null ? (
         <div className="card empty-card"><div className="empty-sub">Carregando…</div></div>
       ) : treinos.length === 0 ? (
@@ -407,14 +458,23 @@ export default function Treinos({ pacienteId, nutriId, pacienteNome }) {
                     Publicado em {dataBR(t.created_at)}
                   </div>
                 </div>
-                {t.ativo && (
+                <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+                  {t.ativo && (
+                    <button
+                      onClick={() => desativar(t.id)}
+                      title="Desativar treino"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 4 }}>
+                      <i className="ti ti-x" style={{ fontSize: 15 }} aria-hidden="true" />
+                    </button>
+                  )}
+
                   <button
-                    onClick={() => desativar(t.id)}
-                    title="Desativar treino"
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 4, flexShrink: 0 }}>
-                    <i className="ti ti-x" style={{ fontSize: 15 }} aria-hidden="true" />
+                    onClick={() => excluir(t)}
+                    title="Excluir treino"
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--red)', padding: 4 }}>
+                    <i className="ti ti-trash" style={{ fontSize: 15 }} aria-hidden="true" />
                   </button>
-                )}
+                </div>
               </div>
             </div>
           ))}
