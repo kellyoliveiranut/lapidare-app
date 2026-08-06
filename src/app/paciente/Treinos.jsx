@@ -232,7 +232,7 @@ export default function TreinosPaciente() {
                 <div style={{ fontSize: 13, color: 'var(--ink-soft)' }}>
                   {treino.intensidade} · {treino.frequencia_semanal}×/semana · {treino.duracao_minutos} min/sessão
                 </div>
-                <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{treino.fase_tratamento}</div>
+                {treino.fase_tratamento && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{treino.fase_tratamento}</div>}
                 {treino.dias_semana?.length > 0 && (
                   <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 6 }}>
                     {treino.dias_semana.map(d => (

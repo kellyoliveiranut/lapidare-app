@@ -40,7 +40,7 @@ const form0 = () => ({
   intensidade: 'Leve',
   frequencia_semanal: 3,
   duracao_minutos: 30,
-  fase_tratamento: FASES[0],
+  fase_tratamento: '',
   dias_semana: [],
   objetivo_treino: '',
   precaucoes: '',
@@ -88,7 +88,7 @@ export default function Treinos({ pacienteId, nutriId, pacienteNome }) {
       intensidade:      form.intensidade,
       frequencia_semanal: form.frequencia_semanal,
       duracao_minutos:  form.duracao_minutos,
-      fase_tratamento:  form.fase_tratamento,
+      fase_tratamento:  form.fase_tratamento || null,
       dias_semana:      form.dias_semana.length ? form.dias_semana : null,
       objetivo_treino:  form.objetivo_treino.trim() || null,
       precaucoes:       form.precaucoes.trim() || null,
@@ -204,8 +204,9 @@ export default function Treinos({ pacienteId, nutriId, pacienteNome }) {
 
           {/* Fase do tratamento */}
           <div style={{ marginTop: 10 }}>
-            <label className="field-label">Fase do tratamento</label>
+            <label className="field-label">Fase do tratamento (opcional)</label>
             <select value={form.fase_tratamento} onChange={set('fase_tratamento')}>
+              <option value="">Não especificada</option>
               {FASES.map(f => <option key={f} value={f}>{f}</option>)}
             </select>
           </div>
@@ -388,7 +389,7 @@ export default function Treinos({ pacienteId, nutriId, pacienteNome }) {
                     {t.intensidade} · {t.frequencia_semanal}×/semana · {t.duracao_minutos} min
                     {t.dias_semana?.length ? ` · ${t.dias_semana.join(', ')}` : ''}
                   </div>
-                  <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{t.fase_tratamento}</div>
+                  {t.fase_tratamento && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{t.fase_tratamento}</div>}
                   {t.objetivo_treino && (
                     <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 4 }}>
                       🎯 {t.objetivo_treino}
