@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase.js';
 import { dataBR, dataLocalISO } from '../../lib/utils.js';
 import DateInput from '../../components/DateInput.jsx';
 import protocolosEfeitosData from '../../data/protocolos_efeitos.json';
-import { getProtocolo, temEstruturaCiclo, janelaRisco, marcosEfeitoAplicacao, datasAplicacoesCiclo, datasSerieCiclos, intervaloMinimoSerie, linhasDoCiclo } from '../../lib/protocoloCiclo.js';
+import { getProtocolo, temEstruturaCiclo, janelaRisco, rotuloJanelaRisco, marcosDoProtocolo, marcosEfeitoAplicacao, datasAplicacoesCiclo, datasSerieCiclos, intervaloMinimoSerie, linhasDoCiclo } from '../../lib/protocoloCiclo.js';
 
 const GRUPOS_EFEITOS = (() => {
   const groups = {};
@@ -38,17 +38,6 @@ const COR_FASE = {
   alerta: '#eab308',
   risco:  '#dc2626',
 };
-
-// `dia` é o deslocamento a partir da infusão (gera a data); `label` é o dia do
-// ciclo na nomenclatura de enfermagem, em que a infusão é D1 — logo label =
-// dia + 1. Só o label vai para a tela; o deslocamento não muda.
-const TIMELINE_FALLBACK = [
-  { dia: 0,  label: 'D1',    desc: 'Quimio',          fase: 'quimio' },
-  { dia: 3,  label: 'D4',    desc: 'Início da piora', fase: 'alerta' },
-  { dia: 7,  label: 'D8',    desc: 'Janela de risco', fase: 'risco'  },
-  { dia: 10, label: 'D11',   desc: 'Pico de risco',   fase: 'risco'  },
-  { dia: 14, label: 'D15',   desc: 'Fim da janela',   fase: 'alerta' },
-];
 
 const ESTADIAMENTOS = ['I', 'II', 'III', 'IV', 'IA', 'IB', 'IIA', 'IIB', 'IIIA', 'IIIB', 'IIIC'];
 
@@ -343,24 +332,12 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
   // Resolve protocolo do JSON para timeline e janela de risco
   const proto = getProtocolo(dados.protocolo);
   const estruturado = temEstruturaCiclo(proto);
-  const timelineBase = proto?.timeline?.length > 0 ? proto.timeline : TIMELINE_FALLBACK;
   const duracaoCiclo = proto?.duracaoCiclo ?? num(dados.intervalo_ciclos) ?? 21;
-  let inicioRisco, fimRisco, rotuloJanela;
-  if (estruturado) {
-    ({ inicio: inicioRisco, fim: fimRisco } = janelaRisco(proto));
-    // O catálogo (protocolos_efeitos.json) ainda conta a infusão como D0, e os
-    // cabeçalhos da tabela estruturada repetem os labels dele. Enquanto essa
-    // revisão clínica não acontece, o banner fica colado nos números do
-    // catálogo em vez de somar 1 e divergir do resto da tela.
-    rotuloJanela = `D+${inicioRisco} a D+${fimRisco}`;
-  } else {
-    const diasRisco     = timelineBase.filter(m => m.fase === 'risco').map(m => m.dia);
-    inicioRisco         = diasRisco.length > 0 ? Math.min(...diasRisco) : 7;
-    const diasAlertaPos = timelineBase.filter(m => m.fase === 'alerta' && m.dia > inicioRisco).map(m => m.dia);
-    fimRisco            = diasAlertaPos.length > 0 ? Math.max(...diasAlertaPos) : 14;
-    // Infusão = D1, então o dia do ciclo é o deslocamento + 1.
-    rotuloJanela = `D${inicioRisco + 1} a D${fimRisco + 1}`;
-  }
+  // Marcos e rótulos saem do mesmo lugar para todo protocolo, com ou sem
+  // estruturaCiclo — ela só governa quantas linhas cada ciclo gera.
+  const marcosProto = marcosDoProtocolo(proto);
+  const { inicio: inicioRisco, fim: fimRisco } = janelaRisco(proto);
+  const rotuloJanela = rotuloJanelaRisco(proto);
 
   // Janela de risco atual
   const hoje = dataLocalISO();
@@ -549,7 +526,7 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
               <div className="card-title">📅 Adicionar ciclo</div>
               <div className="card-sub">{estruturado
                 ? `Informe a data do D1: as ${proto.estruturaCiclo.aplicacoes} aplicações (D1/D8/D15) são geradas automaticamente`
-                : 'D4, D8, D11 e D15 são calculados automaticamente'}</div>
+                : `Marcos do protocolo (${marcosProto.map(m => m.label).join(', ')}) são calculados automaticamente`}</div>
             </div>
             <div className="card-body">
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: 10, alignItems: 'end' }}>
@@ -579,12 +556,18 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
 
           {!estruturado && ultimoCiclo && (() => {
             const uc = ultimoCiclo;
+            const doCiclo = marcosEfeitoAplicacao(proto, uc.data_quimio);
             const marcos = [
-              ...timelineBase.map(m => ({
-                d:     addDays(uc.data_quimio, m.dia),
+              // Bolinha de "Quimio" só quando nenhum marco começa no dia da
+              // infusão; se começa, ele já vem verde e com "Quimio" no desc.
+              ...(doCiclo.some(m => m.infusao) ? [] : [{
+                d: uc.data_quimio, label: 'D1', desc: 'Quimio', cor: COR_FASE.quimio,
+              }]),
+              ...doCiclo.map(m => ({
+                d:     m.data,
                 label: m.label,
                 desc:  m.desc,
-                cor:   COR_FASE[m.fase] ?? '#6b7280',
+                cor:   m.infusao ? COR_FASE.quimio : (COR_FASE[m.fase] ?? '#6b7280'),
               })),
               {
                 d:     addDays(uc.data_quimio, duracaoCiclo),
@@ -592,7 +575,7 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
                 // isso não leva número.
                 label: 'Próximo',
                 desc:  'Próximo ciclo',
-                cor:   '#16a34a',
+                cor:   COR_FASE.quimio,
               },
             ];
             return (
@@ -634,25 +617,30 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
                   <tr>
                     <th>Ciclo</th>
                     <th>Quimio</th>
-                    <th>D4</th>
-                    <th>D8</th>
-                    <th>D11</th>
-                    <th>D15 (fim da janela)</th>
+                    {/* Uma coluna por marco do protocolo — nada chumbado, nada
+                        truncado. As colunas d3/d7/d10/d14 do banco continuam
+                        existindo; a tela é que deixou de lê-las, senão um
+                        protocolo com marcos próprios mostraria dias genéricos. */}
+                    {marcosProto.map(m => (
+                      <th key={`${m.de}-${m.ate}`} title={m.desc}>{m.label}</th>
+                    ))}
                     <th>Obs</th>
                     <th></th>
                   </tr>
                 </thead>
                 <tbody>
                   {ciclos.map(c => {
-                    const emRisco = hoje >= c.d7 && hoje <= c.d14;
+                    const emRisco = hoje >= addDays(c.data_quimio, inicioRisco) && hoje <= addDays(c.data_quimio, fimRisco);
                     return (
                       <tr key={c.id} style={{ background: emRisco ? '#fef9c3' : undefined }}>
                         <td><strong>C{c.numero_ciclo}</strong></td>
                         <td>{dataBR(c.data_quimio)}</td>
-                        <td style={{ color: 'var(--text3)' }}>{dataBR(c.d3)}</td>
-                        <td style={{ color: emRisco ? '#d97706' : undefined, fontWeight: emRisco ? 600 : undefined }}>{dataBR(c.d7)}</td>
-                        <td style={{ color: 'var(--text3)' }}>{dataBR(c.d10)}</td>
-                        <td style={{ color: emRisco ? '#dc2626' : undefined, fontWeight: emRisco ? 600 : undefined }}>{dataBR(c.d14)}</td>
+                        {marcosEfeitoAplicacao(proto, c.data_quimio).map(m => (
+                          <td key={`${m.de}-${m.ate}`} style={{
+                            color: emRisco && m.fase === 'risco' ? '#dc2626' : 'var(--text3)',
+                            fontWeight: emRisco && m.fase === 'risco' ? 600 : undefined,
+                          }}>{dataBR(m.data)}</td>
+                        ))}
                         <td style={{ color: 'var(--text3)' }}>{c.obs ?? '—'}</td>
                         <td>
                           <button onClick={() => removerCiclo(c.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--red)' }}>
@@ -671,10 +659,14 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
           {/* ── Timeline estruturada (última aplicação) ── */}
           {estruturado && ultimoCiclo && (() => {
             const ucApp = ultimoCiclo;
+            const daApp = marcosEfeitoAplicacao(proto, ucApp.data_quimio);
             const marcos = [
-              { d: ucApp.data_quimio, label: `Aplic. ${ucApp.aplicacao_no_ciclo ?? ''}`.trim(), desc: 'Infusão', cor: COR_FASE.quimio },
-              ...marcosEfeitoAplicacao(proto, ucApp.data_quimio).map(m => ({
-                d: m.data, label: m.label, desc: m.desc, cor: COR_FASE[m.fase] ?? '#6b7280',
+              ...(daApp.some(m => m.infusao) ? [] : [{
+                d: ucApp.data_quimio, label: `Aplic. ${ucApp.aplicacao_no_ciclo ?? ''}`.trim(), desc: 'Infusão', cor: COR_FASE.quimio,
+              }]),
+              ...daApp.map(m => ({
+                d: m.data, label: m.label, desc: m.desc,
+                cor: m.infusao ? COR_FASE.quimio : (COR_FASE[m.fase] ?? '#6b7280'),
               })),
               { d: addDays(ucApp.data_quimio, proto.estruturaCiclo.cadenciaDias), label: 'Próx.', desc: 'Próxima aplicação', cor: COR_FASE.quimio },
             ];
@@ -725,8 +717,12 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
                       <th>Ciclo</th>
                       <th>Aplic.</th>
                       <th>Data</th>
-                      <th>D3–D5</th>
-                      <th>D6–D7</th>
+                      {/* Uma coluna por marco. Antes eram duas colunas fixas
+                          lendo só [w1, w2], então protocolo com mais de dois
+                          marcos perdia o resto em silêncio. */}
+                      {marcosProto.map(m => (
+                        <th key={`${m.de}-${m.ate}`} title={m.desc}>{m.label}</th>
+                      ))}
                       <th>Obs</th>
                       <th></th>
                     </tr>
@@ -734,15 +730,18 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
                   <tbody>
                     {Object.entries(grupos).flatMap(([nc, apps]) =>
                       apps.map(c => {
-                        const [w1, w2] = marcosEfeitoAplicacao(proto, c.data_quimio);
                         const emRisco = hoje >= addDays(c.data_quimio, inicioRisco) && hoje <= addDays(c.data_quimio, fimRisco);
                         return (
                           <tr key={c.id} style={{ background: emRisco ? '#fef9c3' : undefined }}>
                             <td><strong>C{nc}</strong></td>
                             <td>{labelApp(c.aplicacao_no_ciclo)}</td>
                             <td>{dataBR(c.data_quimio)}</td>
-                            <td style={{ color: emRisco ? '#dc2626' : 'var(--text3)', fontWeight: emRisco ? 600 : undefined }}>{dataBR(w1?.data)}</td>
-                            <td style={{ color: 'var(--text3)' }}>{dataBR(w2?.data)}</td>
+                            {marcosEfeitoAplicacao(proto, c.data_quimio).map(m => (
+                              <td key={`${m.de}-${m.ate}`} style={{
+                                color: emRisco && m.fase === 'risco' ? '#dc2626' : 'var(--text3)',
+                                fontWeight: emRisco && m.fase === 'risco' ? 600 : undefined,
+                              }}>{dataBR(m.data)}</td>
+                            ))}
                             <td style={{ color: 'var(--text3)' }}>{c.obs ?? '—'}</td>
                             <td>
                               <button onClick={() => removerCiclo(c.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--red)' }}>

@@ -184,7 +184,6 @@
     {
       "nome": "FOLFOX",
       "aliases": [
-        "5-FU leucovorina oxaliplatina",
         "fluorouracil oxaliplatina"
       ],
       "indicacao": "Cancer colorretal / TGI",
@@ -430,23 +429,35 @@
         "bep x4"
       ],
       "duracaoCiclo": 21,
-      "timeline": [
+      "marcosEfeito": [
         {
-          "dia": 0,
-          "label": "D0",
-          "desc": "Quimio (início do ciclo)",
-          "fase": "quimio"
+          "de": 0,
+          "ate": 4,
+          "desc": "Náuseas, vômitos, perda do apetite e fadiga",
+          "fase": "alerta"
         },
         {
-          "dia": 7,
-          "label": "D+7",
-          "desc": "Início da piora / pico",
+          "de": 6,
+          "ate": 13,
+          "desc": "Nadir hematológico, maior risco de infecção",
           "fase": "risco"
         },
         {
-          "dia": 11,
-          "label": "D+11",
-          "desc": "Fim da janela de risco",
+          "de": 7,
+          "ate": 7,
+          "desc": "Aplicação de bleomicina, observar febre e mal-estar nas próximas 24h",
+          "fase": "alerta"
+        },
+        {
+          "de": 9,
+          "ate": 20,
+          "desc": "Toxicidades cumulativas: neuropatia, ototoxicidade, fadiga persistente",
+          "fase": "alerta"
+        },
+        {
+          "de": 14,
+          "ate": 14,
+          "desc": "Aplicação de bleomicina, observar febre e mal-estar nas próximas 24h",
           "fase": "alerta"
         }
       ],
@@ -1982,14 +1993,12 @@
         {
           "de": 3,
           "ate": 5,
-          "label": "D3–D5",
           "desc": "Momento crítico dos efeitos",
           "fase": "risco"
         },
         {
           "de": 6,
           "ate": 7,
-          "label": "D6–D7",
           "desc": "Recuperação",
           "fase": "alerta"
         }
@@ -2751,6 +2760,95 @@
         "Sangramento ginecológico intenso",
         "Dor óssea importante",
         "Tristeza intensa ou alteração importante de humor"
+      ]
+    },
+    {
+      "nome": "FLOX",
+      "indicacao": "Cancer colorretal / TGI",
+      "aliases": [
+        "5-fluorouracil leucovorina oxaliplatina",
+        "flox"
+      ],
+      "marcosEfeito": [
+        {
+          "de": 0,
+          "ate": 2,
+          "desc": "Náuseas e sensibilidade ao frio",
+          "fase": "alerta"
+        },
+        {
+          "de": 1,
+          "ate": 4,
+          "desc": "Neuropatia aguda pela oxaliplatina",
+          "fase": "alerta"
+        },
+        {
+          "de": 6,
+          "ate": 13,
+          "desc": "Queda dos leucócitos, maior risco de infecção",
+          "fase": "risco"
+        }
+      ]
+    },
+    {
+      "nome": "R-CHOP",
+      "indicacao": "Linfoma",
+      "aliases": [
+        "rituximabe ciclofosfamida doxorrubicina vincristina prednisona",
+        "r-chop 21",
+        "rchop"
+      ],
+      "duracaoCiclo": 21,
+      "marcosEfeito": [
+        {
+          "de": 0,
+          "ate": 4,
+          "desc": "Mais fome pela prednisona e alteração da glicemia",
+          "fase": "alerta"
+        },
+        {
+          "de": 1,
+          "ate": 3,
+          "desc": "Náuseas",
+          "fase": "alerta"
+        },
+        {
+          "de": 6,
+          "ate": 13,
+          "desc": "Neutropenia, maior risco de infecções",
+          "fase": "risco"
+        }
+      ]
+    },
+    {
+      "nome": "T-DD",
+      "indicacao": "Mama, ovário, pulmão, endométrio ou outros; verificar indicação",
+      "aliases": [
+        "paclitaxel dose densa",
+        "paclitaxel dose-densa",
+        "taxol dose densa",
+        "tdd"
+      ],
+      "duracaoCiclo": 7,
+      "marcosEfeito": [
+        {
+          "de": 1,
+          "ate": 4,
+          "desc": "Dores musculares e articulares, início da fadiga",
+          "fase": "alerta"
+        },
+        {
+          "de": 2,
+          "ate": 6,
+          "desc": "Fadiga mais intensa e alterações do paladar",
+          "fase": "alerta"
+        },
+        {
+          "de": 6,
+          "ate": 9,
+          "desc": "Queda dos leucócitos, maior risco de infecções",
+          "fase": "risco"
+        }
       ]
     }
   ]

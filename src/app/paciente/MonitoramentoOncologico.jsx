@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { dataBR, dataLocalISO } from '../../lib/utils.js';
-import { getProtocolo, temEstruturaCiclo, janelaRisco, marcosEfeitoAplicacao } from '../../lib/protocoloCiclo.js';
+import { getProtocolo, temEstruturaCiclo, janelaRisco, rotuloJanelaRisco, marcosEfeitoAplicacao } from '../../lib/protocoloCiclo.js';
 
 const TOTAL_STEPS = 11;
 
@@ -664,39 +664,34 @@ function LinhaDoTempoCiclo({ ciclos, intervalo, protocoloNome, standalone }) {
   const proto = getProtocolo(protocoloNome);
   const estruturado = temEstruturaCiclo(proto);
 
-  let emJanela, janInicio, janFim, rotuloJanela, marcos;
-  if (estruturado) {
-    ({ inicio: janInicio, fim: janFim } = janelaRisco(proto));
-    // O catálogo (protocolos_efeitos.json) ainda conta a infusão como D0. Até
-    // essa revisão clínica sair, o banner segue os números dele em vez de somar
-    // 1 e divergir dos labels dos marcos, que vêm do mesmo catálogo.
-    rotuloJanela = `D+${janInicio} a D+${janFim}`;
-    emJanela = hoje >= addDias(uc.data_quimio, janInicio) && hoje <= addDias(uc.data_quimio, janFim);
-    marcos = [
-      { d: uc.data_quimio, label: 'Aplicação', desc: 'Dia da infusão', cor: '#16a34a' },
-      ...marcosEfeitoAplicacao(proto, uc.data_quimio).map(m => ({
-        d: m.data, label: m.label, desc: m.desc, cor: COR_FASE_PAC[m.fase] ?? '#6b7280',
-      })),
-      { d: addDias(uc.data_quimio, proto.estruturaCiclo.cadenciaDias),
-        label: 'Próxima', desc: 'Próxima aplicação', cor: '#16a34a' },
-    ];
-  } else {
-    janInicio = 7; janFim = 14;
-    // Infusão = D1, então o dia do ciclo é o deslocamento + 1.
-    rotuloJanela = `D${janInicio + 1} a D${janFim + 1}`;
-    emJanela = hoje >= uc.d7 && hoje <= uc.d14;
-    // As datas continuam vindo das colunas geradas d3/d7/d10/d14 (deslocamento
-    // a partir da infusão); o label é o dia do ciclo, que é o deslocamento + 1.
-    marcos = [
-      { d: uc.data_quimio,          label: 'D1',       desc: 'Quimio',          cor: '#16a34a' },
-      { d: uc.d3,                    label: 'D4',       desc: 'Início da piora', cor: '#eab308' },
-      { d: uc.d7,                    label: 'D8',       desc: 'Janela de risco', cor: '#ef4444' },
-      { d: uc.d10,                   label: 'D11',      desc: 'Pico de risco',   cor: '#dc2626' },
-      { d: uc.d14,                   label: 'D15',      desc: 'Fim da janela',   cor: '#eab308' },
-      // Esse dia é o D1 do ciclo seguinte, não um dia do atual — sem número.
-      { d: addDias(uc.data_quimio, iv), label: 'Próximo', desc: 'Próximo ciclo', cor: '#16a34a' },
-    ];
-  }
+  // Marcos e rótulos vêm da mesma fonte com ou sem estruturaCiclo — ela só muda
+  // as pontas da régua (aplicação dentro do ciclo × ciclo inteiro). Nada aqui lê
+  // d3/d7/d10/d14: as colunas do banco continuam lá, mas um protocolo com marcos
+  // próprios (BEP, FLOX, R-CHOP, T-DD) mostraria dias genéricos se as usasse.
+  const { inicio: janInicio, fim: janFim } = janelaRisco(proto);
+  const rotuloJanela = rotuloJanelaRisco(proto);
+  const emJanela = hoje >= addDias(uc.data_quimio, janInicio) && hoje <= addDias(uc.data_quimio, janFim);
+  const doCiclo = marcosEfeitoAplicacao(proto, uc.data_quimio);
+  // Bolinha da infusão só quando nenhum marco começa nela; se começa, ele vem
+  // verde e com "Quimio" no desc, para a referência do dia da quimio não sumir.
+  const pontaInicial = doCiclo.some(m => m.infusao) ? [] : [{
+    d: uc.data_quimio,
+    label: estruturado ? 'Aplicação' : 'D1',
+    desc:  estruturado ? 'Dia da infusão' : 'Quimio',
+    cor:   '#16a34a',
+  }];
+  const pontaFinal = estruturado
+    ? { d: addDias(uc.data_quimio, proto.estruturaCiclo.cadenciaDias), label: 'Próxima', desc: 'Próxima aplicação', cor: '#16a34a' }
+    // Esse dia é o D1 do ciclo seguinte, não um dia do atual — sem número.
+    : { d: addDias(uc.data_quimio, iv), label: 'Próximo', desc: 'Próximo ciclo', cor: '#16a34a' };
+  const marcos = [
+    ...pontaInicial,
+    ...doCiclo.map(m => ({
+      d: m.data, label: m.label, desc: m.desc,
+      cor: m.infusao ? '#16a34a' : (COR_FASE_PAC[m.fase] ?? '#6b7280'),
+    })),
+    pontaFinal,
+  ];
 
   return (
     <div style={wrapStyle}>
