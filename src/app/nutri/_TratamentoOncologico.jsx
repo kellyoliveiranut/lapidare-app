@@ -332,6 +332,11 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
   // Resolve protocolo do JSON para timeline e janela de risco
   const proto = getProtocolo(dados.protocolo);
   const estruturado = temEstruturaCiclo(proto);
+  // Protocolo SEM duracaoCiclo cai no intervalo do cadastro da paciente, e só
+  // depois no 21. O FLOX é assim de propósito — decisão final da Kelly em
+  // 2026-08-07, não pendência: o intervalo dele varia por paciente e quem manda
+  // é o que a nutri registrou. Não preencher duracaoCiclo no catálogo para ele.
+  // (O catálogo é JSON e não aceita comentário; por isso a nota mora aqui.)
   const duracaoCiclo = proto?.duracaoCiclo ?? num(dados.intervalo_ciclos) ?? 21;
   // Marcos e rótulos saem do mesmo lugar para todo protocolo, com ou sem
   // estruturaCiclo — ela só governa quantas linhas cada ciclo gera.
