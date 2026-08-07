@@ -2,8 +2,13 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 
-// Vídeos curados do YouTube em português — exercício oncológico
-const BIBLIOTECA_VIDEOS = [
+// Vídeos curados do YouTube em português.
+//
+// A biblioteca é escolhida pelo objetivo da paciente, por igualdade estrita
+// contra o valor canônico de lib/objetivos.js — mesmo critério de
+// lib/mensagemAcesso.js. Nunca por negação ("diferente de Oncologia"): foi o
+// padrão negativo que entregou conteúdo oncológico a quem não é oncológica.
+const VIDEOS_ONCOLOGIA = [
   {
     id: 'durante',
     titulo: 'Durante o tratamento (quimio/radio)',
@@ -31,6 +36,44 @@ const BIBLIOTECA_VIDEOS = [
     ],
   },
 ];
+
+const VIDEOS_EMAGRECIMENTO = [
+  {
+    id: 'caminhada',
+    titulo: 'Caminhada',
+    videos: [
+      { id: 'ieAvxnG4UQ8', titulo: 'Caminhada em casa para emagrecer — 15 minutos, exercício para iniciantes', canal: 'Aurélio Alfieri' },
+      { id: 'cdWlGYfPq3Q', titulo: 'Caminhada em casa — 30 minutos, exercícios sem impacto', canal: 'Aurélio Alfieri' },
+      { id: 'Kb6QdTzMOj4', titulo: 'Caminhada em casa — iniciantes', canal: 'Carol Borba' },
+    ],
+  },
+  {
+    id: 'meditacao',
+    titulo: 'Meditação',
+    // Os dois vídeos abaixo estão sem 'canal' de propósito: a Kelly aprovou os
+    // links, mas o nome de quem apresenta não foi confirmado. O render esconde
+    // a linha quando o campo falta — melhor sem linha do que com nome errado.
+    videos: [
+      { id: 'fKO4-wxByFU', titulo: 'Meditação guiada em português — relaxamento profundo' },
+      { id: 'vJfwuCB5C8o', titulo: 'Meditação guiada — para calma e equilíbrio' },
+    ],
+  },
+  // Yoga: pendente de confirmação da Kelly sobre um vídeo específico do canal
+  // Fernanda Yoga (ela aprovou o canal, não o vídeo). Musculação: sem conteúdo
+  // aprovado. Nenhuma das duas entra até haver aprovação.
+];
+
+// Map, não objeto literal: objetivo vem do banco e pode ser qualquer texto.
+// Em objeto, uma chave como 'constructor' devolveria algo não-nulo.
+const BIBLIOTECA_POR_OBJETIVO = new Map([
+  ['Oncologia',     VIDEOS_ONCOLOGIA],
+  ['Emagrecimento', VIDEOS_EMAGRECIMENTO],
+]);
+
+// Sem biblioteca para os demais objetivos — Hipertrofia, Reeducação alimentar,
+// Saúde geral, Performance esportiva, Preparo pré-cirúrgico, Outro e objetivo
+// nulo. Pendente: conteúdo aprovado para esses casos.
+const bibliotecaDe = objetivo => BIBLIOTECA_POR_OBJETIVO.get(objetivo) ?? null;
 
 const INTENSIDADE_OPTS = ['Fácil', 'Normal', 'Difícil', 'Não consegui'];
 const SENTIMENTO_OPTS = [
@@ -93,19 +136,24 @@ function AvisoASCO() {
   );
 }
 
-function BibliotecaVideos() {
+function BibliotecaVideos({ objetivo }) {
+  const categorias = bibliotecaDe(objetivo);
+  if (!categorias) return null;
+
   return (
     <>
       <div style={{ marginBottom: 12 }}>
         <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--ink)', marginBottom: 2 }}>
           Movimente-se com segurança 🏃‍♀️
         </div>
-        <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-          Conteúdo baseado nas diretrizes ASCO 2022
-        </div>
+        {objetivo === 'Oncologia' && (
+          <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+            Conteúdo baseado nas diretrizes ASCO 2022
+          </div>
+        )}
       </div>
 
-      {BIBLIOTECA_VIDEOS.map(cat => (
+      {categorias.map(cat => (
         <div key={cat.id} style={{ marginBottom: 20 }}>
           <div style={{
             fontSize: 13, fontWeight: 600, color: 'var(--ink)',
@@ -116,8 +164,10 @@ function BibliotecaVideos() {
           </div>
           {cat.videos.map(v => (
             <div key={v.id} className="card" style={{ padding: 12, marginBottom: 10 }}>
-              <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 2 }}>{v.titulo}</div>
-              <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 8 }}>{v.canal}</div>
+              {/* Sem canal, o título assume o respiro de 8px que a linha do
+                  canal daria — senão o vídeo cola no título nesses dois. */}
+              <div style={{ fontSize: 13, fontWeight: 500, marginBottom: v.canal ? 2 : 8 }}>{v.titulo}</div>
+              {v.canal && <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 8 }}>{v.canal}</div>}
               <div style={{ borderRadius: 8, overflow: 'hidden', aspectRatio: '16/9' }}>
                 <iframe
                   src={`https://www.youtube.com/embed/${v.id}`}
@@ -139,6 +189,8 @@ function BibliotecaVideos() {
 export default function TreinosPaciente() {
   const { user, profile } = useSession();
   const pacienteId = profile?.id ?? user?.id;
+  const objetivo   = profile?.objetivo ?? null;
+  const isOnco     = objetivo === 'Oncologia';
 
   const [treino, setTreino] = useState(undefined);
   const [registros, setRegistros] = useState([]);
@@ -191,7 +243,7 @@ export default function TreinosPaciente() {
     return (
       <>
         <AvisoImportante />
-        <AvisoASCO />
+        {isOnco && <AvisoASCO />}
         <div className="card empty-card"><div className="empty-sub">Carregando…</div></div>
       </>
     );
@@ -206,7 +258,7 @@ export default function TreinosPaciente() {
   return (
     <>
       <AvisoImportante />
-      <AvisoASCO />
+      {isOnco && <AvisoASCO />}
 
       {/* Prescrição da nutri — exibida quando existe */}
       {treino && (
@@ -412,7 +464,7 @@ export default function TreinosPaciente() {
       )}
 
       {/* Biblioteca de exercícios — sempre visível */}
-      <BibliotecaVideos />
+      <BibliotecaVideos objetivo={objetivo} />
     </>
   );
 }
