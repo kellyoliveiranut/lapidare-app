@@ -2829,7 +2829,7 @@
         "taxol dose densa",
         "tdd"
       ],
-      "duracaoCiclo": 7,
+      "duracaoCiclo": 14,
       "marcosEfeito": [
         {
           "de": 1,
@@ -2849,6 +2849,96 @@
           "desc": "Queda dos leucócitos, maior risco de infecções",
           "fase": "risco"
         }
+      ]
+    },
+    {
+      "nome": "FOLFIRINOX",
+      "indicacao": "Pâncreas, colorretal ou outros TGI; verificar indicação",
+      "aliases": [
+        "folfirinox",
+        "oxaliplatina irinotecano leucovorina 5-fu",
+        "oxaliplatina irinotecano leucovorina fluorouracil"
+      ],
+      "duracaoCiclo": 14,
+      "marcosEfeito": [
+        {
+          "de": 0,
+          "ate": 2,
+          "desc": "Fase aguda: náuseas, vômitos, redução do apetite, fadiga e neuropatia/sensibilidade ao frio pela oxaliplatina — também o período da infusão prolongada do 5-FU",
+          "fase": "alerta"
+        },
+        {
+          "de": 3,
+          "ate": 6,
+          "desc": "Fase gastrointestinal: diarreia tardia pelo irinotecano/5-FU, mucosite, alterações do paladar — atenção à hidratação e ingestão energético-proteica",
+          "fase": "alerta"
+        },
+        {
+          "de": 6,
+          "ate": 11,
+          "desc": "Fase hematológica/recuperação: citopenias mais relevantes, atenção a febre e sinais de infecção; fadiga, alteração do paladar e neuropatia podem persistir",
+          "fase": "risco"
+        }
+      ],
+      "efeitos": [
+        {
+          "efeito": "Náuseas e vômitos",
+          "relacionado_a": "esquema",
+          "manejo": "Fracionar em pequenas refeições; evitar jejum prolongado; preparações de menor volume e pouco gordurosas; líquidos em pequenos goles; evitar odores fortes; seguir antieméticos prescritos."
+        },
+        {
+          "efeito": "Diarreia",
+          "relacionado_a": "Irinotecano e 5-FU",
+          "manejo": "Atenção especial. Aumentar líquidos e eletrólitos; reduzir temporariamente muito gordurosos e fibras insolúveis; alimentos de melhor tolerância gastrointestinal; monitorar número e aspecto das evacuações."
+        },
+        {
+          "efeito": "Mucosite",
+          "relacionado_a": "esquema",
+          "manejo": "Preparações macias, úmidas e pouco irritativas. Evitar ácidos, picantes, muito salgados, secos ou ásperos. Adequar temperatura conforme tolerância."
+        },
+        {
+          "efeito": "Disgeusia / sabor metálico",
+          "relacionado_a": "esquema",
+          "manejo": "Variar temperos naturais, marinadas e fontes proteicas; testar alimentos em diferentes temperaturas; alternar carne por ovos, aves, peixes, lácteos ou outra fonte proteica tolerada."
+        },
+        {
+          "efeito": "Inapetência / saciedade precoce",
+          "relacionado_a": "esquema",
+          "manejo": "Pequenas refeições a cada 2–3 horas; aumentar densidade energética e proteica sem aumentar muito o volume; priorizar proteína nos momentos de melhor aceitação."
+        },
+        {
+          "efeito": "Neuropatia / sensibilidade ao frio",
+          "relacionado_a": "Oxaliplatina",
+          "manejo": "Nos primeiros dias, evitar bebidas/alimentos muito frios se desencadearem sintomas; preferir temperatura ambiente ou morna; evitar manipular objetos congelados diretamente."
+        },
+        {
+          "efeito": "Fadiga",
+          "relacionado_a": "esquema",
+          "manejo": "Simplificar refeições, preparações prontas/congeladas, priorizar energia e proteína. Evitar que o cansaço resulte em longos períodos sem alimentação."
+        },
+        {
+          "efeito": "Desidratação",
+          "relacionado_a": "esquema, especialmente com diarreia/vômitos",
+          "manejo": "Fracionar líquidos ao longo do dia; observar diurese, tontura, sede e boca seca."
+        },
+        {
+          "efeito": "Perda de peso / massa muscular",
+          "relacionado_a": "esquema",
+          "manejo": "Monitorar peso, ingestão e funcionalidade; aumentar densidade calórico-proteica; considerar suplemento oral quando a alimentação habitual não atingir as necessidades."
+        }
+      ],
+      "sinais_alerta": [
+        "Febre ≥ 38 °C",
+        "Diarreia intensa, persistente ou muito acima do padrão habitual — pelo irinotecano, pode evoluir para desidratação e alteração eletrolítica, não deve ser tratada só como intercorrência alimentar",
+        "Vômitos repetidos ou incapacidade de manter líquidos",
+        "Sinais de desidratação ou redução importante da urina",
+        "Mucosite que impeça comer ou beber",
+        "Redução importante da ingestão por mais de 24 horas",
+        "Perda rápida de peso",
+        "Dormência/formigamento progressivos ou que interfiram nas atividades",
+        "Falta de ar",
+        "Sangramento",
+        "Dor abdominal intensa ou persistente"
       ]
     }
   ]
