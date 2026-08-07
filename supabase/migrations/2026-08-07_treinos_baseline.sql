@@ -13,6 +13,11 @@
 --
 -- Volume no momento da extração: treinos_prescritos 22 linhas,
 -- treinos_registros 1 linha.
+--
+-- UMA DIVERGÊNCIA DELIBERADA em relação à extração: a coluna órfã
+-- treinos_prescritos.objetivo, que existia no banco em 2026-08-07, não está no
+-- create table abaixo. Ela foi dropada no mesmo dia pela migration
+-- 2026-08-07b_drop_treinos_objetivo.sql. Ver o item 5 no fim do arquivo.
 
 
 create table if not exists public.treinos_prescritos (
@@ -28,7 +33,6 @@ create table if not exists public.treinos_prescritos (
   ativo                 boolean                     default true,
   created_at            timestamp without time zone default now(),
   dias_semana           text[],
-  objetivo              text,
   precaucoes            text,
   progressao            text,
   nutri_id              uuid,
@@ -182,21 +186,15 @@ create policy nutri_read_treinos_registros on public.treinos_registros
 --    Treinos.jsx:299 e 318, para segurar o vídeo até uma data. Foi adicionada à
 --    mão em produção e nunca versionada.
 --
---    objetivo (text) — RESÍDUO MORTO, ao que tudo indica. O insert de
---    _Treinos.jsx:85-101 não a escreve, e a única leitura de objetivo na tela
---    da paciente é treino.objetivo_treino (Treinos.jsx:249). Nenhuma migration
---    a cria: a 2026-06-05c adiciona objetivo_treino, nunca objetivo. Provável
---    primeira tentativa de nomear o campo, deixada para trás quando
---    objetivo_treino entrou. Note que as telas usam select('*'), então a coluna
---    é trafegada em toda leitura sem ser usada por ninguém.
+--    objetivo (text) — era RESÍDUO MORTO e foi DROPADA. Confirmado que nenhum
+--    SELECT a nomeava, nenhum INSERT ou UPDATE a escrevia e que a contagem de
+--    linhas com valor não-nulo era zero. Removida pela migration
+--    2026-08-07b_drop_treinos_objetivo.sql, que traz a investigação completa.
 --
---    Não foi dropada aqui de propósito — baseline registra, não altera. Antes
---    de dropar, confirmar que não há dado nela nas 22 linhas:
---        select count(*) as com_objetivo
---        from public.treinos_prescritos
---        where objetivo is not null;
---    Se vier zero, o drop é seguro. Se não vier, o conteúdo precisa ser lido
---    antes — pode ser texto que a Kelly escreveu e nunca viu aparecer na tela.
+--    Por isso o create table acima NÃO a lista: este baseline descreve a
+--    tabela como ela deve ser reconstruída, não como estava no instante da
+--    extração. Recriar a coluna aqui anularia o drop num banco montado do
+--    zero a partir das migrations.
 --
 -- 6) NÃO existe índice além dos UNIQUE implícitos das primary keys.
 --    Toda consulta das duas telas filtra por paciente_id, e a contagem de
