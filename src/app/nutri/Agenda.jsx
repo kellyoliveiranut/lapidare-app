@@ -64,6 +64,14 @@ function modalidadeDaPaciente(modalidade) {
   return (modalidade ?? '').trim().toLowerCase() === 'presencial' ? 'presencial' : 'online';
 }
 
+// Local só existe no presencial (check consultas_local_modalidade_check). Um
+// único local ativo é escolha óbvia e já vem marcado; com dois ou mais a nutri
+// escolhe, e o salvar() trava enquanto ela não escolher.
+function localPadrao(locais) {
+  const ativos = (locais ?? []).filter(l => l.ativo);
+  return ativos.length === 1 ? ativos[0].id : '';
+}
+
 // Confirmação de presença só faz sentido para consulta futura, agendada e com
 // data marcada — em realizada/cancelada/passada/"a definir" o estado é ruído.
 // Fonte única da verdade: usada tanto no contador do topo quanto na linha.
@@ -89,6 +97,7 @@ export default function Agenda() {
   const { user, profile } = useSession();
   const [consultas, setConsultas] = useState(undefined);
   const [pacientes, setPacientes] = useState([]);
+  const [locais, setLocais] = useState([]);
   const [modalState, setModalState] = useState({ open: false, consulta: null });
   const [mesVisivel, setMesVisivel] = useState(() => {
     const d = new Date();
@@ -104,7 +113,7 @@ export default function Agenda() {
     const { data } = await supabase
       .from('consultas')
       .select(`
-        id, data_hora, duracao_min, tipo, status, modalidade, obs, meet_link, links_extras,
+        id, data_hora, duracao_min, tipo, status, modalidade, local_id, obs, meet_link, links_extras,
         lembrete_ativo, lembrete_enviado,
         confirmada_em, confirmada_por,
         paciente:pacientes(id, nome)
@@ -120,6 +129,16 @@ export default function Agenda() {
       .from('pacientes').select('id, nome, modalidade')
       .eq('nutri_id', user.id).order('nome');
     setPacientes(data ?? []);
+  }
+
+  // Traz os inativos também: consulta antiga pode apontar para um local
+  // aposentado, e sem a linha dele o modal exibiria o select vazio.
+  async function carregarLocais() {
+    if (!user) return;
+    const { data } = await supabase
+      .from('locais_atendimento').select('id, nome, endereco, ativo')
+      .eq('nutri_id', user.id).order('nome');
+    setLocais(data ?? []);
   }
 
   async function verificarLembretes() {
@@ -199,6 +218,7 @@ export default function Agenda() {
   useEffect(() => {
     carregar();
     carregarPacientes();
+    carregarLocais();
     verificarLembretes();
     const intervalo = setInterval(verificarLembretes, 5 * 60 * 1000);
     return () => clearInterval(intervalo);
@@ -384,6 +404,7 @@ export default function Agenda() {
         <ConsultaModal
           consulta={modalState.consulta}
           pacientes={pacientes}
+          locais={locais}
           nutriId={user.id}
           onClose={fechar}
           onSaved={async () => { fechar(); await carregar(); }}
@@ -853,7 +874,7 @@ function ConsultaRow({ c, isLast, isPast, isCanceled, onClick, onToggleConfirmad
 /* ============================================================
    MODAL CONSULTA
    ============================================================ */
-function ConsultaModal({ consulta, pacientes, nutriId, onClose, onSaved, onToggleConfirmada }) {
+function ConsultaModal({ consulta, pacientes, locais, nutriId, onClose, onSaved, onToggleConfirmada }) {
   const isEdit = !!consulta;
   const navigate = useNavigate();
 
@@ -865,12 +886,13 @@ function ConsultaModal({ consulta, pacientes, nutriId, onClose, onSaved, onToggl
         duracao: consulta.duracao_min ?? 45,
         tipo: consulta.tipo ?? 'primeira',
         modalidade: consulta.modalidade ?? 'online',
+        localId: consulta.local_id ?? '',
         status: consulta.status ?? 'agendada',
         obs: consulta.obs ?? '',
         meetLink: consulta.meet_link ?? '',
         linksExtras: Array.isArray(consulta.links_extras) ? consulta.links_extras : [],
       }
-    : { pacienteId: pacientes[0]?.id ?? '', data: '', hora: HORARIO_CONSULTA_PADRAO, duracao: 45, tipo: 'primeira', modalidade: modalidadeDaPaciente(pacientes[0]?.modalidade), status: 'agendada', obs: '', meetLink: '', linksExtras: [] };
+    : { pacienteId: pacientes[0]?.id ?? '', data: '', hora: HORARIO_CONSULTA_PADRAO, duracao: 45, tipo: 'primeira', modalidade: modalidadeDaPaciente(pacientes[0]?.modalidade), localId: modalidadeDaPaciente(pacientes[0]?.modalidade) === 'presencial' ? localPadrao(locais) : '', status: 'agendada', obs: '', meetLink: '', linksExtras: [] };
 
   const [pacienteId, setPacienteId] = useState(initial.pacienteId);
   const [data, setData] = useState(initial.data);
@@ -878,6 +900,7 @@ function ConsultaModal({ consulta, pacientes, nutriId, onClose, onSaved, onToggl
   const [duracao, setDuracao] = useState(initial.duracao);
   const [tipo, setTipo] = useState(initial.tipo);
   const [modalidade, setModalidade] = useState(initial.modalidade);
+  const [localId, setLocalId] = useState(initial.localId);
   const [status, setStatus] = useState(initial.status);
   const [obs, setObs] = useState(initial.obs);
   const [meetLink, setMeetLink] = useState(initial.meetLink);
@@ -925,8 +948,21 @@ function ConsultaModal({ consulta, pacientes, nutriId, onClose, onSaved, onToggl
     setPacienteId(novoId);
     if (isEdit) return;
     const p = pacientes.find(x => x.id === novoId);
-    setModalidade(modalidadeDaPaciente(p?.modalidade));
+    trocarModalidade(modalidadeDaPaciente(p?.modalidade));
   }
+
+  // Online não tem local: zera o state para não gravar lixo (e não esbarrar em
+  // consultas_local_modalidade_check). Voltando para presencial, recupera o que
+  // já estava escolhido; se nada estava, tenta o local único.
+  function trocarModalidade(nova) {
+    setModalidade(nova);
+    setLocalId(nova === 'presencial' ? (localId || localPadrao(locais)) : '');
+  }
+
+  // Ativos, mais o local já salvo nesta consulta mesmo se aposentado — sem ele
+  // o select abriria vazio e o save silenciosamente trocaria o local.
+  const locaisDisponiveis = (locais ?? []).filter(l => l.ativo || l.id === localId);
+  const localEscolhido = (locais ?? []).find(l => l.id === localId) ?? null;
 
   // Link efetivo da call (custom se preenchido, senão Jitsi auto-gerado)
   const consultaIdEfetiva = consulta?.id ?? null;
@@ -941,7 +977,9 @@ function ConsultaModal({ consulta, pacientes, nutriId, onClose, onSaved, onToggl
     dataHoraInicio: dataHoraIso,
     duracaoMin: Number(duracao),
     descricao: `Link da call: ${linkEfetivo}\n\n${obs || ''}`.trim(),
-    local: modalidadeInfo(modalidade).label,
+    // Presencial com local escolhido leva o endereço para o campo "Onde" do
+    // Google Agenda; o resto cai no rótulo da modalidade.
+    local: (modalidade === 'presencial' && localEscolhido?.endereco) || modalidadeInfo(modalidade).label,
   }) : null;
 
   async function salvar() {
@@ -952,6 +990,12 @@ function ConsultaModal({ consulta, pacientes, nutriId, onClose, onSaved, onToggl
     }
     if (!horaConsultaValida(hora)) {
       setErro('O horário deve ser um dos valores entre 08:00 e 18:00 (de 30 em 30 min).');
+      return;
+    }
+    if (modalidade === 'presencial' && !localId) {
+      setErro(locaisDisponiveis.length === 0
+        ? 'Nenhum local de atendimento cadastrado — não dá para salvar como presencial.'
+        : 'Escolha o local da consulta presencial.');
       return;
     }
     setBusy(true);
@@ -967,6 +1011,8 @@ function ConsultaModal({ consulta, pacientes, nutriId, onClose, onSaved, onToggl
         duracao_min: Number(duracao),
         tipo,
         modalidade,
+        // Nunca manda local em consulta online — o check do banco recusaria.
+        local_id: modalidade === 'presencial' ? (localId || null) : null,
         status,
         obs: obs.trim() || null,
         meet_link: meetLink.trim() || null,
@@ -1079,7 +1125,7 @@ function ConsultaModal({ consulta, pacientes, nutriId, onClose, onSaved, onToggl
           {MODALIDADES_CONSULTA.map(m => {
             const ativa = modalidade === m.value;
             return (
-              <button key={m.value} type="button" onClick={() => setModalidade(m.value)}
+              <button key={m.value} type="button" onClick={() => trocarModalidade(m.value)}
                 aria-pressed={ativa}
                 style={{
                   flex: 1, minHeight: 38, borderRadius: 8, cursor: 'pointer',
@@ -1095,6 +1141,31 @@ function ConsultaModal({ consulta, pacientes, nutriId, onClose, onSaved, onToggl
             );
           })}
         </div>
+
+        {modalidade === 'presencial' && (
+          <>
+            <label className="form-lbl">Local</label>
+            {locaisDisponiveis.length === 0 ? (
+              <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>
+                Nenhum local cadastrado ainda.
+              </div>
+            ) : (
+              <>
+                <select value={localId} onChange={e => setLocalId(e.target.value)}>
+                  <option value="">Selecione…</option>
+                  {locaisDisponiveis.map(l => (
+                    <option key={l.id} value={l.id}>{l.ativo ? l.nome : `${l.nome} (inativo)`}</option>
+                  ))}
+                </select>
+                {localEscolhido && (
+                  <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>
+                    {localEscolhido.endereco}
+                  </div>
+                )}
+              </>
+            )}
+          </>
+        )}
 
         {isEdit && (
           <>
