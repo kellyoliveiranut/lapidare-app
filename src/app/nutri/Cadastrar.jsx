@@ -4,15 +4,10 @@ import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { dataBR, brl, gerarParcelas, FORMAS_PGTO_LIST, normalizarTelefone, telefoneValido, dataLocalISO } from '../../lib/utils.js';
 import { criarVendaComParcelas } from '../../lib/vendas.js';
-import { mensagemAcesso } from '../../lib/mensagemAcesso.js';
+import { linkConvite, mensagemConviteEncoded } from '../../lib/convite.js';
 import { OBJETIVOS } from '../../lib/objetivos.js';
+import { PLANOS, MODALIDADES } from '../../lib/opcoesPaciente.js';
 import DateInput from '../../components/DateInput.jsx';
-
-const PLANOS    = [
-  { v: 'avulsa',   l: 'Avulsa' },
-  { v: 'essentia', l: 'Essentia' },
-];
-const MODALIDADES = ['Presencial', 'Online', 'Híbrido'];
 
 export default function Cadastrar() {
   const { user } = useSession();
@@ -222,24 +217,10 @@ export default function Cadastrar() {
     carregarPendentes();
   }
 
-  function linkDe(p) {
-    return `${window.location.origin}/signup-paciente/${user.id}/${p.token}`;
-  }
-
-  // Invólucro do texto canônico de lib/mensagemAcesso.js. O módulo devolve
-  // texto PURO de propósito, mas os quatro pontos de uso interpolam direto na
-  // URL do wa.me — então o encodeURIComponent mora aqui, num lugar só, e
-  // nenhum ponto de uso precisa saber disso.
-  // temConta é sempre false: carregarPendentes() filtra .neq('status','ativado')
-  // e linkDe() monta o link de criar senha.
-  function mensagemWhats(p) {
-    return encodeURIComponent(mensagemAcesso({
-      primeiroNome: p.nome.split(' ')[0],
-      objetivo: p.objetivo,
-      link: linkDe(p),
-      temConta: false,
-    }));
-  }
+  // Atalhos com o nutri_id já amarrado — o link e a mensagem em si moram em
+  // lib/convite.js, compartilhados com a faixa de convite da Agenda.
+  const linkDe = (p) => linkConvite(user.id, p);
+  const mensagemWhats = (p) => mensagemConviteEncoded(user.id, p);
 
   async function copiarLink(p) {
     try {

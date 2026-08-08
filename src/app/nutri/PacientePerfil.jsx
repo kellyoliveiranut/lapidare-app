@@ -11,6 +11,7 @@ import {
 import { TEMPLATE_PADRAO } from '../../lib/checkinDefault.js';
 import { mensagemAcesso } from '../../lib/mensagemAcesso.js';
 import { OBJETIVOS } from '../../lib/objetivos.js';
+import { PLANOS } from '../../lib/opcoesPaciente.js';
 import { callAnthropicComRetry } from '../../lib/anthropic.js';
 import { buscarAlimento, medidaCaseira, kcalDoAlimento, kcalEquivalente, parseGramas } from '../../lib/taco.js';
 import DateInput, { parseDatePaste } from '../../components/DateInput.jsx';
@@ -601,7 +602,7 @@ export default function PacientePerfil() {
             tipo: 'select',
             // Valor minúsculo (o que vai pro banco) + rótulo capitalizado (o que
             // a nutri vê). O gate do plano avulso compara com 'avulsa' minúsculo.
-            opcoes: [{ v: 'avulsa', l: 'Avulsa' }, { v: 'essentia', l: 'Essentia' }],
+            opcoes: PLANOS,
           },
           {
             campo: 'modalidade',
@@ -1512,7 +1513,7 @@ function ModalEditarDados({ paciente, onClose, onSaved }) {
                   do plano avulso compara com 'avulsa' minúsculo. */}
               <select value={form.tipo_plano} onChange={set('tipo_plano')}>
                 <option value="">— sem plano definido —</option>
-                {[{ v: 'avulsa', l: 'Avulsa' }, { v: 'essentia', l: 'Essentia' }].map(o => (
+                {PLANOS.map(o => (
                   <option key={o.v} value={o.v}>{o.l}</option>
                 ))}
               </select>

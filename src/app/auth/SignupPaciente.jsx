@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import BrandFooter from '../../components/BrandFooter.jsx';
 import { OBJETIVOS } from '../../lib/objetivos.js';
+import { PLANOS } from '../../lib/opcoesPaciente.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -271,10 +272,7 @@ export default function SignupPaciente() {
               <SelectField label="Objetivo" value={objetivo} onChange={setObjetivo} options={OBJETIVOS} />
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                <SelectField label="Tipo de plano" value={tipoPlano} onChange={setTipoPlano} options={[
-                  { v: 'avulsa',   l: 'Avulsa' },
-                  { v: 'essentia', l: 'Essentia' },
-                ]} />
+                <SelectField label="Tipo de plano" value={tipoPlano} onChange={setTipoPlano} options={PLANOS} />
                 <SelectField label="Modalidade" value={modalidade} onChange={setModalidade} options={[
                   'Presencial', 'Online', 'Híbrido',
                 ]} />
