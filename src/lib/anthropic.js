@@ -1,30 +1,39 @@
-export async function callAnthropic(messages, { model = 'claude-sonnet-4-6', maxTokens = 2048 } = {}) {
-  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error('VITE_ANTHROPIC_API_KEY não configurada no .env');
+import { supabase } from './supabase.js';
 
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
+// A chave da Anthropic vive só no servidor. Esta função fala com a Netlify
+// Function (netlify/functions/anthropic-proxy.js), que autentica a nutri pelo
+// Bearer token, aplica rate-limit e chama a Anthropic com a chave de lá.
+//
+// O `model` deixou de ser parâmetro: é fixado no servidor, para uma sessão
+// válida não conseguir pedir qualquer modelo. Nenhum chamador passava model.
+export async function callAnthropic(messages, { maxTokens = 2048 } = {}) {
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token;
+  if (!token) throw new Error('Sessão expirada. Entre novamente.');
+
+  const res = await fetch('/.netlify/functions/anthropic-proxy', {
     method: 'POST',
     headers: {
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'content-type': 'application/json',
-      'anthropic-dangerous-direct-browser-access': 'true',
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
     },
-    body: JSON.stringify({ model, max_tokens: maxTokens, messages }),
+    body: JSON.stringify({ messages, maxTokens }),
   });
 
+  const body = await res.json().catch(() => ({}));
+
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    const msg = body.error?.message ?? body.error?.type ?? res.statusText ?? 'sem detalhes';
-    const err = new Error(`${res.status}: ${msg}`);
-    err.status = res.status;
-    const ra = parseInt(res.headers.get('retry-after') ?? '', 10);
-    if (Number.isFinite(ra)) err.retryAfter = ra; // segundos
+    // O status do CORPO vem primeiro: é o da Anthropic, e sobrevive mesmo se a
+    // borda da Netlify normalizar um código fora do padrão (529).
+    const status = body.status ?? res.status;
+    const msg = body.error ?? res.statusText ?? 'sem detalhes';
+    const err = new Error(`${status}: ${msg}`);
+    err.status = status;
+    if (Number.isFinite(body.retry_after)) err.retryAfter = body.retry_after; // segundos
     throw err;
   }
 
-  const data = await res.json();
-  return data.content[0].text;
+  return body.text;
 }
 
 // Envolve callAnthropic com retry + backoff exponencial nos erros transientes

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { dataBR, dataLocalISO } from '../../lib/utils.js';
+import { callAnthropic } from '../../lib/anthropic.js';
 import DateInput from '../../components/DateInput.jsx';
 import protocolosEfeitosData from '../../data/protocolos_efeitos.json';
 import { getProtocolo, temEstruturaCiclo, janelaRisco, rotuloJanelaRisco, marcosDoProtocolo, marcosEfeitoAplicacao, datasAplicacoesCiclo, datasSerieCiclos, intervaloMinimoSerie, linhasDoCiclo } from '../../lib/protocoloCiclo.js';
@@ -281,26 +282,10 @@ export default function TratamentoOncologico({ pacienteId, nutriId }) {
   "obs": "string (valores adicionais relevantes encontrados no exame)"
 }
 Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
-      const resp = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          'x-api-key': import.meta.env.VITE_ANTHROPIC_API_KEY,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true',
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 1024,
-          messages: [{ role: 'user', content: [contentBlock, { type: 'text', text: promptText }] }],
-        }),
-      });
-      if (!resp.ok) {
-        const err = await resp.json();
-        throw new Error(err.error?.message ?? 'Erro na API Anthropic');
-      }
-      const apiData = await resp.json();
-      const rawText = apiData.content?.[0]?.text ?? '';
+      const rawText = await callAnthropic(
+        [{ role: 'user', content: [contentBlock, { type: 'text', text: promptText }] }],
+        { maxTokens: 1024 },
+      );
       let parsed;
       try {
         const clean = rawText.replace(/```json\n?|\n?```/g, '').trim();
