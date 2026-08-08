@@ -67,6 +67,7 @@ export function mensagemAcesso({ primeiroNome, objetivo, link, temConta = false 
       `Use o seu e-mail ou o número do telefone e a senha que você criou. Se esquecer a senha, toque em "Esqueci minha senha".`
     : `Olá, ${primeiroNome}! Aqui é a Equipe da Dra Kelly Oliveira. Preparei o seu espaço no app do Essentia, onde você vai acompanhar seu plano alimentar e seu cuidado de pertinho.\n\n` +
       `Para criar o seu acesso, clique neste link e escolha a sua senha: ${link ?? ''}\n\n` +
+      `Nas próximas vezes, é só entrar com o número do telefone — ou com o seu e-mail, se você cadastrou um — e essa mesma senha.\n\n` +
       `Qualquer dúvida, é só me chamar por aqui.`;
 
   return `${abertura}\n\n${orientacaoDeUso(objetivo)}\n\n---\n\n${RODAPE_INSTALACAO}`;

@@ -92,4 +92,14 @@ const rodapes = CASOS.map(c => mensagemAcesso(c.args).split('---\n\n')[1]);
 const rodapeIgual = rodapes.every(r => r === rodapes[0]);
 console.log(`RODAPÉ idêntico nos 5 casos: ${rodapeIgual ? 'SIM' : 'NÃO'}`);
 
-if (falhas > 0 || !rodapeIgual) process.exit(1);
+// Prova adicional: as duas aberturas dizem com o que entrar. Para a paciente
+// cadastrada sem e-mail o telefone é o ÚNICO caminho de volta — o e-mail dela é
+// um sintético {token}@essentia.local que ela nem conhece. Se esta frase sumir
+// numa reescrita, ela fica sem saber como voltar ao app. O rodapé de instalação
+// fala em "celular", nunca em "telefone", então esta asserção não passa de graça.
+const semMencaoTelefone = CASOS.filter(c => !mensagemAcesso(c.args).includes('telefone'));
+console.log(`MENÇÃO ao telefone nos 5 casos: ${semMencaoTelefone.length === 0
+  ? 'SIM'
+  : 'NÃO — casos ' + semMencaoTelefone.map(c => c.n).join(', ')}`);
+
+if (falhas > 0 || !rodapeIgual || semMencaoTelefone.length > 0) process.exit(1);
