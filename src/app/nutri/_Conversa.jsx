@@ -18,12 +18,12 @@ function fmtHora(iso) {
 }
 
 const MESES_MINUSCULO = [
-  'janeiro', 'fevereiro', 'marÃ§o', 'abril', 'maio', 'junho',
+  'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
   'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro',
 ];
 
 /**
- * Chave "YYYY-MM-DD" do dia LOCAL de um timestamp â€” mesma base do fmtHora,
+ * Chave "YYYY-MM-DD" do dia LOCAL de um timestamp — mesma base do fmtHora,
  * pra separador e hora nunca discordarem na mesma tela.
  */
 function diaLocal(iso) {

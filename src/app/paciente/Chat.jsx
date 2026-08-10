@@ -12,13 +12,13 @@ function fmtHora(iso) {
 }
 
 const MESES_MINUSCULO = [
-  'janeiro', 'fevereiro', 'marÃ§o', 'abril', 'maio', 'junho',
+  'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
   'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro',
 ];
 
 /**
- * Chave "YYYY-MM-DD" do dia LOCAL de um timestamp â€” mesma base do fmtHora,
- * pra separador e hora nunca discordarem na mesma tela. NÃ£o usa toISOString():
+ * Chave "YYYY-MM-DD" do dia LOCAL de um timestamp — mesma base do fmtHora,
+ * pra separador e hora nunca discordarem na mesma tela. Não usa toISOString():
  * em fuso negativo a mensagem da noite cairia no dia seguinte.
  */
 function diaLocal(iso) {
@@ -74,7 +74,7 @@ export default function ChatPaciente() {
       if (!active) return;
       setMsgs(data ?? []);
 
-      // marca como lidas todas as mensagens da nutri ainda nÃ£o lidas
+      // marca como lidas todas as mensagens da nutri ainda não lidas
       const naoLidas = (data ?? []).filter(m => m.de === 'nutri' && !m.lida).map(m => m.id);
       if (naoLidas.length > 0) {
         await supabase.from('mensagens').update({ lida: true }).in('id', naoLidas);
@@ -102,7 +102,7 @@ export default function ChatPaciente() {
           if (curr.some(x => x.id === m.id)) return curr;
           return [...curr, m];
         });
-        // Se for da nutri, marca como lida imediatamente (paciente estÃ¡ vendo)
+        // Se for da nutri, marca como lida imediatamente (paciente está vendo)
         if (m.de === 'nutri') {
           await supabase.from('mensagens').update({ lida: true }).eq('id', m.id);
         }
@@ -137,7 +137,7 @@ export default function ChatPaciente() {
     const f = e.target.files?.[0];
     if (!f) return;
     if (!f.type.startsWith('image/')) { alert('Selecione uma imagem.'); return; }
-    if (f.size > 20 * 1024 * 1024) { alert('Imagem muito grande (mÃ¡ximo 20MB).'); return; }
+    if (f.size > 20 * 1024 * 1024) { alert('Imagem muito grande (máximo 20MB).'); return; }
     setAnexo(f);
     setAnexoPreview(URL.createObjectURL(f));
   }
@@ -180,7 +180,7 @@ export default function ChatPaciente() {
 
     setText('');
     limparAnexo();
-    // Notifica a nutri via push (fire-and-forget â€” nunca bloqueia a UI)
+    // Notifica a nutri via push (fire-and-forget — nunca bloqueia a UI)
     supabase.auth.getSession().then(({ data }) => {
       const accessToken = data.session?.access_token;
       if (!accessToken) return;
@@ -190,7 +190,7 @@ export default function ChatPaciente() {
         body: JSON.stringify(imagem_path ? { mode: 'notify_nutri', kind: 'mensagem_foto' } : { mode: 'notify_nutri' }),
       }).catch(() => {});
     });
-    // a UI atualiza via realtime â€” nÃ£o precisa recarregar
+    // a UI atualiza via realtime — não precisa recarregar
   }
 
   return (
@@ -211,7 +211,7 @@ export default function ChatPaciente() {
         )}
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 13, fontWeight: 600 }}>{nutriNome}</div>
-          <div style={{ fontSize: 10, color: 'var(--green)' }}>â— DisponÃ­vel por mensagem</div>
+          <div style={{ fontSize: 10, color: 'var(--green)' }}>● Disponível por mensagem</div>
         </div>
       </div>
 
@@ -220,7 +220,7 @@ export default function ChatPaciente() {
         fontSize: 10.5, color: 'var(--muted)', textAlign: 'center',
         padding: '0 10px 8px', lineHeight: 1.4,
       }}>
-        Este espaÃ§o Ã© para o acompanhamento nutricional. Em caso de urgÃªncia, procure sua equipe mÃ©dica.
+        Este espaço é para o acompanhamento nutricional. Em caso de urgência, procure sua equipe médica.
       </div>
 
       {/* Mensagens */}
@@ -231,7 +231,7 @@ export default function ChatPaciente() {
       }}>
         {msgs === undefined ? (
           <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--muted)', fontSize: 12 }}>
-            Carregandoâ€¦
+            Carregando…
           </div>
         ) : msgs.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--muted)', fontSize: 12 }}>
@@ -278,7 +278,7 @@ export default function ChatPaciente() {
       {/* Preview do anexo escolhido */}
       {anexoPreview && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 16px 8px' }}>
-          <img src={anexoPreview} alt="prÃ©via" loading="lazy" decoding="async"
+          <img src={anexoPreview} alt="prévia" loading="lazy" decoding="async"
             style={{ width: 52, height: 52, borderRadius: 8, objectFit: 'cover' }} />
           <span style={{ fontSize: 12, color: 'var(--muted)', flex: 1 }}>Foto pronta pra enviar</span>
           <button onClick={limparAnexo} aria-label="Remover foto"
