@@ -214,6 +214,24 @@ export default function NovaPacienteRapida({ nutriId, onClose, onCriada }) {
     }
   }
 
+  // Caminho sem IA: a nutri digita tudo. Limpa os campos de propósito, em vez
+  // de confiar no estado inicial — se ela extraiu, clicou em Voltar e então
+  // escolheu preencher à mão, os valores da extração anterior ainda estariam
+  // aqui, e "manualmente" tem que começar do zero.
+  // O vezBusca++ invalida uma consulta de CPF que ainda esteja em voo: sem ele,
+  // a resposta atrasada acenderia o aviso de duplicado para um CPF que não está
+  // mais no formulário.
+  function preencherManualmente() {
+    vezBusca.current++;
+    setNome(''); setTelefone(''); setEmail('');
+    setNascimento(''); setEndereco(''); setCpf(''); setRg('');
+    setDaIa(new Set());
+    setAvisos([]);
+    setDuplicado(null);
+    setErroExtracao(null);
+    setEtapa('conferir');
+  }
+
   async function salvar() {
     setErro(null);
     if (!nome.trim()) return setErro('Informe o nome.');
@@ -346,6 +364,20 @@ export default function NovaPacienteRapida({ nutriId, onClose, onCriada }) {
                 {extraindo ? 'Lendo…' : 'Extrair'}
               </button>
             </div>
+
+            {/* Escape hatch: texto que a IA não daria conta, ou nenhum texto.
+                <button> e não <a>: é ação na página, não navegação — vira foco
+                pelo teclado e dispara com Enter e espaço, o que um <a> sem href
+                não faz. */}
+            <button type="button" onClick={preencherManualmente} disabled={extraindo}
+              style={{
+                display: 'block', margin: '10px auto 0',
+                background: 'none', border: 'none', padding: 4,
+                color: 'var(--text3)', fontSize: 12, cursor: 'pointer',
+                fontFamily: 'var(--font-sans)', textDecoration: 'underline',
+              }}>
+              ou preencha manualmente
+            </button>
 
             <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 10, lineHeight: 1.5 }}>
               Nada é salvo nesta etapa. Você revisa e corrige tudo na tela seguinte.
