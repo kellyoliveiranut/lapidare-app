@@ -422,6 +422,12 @@ export default function PacientePerfil() {
     );
   }
 
+  // Mesmo critério da lista do Chat (Chat.jsx:50-51): ativa e no Essentia.
+  // Comparação estrita, sem normalizar a caixa, porque lá o filtro é `.eq()` no
+  // banco — uma linha gravada 'Essentia' não entraria na lista, e o botão não
+  // pode oferecer uma conversa que a tela do chat não vai mostrar.
+  const temChat = paciente.status_paciente === 'ativo' && paciente.tipo_plano === 'essentia';
+
   return (
     <>
       <button
@@ -490,6 +496,21 @@ export default function PacientePerfil() {
                 }}>
                 <i className={`ti ti-${linkConviteCopiado || linkConviteCompartilhado ? 'check' : 'link'}`} style={{ fontSize: 12 }} aria-hidden="true" />
                 {linkConviteCompartilhado ? 'Compartilhado!' : linkConviteCopiado ? 'Link copiado!' : 'Copiar link de convite'}
+              </button>
+            )}
+            {temChat && (
+              <button
+                onClick={() => navigate('/nutri/chat')}
+                title="Abre a tela de Chat"
+                style={{
+                  background: 'none', border: '0.5px solid var(--border)',
+                  borderRadius: 6, padding: '3px 9px', fontSize: 11,
+                  color: 'var(--gold-deep, #a08456)', cursor: 'pointer',
+                  fontFamily: 'var(--font-sans)',
+                  display: 'inline-flex', alignItems: 'center', gap: 4,
+                }}>
+                <i className="ti ti-message-circle" style={{ fontSize: 12 }} aria-hidden="true" />
+                Abrir chat
               </button>
             )}
             <button
