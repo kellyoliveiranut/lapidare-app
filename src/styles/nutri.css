@@ -633,3 +633,27 @@
     min-height: 480px;
   }
 }
+
+/* Painel de chat flutuante — perfil da paciente */
+.nutri-panel .chat-flutuante {
+  position: fixed;
+  right: 20px; bottom: 20px;
+  width: 360px; height: 480px;
+  /* Abaixo do overlay (90) e da sidebar off-canvas (100): com o menu aberto
+     no mobile, quem fica por cima é o menu. */
+  z-index: 80;
+  background: var(--white);
+  border: 0.5px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(28, 23, 18, .18);
+  /* Contrato do ConversaPanel: ele devolve fragmento e não se dimensiona. */
+  display: flex; flex-direction: column; min-height: 0;
+  overflow: hidden;  /* header e rodapé respeitam o raio da borda */
+  animation: fadeIn .15s ease;
+}
+@media (max-width: 768px) {
+  .nutri-panel .chat-flutuante {
+    inset: 8px;            /* sobrepõe right/bottom: quase tela cheia */
+    width: auto; height: auto;
+  }
+}

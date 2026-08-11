@@ -28,6 +28,7 @@ const Calculos             = lazy(() => import('./_Calculos.jsx'));
 const AnalisarAvaliacao    = lazy(() => import('./_AnalisarAvaliacao.jsx'));
 const Treinos              = lazy(() => import('./_Treinos.jsx'));
 const FinanceiroPaciente   = lazy(() => import('./_Financeiro.jsx'));
+const ChatFlutuante        = lazy(() => import('./_ChatFlutuante.jsx'));
 import DicaJSON from '../../components/DicaJSON.jsx';
 import PlanoView from '../../components/PlanoView.jsx';
 
@@ -37,6 +38,7 @@ export default function PacientePerfil() {
   const { user } = useSession();
   const [paciente, setPaciente] = useState(null);
   const [tab, setTab] = useState('plano');
+  const [chatAberto, setChatAberto] = useState(false);
   const [calculosImportados, setCalculosImportados] = useState(null);
   const [editandoNasc, setEditandoNasc] = useState(false);
   const [novoNasc, setNovoNasc] = useState('');
@@ -500,8 +502,8 @@ export default function PacientePerfil() {
             )}
             {temChat && (
               <button
-                onClick={() => navigate('/nutri/chat')}
-                title="Abre a tela de Chat"
+                onClick={() => setChatAberto(true)}
+                title="Abre a conversa sobre o perfil, sem sair da tela"
                 style={{
                   background: 'none', border: '0.5px solid var(--border)',
                   borderRadius: 6, padding: '3px 9px', fontSize: 11,
@@ -1153,6 +1155,18 @@ export default function PacientePerfil() {
           onClose={() => setExcluirOpen(false)}
           onExcluido={() => navigate('/nutri/pacientes')}
         />
+      )}
+
+      {/* `temChat` de novo, e não só `chatAberto`: se a paciente for arquivada
+          ou trocar de plano com o painel aberto, ele fecha junto com o botão. */}
+      {chatAberto && temChat && (
+        <Suspense fallback={null}>
+          <ChatFlutuante
+            paciente={paciente}
+            nutriId={user.id}
+            onFechar={() => setChatAberto(false)}
+          />
+        </Suspense>
       )}
     </>
   );

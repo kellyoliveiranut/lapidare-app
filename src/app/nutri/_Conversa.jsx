@@ -51,7 +51,7 @@ function rotuloDia(dia) {
   return `${d}/${mes}/${ano}`;
 }
 
-export default function ConversaPanel({ paciente, nutriId, onAfterAction }) {
+export default function ConversaPanel({ paciente, nutriId, onAfterAction, onFechar }) {
   const [msgs, setMsgs] = useState(undefined);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
@@ -200,10 +200,21 @@ export default function ConversaPanel({ paciente, nutriId, onAfterAction }) {
           alignItems: 'center', justifyContent: 'center',
           fontSize: 13, fontWeight: 600, color: 'var(--dark)',
         }}>{iniciais(paciente.nome)}</div>
-        <div>
+        <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 15, fontWeight: 500 }}>{paciente.nome}</div>
           <div style={{ fontSize: 12, color: 'var(--text3)' }}>{paciente.email}</div>
         </div>
+        {/* Só existe quando quem monta oferece um jeito de fechar — o painel
+            flutuante. Na coluna do Chat não há o que fechar, e o X some. */}
+        {onFechar && (
+          <button onClick={onFechar} aria-label="Fechar conversa"
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: 'var(--text3)', fontSize: 18, lineHeight: 1, padding: 4,
+            }}>
+            <i className="ti ti-x" aria-hidden="true"></i>
+          </button>
+        )}
       </div>
 
       {/* Mensagens */}
