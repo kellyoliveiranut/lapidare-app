@@ -3,11 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import DateInput from '../../components/DateInput.jsx';
+import NovaPacienteRapida from './_NovaPacienteRapida.jsx';
+import { linkConvite, mensagemConviteEncoded } from '../../lib/convite.js';
 import {
   dataConsultaBR, horaConsultaBR, TZ_CLINICA, textoDias, iniciais,
   linkCall, gerarLinkJitsi, gerarGoogleCalendarUrl, consultaEmBreve,
   gerarDiasCalendario, ehMesmoDia, mesAnoExtenso, DIAS_SEMANA_CURTOS,
   HORARIOS_CONSULTA, HORARIO_CONSULTA_PADRAO, horaConsultaValida,
+  telefoneValido,
 } from '../../lib/utils.js';
 
 // Opções do dropdown: 1ª, Consulta 02..12, Avaliação, Retorno
@@ -98,7 +101,12 @@ export default function Agenda() {
   const [consultas, setConsultas] = useState(undefined);
   const [pacientes, setPacientes] = useState([]);
   const [locais, setLocais] = useState([]);
-  const [modalState, setModalState] = useState({ open: false, consulta: null });
+  const [modalState, setModalState] = useState({ open: false, consulta: null, pacienteInicialId: null });
+  const [novaPacienteOpen, setNovaPacienteOpen] = useState(false);
+  // Convite da paciente recém-criada pelo cadastro rápido: fica na faixa verde
+  // do topo até a nutri dispensar. Sem isso o link de primeiro acesso ficaria
+  // escondido na tela Cadastrar, e a paciente nunca receberia.
+  const [convite, setConvite] = useState(null);
   const [mesVisivel, setMesVisivel] = useState(() => {
     const d = new Date();
     return new Date(d.getFullYear(), d.getMonth(), 1);
@@ -265,9 +273,21 @@ export default function Agenda() {
       .sort((a, b) => a.data_hora.localeCompare(b.data_hora));
   }, [consultas, diaSelecionado]);
 
-  const abrirNova = () => setModalState({ open: true, consulta: null });
-  const abrirEdit = (consulta) => setModalState({ open: true, consulta });
-  const fechar = () => setModalState({ open: false, consulta: null });
+  const abrirNova = () => setModalState({ open: true, consulta: null, pacienteInicialId: null });
+  const abrirEdit = (consulta) => setModalState({ open: true, consulta, pacienteInicialId: null });
+  const fechar = () => setModalState({ open: false, consulta: null, pacienteInicialId: null });
+
+  // Fluxo do cadastro rápido: fecha o modal de cadastro, mostra o convite e
+  // emenda direto no agendamento com a paciente já escolhida.
+  // O await em carregarPacientes() é obrigatório: o select do ConsultaModal lê
+  // de `pacientes`, e montar o modal antes da lista chegar deixaria o campo em
+  // branco (value sem <option> correspondente).
+  async function pacienteCriada({ paciente, pendente, avisoPendente }) {
+    setNovaPacienteOpen(false);
+    setConvite({ paciente, pendente, avisoPendente });
+    await carregarPacientes();
+    setModalState({ open: true, consulta: null, pacienteInicialId: paciente.id });
+  }
 
   return (
     <>
@@ -283,7 +303,18 @@ export default function Agenda() {
         )}
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 14 }}>
+      {convite && (
+        <FaixaConvite
+          convite={convite}
+          nutriId={user.id}
+          onDispensar={() => setConvite(null)}
+        />
+      )}
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 14 }}>
+        <button className="btn-outline" onClick={() => setNovaPacienteOpen(true)}>
+          <i className="ti ti-user-plus" style={{ fontSize: 15 }} aria-hidden="true"></i> Nova paciente
+        </button>
         <button className="btn" onClick={abrirNova} disabled={pacientes.length === 0}>
           <i className="ti ti-plus" style={{ fontSize: 15 }} aria-hidden="true"></i> Nova consulta
         </button>
@@ -295,6 +326,10 @@ export default function Agenda() {
           <div>
             <div className="al-t" style={{ color: 'var(--blue)' }}>Cadastre uma paciente primeiro</div>
             <div className="al-d">A agenda precisa de pelo menos uma paciente para você poder marcar consultas.</div>
+            <button className="btn" onClick={() => setNovaPacienteOpen(true)}
+              style={{ marginTop: 8, fontSize: 12 }}>
+              <i className="ti ti-user-plus" style={{ fontSize: 14 }} aria-hidden="true"></i> Nova paciente
+            </button>
           </div>
         </div>
       )}
@@ -406,12 +441,99 @@ export default function Agenda() {
           pacientes={pacientes}
           locais={locais}
           nutriId={user.id}
+          pacienteInicialId={modalState.pacienteInicialId}
           onClose={fechar}
           onSaved={async () => { fechar(); await carregar(); }}
           onToggleConfirmada={toggleConfirmada}
         />
       )}
+
+      {novaPacienteOpen && (
+        <NovaPacienteRapida
+          nutriId={user.id}
+          onClose={() => setNovaPacienteOpen(false)}
+          onCriada={pacienteCriada}
+        />
+      )}
     </>
+  );
+}
+
+/* ============================================================
+   FAIXA DE CONVITE (paciente recém-criada pelo cadastro rápido)
+   ============================================================ */
+function FaixaConvite({ convite, nutriId, onDispensar }) {
+  const [copiado, setCopiado] = useState(false);
+  const { paciente, pendente, avisoPendente } = convite;
+  const primeiroNome = paciente?.nome?.split(' ')[0] ?? '';
+  const link = pendente ? linkConvite(nutriId, pendente) : null;
+  const msg  = pendente ? mensagemConviteEncoded(nutriId, pendente) : null;
+
+  async function copiar() {
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 2000);
+    } catch {
+      prompt('Copie o link abaixo:', link);   // fallback sem permissão (mobile)
+    }
+  }
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+      padding: '10px 14px', marginBottom: 12, borderRadius: 10,
+      background: 'var(--green-bg, #ecfdf5)',
+      border: '0.5px solid var(--green, #10b981)',
+      borderLeft: '3px solid var(--green, #10b981)',
+    }}>
+      <i className="ti ti-check" style={{ fontSize: 16, color: 'var(--green)' }} aria-hidden="true"></i>
+      <div style={{ flex: 1, minWidth: 160 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--green)' }}>
+          {primeiroNome} cadastrada
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--text2)' }}>
+          {pendente
+            ? 'Envie o link de primeiro acesso — ela só precisa criar a senha.'
+            : 'Cadastro criado.'}
+        </div>
+        {avisoPendente && (
+          <div style={{ fontSize: 11, color: 'var(--orange)', marginTop: 3, lineHeight: 1.45 }}>
+            <i className="ti ti-alert-triangle" style={{ fontSize: 12 }} aria-hidden="true"></i>{' '}
+            {avisoPendente}
+          </div>
+        )}
+      </div>
+
+      {pendente && (
+        <>
+          <button className="btn-outline" onClick={copiar}
+            style={{ fontSize: 11, padding: '4px 10px' }}>
+            <i className={`ti ti-${copiado ? 'check' : 'copy'}`} aria-hidden="true"></i>
+            {copiado ? 'Copiado' : 'Copiar link'}
+          </button>
+          <a className="btn-outline"
+            href={telefoneValido(pendente.telefone)
+              ? `https://wa.me/${normalizarTelefone(pendente.telefone)}?text=${msg}`
+              : `https://wa.me/?text=${msg}`}
+            target="_blank" rel="noreferrer"
+            style={{ fontSize: 11, padding: '4px 10px', textDecoration: 'none' }}>
+            <i className="ti ti-brand-whatsapp" aria-hidden="true"></i> WhatsApp
+            {!telefoneValido(pendente.telefone) && (
+              <span style={{ marginLeft: 4, fontSize: 10, opacity: 0.7 }}>sem número</span>
+            )}
+          </a>
+        </>
+      )}
+
+      <button onClick={onDispensar} title="Dispensar"
+        style={{
+          background: 'none', border: 'none', cursor: 'pointer',
+          fontSize: 14, color: 'var(--text3)', padding: 0,
+        }}>
+        <i className="ti ti-x" aria-hidden="true"></i>
+      </button>
+    </div>
   );
 }
 
@@ -874,9 +996,14 @@ function ConsultaRow({ c, isLast, isPast, isCanceled, onClick, onToggleConfirmad
 /* ============================================================
    MODAL CONSULTA
    ============================================================ */
-function ConsultaModal({ consulta, pacientes, locais, nutriId, onClose, onSaved, onToggleConfirmada }) {
+function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId, onClose, onSaved, onToggleConfirmada }) {
   const isEdit = !!consulta;
   const navigate = useNavigate();
+
+  // Paciente de partida ao CRIAR: a recém-cadastrada pelo fluxo rápido da
+  // Agenda, quando houver; senão a primeira da lista, como sempre foi.
+  const pacienteInicial = pacientes.find(p => p.id === pacienteInicialId) ?? pacientes[0];
+  const modalidadeInicial = modalidadeDaPaciente(pacienteInicial?.modalidade);
 
   const initial = consulta
     ? {
@@ -892,7 +1019,7 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, onClose, onSaved,
         meetLink: consulta.meet_link ?? '',
         linksExtras: Array.isArray(consulta.links_extras) ? consulta.links_extras : [],
       }
-    : { pacienteId: pacientes[0]?.id ?? '', data: '', hora: HORARIO_CONSULTA_PADRAO, duracao: 45, tipo: 'primeira', modalidade: modalidadeDaPaciente(pacientes[0]?.modalidade), localId: modalidadeDaPaciente(pacientes[0]?.modalidade) === 'presencial' ? localPadrao(locais) : '', status: 'agendada', obs: '', meetLink: '', linksExtras: [] };
+    : { pacienteId: pacienteInicial?.id ?? '', data: '', hora: HORARIO_CONSULTA_PADRAO, duracao: 45, tipo: 'primeira', modalidade: modalidadeInicial, localId: modalidadeInicial === 'presencial' ? localPadrao(locais) : '', status: 'agendada', obs: '', meetLink: '', linksExtras: [] };
 
   const [pacienteId, setPacienteId] = useState(initial.pacienteId);
   const [data, setData] = useState(initial.data);
