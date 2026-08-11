@@ -91,13 +91,37 @@ function normalizarTelefone(raw) {
   return '55' + n;
 }
 
-// Texto padrão do lembrete — edite aqui para mudar a mensagem em todos os envios.
-function templateLembrete({ nome, data, diaSemana, hora, assinatura }) {
-  return `Olá, ${nome}! Passando para lembrar da sua consulta de nutrição em ${data} (${diaSemana}) às ${hora}. Qualquer imprevisto, me avise por aqui. Até breve! — ${assinatura}`;
+// Textos dos lembretes — edite aqui para mudar a mensagem em todos os envios.
+// "Thais" e "Dra. Kelly" são fixos de propósito: quem assina é a assistente,
+// não o perfil logado.
+function templateLembretePresencial({ nome, diaSemana, data, hora, endereco }) {
+  return `Oi ${nome}! Aqui é a Thais, assistente da Dra. Kelly. Você tem consulta marcada para ${diaSemana}, ${data}, às ${hora}.
+
+Gostaria de saber se você prefere café ou chá, para deixarmos tudo pronto para te receber 😊
+
+Só lembrando: como faremos avaliação física, pedimos que venha com roupas leves ou de exercício — assim a Dra. consegue fazer a avaliação com mais precisão.
+${endereco ? `\nEndereço: ${endereco}\n` : ''}
+Aguardo seu retorno. Até breve!`;
+}
+
+function templateLembreteOnline({ nome, diaSemana, data, hora }) {
+  return `Oi ${nome}! Aqui é a Thais, assistente da Dra. Kelly. Você tem consulta marcada para ${diaSemana}, ${data}, às ${hora}, que será realizada por aqui mesmo.
+
+Qualquer imprevisto, me avise por aqui.
+
+Até breve!`;
+}
+
+// Só 'presencial' leva o texto com endereço; qualquer outro valor cai no
+// online, mesmo default do banco e de modalidadeDaPaciente().
+function templateLembrete({ modalidade, endereco, ...resto }) {
+  return modalidade === 'presencial'
+    ? templateLembretePresencial({ ...resto, endereco })
+    : templateLembreteOnline(resto);
 }
 
 export default function Agenda() {
-  const { user, profile } = useSession();
+  const { user } = useSession();
   const [consultas, setConsultas] = useState(undefined);
   const [pacientes, setPacientes] = useState([]);
   const [locais, setLocais] = useState([]);
@@ -153,7 +177,7 @@ export default function Agenda() {
     if (!user) return;
     const { data } = await supabase
       .from('consultas')
-      .select('id, data_hora, lembrete_enviado, lembrete_enviado_em, paciente:pacientes(id, nome, telefone)')
+      .select('id, data_hora, modalidade, local_id, lembrete_enviado, lembrete_enviado_em, paciente:pacientes(id, nome, telefone)')
       .eq('nutri_id', user.id)
       .eq('lembrete_ativo', true)
       .eq('status', 'agendada')
@@ -348,7 +372,7 @@ export default function Agenda() {
       {lembretes.length > 0 && (
         <PainelLembretes
           lembretes={lembretes}
-          profile={profile}
+          locais={locais}
           enviadosLocais={enviadosLocais}
           onEnviar={marcarEnviado}
           onDesfazer={desfazerEnvio}
@@ -540,7 +564,7 @@ function FaixaConvite({ convite, nutriId, onDispensar }) {
 /* ============================================================
    PAINEL DE LEMBRETES DE HOJE
    ============================================================ */
-function PainelLembretes({ lembretes, profile, enviadosLocais, onEnviar, onDesfazer }) {
+function PainelLembretes({ lembretes, locais, enviadosLocais, onEnviar, onDesfazer }) {
   const [copiadoId, setCopiadoId] = useState(null);
 
   async function copiarMensagem(id, texto) {
@@ -550,7 +574,6 @@ function PainelLembretes({ lembretes, profile, enviadosLocais, onEnviar, onDesfa
     setTimeout(() => setCopiadoId(null), 2000);
   }
 
-  const assinatura = (profile?.nome?.split(' ')[0] ?? 'Kelly') + ' | Essentia';
   const pendentes = lembretes.filter(l => {
     const localTs = enviadosLocais.get(l.id);
     return !localTs && !l.lembrete_enviado_em && !l.lembrete_enviado;
@@ -593,12 +616,21 @@ function PainelLembretes({ lembretes, profile, enviadosLocais, onEnviar, onDesfa
           const temTelefone = !!(l.paciente?.telefone?.trim());
           const telFormatado = temTelefone ? normalizarTelefone(l.paciente.telefone) : '';
 
+          // Os quatro buracos possíveis colapsam num só teste: local_id nulo,
+          // local apagado, endereço vazio e `locais` ainda não carregada dão
+          // todos endereco = ''. O nome do local serve de endereço quando o
+          // cadastro dele está incompleto.
+          const local = l.local_id ? (locais ?? []).find(x => x.id === l.local_id) : null;
+          const endereco = local?.endereco?.trim() || local?.nome?.trim() || '';
+          const enderecoOk = l.modalidade !== 'presencial' || !!endereco;
+
           const msgTexto = templateLembrete({
+            modalidade: l.modalidade,
             nome: pacNome.split(' ')[0],
             data: dataFormatada,
             diaSemana,
             hora: horaConsulta,
-            assinatura,
+            endereco,
           });
           const msgEncoded = encodeURIComponent(msgTexto);
 
@@ -653,7 +685,16 @@ function PainelLembretes({ lembretes, profile, enviadosLocais, onEnviar, onDesfa
 
               {/* Ações */}
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {!enviado ? (
+                {!enderecoOk ? (
+                  // Sem endereço o texto do presencial sai incompleto, então
+                  // não se oferece nem enviar nem copiar — só o aviso.
+                  <div style={{
+                    flex: 1, display: 'flex', alignItems: 'center', gap: 6,
+                    fontSize: 12, color: 'var(--orange)', fontStyle: 'italic',
+                  }}>
+                    <i className="ti ti-alert-triangle" aria-hidden="true" /> Sem endereço — escolha o local na consulta
+                  </div>
+                ) : !enviado ? (
                   temTelefone ? (
                     <a
                       href={`https://wa.me/${telFormatado}?text=${msgEncoded}`}
@@ -693,19 +734,21 @@ function PainelLembretes({ lembretes, profile, enviadosLocais, onEnviar, onDesfa
                   )
                 )}
 
-                <button
-                  className="btn-outline"
-                  onClick={() => copiarMensagem(l.id, msgTexto)}
-                  style={{
-                    fontSize: 12, minHeight: enviado ? 40 : 44, padding: '0 14px',
-                    display: 'inline-flex', alignItems: 'center', gap: 6,
-                    color: copiado ? 'var(--green)' : undefined,
-                    borderColor: copiado ? 'var(--green)' : undefined,
-                  }}
-                >
-                  <i className={`ti ti-${copiado ? 'check' : 'copy'}`} aria-hidden="true" />
-                  {copiado ? 'Copiado!' : 'Copiar mensagem'}
-                </button>
+                {enderecoOk && (
+                  <button
+                    className="btn-outline"
+                    onClick={() => copiarMensagem(l.id, msgTexto)}
+                    style={{
+                      fontSize: 12, minHeight: enviado ? 40 : 44, padding: '0 14px',
+                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                      color: copiado ? 'var(--green)' : undefined,
+                      borderColor: copiado ? 'var(--green)' : undefined,
+                    }}
+                  >
+                    <i className={`ti ti-${copiado ? 'check' : 'copy'}`} aria-hidden="true" />
+                    {copiado ? 'Copiado!' : 'Copiar mensagem'}
+                  </button>
+                )}
 
                 {enviado && (
                   <button
