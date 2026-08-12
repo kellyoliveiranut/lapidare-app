@@ -242,7 +242,8 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
     return Math.round((cumprido / esperado) * 100);
   }, [suplementos, logs]);
 
-  const manipuladosAtivos = (suplementos ?? []).filter(s => s.ativo && s.manipulado);
+  const ativos = (suplementos ?? []).filter(s => s.ativo);
+  const manipuladosAtivos = ativos.filter(s => s.manipulado);
 
   function abrirEnviarFarmacia() {
     if (manipuladosAtivos.length === 0) {
@@ -379,6 +380,11 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
           <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <button className="btn-outline" onClick={abrirEnviarFarmacia}>
               <i className="ti ti-send" aria-hidden="true"></i> Enviar para farmácia
+            </button>
+            <button
+              className="btn-outline"
+              onClick={() => gerarPDFPrescricao({ pacienteNome, contato, suplementosAtivos: ativos })}>
+              <i className="ti ti-file-text" aria-hidden="true"></i> Gerar PDF
             </button>
             {ultimoEnvio && (
               <span style={{ fontSize: 11, color: 'var(--text3)' }}>
@@ -1056,4 +1062,185 @@ function ModalSuplemento({ s, onClose, onSave, busy }) {
       </div>
     </div>
   );
+}
+
+
+/* ============================================================
+   PDF DE PRESCRIÇÃO DE SUPLEMENTAÇÃO
+
+   Mesmo padrão dos outros documentos do app (_RelatorioEvolucao,
+   Checkins, Questionarios): monta um HTML completo, abre numa
+   janela nova e chama print(). A Kelly salva como PDF pelo
+   diálogo do navegador e anexa no WhatsApp.
+   ============================================================ */
+
+function escapeHtml(str) {
+  return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// "Posologia" na tela é a coluna `dose`; `horario` completa a instrução.
+function posologiaDe(s) {
+  return [s.dose, s.horario].filter(Boolean).join(' · ');
+}
+
+// Lipeshot e Moroshot são fórmulas manipuladas: vão pra farmácia de
+// manipulação (ver 2026-07-23_suplementos_manipulado.sql), não pra
+// prescrição de loja parceira. Seguem ativos na lista da paciente —
+// só não entram neste PDF.
+// Casa por inclusão, igual ao ilike '%...%' do backfill: além dos dois
+// isolados existe o combinado "Moroshot + Lipeshot" cadastrado.
+const FORA_DA_PRESCRICAO_LOJA = ['lipeshot', 'moroshot'];
+
+function gerarPDFPrescricao({ pacienteNome, contato, suplementosAtivos }) {
+  const itens = (suplementosAtivos ?? []).filter(s => {
+    const n = String(s.nome ?? '').trim().toLowerCase();
+    return !FORA_DA_PRESCRICAO_LOJA.some(x => n.includes(x));
+  });
+  if (itens.length === 0) {
+    alert('Nenhum suplemento para a prescrição de loja.');
+    return;
+  }
+
+  const html = `<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Prescrição de Suplementação — ${escapeHtml(pacienteNome)}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #FDFBF8; color: #281b06;
+      font-family: 'Inter', -apple-system, sans-serif;
+      font-size: 13px; line-height: 1.6;
+      padding: 44px 52px 36px; max-width: 780px; margin: 0 auto;
+      -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    }
+
+    /* ── Cabeçalho escuro ──
+       print-color-adjust é o que faz o fundo sair no papel; sem ele o
+       Chrome imprime a faixa branca com texto creme = ilegível. O Safari
+       é irregular mesmo com a regra — por isso o dourado do selo tem
+       contraste suficiente sobre branco também. */
+    .doc-header {
+      background: #1a1612; border-radius: 10px;
+      padding: 28px 32px 26px; margin-bottom: 26px;
+      -webkit-print-color-adjust: exact; print-color-adjust: exact;
+      page-break-inside: avoid; break-inside: avoid;
+    }
+    .selo {
+      font-size: 9.5px; letter-spacing: .22em; text-transform: uppercase;
+      color: #C4A882; font-weight: 600; margin-bottom: 10px;
+    }
+    .doc-titulo {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: 30px; font-weight: 600; color: #FDFBF8; line-height: 1.15;
+    }
+    .doc-data { font-size: 10.5px; color: #8d8175; margin-top: 8px; }
+
+    /* ── Emissor ── */
+    .emissor { margin-bottom: 22px; }
+    .emissor-nome {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: 17px; font-weight: 600; color: #281b06;
+    }
+    .emissor-reg { font-size: 11px; color: #a08456; letter-spacing: .04em; }
+
+    /* ── Card da paciente ── */
+    .card-paciente {
+      background: #fff; border: 0.5px solid #DDD5C4; border-radius: 8px;
+      padding: 16px 20px; margin-bottom: 30px;
+      display: flex; gap: 40px;
+      -webkit-print-color-adjust: exact; print-color-adjust: exact;
+      page-break-inside: avoid; break-inside: avoid;
+    }
+    .campo-lbl {
+      font-size: 8.5px; letter-spacing: .16em; text-transform: uppercase;
+      color: #a08456; font-weight: 600; margin-bottom: 3px;
+    }
+    .campo-val { font-size: 14px; color: #281b06; }
+
+    /* ── Lista ──
+       O avoid fica em CADA item, nunca na lista inteira: um bloco grande
+       com avoid é tudo-ou-nada, não cabe no resto da folha e é empurrado
+       por completo, deixando meia página em branco.
+       (mesma armadilha documentada em src/styles/print.css) */
+    .sec-titulo {
+      font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase;
+      color: #a08456; font-weight: 600;
+      border-bottom: .5px solid #DDD5C4; padding-bottom: 6px; margin-bottom: 4px;
+      page-break-after: avoid; break-after: avoid;
+    }
+    .sup-item {
+      padding: 13px 0; border-bottom: .5px solid #EDE6DA;
+      page-break-inside: avoid; break-inside: avoid;
+    }
+    .sup-item:last-child { border-bottom: none; }
+    .sup-nome { font-size: 14px; font-weight: 600; color: #281b06; }
+    .sup-pos {
+      font-style: italic; font-size: 12.5px; color: #6b5c3e;
+      margin-top: 3px; line-height: 1.55;
+    }
+
+    /* ── Rodapé ── */
+    .rodape { margin-top: 40px; page-break-inside: avoid; break-inside: avoid; }
+    .assinatura-linha { border-top: .5px solid #281b06; width: 260px; margin-bottom: 6px; }
+    .assinatura-nome { font-size: 12.5px; font-weight: 600; color: #281b06; }
+    .assinatura-reg { font-size: 11px; color: #6b5c3e; }
+    .rodape-marca {
+      margin-top: 26px; padding-top: 10px; border-top: .5px solid #DDD5C4;
+      font-size: 9.5px; letter-spacing: .1em; color: #C4A882; text-align: center;
+    }
+
+    @page { size: A4 portrait; margin: 1.2cm; }
+  </style>
+</head>
+<body>
+
+  <div class="doc-header">
+    <div class="selo">Essentia · Prescrição</div>
+    <div class="doc-titulo">Prescrição de Suplementação</div>
+    <div class="doc-data">Emitida em ${new Date().toLocaleDateString('pt-BR')}</div>
+  </div>
+
+  <div class="emissor">
+    <div class="emissor-nome">Kelly Oliveira</div>
+    <div class="emissor-reg">Nutricionista · CRN 3801</div>
+  </div>
+
+  <div class="card-paciente">
+    <div>
+      <div class="campo-lbl">Paciente</div>
+      <div class="campo-val">${escapeHtml(pacienteNome)}</div>
+    </div>
+    <div>
+      <div class="campo-lbl">Contato</div>
+      <div class="campo-val">${escapeHtml(contato?.telefone || '—')}</div>
+    </div>
+  </div>
+
+  <div class="sec-titulo">Suplementos prescritos</div>
+  <div>
+    ${itens.map(s => `
+      <div class="sup-item">
+        <div class="sup-nome">${escapeHtml(s.nome)}</div>
+        ${posologiaDe(s) ? `<div class="sup-pos">${escapeHtml(posologiaDe(s))}</div>` : ''}
+      </div>`).join('')}
+  </div>
+
+  <div class="rodape">
+    <div class="assinatura-linha"></div>
+    <div class="assinatura-nome">Kelly Oliveira</div>
+    <div class="assinatura-reg">Nutricionista · CRN 3801</div>
+    <div class="rodape-marca">Documento gerado pelo app Essentia</div>
+  </div>
+
+</body>
+</html>`;
+
+  const win = window.open('', '_blank', 'width=900,height=700');
+  if (!win) { alert('Permita pop-ups para gerar o PDF.'); return; }
+  win.document.write(html);
+  win.document.close();
+  setTimeout(() => win.print(), 600);
 }
