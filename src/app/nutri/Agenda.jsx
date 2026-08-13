@@ -97,7 +97,7 @@ function normalizarTelefone(raw) {
 function templateLembretePresencial({ nome, diaSemana, data, hora, endereco }) {
   return `Oi ${nome}! Aqui é a Thais, assistente da Dra. Kelly. Você tem consulta marcada para ${diaSemana}, ${data}, às ${hora}.
 
-Gostaria de saber se você prefere café ou chá, para deixarmos tudo pronto para te receber 😊
+Gostaria de saber se você prefere café ou chá, para deixarmos tudo pronto para te receber
 
 Só lembrando: como faremos avaliação física, pedimos que venha com roupas leves ou de exercício — assim a Dra. consegue fazer a avaliação com mais precisão.
 ${endereco ? `\nEndereço: ${endereco}\n` : ''}
