@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
-import { dataBR } from '../../lib/utils.js';
+import { dataBR, normalizarTelefone } from '../../lib/utils.js';
 
 const HOJE_ISO = () => new Date().toISOString().slice(0, 10);
 
@@ -14,10 +14,13 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
   const [ultimoEnvio, setUltimoEnvio] = useState(null);  // último envio à farmácia
   const [enviarFarmaciaOpen, setEnviarFarmaciaOpen] = useState(false);
   const [enviandoFarmacia, setEnviandoFarmacia] = useState(false);
+  const [lojas, setLojas] = useState([]);                // lojas parceiras ativas da nutri
+  const [enviarLojaOpen, setEnviarLojaOpen] = useState(false);
   const [favoritos, setFavoritos] = useState([]);
   const [editar, setEditar] = useState(null);
   const [adicionarOpen, setAdicionarOpen] = useState(false);
   const [pdfFile, setPdfFile] = useState(null);
+  const [gerandoPdf, setGerandoPdf] = useState(false);   // chunk do jsPDF baixando
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState(null);
 
@@ -66,10 +69,24 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
     setFavoritos(items);
   }
 
+  // Fora do Promise.all de carregar(): loja é dado da nutri, não da paciente, e
+  // carregar() re-roda a cada suplemento salvo — não faz sentido refetchar as
+  // lojas junto. Mesmo formato de carregarFavoritos.
+  async function carregarLojas() {
+    if (!nutriId) return;
+    const { data } = await supabase
+      .from('lojas_parceiras').select('id, nome, telefone')
+      .eq('nutri_id', nutriId)
+      .eq('ativo', true)
+      .order('nome');
+    setLojas(data ?? []);
+  }
+
   useEffect(() => {
     const signal = { cancelled: false };
     carregar(signal);
     carregarFavoritos();
+    carregarLojas();
     return () => { signal.cancelled = true; };
   }, [pacienteId]);
 
@@ -244,6 +261,7 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
 
   const ativos = (suplementos ?? []).filter(s => s.ativo);
   const manipuladosAtivos = ativos.filter(s => s.manipulado);
+  const suplementosLoja = filtrarParaLoja(ativos);
 
   function abrirEnviarFarmacia() {
     if (manipuladosAtivos.length === 0) {
@@ -251,6 +269,27 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
       return;
     }
     setEnviarFarmaciaOpen(true);
+  }
+
+  function abrirEnviarLoja() {
+    if (suplementosLoja.length === 0) {
+      alert('Nenhum suplemento para a prescrição de loja.');
+      return;
+    }
+    setEnviarLojaOpen(true);
+  }
+
+  // gerarPDFPrescricao virou async por causa do import dinâmico do jsPDF: sem o
+  // try/catch aqui, uma falha viraria promise rejeitada silenciosa.
+  async function gerarPdf() {
+    setGerandoPdf(true);
+    try {
+      await gerarPDFPrescricao({ pacienteNome, contato, suplementosAtivos: ativos });
+    } catch (e) {
+      alert('Erro ao gerar o PDF: ' + (e?.message ?? 'tente novamente'));
+    } finally {
+      setGerandoPdf(false);
+    }
   }
 
   return (
@@ -376,16 +415,23 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
             </div>
           )}
 
-          {/* Enviar fórmula pra farmácia de manipulação */}
+          {/* Saídas da prescrição: fórmula manipulada pra farmácia (e-mail),
+              PDF pra paciente e texto de WhatsApp pra loja parceira. */}
           <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <button className="btn-outline" onClick={abrirEnviarFarmacia}>
               <i className="ti ti-send" aria-hidden="true"></i> Enviar para farmácia
             </button>
-            <button
-              className="btn-outline"
-              onClick={() => gerarPDFPrescricao({ pacienteNome, contato, suplementosAtivos: ativos })}>
-              <i className="ti ti-file-text" aria-hidden="true"></i> Gerar PDF
+            <button className="btn-outline" onClick={gerarPdf} disabled={gerandoPdf}>
+              <i className="ti ti-file-text" aria-hidden="true"></i>
+              {gerandoPdf ? ' Gerando…' : ' Gerar PDF'}
             </button>
+            {/* O title fica no span, não no button: navegador suprime evento de
+                ponteiro em elemento desabilitado e o tooltip nunca apareceria. */}
+            <span title={lojas.length === 0 ? 'Nenhuma loja cadastrada' : undefined}>
+              <button className="btn-outline" onClick={abrirEnviarLoja} disabled={lojas.length === 0}>
+                <i className="ti ti-building-store" aria-hidden="true"></i> Enviar para loja parceira
+              </button>
+            </span>
             {ultimoEnvio && (
               <span style={{ fontSize: 11, color: 'var(--text3)' }}>
                 <i className="ti ti-check" aria-hidden="true"></i> Última fórmula enviada em {dataBR(ultimoEnvio.enviado_em)}
@@ -472,6 +518,16 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
           onClose={() => setEnviarFarmaciaOpen(false)}
           onEnviar={enviarParaFarmacia}
           busy={enviandoFarmacia}
+        />
+      )}
+
+      {enviarLojaOpen && (
+        <ModalEnviarLoja
+          pacienteNome={pacienteNome}
+          contato={contato}
+          suplementosAtivos={suplementosLoja}
+          lojas={lojas}
+          onClose={() => setEnviarLojaOpen(false)}
         />
       )}
     </>
@@ -956,6 +1012,123 @@ function ModalEnviarFarmacia({ pacienteNome, contato, suplementosAtivos, farmaci
 
 
 /* ============================================================
+   MODAL ENVIAR PRESCRIÇÃO PARA LOJA PARCEIRA — escolha da loja + texto
+   ============================================================
+   Não escreve nada no banco e não tem estado de envio: o botão final é um
+   link wa.me. Quem manda a mensagem é a nutri, no WhatsApp dela — o app não
+   tem como confirmar que saiu, então não finge que sabe (ver o comentário da
+   migration 2026-08-13_lojas_parceiras.sql). */
+function ModalEnviarLoja({ pacienteNome, contato, suplementosAtivos, lojas, onClose }) {
+  // Uma loja só: já entra escolhida e o chooser nunca aparece.
+  const [loja, setLoja] = useState(lojas.length === 1 ? lojas[0] : null);
+  // O texto não depende da loja — o nome dela não entra na prescrição. Por isso
+  // é montado uma vez e sobrevive a ir e voltar no chooser sem perder a edição.
+  const [texto, setTexto] = useState(
+    () => textoPrescricaoLoja({ pacienteNome, contato, suplementosAtivos })
+  );
+  const podeVoltar = lojas.length > 1;   // com uma loja só, voltar não teria destino
+  const vazio = !texto.trim();
+
+  return (
+    <div onClick={onClose} style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      zIndex: 110, padding: 16,
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: 'var(--white)', borderRadius: 12,
+        maxWidth: 520, width: '100%', maxHeight: '90vh',
+        display: 'flex', flexDirection: 'column', padding: 20,
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {loja && podeVoltar && (
+              <button onClick={() => setLoja(null)} style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: 'var(--text3)', padding: '2px 4px', fontSize: 16,
+              }}>
+                <i className="ti ti-arrow-left" aria-hidden="true"></i>
+              </button>
+            )}
+            <div style={{ fontSize: 16, fontWeight: 500 }}>
+              {loja ? 'Enviar para loja parceira' : 'Escolher a loja'}
+            </div>
+          </div>
+          <button onClick={onClose} style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            fontSize: 18, color: 'var(--text3)', padding: 4,
+          }}>
+            <i className="ti ti-x" aria-hidden="true"></i>
+          </button>
+        </div>
+
+        {/* ── Chooser (só com 2+ lojas ativas) ── */}
+        {!loja ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto' }}>
+            {lojas.map(l => (
+              <button
+                key={l.id}
+                onClick={() => setLoja(l)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 14,
+                  padding: '14px 16px', borderRadius: 10, cursor: 'pointer',
+                  background: 'var(--bg2)', border: '0.5px solid var(--border)',
+                  textAlign: 'left', fontFamily: 'var(--font-sans)',
+                }}>
+                <i className="ti ti-building-store"
+                  style={{ fontSize: 24, color: 'var(--gold-deep, #a08456)', flexShrink: 0 }}
+                  aria-hidden="true"></i>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--dark)' }}>{l.nome}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>{l.telefone}</div>
+                </div>
+                <i className="ti ti-chevron-right" style={{ color: 'var(--text3)' }} aria-hidden="true"></i>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <>
+            <div style={{ overflowY: 'auto', flex: 1 }}>
+              <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 10 }}>
+                Para: <strong>{loja.nome}</strong> ({loja.telefone})
+              </div>
+
+              <label className="form-lbl">Mensagem (edite como precisar)</label>
+              <textarea
+                value={texto}
+                onChange={e => setTexto(e.target.value)}
+                rows={12}
+                style={{ width: '100%', resize: 'vertical', fontFamily: 'var(--font-sans)', lineHeight: 1.5 }}
+                autoFocus
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+              <button className="btn-outline" style={{ flex: 1, justifyContent: 'center' }} onClick={onClose}>
+                Cancelar
+              </button>
+              {/* <a> não aceita disabled: com a mensagem apagada, desligo o clique na mão. */}
+              <a
+                className="btn"
+                style={{
+                  flex: 2, justifyContent: 'center',
+                  ...(vazio ? { pointerEvents: 'none', opacity: 0.5 } : null),
+                }}
+                href={`https://wa.me/${normalizarTelefone(loja.telefone)}?text=${encodeURIComponent(texto)}`}
+                target="_blank" rel="noopener noreferrer"
+                onClick={onClose}>
+                <i className="ti ti-brand-whatsapp" aria-hidden="true"></i> Abrir WhatsApp
+              </a>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+/* ============================================================
    MODAL EDITAR SUPLEMENTO
    ============================================================ */
 function ModalSuplemento({ s, onClose, onSave, busy }) {
@@ -1068,15 +1241,18 @@ function ModalSuplemento({ s, onClose, onSave, busy }) {
 /* ============================================================
    PDF DE PRESCRIÇÃO DE SUPLEMENTAÇÃO
 
-   Mesmo padrão dos outros documentos do app (_RelatorioEvolucao,
-   Checkins, Questionarios): monta um HTML completo, abre numa
-   janela nova e chama print(). A Kelly salva como PDF pelo
-   diálogo do navegador e anexa no WhatsApp.
-   ============================================================ */
+   Diverge dos outros documentos do app (_RelatorioEvolucao,
+   Checkins, Questionarios), que montam HTML e chamam print():
+   aqui o jsPDF desenha em coordenadas e o .pdf baixa direto,
+   sem passar pelo diálogo de impressão do navegador.
 
-function escapeHtml(str) {
-  return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
+   FONTES: o jsPDF só traz as 14 padrão do PDF. Cormorant
+   Garamond virou Times e Inter virou Helvetica — embutir as
+   fontes de marca custaria ~250 kB de TTF por causa de um
+   título. Consequência: o texto fica limitado ao CP1252, que
+   cobre o português inteiro mas não emoji nem símbolo fora do
+   Latin-1 (·, — e acentos estão cobertos).
+   ============================================================ */
 
 // "Posologia" na tela é a coluna `dose`; `horario` completa a instrução.
 function posologiaDe(s) {
@@ -1086,161 +1262,217 @@ function posologiaDe(s) {
 // Lipeshot e Moroshot são fórmulas manipuladas: vão pra farmácia de
 // manipulação (ver 2026-07-23_suplementos_manipulado.sql), não pra
 // prescrição de loja parceira. Seguem ativos na lista da paciente —
-// só não entram neste PDF.
+// só não entram nas duas saídas de prescrição de loja (PDF e WhatsApp).
 // Casa por inclusão, igual ao ilike '%...%' do backfill: além dos dois
 // isolados existe o combinado "Moroshot + Lipeshot" cadastrado.
 const FORA_DA_PRESCRICAO_LOJA = ['lipeshot', 'moroshot'];
 
-function gerarPDFPrescricao({ pacienteNome, contato, suplementosAtivos }) {
-  const itens = (suplementosAtivos ?? []).filter(s => {
+// Uma definição só da regra, usada pelo PDF e pelo texto de WhatsApp — as duas
+// saídas partem da mesma lista. Idempotente: filtrar de novo dá o mesmo
+// resultado, então não importa se o chamador já filtrou antes.
+function filtrarParaLoja(lista) {
+  return (lista ?? []).filter(s => {
     const n = String(s.nome ?? '').trim().toLowerCase();
     return !FORA_DA_PRESCRICAO_LOJA.some(x => n.includes(x));
   });
+}
+
+// Mesma lista do PDF, formato de mensagem. Texto puro, sem encode: quem monta
+// a URL do wa.me aplica encodeURIComponent (mesma divisão de mensagemAcesso.js).
+function textoPrescricaoLoja({ pacienteNome, contato, suplementosAtivos }) {
+  const linhas = filtrarParaLoja(suplementosAtivos).map(s => {
+    const p = posologiaDe(s);
+    return p ? `- ${s.nome} — ${p}` : `- ${s.nome}`;
+  });
+  return [
+    'PRESCRIÇÃO DE SUPLEMENTAÇÃO', '',
+    `Paciente: ${pacienteNome}`,
+    `Contato: ${contato?.telefone || '—'}`, '',
+    'Suplementos prescritos:', ...linhas, '',
+    'Kelly Oliveira',
+    'Nutricionista — CRN 3801',
+  ].join('\n');
+}
+
+// A4 em pontos. Todo o layout anterior estava em px; a conversão é exata em
+// impressão: pt = px * 0.75 (1px = 1/96 pol, 1pt = 1/72 pol).
+const PAGE_W = 595.28, PAGE_H = 841.89;
+const M = 72;                    // margem lateral (~os 73pt que o CSS somava)
+const W = PAGE_W - M * 2;        // 451,28pt de largura útil
+const TOPO = 64;
+const FUNDO = PAGE_H - 56;       // limite vertical antes de quebrar a página
+
+// Mesma paleta do HTML anterior, em RGB: setFillColor(r,g,b) é a assinatura
+// que não depende do parser de cor CSS do jsPDF.
+const CREME  = [253, 251, 248];  // #FDFBF8  fundo da página
+const ESCURO = [26, 22, 18];     // #1a1612  faixa do cabeçalho
+const TINTA  = [40, 27, 6];      // #281b06  texto principal
+const OURO   = [196, 168, 130];  // #C4A882  selo e marca do rodapé
+const BRONZE = [160, 132, 86];   // #a08456  rótulos e registro
+const CINZA  = [141, 129, 117];  // #8d8175  data de emissão
+const SEPIA  = [107, 92, 62];    // #6b5c3e  posologia em itálico
+const LINHA  = [221, 213, 196];  // #DDD5C4  bordas do card e do rodapé
+const LINHA2 = [237, 230, 218];  // #EDE6DA  divisória entre suplementos
+
+// prescricao-suplementacao-maria-souza.pdf — sem acento e sem espaço, que é o
+// que atravessa Windows, Android e iOS sem o navegador reescrever o nome.
+// NFD separa a letra do acento e o filtro por código descarta o acento solto;
+// feito sem \u no regex de propósito, pra não depender de escape no fonte.
+function nomeArquivoPrescricao(pacienteNome) {
+  const semAcento = String(pacienteNome ?? '')
+    .normalize('NFD')
+    .split('')
+    .filter(c => c.charCodeAt(0) < 128)
+    .join('');
+  const slug = semAcento.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  return `prescricao-suplementacao-${slug || 'paciente'}.pdf`;
+}
+
+async function gerarPDFPrescricao({ pacienteNome, contato, suplementosAtivos }) {
+  const itens = filtrarParaLoja(suplementosAtivos);
   if (itens.length === 0) {
     alert('Nenhum suplemento para a prescrição de loja.');
     return;
   }
 
-  const html = `<!doctype html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <title>Prescrição de Suplementação — ${escapeHtml(pacienteNome)}</title>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      background: #FDFBF8; color: #281b06;
-      font-family: 'Inter', -apple-system, sans-serif;
-      font-size: 13px; line-height: 1.6;
-      padding: 44px 52px 36px; max-width: 780px; margin: 0 auto;
-      -webkit-print-color-adjust: exact; print-color-adjust: exact;
-    }
+  // Import dinâmico: o jsPDF vira chunk próprio, baixado no primeiro clique.
+  // Estático no topo do arquivo ele entraria no chunk da tela, que é baixado
+  // ao abrir a aba mesmo de quem nunca gera PDF.
+  const { jsPDF } = await import('jspdf');
+  const doc = new jsPDF({ unit: 'pt', format: 'a4' });
 
-    /* ── Cabeçalho escuro ──
-       print-color-adjust é o que faz o fundo sair no papel; sem ele o
-       Chrome imprime a faixa branca com texto creme = ilegível. O Safari
-       é irregular mesmo com a regra — por isso o dourado do selo tem
-       contraste suficiente sobre branco também. */
-    .doc-header {
-      background: #1a1612; border-radius: 10px;
-      padding: 28px 32px 26px; margin-bottom: 26px;
-      -webkit-print-color-adjust: exact; print-color-adjust: exact;
-      page-break-inside: avoid; break-inside: avoid;
-    }
-    .selo {
-      font-size: 9.5px; letter-spacing: .22em; text-transform: uppercase;
-      color: #C4A882; font-weight: 600; margin-bottom: 10px;
-    }
-    .doc-titulo {
-      font-family: 'Cormorant Garamond', Georgia, serif;
-      font-size: 30px; font-weight: 600; color: #FDFBF8; line-height: 1.15;
-    }
-    .doc-data { font-size: 10.5px; color: #8d8175; margin-top: 8px; }
+  // Texto no PDF é posicionado pela LINHA DE BASE, não pelo topo da caixa —
+  // por isso y é acumulador explícito, em vez do fluxo que o CSS dava de graça.
+  let y = TOPO;
 
-    /* ── Emissor ── */
-    .emissor { margin-bottom: 22px; }
-    .emissor-nome {
-      font-family: 'Cormorant Garamond', Georgia, serif;
-      font-size: 17px; font-weight: 600; color: #281b06;
-    }
-    .emissor-reg { font-size: 11px; color: #a08456; letter-spacing: .04em; }
+  // O fundo creme era `body { background }`. Em PDF não existe fundo herdado:
+  // é retângulo pintado, e em toda página nova.
+  function pintarFundo() {
+    doc.setFillColor(...CREME);
+    doc.rect(0, 0, PAGE_W, PAGE_H, 'F');
+  }
 
-    /* ── Card da paciente ── */
-    .card-paciente {
-      background: #fff; border: 0.5px solid #DDD5C4; border-radius: 8px;
-      padding: 16px 20px; margin-bottom: 30px;
-      display: flex; gap: 40px;
-      -webkit-print-color-adjust: exact; print-color-adjust: exact;
-      page-break-inside: avoid; break-inside: avoid;
-    }
-    .campo-lbl {
-      font-size: 8.5px; letter-spacing: .16em; text-transform: uppercase;
-      color: #a08456; font-weight: 600; margin-bottom: 3px;
-    }
-    .campo-val { font-size: 14px; color: #281b06; }
+  // Um lugar só pro quarteto setFont/setFontSize/setTextColor/text.
+  // charSpace é o letter-spacing do CSS convertido pra pt absolutos.
+  function escrever(txt, x, base, opc = {}) {
+    const { fonte = 'helvetica', estilo = 'normal', tamanho = 10.5,
+            cor = TINTA, charSpace = 0, align } = opc;
+    doc.setFont(fonte, estilo);
+    doc.setFontSize(tamanho);
+    doc.setTextColor(...cor);
+    doc.text(txt, x, base, { charSpace, ...(align ? { align } : null) });
+  }
 
-    /* ── Lista ──
-       O avoid fica em CADA item, nunca na lista inteira: um bloco grande
-       com avoid é tudo-ou-nada, não cabe no resto da folha e é empurrado
-       por completo, deixando meia página em branco.
-       (mesma armadilha documentada em src/styles/print.css) */
-    .sec-titulo {
-      font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase;
-      color: #a08456; font-weight: 600;
-      border-bottom: .5px solid #DDD5C4; padding-bottom: 6px; margin-bottom: 4px;
-      page-break-after: avoid; break-after: avoid;
-    }
-    .sup-item {
-      padding: 13px 0; border-bottom: .5px solid #EDE6DA;
-      page-break-inside: avoid; break-inside: avoid;
-    }
-    .sup-item:last-child { border-bottom: none; }
-    .sup-nome { font-size: 14px; font-weight: 600; color: #281b06; }
-    .sup-pos {
-      font-style: italic; font-size: 12.5px; color: #6b5c3e;
-      margin-top: 3px; line-height: 1.55;
-    }
+  function regua(yLinha, cor, largura = W, x = M) {
+    doc.setDrawColor(...cor);
+    doc.setLineWidth(0.375);       // as bordas de .5px
+    doc.line(x, yLinha, x + largura, yLinha);
+  }
 
-    /* ── Rodapé ── */
-    .rodape { margin-top: 40px; page-break-inside: avoid; break-inside: avoid; }
-    .assinatura-linha { border-top: .5px solid #281b06; width: 260px; margin-bottom: 6px; }
-    .assinatura-nome { font-size: 12.5px; font-weight: 600; color: #281b06; }
-    .assinatura-reg { font-size: 11px; color: #6b5c3e; }
-    .rodape-marca {
-      margin-top: 26px; padding-top: 10px; border-top: .5px solid #DDD5C4;
-      font-size: 9.5px; letter-spacing: .1em; color: #C4A882; text-align: center;
-    }
+  function caberOuQuebrar(altura) {
+    if (y + altura <= FUNDO) return;
+    doc.addPage();
+    pintarFundo();
+    y = TOPO;
+  }
 
-    @page { size: A4 portrait; margin: 1.2cm; }
-  </style>
-</head>
-<body>
+  pintarFundo();
 
-  <div class="doc-header">
-    <div class="selo">Essentia · Prescrição</div>
-    <div class="doc-titulo">Prescrição de Suplementação</div>
-    <div class="doc-data">Emitida em ${new Date().toLocaleDateString('pt-BR')}</div>
-  </div>
+  // ── Cabeçalho escuro ──
+  // .doc-header: fundo #1a1612, border-radius 10px, padding 28/32/26px.
+  const H_CAB = 95;
+  doc.setFillColor(...ESCURO);
+  doc.roundedRect(M, y, W, H_CAB, 7.5, 7.5, 'F');
+  // text-transform: uppercase não existe no jsPDF — a caixa alta vai no JS.
+  escrever('Essentia · Prescrição'.toUpperCase(), M + 24, y + 32,
+    { estilo: 'bold', tamanho: 7.1, cor: OURO, charSpace: 1.57 });
+  escrever('Prescrição de Suplementação', M + 24, y + 62,
+    { fonte: 'times', estilo: 'bold', tamanho: 22.5, cor: CREME });
+  escrever(`Emitida em ${new Date().toLocaleDateString('pt-BR')}`, M + 24, y + 80,
+    { tamanho: 7.9, cor: CINZA });
+  y += H_CAB + 19.5;
 
-  <div class="emissor">
-    <div class="emissor-nome">Kelly Oliveira</div>
-    <div class="emissor-reg">Nutricionista · CRN 3801</div>
-  </div>
+  // ── Emissor ──
+  escrever('Kelly Oliveira', M, y, { fonte: 'times', estilo: 'bold', tamanho: 12.75 });
+  y += 13;
+  escrever('Nutricionista · CRN 3801', M, y,
+    { tamanho: 8.25, cor: BRONZE, charSpace: 0.33 });
+  y += 16.5;
 
-  <div class="card-paciente">
-    <div>
-      <div class="campo-lbl">Paciente</div>
-      <div class="campo-val">${escapeHtml(pacienteNome)}</div>
-    </div>
-    <div>
-      <div class="campo-lbl">Contato</div>
-      <div class="campo-val">${escapeHtml(contato?.telefone || '—')}</div>
-    </div>
-  </div>
+  // ── Card da paciente ──
+  // Colunas fixas: o CSS usava flex com gap, então a coluna do contato começava
+  // onde o nome terminasse. Fixo fica igual entre pacientes; em compensação um
+  // nome muito longo é cortado na largura da coluna em vez de invadir o vizinho.
+  const H_CARD = 52;
+  const COL1_W = 215;
+  const COL2 = M + 15 + 230;
+  doc.setFillColor(255, 255, 255);
+  doc.setDrawColor(...LINHA);
+  doc.setLineWidth(0.375);
+  doc.roundedRect(M, y, W, H_CARD, 6, 6, 'FD');
+  escrever('Paciente'.toUpperCase(), M + 15, y + 20,
+    { estilo: 'bold', tamanho: 6.4, cor: BRONZE, charSpace: 1.02 });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10.5);
+  escrever(doc.splitTextToSize(String(pacienteNome ?? '—'), COL1_W)[0], M + 15, y + 36);
+  escrever('Contato'.toUpperCase(), COL2, y + 20,
+    { estilo: 'bold', tamanho: 6.4, cor: BRONZE, charSpace: 1.02 });
+  escrever(contato?.telefone || '—', COL2, y + 36);
+  y += H_CARD + 22.5;
 
-  <div class="sec-titulo">Suplementos prescritos</div>
-  <div>
-    ${itens.map(s => `
-      <div class="sup-item">
-        <div class="sup-nome">${escapeHtml(s.nome)}</div>
-        ${posologiaDe(s) ? `<div class="sup-pos">${escapeHtml(posologiaDe(s))}</div>` : ''}
-      </div>`).join('')}
-  </div>
+  // ── Lista de suplementos ──
+  escrever('Suplementos prescritos'.toUpperCase(), M, y,
+    { estilo: 'bold', tamanho: 7.9, cor: BRONZE, charSpace: 1.1 });
+  y += 4.5;
+  regua(y, LINHA);
+  y += 3;
 
-  <div class="rodape">
-    <div class="assinatura-linha"></div>
-    <div class="assinatura-nome">Kelly Oliveira</div>
-    <div class="assinatura-reg">Nutricionista · CRN 3801</div>
-    <div class="rodape-marca">Documento gerado pelo app Essentia</div>
-  </div>
+  for (let i = 0; i < itens.length; i++) {
+    const s = itens[i];
+    const pos = posologiaDe(s);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10.5);
+    const linhasNome = doc.splitTextToSize(String(s.nome ?? ''), W);
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(9.4);
+    const linhasPos = pos ? doc.splitTextToSize(pos, W) : [];
 
-</body>
-</html>`;
+    const alturaItem = 9.75 + 10.5 + (linhasNome.length - 1) * 12.6
+      + (linhasPos.length ? 2.25 + linhasPos.length * 14.6 : 0) + 9.75;
 
-  const win = window.open('', '_blank', 'width=900,height=700');
-  if (!win) { alert('Permita pop-ups para gerar o PDF.'); return; }
-  win.document.write(html);
-  win.document.close();
-  setTimeout(() => win.print(), 600);
+    // page-break-inside: avoid POR ITEM, nunca na lista inteira — um bloco
+    // grande com avoid é tudo-ou-nada e empurra meia página em branco (a
+    // mesma armadilha que o CSS anterior comentava).
+    caberOuQuebrar(alturaItem);
+
+    const base = y + 9.75 + 10.5;
+    linhasNome.forEach((linha, k) => {
+      escrever(linha, M, base + k * 12.6, { estilo: 'bold', tamanho: 10.5 });
+    });
+    const basePos = base + (linhasNome.length - 1) * 12.6 + 2.25;
+    linhasPos.forEach((linha, k) => {
+      escrever(linha, M, basePos + 9.4 + k * 14.6,
+        { estilo: 'italic', tamanho: 9.4, cor: SEPIA });
+    });
+
+    y += alturaItem;
+    if (i < itens.length - 1) regua(y, LINHA2);   // .sup-item:last-child sem borda
+  }
+
+  // ── Rodapé ──
+  // .rodape tinha page-break-inside: avoid — aqui é a checagem do bloco inteiro.
+  caberOuQuebrar(30 + 90);
+  y += 30;
+  regua(y, TINTA, 195);                          // .assinatura-linha, 260px
+  y += 4.5 + 9.4;
+  escrever('Kelly Oliveira', M, y, { fonte: 'times', estilo: 'bold', tamanho: 9.4 });
+  y += 11;
+  escrever('Nutricionista · CRN 3801', M, y, { tamanho: 8.25, cor: SEPIA });
+  y += 19.5 + 7.5;
+  regua(y, LINHA);
+  y += 12;
+  escrever('Documento gerado pelo app Essentia', PAGE_W / 2, y,
+    { tamanho: 7.1, cor: OURO, charSpace: 0.71, align: 'center' });
+
+  doc.save(nomeArquivoPrescricao(pacienteNome));
 }
