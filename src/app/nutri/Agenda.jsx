@@ -120,6 +120,15 @@ function templateLembrete({ modalidade, endereco, ...resto }) {
     : templateLembreteOnline(resto);
 }
 
+// Janela do painel de lembretes. Era 12h→26h a partir do carregamento da tela:
+// uma faixa tão estreita que o painel ficava vazio quase toda semana, sem nada
+// explicando o porquê. Agora vai de agora até 7 dias, para confirmar com
+// antecedência.
+const JANELA_LEMBRETE_DIAS = 7;
+
+// Quantos pendentes o painel mostra antes de cortar com "Mostrar mais".
+const LIMITE_PENDENTES = 8;
+
 export default function Agenda() {
   const { user } = useSession();
   const [consultas, setConsultas] = useState(undefined);
@@ -139,6 +148,9 @@ export default function Agenda() {
   const [lembretes, setLembretes] = useState([]);
   const [enviadosLocais, setEnviadosLocais] = useState(new Map()); // consultaId → ISO timestamp do envio
   const [erroLembrete, setErroLembrete] = useState(null);
+  // Separado do erroLembrete: aquele é erro de gravação e se apaga em 4s;
+  // este é falha de leitura e some só quando a próxima leitura der certo.
+  const [erroLembretesFetch, setErroLembretesFetch] = useState(null);
 
   async function carregar() {
     if (!user) return;
@@ -175,15 +187,24 @@ export default function Agenda() {
 
   async function verificarLembretes() {
     if (!user) return;
-    const { data } = await supabase
+    const agora = new Date();
+    const fim = new Date(agora.getTime() + JANELA_LEMBRETE_DIAS * 24 * 3600 * 1000);
+    const { data, error } = await supabase
       .from('consultas')
       .select('id, data_hora, modalidade, local_id, lembrete_enviado, lembrete_enviado_em, paciente:pacientes(id, nome, telefone)')
       .eq('nutri_id', user.id)
       .eq('lembrete_ativo', true)
       .eq('status', 'agendada')
-      .gte('data_hora', new Date(Date.now() + 12 * 3600 * 1000).toISOString())
-      .lte('data_hora', new Date(Date.now() + 26 * 3600 * 1000).toISOString())
+      .gte('data_hora', agora.toISOString())
+      .lte('data_hora', fim.toISOString())
       .order('data_hora', { ascending: true });
+    if (error) {
+      // Não esvazia a lista: painel vazio é indistinguível de "não há
+      // lembretes", que é justamente o modo de falha que estamos consertando.
+      setErroLembretesFetch('Não consegui carregar os lembretes. Tento de novo em 5 minutos.');
+      return;
+    }
+    setErroLembretesFetch(null);
     setLembretes(data ?? []);
   }
 
@@ -366,6 +387,17 @@ export default function Agenda() {
         }}>
           <i className="ti ti-alert-circle" aria-hidden="true" />
           {erroLembrete}
+        </div>
+      )}
+
+      {erroLembretesFetch && (
+        <div style={{
+          background: 'var(--red-bg)', color: 'var(--red)',
+          padding: '8px 12px', borderRadius: 8, marginBottom: 12,
+          fontSize: 13, display: 'flex', alignItems: 'center', gap: 6,
+        }}>
+          <i className="ti ti-alert-circle" aria-hidden="true" />
+          {erroLembretesFetch}
         </div>
       )}
 
@@ -562,7 +594,7 @@ function FaixaConvite({ convite, nutriId, onDispensar }) {
 }
 
 /* ============================================================
-   PAINEL DE LEMBRETES DE HOJE
+   PAINEL DE LEMBRETES DA SEMANA
    ============================================================ */
 function PainelLembretes({ lembretes, locais, enviadosLocais, onEnviar, onDesfazer }) {
   const [copiadoId, setCopiadoId] = useState(null);
@@ -574,10 +606,47 @@ function PainelLembretes({ lembretes, locais, enviadosLocais, onEnviar, onDesfaz
     setTimeout(() => setCopiadoId(null), 2000);
   }
 
-  const pendentes = lembretes.filter(l => {
-    const localTs = enviadosLocais.get(l.id);
-    return !localTs && !l.lembrete_enviado_em && !l.lembrete_enviado;
-  }).length;
+  const [verEnviados, setVerEnviados] = useState(false);
+  const [verTodos, setVerTodos] = useState(false);
+
+  const foiEnviado = l =>
+    !!enviadosLocais.get(l.id) || !!l.lembrete_enviado_em || !!l.lembrete_enviado;
+
+  const pendentesList = lembretes.filter(l => !foiEnviado(l));
+  const enviadosList  = lembretes.filter(foiEnviado);
+  const pendentes = pendentesList.length;
+
+  const visiveis = verTodos ? pendentesList : pendentesList.slice(0, LIMITE_PENDENTES);
+  const ocultos = pendentes - visiveis.length;
+
+  // Separadores no fuso da clínica, não no do navegador: assim "Hoje" nunca
+  // discorda da data impressa dentro do próprio cartão.
+  const chaveDia = d => d.toLocaleDateString('pt-BR', { timeZone: TZ_CLINICA });
+  const agora = new Date();
+  const chaveHoje = chaveDia(agora);
+  const chaveAmanha = chaveDia(new Date(agora.getTime() + 24 * 3600 * 1000));
+  function rotuloDoDia(dt) {
+    const k = chaveDia(dt);
+    if (k === chaveHoje) return 'Hoje';
+    if (k === chaveAmanha) return 'Amanhã';
+    const s = dt.toLocaleDateString('pt-BR', { timeZone: TZ_CLINICA, weekday: 'short', day: '2-digit', month: '2-digit' }).replace('.', '');
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+
+  // Uma lista só, com marcadores, para o cartão do lembrete não precisar ser
+  // duplicado entre a seção de pendentes e a de enviados.
+  const itens = [];
+  let ultimoRotulo = null;
+  for (const l of visiveis) {
+    const r = rotuloDoDia(new Date(l.data_hora));
+    if (r !== ultimoRotulo) { itens.push({ tipo: 'sep', chave: 'sep-' + r, label: r }); ultimoRotulo = r; }
+    itens.push({ tipo: 'card', chave: l.id, l });
+  }
+  if (ocultos > 0) itens.push({ tipo: 'mais', chave: 'mais' });
+  if (enviadosList.length > 0) {
+    itens.push({ tipo: 'toggle', chave: 'toggle' });
+    if (verEnviados) for (const l of enviadosList) itens.push({ tipo: 'card', chave: l.id, l });
+  }
 
   return (
     <div style={{
@@ -595,19 +664,40 @@ function PainelLembretes({ lembretes, locais, enviadosLocais, onEnviar, onDesfaz
         <i className="ti ti-bell" style={{ fontSize: 16, color: 'var(--orange)' }} aria-hidden="true" />
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--orange)' }}>
-            Lembretes de hoje
+            Lembretes da semana
           </div>
           <div style={{ fontSize: 11, color: 'var(--orange)', opacity: 0.85 }}>
             {pendentes === 0
               ? 'Todos os lembretes enviados ✓'
-              : `${pendentes} pendente${pendentes > 1 ? 's' : ''} · toque para enviar`}
+              : `${pendentes} pendente${pendentes > 1 ? 's' : ''} · próximos 7 dias`}
           </div>
         </div>
       </div>
 
       {/* Rows */}
       <div style={{ padding: '8px 12px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {lembretes.map(l => {
+        {itens.map(it => {
+          if (it.tipo === 'sep') return (
+            <div key={it.chave} style={{
+              fontSize: 11, fontWeight: 600, color: 'var(--orange)',
+              opacity: 0.75, textTransform: 'uppercase', letterSpacing: 0.4,
+              padding: '4px 2px 0',
+            }}>{it.label}</div>
+          );
+          if (it.tipo === 'mais') return (
+            <button key={it.chave} className="btn-outline" onClick={() => setVerTodos(true)}
+              style={{ fontSize: 12, minHeight: 38, justifyContent: 'center' }}>
+              Mostrar mais {ocultos}
+            </button>
+          );
+          if (it.tipo === 'toggle') return (
+            <button key={it.chave} className="btn-outline" onClick={() => setVerEnviados(v => !v)}
+              style={{ fontSize: 12, minHeight: 38, justifyContent: 'center', color: 'var(--text3)' }}>
+              <i className={`ti ti-chevron-${verEnviados ? 'up' : 'down'}`} aria-hidden="true" />
+              {verEnviados ? 'Ocultar enviados' : `Ver ${enviadosList.length} já enviado${enviadosList.length > 1 ? 's' : ''}`}
+            </button>
+          );
+          const l = it.l;
           const dt = new Date(l.data_hora);
           const horaConsulta = horaConsultaBR(l.data_hora);
           const dataFormatada = dt.toLocaleDateString('pt-BR', { timeZone: TZ_CLINICA, day: '2-digit', month: '2-digit' });
