@@ -191,7 +191,7 @@ export default function Agenda() {
     const fim = new Date(agora.getTime() + JANELA_LEMBRETE_DIAS * 24 * 3600 * 1000);
     const { data, error } = await supabase
       .from('consultas')
-      .select('id, data_hora, modalidade, local_id, lembrete_enviado, lembrete_enviado_em, paciente:pacientes(id, nome, telefone)')
+      .select('id, data_hora, modalidade, local_id, lembrete_enviado, lembrete_enviado_em, confirmada_em, paciente:pacientes(id, nome, telefone)')
       .eq('nutri_id', user.id)
       .eq('lembrete_ativo', true)
       .eq('status', 'agendada')
@@ -255,6 +255,9 @@ export default function Agenda() {
     // Guarda o valor anterior para reverter se o banco recusar
     const anterior = (consultas ?? []).find(c => c.id === consultaId);
     setConsultas(prev => (prev ?? []).map(c => c.id === consultaId ? { ...c, ...patch } : c));
+    // Espelha no painel de lembretes: confirmar tira o cartão da lista na hora
+    // e desfazer traz de volta, sem esperar o poll de 5 minutos.
+    setLembretes(prev => prev.map(l => l.id === consultaId ? { ...l, confirmada_em: patch.confirmada_em } : l));
 
     const { error } = await supabase.from('consultas').update(patch).eq('id', consultaId);
     if (error) {
@@ -263,6 +266,9 @@ export default function Agenda() {
         confirmada_em:  anterior?.confirmada_em  ?? null,
         confirmada_por: anterior?.confirmada_por ?? null,
       } : c));
+      setLembretes(prev => prev.map(l => l.id === consultaId
+        ? { ...l, confirmada_em: anterior?.confirmada_em ?? null }
+        : l));
       setErroLembrete('Não consegui salvar a confirmação, tente novamente');
       setTimeout(() => setErroLembrete(null), 4000);
     }
@@ -295,6 +301,10 @@ export default function Agenda() {
         setConsultas(prev => (prev ?? []).map(c => c.id === nova.id
           ? { ...c, confirmada_em: nova.confirmada_em, confirmada_por: nova.confirmada_por }
           : c));
+        // A paciente confirma pelo app e o cartão sai do painel sozinho.
+        setLembretes(prev => prev.map(l => l.id === nova.id
+          ? { ...l, confirmada_em: nova.confirmada_em }
+          : l));
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -307,6 +317,13 @@ export default function Agenda() {
   const aDefinir = ativas.filter(c => !c.data_hora);
   const canceladas = (consultas ?? []).filter(c => c.status === 'cancelada');
   const aConfirmar = futuras.filter(c => podeConfirmar(c) && !c.confirmada_em).length;
+
+  // Quem já confirmou presença sai do painel: o lembrete existe para arrancar
+  // a confirmação, e insistir com quem já respondeu é ruído. O critério é o
+  // mesmo do resto do app — confirmada_em não nulo, independente de quem
+  // confirmou (nutri pelo WhatsApp ou paciente pelo app).
+  const lembretesPendentes = useMemo(() => lembretes.filter(l => !l.confirmada_em), [lembretes]);
+  const confirmadasOcultas = lembretes.length - lembretesPendentes.length;
 
   // Consultas do dia selecionado
   const consultasDoDia = useMemo(() => {
@@ -403,7 +420,8 @@ export default function Agenda() {
 
       {lembretes.length > 0 && (
         <PainelLembretes
-          lembretes={lembretes}
+          lembretes={lembretesPendentes}
+          confirmadas={confirmadasOcultas}
           locais={locais}
           enviadosLocais={enviadosLocais}
           onEnviar={marcarEnviado}
@@ -596,7 +614,7 @@ function FaixaConvite({ convite, nutriId, onDispensar }) {
 /* ============================================================
    PAINEL DE LEMBRETES DA SEMANA
    ============================================================ */
-function PainelLembretes({ lembretes, locais, enviadosLocais, onEnviar, onDesfazer }) {
+function PainelLembretes({ lembretes, confirmadas = 0, locais, enviadosLocais, onEnviar, onDesfazer }) {
   const [copiadoId, setCopiadoId] = useState(null);
 
   async function copiarMensagem(id, texto) {
@@ -667,15 +685,19 @@ function PainelLembretes({ lembretes, locais, enviadosLocais, onEnviar, onDesfaz
             Lembretes da semana
           </div>
           <div style={{ fontSize: 11, color: 'var(--orange)', opacity: 0.85 }}>
-            {pendentes === 0
-              ? 'Todos os lembretes enviados ✓'
-              : `${pendentes} pendente${pendentes > 1 ? 's' : ''} · próximos 7 dias`}
+            {pendentes === 0 ? 'Nada pendente ✓' : `${pendentes} pendente${pendentes > 1 ? 's' : ''} · próximos 7 dias`}
+            {confirmadas > 0 && ` · ${confirmadas} confirmada${confirmadas > 1 ? 's' : ''} oculta${confirmadas > 1 ? 's' : ''}`}
           </div>
         </div>
       </div>
 
       {/* Rows */}
       <div style={{ padding: '8px 12px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {itens.length === 0 && (
+          <div style={{ fontSize: 12, color: 'var(--orange)', opacity: 0.85, padding: '4px 2px' }}>
+            Nenhum lembrete pendente nos próximos 7 dias.
+          </div>
+        )}
         {itens.map(it => {
           if (it.tipo === 'sep') return (
             <div key={it.chave} style={{
