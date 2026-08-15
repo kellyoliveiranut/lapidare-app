@@ -525,7 +525,6 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
         <ModalEnviarLoja
           pacienteNome={pacienteNome}
           contato={contato}
-          suplementosAtivos={suplementosLoja}
           lojas={lojas}
           onClose={() => setEnviarLojaOpen(false)}
         />
@@ -1018,13 +1017,13 @@ function ModalEnviarFarmacia({ pacienteNome, contato, suplementosAtivos, farmaci
    link wa.me. Quem manda a mensagem é a nutri, no WhatsApp dela — o app não
    tem como confirmar que saiu, então não finge que sabe (ver o comentário da
    migration 2026-08-13_lojas_parceiras.sql). */
-function ModalEnviarLoja({ pacienteNome, contato, suplementosAtivos, lojas, onClose }) {
+function ModalEnviarLoja({ pacienteNome, contato, lojas, onClose }) {
   // Uma loja só: já entra escolhida e o chooser nunca aparece.
   const [loja, setLoja] = useState(lojas.length === 1 ? lojas[0] : null);
   // O texto não depende da loja — o nome dela não entra na prescrição. Por isso
   // é montado uma vez e sobrevive a ir e voltar no chooser sem perder a edição.
   const [texto, setTexto] = useState(
-    () => textoPrescricaoLoja({ pacienteNome, contato, suplementosAtivos })
+    () => textoPrescricaoLoja({ pacienteNome, contato })
   );
   const podeVoltar = lojas.length > 1;   // com uma loja só, voltar não teria destino
   const vazio = !texto.trim();
@@ -1277,18 +1276,15 @@ function filtrarParaLoja(lista) {
   });
 }
 
-// Mesma lista do PDF, formato de mensagem. Texto puro, sem encode: quem monta
-// a URL do wa.me aplica encodeURIComponent (mesma divisão de mensagemAcesso.js).
-function textoPrescricaoLoja({ pacienteNome, contato, suplementosAtivos }) {
-  const linhas = filtrarParaLoja(suplementosAtivos).map(s => {
-    const p = posologiaDe(s);
-    return p ? `- ${s.nome} — ${p}` : `- ${s.nome}`;
-  });
+// Só os dados da paciente: a lista de suplementos vai completa no PDF anexado.
+// Texto puro, sem encode: quem monta a URL do wa.me aplica encodeURIComponent
+// (mesma divisão de mensagemAcesso.js).
+function textoPrescricaoLoja({ pacienteNome, contato }) {
   return [
     'PRESCRIÇÃO DE SUPLEMENTAÇÃO', '',
     `Paciente: ${pacienteNome}`,
     `Contato: ${contato?.telefone || '—'}`, '',
-    'Suplementos prescritos:', ...linhas, '',
+    'Segue em anexo o PDF com os suplementos prescritos.', '',
     'Kelly Oliveira',
     'Nutricionista — CRN 3801',
   ].join('\n');
