@@ -262,7 +262,19 @@ export default function Cadastrar() {
           <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 0.9fr', gap: 10 }}>
             <Field label="Email (opcional)" type="email" value={email} onChange={setEmail} />
             <Field label="Telefone *" type="tel" value={telefone} onChange={setTelefone} required placeholder="(11) 99999-9999" />
-            <Field label="Data de nascimento" type="date" value={nascimento} onChange={setNascimento} />
+            <label style={{ display: 'block', marginBottom: 12 }}>
+              <span style={lblStyle}>Data de nascimento</span>
+              <DateInput
+                value={nascimento}
+                onChange={e => setNascimento(e.target.value)}
+                style={{
+                  width: '100%', padding: '10px 12px', fontSize: 13,
+                  border: '0.5px solid var(--border)', borderRadius: 8,
+                  outline: 'none', fontFamily: 'var(--font-sans)',
+                  boxSizing: 'border-box',
+                }}
+              />
+            </label>
           </div>
 
           <SelectField label="Objetivo" value={objetivo} onChange={setObjetivo} options={OBJETIVOS} />
