@@ -20,6 +20,7 @@ import { SessionProvider } from './lib/session.jsx';
 import { ThemeProvider } from './lib/theme.jsx';
 import RequireAuth from './components/RequireAuth.jsx';
 import RootRedirect from './components/RootRedirect.jsx';
+import PushNavigator from './components/PushNavigator.jsx';
 import PacienteErrorBoundary from './components/PacienteErrorBoundary.jsx';
 
 // Login e Callback ficam eager — são o caminho crítico para usuários não autenticados
@@ -75,6 +76,7 @@ export default function App() {
     <SessionProvider>
       <ThemeProvider>
         <BrowserRouter>
+          <PushNavigator />
           <Suspense fallback={<LoadingSpinner />}>
             <Routes>
               <Route path="/" element={<RootRedirect />} />

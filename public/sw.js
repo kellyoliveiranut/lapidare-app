@@ -46,17 +46,36 @@ self.addEventListener('notificationclick', (event) => {
     clients
       .matchAll({ type: 'window', includeUncontrolled: true })
       .then((windowClients) => {
+        console.log('[sw] notificationclick url=', url, 'janelas=', windowClients.length);
+
         // Prefere janela já na URL correta
         const exact = windowClients.find((c) => c.url === url);
         if (exact && 'focus' in exact) return exact.focus();
-        // Navega a primeira janela aberta para a URL
+
         if (windowClients.length > 0) {
           const first = windowClients[0];
-          return first.focus().then(() => {
-            if ('navigate' in first) return first.navigate(url);
-          });
+
+          // postMessage primeiro, e fora de qualquer .then: é o único caminho
+          // que não passa pelas APIs que o WebKit engole. Se ficasse depois do
+          // focus(), um focus() que rejeita levaria o recado junto.
+          try {
+            first.postMessage({ type: 'navigate', url });
+            console.log('[sw] postMessage enviado para', first.url);
+          } catch (err) {
+            console.log('[sw] postMessage falhou:', err && err.message);
+          }
+
+          // Reforço para Chrome/Android, onde navigate() funciona. No iOS
+          // falha calado — por isso o catch, que antes não existia e escondia
+          // a rejeição dentro do waitUntil.
+          return first.focus()
+            .then(() => ('navigate' in first ? first.navigate(url) : undefined))
+            .then(() => console.log('[sw] navigate ok'))
+            .catch((err) => console.log('[sw] focus/navigate falhou:', err && err.message));
         }
+
         // Nenhuma janela aberta — abre uma nova
+        console.log('[sw] sem janela aberta, openWindow');
         if (clients.openWindow) return clients.openWindow(url);
       })
   );
