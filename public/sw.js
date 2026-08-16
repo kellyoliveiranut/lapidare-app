@@ -24,6 +24,15 @@ self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const url = event.notification.data?.url || '/paciente/inicio';
 
+  // Link externo (Shaped): WindowClient.navigate() rejeita com TypeError fora
+  // da própria origem, e matchAll() nem enxerga janela de outro site. Tentar o
+  // caminho de baixo faria o clique não abrir nada quando o app já está aberto.
+  // O '/' no fim da origem evita casar com 'lapidareapp.netlify.app.algo.com'.
+  if (/^https?:\/\//i.test(url) && !url.startsWith(self.location.origin + '/')) {
+    event.waitUntil(clients.openWindow(url));
+    return;
+  }
+
   event.waitUntil(
     clients
       .matchAll({ type: 'window', includeUncontrolled: true })

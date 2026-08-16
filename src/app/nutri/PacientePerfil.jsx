@@ -2036,6 +2036,43 @@ function RegistrarAvaliacao({ pacienteId, nutriId, paciente }) {
   const [importandoShaped, setImportandoShaped] = useState(false);
   const shapedRef = useRef(null);
 
+  // Envio do link do Shaped por push (a paciente toca e abre a avaliação)
+  const [linkShaped, setLinkShaped] = useState('');
+  const [enviandoLink, setEnviandoLink] = useState(false);
+
+  // Diferente dos outros pushes do projeto, este NÃO é fire-and-forget: é o
+  // único aviso que a paciente recebe, então a nutri precisa saber se chegou.
+  async function enviarLinkAvaliacao() {
+    setEnviandoLink(true);
+    setFeedback(null);
+    try {
+      const { data: s } = await supabase.auth.getSession();
+      const accessToken = s.session?.access_token;
+      if (!accessToken) throw new Error('Sessão expirada — entre de novo.');
+
+      const res = await fetch('/.netlify/functions/send-push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+        body: JSON.stringify({ mode: 'enviar_link_avaliacao', paciente_id: pacienteId, url: linkShaped.trim() }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? `Erro ${res.status}`);
+
+      // enviarParaUsuario devolve 200 com enviados:0 quando não há nenhuma
+      // subscription. Sem esta checagem a tela diria "enviado" para ninguém.
+      if (json.enviados === 0) {
+        setFeedback({ tipo: 'erro', msg: 'Ninguém recebeu — a paciente ainda não ativou as notificações no app dela.' });
+        return;
+      }
+      setFeedback({ tipo: 'ok', msg: `Link enviado! (${json.enviados} aparelho${json.enviados !== 1 ? 's' : ''})` });
+      setLinkShaped('');
+    } catch (err) {
+      setFeedback({ tipo: 'erro', msg: err.message });
+    } finally {
+      setEnviandoLink(false);
+    }
+  }
+
   // Importação em lote de PDFs do Shaped (lê por IA → conferência → salva N)
   const [importandoLote, setImportandoLote] = useState(false);
   const [progresso, setProgresso] = useState({ feito: 0, total: 0 });
@@ -2411,6 +2448,38 @@ function RegistrarAvaliacao({ pacienteId, nutriId, paciente }) {
                 : <>📄 Importar vários do Shaped</>
               }
             </button>
+          </div>
+
+          {/* Enviar o link do Shaped por push — a paciente toca e abre a avaliação */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 6 }}>
+            <input
+              type="url"
+              value={linkShaped}
+              onChange={e => setLinkShaped(e.target.value)}
+              placeholder="Cole o link do Shaped da avaliação"
+              style={{ flex: '1 1 260px', margin: 0 }}
+            />
+            <button
+              type="button"
+              onClick={enviarLinkAvaliacao}
+              disabled={enviandoLink || !linkShaped.trim()}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 7,
+                padding: '8px 14px', borderRadius: 8,
+                border: '1px solid var(--border)',
+                background: 'var(--bg2)', color: 'var(--text2)',
+                fontSize: 13, fontFamily: 'var(--font-sans)',
+                cursor: (enviandoLink || !linkShaped.trim()) ? 'default' : 'pointer',
+                opacity: (enviandoLink || !linkShaped.trim()) ? 0.55 : 1,
+              }}>
+              {enviandoLink
+                ? <><i className="ti ti-loader-2" style={{ fontSize: 15 }} aria-hidden="true" /> Enviando…</>
+                : <><i className="ti ti-bell" style={{ fontSize: 15 }} aria-hidden="true" /> Enviar link por push</>
+              }
+            </button>
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 16, lineHeight: 1.5 }}>
+            Só aceita link do Shaped. A paciente recebe uma notificação e o link abre ao tocar.
           </div>
 
           {/* Linha 1: Data, Peso, Altura */}

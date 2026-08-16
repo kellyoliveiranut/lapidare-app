@@ -1,6 +1,20 @@
 const webpush = require('web-push');
 const { createClient } = require('@supabase/supabase-js');
 
+// Allowlist fechada de hosts do Shaped. Um push abre no navegador da paciente
+// com um toque — a URL nunca pode ser livre. O ponto na frente em '.' + h é o
+// que impede 'evilshaped.com.br' de passar por um endsWith solto.
+const SHAPED_HOSTS = ['shaped.com.br'];
+
+function normalizarUrlShaped(raw) {
+  let u;
+  try { u = new URL(String(raw).trim()); } catch { return null; }
+  if (u.protocol !== 'https:') return null;   // barra http, javascript:, data:
+  const host = u.hostname.toLowerCase();
+  const ok = SHAPED_HOSTS.some(h => host === h || host.endsWith('.' + h));
+  return ok ? u.href : null;                  // href normalizado, nunca a string crua
+}
+
 exports.handler = async (event) => {
   try {
     if (event.httpMethod !== 'POST') {
@@ -92,6 +106,40 @@ exports.handler = async (event) => {
 
       const payload = PAYLOADS[kind] ?? PAYLOADS.mensagem;
       return await enviarParaUsuario(supabase, paciente.user_id, payload);
+    }
+
+    // === Modo: enviar_link_avaliacao (nutri → paciente, link do Shaped) ===
+    // Mesmo ownership do notify_paciente. Aqui a URL vem do frontend — por isso
+    // passa pela allowlist antes de qualquer coisa, e o que segue para o push é
+    // sempre a versão normalizada, nunca a string que chegou.
+    if (body.mode === 'enviar_link_avaliacao') {
+      const { paciente_id, url } = body;
+      if (!paciente_id || !url) {
+        return { statusCode: 400, body: JSON.stringify({ error: 'paciente_id e url são obrigatórios.' }) };
+      }
+
+      const urlOk = normalizarUrlShaped(url);
+      if (!urlOk) {
+        return { statusCode: 400, body: JSON.stringify({ error: 'Link inválido — só aceito link do Shaped (https).' }) };
+      }
+
+      const { data: paciente, error: pacienteError } = await supabase
+        .from('pacientes')
+        .select('user_id')
+        .eq('id', paciente_id)
+        .eq('nutri_id', caller.id)
+        .maybeSingle();
+
+      if (pacienteError || !paciente?.user_id) {
+        return { statusCode: 403, body: JSON.stringify({ error: 'Paciente não encontrada ou sem vínculo.' }) };
+      }
+
+      // Corpo sem nome nem dado da paciente — notificação aparece na tela de bloqueio.
+      return await enviarParaUsuario(supabase, paciente.user_id, {
+        title: 'Essentia',
+        body: 'Sua nutricionista te enviou o link para realizar a avaliação física.',
+        url: urlOk,
+      });
     }
 
     // === Modo: self (teste/nutri envia pra si mesma) ===
