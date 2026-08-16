@@ -38,6 +38,7 @@ const AVULSA_ALLOWED = new Set([
   '/paciente/progresso',
   '/paciente/suplementos',
   '/paciente/ebooks',
+  '/paciente/avaliacao',
 ]);
 
 const HEADERS = {
@@ -54,6 +55,7 @@ const HEADERS = {
   '/paciente/chat':                     (_nome, nutriNome) => ({ eyebrow: 'Conversa',              title: nutriNome || 'Sua nutri',      subtitle: 'Online' }),
   '/paciente/checkins':                  ()                => ({ eyebrow: 'Formulários',             title: 'Check-ins',                   subtitle: 'Enviados pela sua nutri' }),
   '/paciente/monitoramento-oncologico': ()                => ({ eyebrow: 'Check-in diário',      title: 'Como você está hoje?',        subtitle: 'Leva menos de 2 minutos' }),
+  '/paciente/avaliacao':                ()                => ({ eyebrow: 'Avaliação física',    title: 'Sua avaliação' }),
 };
 
 export default function PacienteLayout() {

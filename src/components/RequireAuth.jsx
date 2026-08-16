@@ -20,7 +20,9 @@ export default function RequireAuth({ children, role }) {
   if (loading) return <Loading />;
 
   if (!session) {
-    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+    // Com a query junto: o push da avaliação leva a /paciente/avaliacao?link=…
+    // e sem o search a paciente deslogada voltaria do login sem o link.
+    return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
   }
 
   if (role && userRole && userRole !== role) {

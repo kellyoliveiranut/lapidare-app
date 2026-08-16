@@ -1,6 +1,15 @@
 // Essentia — Service Worker
 // Handles push notifications and notification click routing.
 
+// Sem isto, um sw.js novo fica parado em "waiting" até TODAS as janelas do app
+// fecharem — e um PWA no iPhone em segundo plano não fecha. Na prática qualquer
+// correção aqui só entrava depois de matar o app pelo app switcher.
+// Seguro enquanto este worker não tiver handler de 'fetch': ele não serve nem
+// cacheia asset nenhum, então não há risco de servir cache novo pra página
+// antiga. Se um dia entrar cache offline, esta linha precisa ser reavaliada
+// junto com um clients.claim().
+self.addEventListener('install', () => self.skipWaiting());
+
 self.addEventListener('push', (event) => {
   let data = {};
   try {

@@ -68,6 +68,7 @@ const HabitosPaciente = lazy(() => import('./app/paciente/Habitos.jsx'));
 const MonitoramentoOncologicoPaciente = lazy(() => import('./app/paciente/MonitoramentoOncologico.jsx'));
 const TreinosPaciente = lazy(() => import('./app/paciente/Treinos.jsx'));
 const CheckinsPaciente = lazy(() => import('./app/paciente/CheckinsPaciente.jsx'));
+const AvaliacaoPaciente = lazy(() => import('./app/paciente/Avaliacao.jsx'));
 
 export default function App() {
   return (
@@ -133,6 +134,7 @@ export default function App() {
                 <Route path="/paciente/checkin/:envioId" element={<Checkin />} />
                 <Route path="/paciente/monitoramento-oncologico" element={<MonitoramentoOncologicoPaciente />} />
                 <Route path="/paciente/treinos" element={<TreinosPaciente />} />
+                <Route path="/paciente/avaliacao" element={<AvaliacaoPaciente />} />
               </Route>
 
               <Route path="*" element={<Navigate to="/" replace />} />

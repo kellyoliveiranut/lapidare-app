@@ -135,10 +135,17 @@ exports.handler = async (event) => {
       }
 
       // Corpo sem nome nem dado da paciente — notificação aparece na tela de bloqueio.
+      //
+      // A url do push é uma rota INTERNA, não o link do Shaped: no iOS o
+      // clients.openWindow() do service worker falha em silêncio para outra
+      // origem, e o clique não abria nada. /paciente/avaliacao é same-origin,
+      // que o WindowClient.navigate() abre, e lá a paciente toca no link.
+      // urlOk (já normalizado pela allowlist) vai como parâmetro e é validado
+      // de novo no cliente, em src/lib/shaped.js.
       return await enviarParaUsuario(supabase, paciente.user_id, {
         title: 'Essentia',
         body: 'Sua nutricionista te enviou o link para realizar a avaliação física.',
-        url: urlOk,
+        url: `/paciente/avaliacao?link=${encodeURIComponent(urlOk)}`,
       });
     }
 
