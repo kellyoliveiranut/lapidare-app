@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
@@ -1151,6 +1151,12 @@ function ConsultaRow({ c, isLast, isPast, isCanceled, onClick, onToggleConfirmad
 /* ============================================================
    MODAL CONSULTA
    ============================================================ */
+// Destaque nos campos Data e Horário enquanto a remarcação está em curso.
+const destaqueRemarcacao = {
+  borderColor: 'var(--orange)',
+  boxShadow: '0 0 0 2px var(--orange-bg)',
+};
+
 function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId, onClose, onSaved, onToggleConfirmada }) {
   const isEdit = !!consulta;
   const navigate = useNavigate();
@@ -1192,6 +1198,17 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState(null);
   const [copiado, setCopiado] = useState(false);
+  const [remarcando, setRemarcando] = useState(false);
+  const campoDataRef = useRef(null);
+
+  // Remarcar não tem lógica própria: trocar data/horário e salvar já dispara o
+  // trigger que zera a confirmação. O botão só dá nome e caminho para isso —
+  // leva a nutri até os campos e explica o que vai acontecer ao salvar.
+  function iniciarRemarcacao() {
+    setRemarcando(true);
+    campoDataRef.current?.focus({ preventScroll: true });
+    campoDataRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
 
   function addLinkExtra() {
     setLinksExtras(curr => [...curr, { label: '', url: '' }]);
@@ -1378,13 +1395,27 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
           {TIPOS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
         </select>
 
+        {remarcando && (
+          <div style={{
+            background: 'var(--orange-bg)', color: 'var(--orange)',
+            padding: '8px 10px', borderRadius: 6, fontSize: 12,
+            marginTop: 14, lineHeight: 1.5,
+          }}>
+            <i className="ti ti-calendar-event" aria-hidden="true"></i>{' '}
+            <strong>Escolha a nova data e o horário abaixo, depois clique em “Salvar remarcação”.</strong>
+            {' '}A confirmação de presença será zerada e um novo lembrete será enviado.
+          </div>
+        )}
+
         <label className="form-lbl">Data</label>
-        <DateInput value={data} onChange={e => setData(e.target.value)} />
+        <DateInput ref={campoDataRef} value={data} onChange={e => setData(e.target.value)}
+          style={remarcando ? destaqueRemarcacao : undefined} />
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
           <div>
             <label className="form-lbl" style={{ marginTop: 10 }}>Horário</label>
-            <select value={hora} onChange={e => setHora(e.target.value)}>
+            <select value={hora} onChange={e => setHora(e.target.value)}
+              style={remarcando ? destaqueRemarcacao : undefined}>
               {!HORARIOS_CONSULTA.includes(hora) && hora && (
                 <option value={hora}>{hora} (fora do padrão)</option>
               )}
@@ -1477,7 +1508,7 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
               Presença confirmada pela paciente
             </label>
             <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4, lineHeight: 1.5 }}>
-              Salva na hora, sem precisar clicar em salvar. Reagendar limpa a confirmação.
+              Salva na hora, sem precisar clicar em salvar. Remarcar limpa a confirmação.
             </div>
           </>
         )}
@@ -1547,12 +1578,15 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
         )}
 
         <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+          {/* "Fechar", e não "Cancelar": logo abaixo existe um botão vermelho
+              que cancela a consulta com a paciente — dois "Cancelar" a poucos
+              pixels um do outro, com sentidos opostos. */}
           <button className="btn-outline" style={{ flex: 1, justifyContent: 'center' }} onClick={onClose}>
-            Cancelar
+            <i className="ti ti-x" aria-hidden="true"></i> Fechar
           </button>
           <button className="btn" style={{ flex: 1, justifyContent: 'center' }}
             onClick={salvar} disabled={busy}>
-            <i className="ti ti-check" aria-hidden="true"></i> {busy ? '...' : (isEdit ? 'Salvar alterações' : 'Agendar')}
+            <i className="ti ti-check" aria-hidden="true"></i> {busy ? '...' : (remarcando ? 'Salvar remarcação' : (isEdit ? 'Salvar alterações' : 'Agendar'))}
           </button>
         </div>
 
@@ -1573,6 +1607,24 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
             }}>
             <i className="ti ti-user" aria-hidden="true"></i> Ver perfil da paciente
+          </button>
+        )}
+
+        {/* Remarcar já era possível — bastava trocar data/horário e salvar.
+            O botão só torna isso visível e nomeado. */}
+        {isEdit && consulta.status === 'agendada' && (
+          <button
+            type="button"
+            onClick={iniciarRemarcacao}
+            style={{
+              marginTop: 14, width: '100%', padding: '10px 14px',
+              background: 'transparent', color: 'var(--orange)',
+              border: '0.5px solid var(--orange)', borderRadius: 6,
+              fontSize: 13, cursor: 'pointer',
+              fontFamily: 'var(--font-sans)',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            }}>
+            <i className="ti ti-calendar-event" aria-hidden="true"></i> Remarcar consulta
           </button>
         )}
 
