@@ -10,6 +10,30 @@
 // junto com um clients.claim().
 self.addEventListener('install', () => self.skipWaiting());
 
+// --- URL pendente -----------------------------------------------------------
+// No iPhone o matchAll() não enxerga a janela do app em segundo plano, então o
+// postMessage nunca chega. Aqui o SW não tenta falar com ninguém: só deixa a
+// URL num lugar que a janela também alcança, e quem lê é o React ao montar ou
+// ao voltar do background (consumirPendente, em PushNavigator.jsx).
+//
+// Cache API e não IndexedDB porque 'caches' existe nos dois contextos — SW e
+// window — e resolve em três linhas o que no IndexedDB seria schema, transação
+// e callbacks. A Request abaixo é sintética: nunca vai à rede, e este worker
+// nem tem handler de 'fetch' para interceptá-la.
+//
+// As duas constantes estão duplicadas em src/components/PushNavigator.jsx —
+// sw.js não é importável pelo bundle. Mudou aqui, muda lá.
+const PENDING_CACHE = 'essentia-push-pending';
+const PENDING_KEY = '/__push_pending';
+
+async function salvarPendente(url) {
+  const cache = await caches.open(PENDING_CACHE);
+  await cache.put(PENDING_KEY, new Response(
+    JSON.stringify({ url, ts: Date.now() }),
+    { headers: { 'Content-Type': 'application/json' } },
+  ));
+}
+
 self.addEventListener('push', (event) => {
   let data = {};
   try {
@@ -43,8 +67,14 @@ self.addEventListener('notificationclick', (event) => {
   }
 
   event.waitUntil(
-    clients
-      .matchAll({ type: 'window', includeUncontrolled: true })
+    // Gravar vem PRIMEIRO e dentro do waitUntil: se o navegador encerrar o
+    // worker antes do cache.put terminar, a pendência se perde justamente no
+    // caso que ela existe para cobrir. O catch mantém os dois mecanismos
+    // independentes — falhar aqui não impede o caminho de baixo de tentar.
+    salvarPendente(url)
+      .then(() => console.log('[sw] pendente gravada:', url))
+      .catch((err) => console.log('[sw] falha ao gravar pendente:', err && err.message))
+      .then(() => clients.matchAll({ type: 'window', includeUncontrolled: true }))
       .then((windowClients) => {
         console.log('[sw] notificationclick url=', url, 'janelas=', windowClients.length);
 
