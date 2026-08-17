@@ -5,8 +5,6 @@ import { useSession } from '../../lib/session.jsx';
 import { useTheme } from '../../lib/theme.jsx';
 import { textoDias, dataConsultaBR, horaConsultaBR, diasAte, linkCall, consultaEmBreve, gerarGoogleCalendarUrl, dataBR } from '../../lib/utils.js';
 import { cumpriuHabito } from './_HabitosHoje.jsx';
-// TEMPORÁRIO — diagnóstico do push no iPhone. Sai junto com o PushDebug.
-import { PushDebug } from '../../components/PushNavigator.jsx';
 
 
 const DIAS_SEG = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
@@ -865,10 +863,6 @@ export default function Inicio() {
           <i className="ti ti-chevron-right" style={{ fontSize: 18, color: ckUrgente ? 'var(--ink)' : 'var(--muted)', flexShrink: 0 }} aria-hidden="true"></i>
         </div>
       )}
-
-      {/* TEMPORÁRIO — diagnóstico do push no iPhone. Remover junto com o
-          PushDebug em src/components/PushNavigator.jsx. */}
-      <PushDebug />
     </>
   );
 }

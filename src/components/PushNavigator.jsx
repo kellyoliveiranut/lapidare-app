@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 // --- URL pendente deixada pelo service worker -------------------------------
@@ -44,20 +44,6 @@ async function limparPendente() {
   } catch { /* ignora */ }
 }
 
-// TEMPORÁRIO — só para o PushDebug. Lê SEM consumir: se apagasse, o painel de
-// diagnóstico roubaria a pendência antes do consumirPendente navegar.
-async function espiarPendente() {
-  if (!('caches' in window)) return 'sem Cache API';
-  try {
-    const cache = await caches.open(PENDING_CACHE);
-    const res = await cache.match(PENDING_KEY);
-    if (!res) return '—';
-    return await res.text();
-  } catch (err) {
-    return 'erro: ' + (err && err.message);
-  }
-}
-
 // Recebe do service worker a ordem de navegar depois de um clique em
 // notificação. Existe porque no iOS as duas APIs que o SW teria para isso
 // falham em silêncio: clients.openWindow() para outra origem e, pelo que os
@@ -74,18 +60,15 @@ export default function PushNavigator() {
 
     function onMessage(event) {
       const { type, url } = event.data ?? {};
-      console.log('[PushNavigator] mensagem do SW:', event.data);
-      registrarDebug(event.data);
 
       if (type !== 'navigate') return;
       // Só caminho interno. Mensagem nunca navega para URL absoluta — seria um
       // jeito de forçar saída do app.
       if (typeof url !== 'string' || !url.startsWith('/')) {
-        console.log('[PushNavigator] url recusada:', url);
+        console.warn('[PushNavigator] url recusada:', url);
         return;
       }
 
-      console.log('[PushNavigator] navegando para:', url);
       // Já navegamos por aqui; a pendência gravada pelo SW viraria lixo e
       // dispararia uma segunda navegação no próximo visibilitychange.
       limparPendente();
@@ -107,8 +90,6 @@ export default function PushNavigator() {
     async function checar() {
       const url = await consumirPendente();
       if (!vivo || !url) return;
-      console.log('[PushNavigator] pendente consumida, navegando para:', url);
-      registrarDebug({ pendenteConsumida: url });
       navigate(url);
     }
 
@@ -126,56 +107,4 @@ export default function PushNavigator() {
   }, [navigate]);
 
   return null;
-}
-
-// ---------------------------------------------------------------------------
-// TEMPORÁRIO — diagnóstico do push no iPhone. Sai quando o bug estiver
-// resolvido. Existe porque ler console.log no iOS exige um Mac com o Web
-// Inspector no cabo; sem isso o teste é cego. Grava em localStorage para
-// sobreviver ao remount e ao reload, e avisa a tela por evento.
-// Para remover: apagar daqui até o fim do arquivo, mais o <PushDebug /> e o
-// import em src/app/paciente/Inicio.jsx.
-// ---------------------------------------------------------------------------
-
-const DEBUG_KEY = '__push_debug';
-
-function registrarDebug(data) {
-  try {
-    const hora = new Date().toLocaleTimeString('pt-BR');
-    localStorage.setItem(DEBUG_KEY, `${hora} — ${JSON.stringify(data)}`);
-    window.dispatchEvent(new CustomEvent('push-debug'));
-  } catch { /* localStorage cheio ou bloqueado — o log do console continua */ }
-}
-
-export function PushDebug() {
-  const [texto, setTexto] = useState('nenhuma mensagem ainda');
-  const [pendente, setPendente] = useState('—');
-
-  useEffect(() => {
-    function ler() {
-      try {
-        setTexto(localStorage.getItem(DEBUG_KEY) || 'nenhuma mensagem ainda');
-      } catch { /* ignora */ }
-      espiarPendente().then(setPendente);
-    }
-    ler();
-    window.addEventListener('push-debug', ler);
-    // Ao voltar do background: é quando o toque na notificação traz o app.
-    document.addEventListener('visibilitychange', ler);
-    return () => {
-      window.removeEventListener('push-debug', ler);
-      document.removeEventListener('visibilitychange', ler);
-    };
-  }, []);
-
-  return (
-    <div style={{
-      marginTop: 24, fontSize: 10, lineHeight: 1.4,
-      color: 'var(--muted-2, #b9b2a8)', wordBreak: 'break-all',
-    }}>
-      push: {texto}
-      <br />
-      pendente: {pendente}
-    </div>
-  );
 }

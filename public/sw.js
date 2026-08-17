@@ -72,12 +72,9 @@ self.addEventListener('notificationclick', (event) => {
     // caso que ela existe para cobrir. O catch mantém os dois mecanismos
     // independentes — falhar aqui não impede o caminho de baixo de tentar.
     salvarPendente(url)
-      .then(() => console.log('[sw] pendente gravada:', url))
-      .catch((err) => console.log('[sw] falha ao gravar pendente:', err && err.message))
+      .catch((err) => console.error('[sw] falha ao gravar pendente:', err && err.message))
       .then(() => clients.matchAll({ type: 'window', includeUncontrolled: true }))
       .then((windowClients) => {
-        console.log('[sw] notificationclick url=', url, 'janelas=', windowClients.length);
-
         // Prefere janela já na URL correta
         const exact = windowClients.find((c) => c.url === url);
         if (exact && 'focus' in exact) return exact.focus();
@@ -90,9 +87,8 @@ self.addEventListener('notificationclick', (event) => {
           // focus(), um focus() que rejeita levaria o recado junto.
           try {
             first.postMessage({ type: 'navigate', url });
-            console.log('[sw] postMessage enviado para', first.url);
           } catch (err) {
-            console.log('[sw] postMessage falhou:', err && err.message);
+            console.error('[sw] postMessage falhou:', err && err.message);
           }
 
           // Reforço para Chrome/Android, onde navigate() funciona. No iOS
@@ -100,12 +96,10 @@ self.addEventListener('notificationclick', (event) => {
           // a rejeição dentro do waitUntil.
           return first.focus()
             .then(() => ('navigate' in first ? first.navigate(url) : undefined))
-            .then(() => console.log('[sw] navigate ok'))
-            .catch((err) => console.log('[sw] focus/navigate falhou:', err && err.message));
+            .catch((err) => console.error('[sw] focus/navigate falhou:', err && err.message));
         }
 
         // Nenhuma janela aberta — abre uma nova
-        console.log('[sw] sem janela aberta, openWindow');
         if (clients.openWindow) return clients.openWindow(url);
       })
   );
