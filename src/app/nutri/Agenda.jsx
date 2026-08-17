@@ -7,7 +7,6 @@ import NovaPacienteRapida from './_NovaPacienteRapida.jsx';
 import { linkConvite, mensagemConviteEncoded } from '../../lib/convite.js';
 import {
   dataConsultaBR, horaConsultaBR, TZ_CLINICA, textoDias, iniciais,
-  linkCall, gerarLinkJitsi, gerarGoogleCalendarUrl, consultaEmBreve,
   gerarDiasCalendario, ehMesmoDia, mesAnoExtenso, DIAS_SEMANA_CURTOS,
   HORARIOS_CONSULTA, HORARIO_CONSULTA_PADRAO, horaConsultaValida,
   telefoneValido,
@@ -157,7 +156,7 @@ export default function Agenda() {
     const { data } = await supabase
       .from('consultas')
       .select(`
-        id, data_hora, duracao_min, tipo, status, modalidade, local_id, obs, meet_link, links_extras,
+        id, data_hora, duracao_min, tipo, status, modalidade, local_id, obs,
         lembrete_ativo, lembrete_enviado,
         confirmada_em, confirmada_por,
         paciente:pacientes(id, nome)
@@ -1034,16 +1033,17 @@ function Legenda({ cor, label }) {
    LINHA DE CONSULTA
    ============================================================ */
 function ConsultaRow({ c, isLast, isPast, isCanceled, onClick, onToggleConfirmada }) {
+  const navigate = useNavigate();
   const cor = tipoColor(c.tipo);
-  const emBreve = !isPast && !isCanceled && consultaEmBreve(c.data_hora);
-  const link = linkCall(c);
   const confirmavel = podeConfirmar(c) && typeof onToggleConfirmada === 'function';
   const confirmada = !!c.confirmada_em;
   const mod = modalidadeInfo(c.modalidade);
 
-  function abrirCall(e) {
+  // Mesmo motivo do alternarConfirmada: sem stopPropagation o clique no nome
+  // subiria para o wrapper e abriria o modal da consulta por cima do perfil.
+  function abrirPerfil(e) {
     e.stopPropagation();
-    if (link) window.open(link, '_blank', 'noopener');
+    navigate(`/nutri/pacientes/${c.paciente.id}`);
   }
 
   // stopPropagation obrigatório: o wrapper da linha tem onClick que abre o
@@ -1077,7 +1077,22 @@ function ConsultaRow({ c, isLast, isPast, isCanceled, onClick, onToggleConfirmad
       }}>{iniciais(c.paciente?.nome)}</div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 14, fontWeight: 500, textDecoration: isCanceled ? 'line-through' : 'none' }}>
-          {c.paciente?.nome ?? '—'}
+          {c.paciente?.id ? (
+            <button
+              type="button"
+              onClick={abrirPerfil}
+              title="Ver perfil da paciente"
+              style={{
+                background: 'none', border: 'none', padding: 0, margin: 0,
+                font: 'inherit', color: 'inherit', textAlign: 'left',
+                cursor: 'pointer',
+                // O line-through do pai não atravessa o botão (inline-block),
+                // então a linha cancelada precisa repetir a decoração aqui.
+                textDecoration: isCanceled ? 'line-through' : 'none',
+              }}>
+              {c.paciente.nome}
+            </button>
+          ) : (c.paciente?.nome ?? '—')}
         </div>
         <div style={{
           fontSize: 12, color: 'var(--text3)', marginTop: 2,
@@ -1118,19 +1133,6 @@ function ConsultaRow({ c, isLast, isPast, isCanceled, onClick, onToggleConfirmad
           </button>
         )}
       </div>
-
-      {emBreve && link && (
-        <button onClick={abrirCall}
-          style={{
-            background: 'var(--green)', color: 'var(--white)',
-            border: 'none', borderRadius: 6, padding: '5px 10px',
-            fontSize: 12, fontWeight: 600, cursor: 'pointer',
-            fontFamily: 'var(--font-sans)',
-            display: 'inline-flex', alignItems: 'center', gap: 4,
-          }}>
-          <i className="ti ti-video" aria-hidden="true"></i> Entrar
-        </button>
-      )}
 
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3 }}>
         <span style={{
@@ -1177,10 +1179,8 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
         localId: consulta.local_id ?? '',
         status: consulta.status ?? 'agendada',
         obs: consulta.obs ?? '',
-        meetLink: consulta.meet_link ?? '',
-        linksExtras: Array.isArray(consulta.links_extras) ? consulta.links_extras : [],
       }
-    : { pacienteId: pacienteInicial?.id ?? '', data: '', hora: HORARIO_CONSULTA_PADRAO, duracao: 45, tipo: 'primeira', modalidade: modalidadeInicial, localId: modalidadeInicial === 'presencial' ? localPadrao(locais) : '', status: 'agendada', obs: '', meetLink: '', linksExtras: [] };
+    : { pacienteId: pacienteInicial?.id ?? '', data: '', hora: HORARIO_CONSULTA_PADRAO, duracao: 45, tipo: 'primeira', modalidade: modalidadeInicial, localId: modalidadeInicial === 'presencial' ? localPadrao(locais) : '', status: 'agendada', obs: '' };
 
   const [pacienteId, setPacienteId] = useState(initial.pacienteId);
   const [data, setData] = useState(initial.data);
@@ -1191,13 +1191,10 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
   const [localId, setLocalId] = useState(initial.localId);
   const [status, setStatus] = useState(initial.status);
   const [obs, setObs] = useState(initial.obs);
-  const [meetLink, setMeetLink] = useState(initial.meetLink);
-  const [linksExtras, setLinksExtras] = useState(initial.linksExtras);
   const [lembreteAtivo, setLembreteAtivo] = useState(consulta?.lembrete_ativo ?? true);
   const [confirmada, setConfirmada] = useState(!!consulta?.confirmada_em);
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState(null);
-  const [copiado, setCopiado] = useState(false);
   const [remarcando, setRemarcando] = useState(false);
   const campoDataRef = useRef(null);
 
@@ -1208,16 +1205,6 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
     setRemarcando(true);
     campoDataRef.current?.focus({ preventScroll: true });
     campoDataRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }
-
-  function addLinkExtra() {
-    setLinksExtras(curr => [...curr, { label: '', url: '' }]);
-  }
-  function updateLinkExtra(idx, field, val) {
-    setLinksExtras(curr => curr.map((l, i) => i === idx ? { ...l, [field]: val } : l));
-  }
-  function removeLinkExtra(idx) {
-    setLinksExtras(curr => curr.filter((_, i) => i !== idx));
   }
 
   // Auto-sugere o tipo só ao CRIAR
@@ -1263,24 +1250,6 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
   const locaisDisponiveis = (locais ?? []).filter(l => l.ativo || l.id === localId);
   const localEscolhido = (locais ?? []).find(l => l.id === localId) ?? null;
 
-  // Link efetivo da call (custom se preenchido, senão Jitsi auto-gerado)
-  const consultaIdEfetiva = consulta?.id ?? null;
-  const linkEfetivo = meetLink.trim()
-    ? meetLink.trim()
-    : (consultaIdEfetiva ? gerarLinkJitsi(consultaIdEfetiva) : '(será gerado após salvar)');
-
-  const pacienteNome = pacientes.find(p => p.id === pacienteId)?.nome ?? '';
-  const dataHoraIso = data && hora ? new Date(`${data}T${hora}:00`).toISOString() : null;
-  const gcalUrl = dataHoraIso ? gerarGoogleCalendarUrl({
-    titulo: `Consulta com ${pacienteNome}`,
-    dataHoraInicio: dataHoraIso,
-    duracaoMin: Number(duracao),
-    descricao: `Link da call: ${linkEfetivo}\n\n${obs || ''}`.trim(),
-    // Presencial com local escolhido leva o endereço para o campo "Onde" do
-    // Google Agenda; o resto cai no rótulo da modalidade.
-    local: (modalidade === 'presencial' && localEscolhido?.endereco) || modalidadeInfo(modalidade).label,
-  }) : null;
-
   async function salvar() {
     setErro(null);
     if (!pacienteId || !data || !hora) {
@@ -1300,9 +1269,6 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
     setBusy(true);
     try {
       const dataHora = new Date(`${data}T${hora}:00`).toISOString();
-      const linksValidos = linksExtras
-        .map(l => ({ label: (l.label ?? '').trim(), url: (l.url ?? '').trim() }))
-        .filter(l => l.url);
       const payload = {
         paciente_id: pacienteId,
         nutri_id: nutriId,
@@ -1314,8 +1280,6 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
         local_id: modalidade === 'presencial' ? (localId || null) : null,
         status,
         obs: obs.trim() || null,
-        meet_link: meetLink.trim() || null,
-        links_extras: linksValidos.length > 0 ? linksValidos : null,
         lembrete_ativo: lembreteAtivo,
       };
       const { error } = isEdit
@@ -1355,16 +1319,6 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
       return;
     }
     onSaved();
-  }
-
-  async function copiarLink() {
-    if (linkEfetivo.startsWith('http')) {
-      try {
-        await navigator.clipboard.writeText(linkEfetivo);
-        setCopiado(true);
-        setTimeout(() => setCopiado(false), 2000);
-      } catch (e) { alert('Não foi possível copiar.'); }
-    }
   }
 
   return (
@@ -1512,59 +1466,6 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
             </div>
           </>
         )}
-
-        <label className="form-lbl">Link da call (opcional)</label>
-        <input type="url" value={meetLink} onChange={e => setMeetLink(e.target.value)}
-          placeholder={consultaIdEfetiva ? gerarLinkJitsi(consultaIdEfetiva) : 'Será auto-gerado (Jitsi)'} />
-        <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4, lineHeight: 1.5 }}>
-          Deixe em branco para usar Jitsi automático. Cole link do Google Meet ou Zoom se preferir.
-        </div>
-
-        {linkEfetivo.startsWith('http') && (
-          <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
-            <a href={linkEfetivo} target="_blank" rel="noreferrer" className="btn-outline"
-               style={{ fontSize: 12, padding: '4px 10px', textDecoration: 'none' }}>
-              <i className="ti ti-video" aria-hidden="true"></i> Abrir call
-            </a>
-            <button onClick={copiarLink} className="btn-outline" style={{ fontSize: 12, padding: '4px 10px' }}>
-              <i className={`ti ti-${copiado ? 'check' : 'copy'}`} aria-hidden="true"></i>
-              {copiado ? 'Copiado' : 'Copiar link'}
-            </button>
-            {gcalUrl && (
-              <a href={gcalUrl} target="_blank" rel="noreferrer" className="btn-outline"
-                 style={{ fontSize: 12, padding: '4px 10px', textDecoration: 'none' }}>
-                <i className="ti ti-brand-google" aria-hidden="true"></i> Adicionar ao Google Agenda
-              </a>
-            )}
-          </div>
-        )}
-
-        <label className="form-lbl">Links adicionais (Shaped, Trello, formulário…)</label>
-        {linksExtras.length === 0 && (
-          <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6 }}>
-            Anexe quantos links forem necessários — a paciente verá no card da consulta dela.
-          </div>
-        )}
-        {linksExtras.map((link, idx) => (
-          <div key={idx} style={{ display: 'grid', gridTemplateColumns: '110px 1fr auto', gap: 6, marginBottom: 6 }}>
-            <input value={link.label} onChange={e => updateLinkExtra(idx, 'label', e.target.value)}
-              placeholder="Ex: Shaped" style={{ margin: 0 }} />
-            <input type="url" value={link.url} onChange={e => updateLinkExtra(idx, 'url', e.target.value)}
-              placeholder="https://..." style={{ margin: 0 }} />
-            <button onClick={() => removeLinkExtra(idx)} title="Remover"
-              style={{
-                background: 'none', border: '0.5px solid var(--red)',
-                borderRadius: 6, padding: '0 10px', cursor: 'pointer',
-                color: 'var(--red)', fontSize: 13,
-              }}>
-              <i className="ti ti-x" aria-hidden="true"></i>
-            </button>
-          </div>
-        ))}
-        <button type="button" onClick={addLinkExtra} className="btn-outline"
-          style={{ fontSize: 11, padding: '4px 10px', marginTop: 4 }}>
-          <i className="ti ti-plus" aria-hidden="true"></i> Adicionar link
-        </button>
 
         <label className="form-lbl">Observação (opcional)</label>
         <textarea rows="2" value={obs} onChange={e => setObs(e.target.value)}

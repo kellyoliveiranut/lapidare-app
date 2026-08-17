@@ -301,24 +301,6 @@ export function infoCategoria(id) {
 // ─── Integração com videochamada e Google Calendar ───
 
 /**
- * Gera link Jitsi único e estável para uma consulta.
- * Mesma consulta_id → mesmo link (Jitsi cria sala on-demand).
- */
-export function gerarLinkJitsi(consultaId) {
-  return `https://meet.jit.si/lapidare-${consultaId}`;
-}
-
-/**
- * Link efetivo de uma consulta: o customizado se existir, senão o Jitsi auto-gerado.
- */
-export function linkCall(consulta) {
-  if (!consulta) return null;
-  if (consulta.meet_link) return consulta.meet_link;
-  if (consulta.id) return gerarLinkJitsi(consulta.id);
-  return null;
-}
-
-/**
  * URL do Google Calendar para adicionar evento pré-preenchido.
  */
 export function gerarGoogleCalendarUrl({ titulo, dataHoraInicio, duracaoMin = 45, descricao = '', local = 'Online' }) {
@@ -337,21 +319,6 @@ export function gerarGoogleCalendarUrl({ titulo, dataHoraInicio, duracaoMin = 45
     location: local,
   });
   return `https://calendar.google.com/calendar/render?${params.toString()}`;
-}
-
-/** Minutos até a consulta (negativo = já passou). */
-export function minutosAteConsulta(iso) {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
-  return Math.round((d.getTime() - Date.now()) / 60_000);
-}
-
-/** "Em breve" = entre 30min antes e 60min depois do horário. */
-export function consultaEmBreve(iso) {
-  const m = minutosAteConsulta(iso);
-  if (m == null) return false;
-  return m <= 30 && m >= -60;
 }
 
 // ─── Horários de agendamento de consulta (lista fixa, horário LOCAL) ───

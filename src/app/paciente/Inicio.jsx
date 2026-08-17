@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { useTheme } from '../../lib/theme.jsx';
-import { textoDias, dataConsultaBR, horaConsultaBR, diasAte, linkCall, consultaEmBreve, gerarGoogleCalendarUrl, dataBR } from '../../lib/utils.js';
+import { textoDias, dataConsultaBR, horaConsultaBR, diasAte, gerarGoogleCalendarUrl, dataBR } from '../../lib/utils.js';
 import { cumpriuHabito } from './_HabitosHoje.jsx';
 
 
@@ -93,7 +93,7 @@ export default function Inicio() {
           .eq('paciente_id', pacienteId).eq('tipo', 'dieta').order('created_at', { ascending: false }).limit(1).maybeSingle(),
         supabase.from('listas_compras').select('dados, publicado_em')
           .eq('paciente_id', pacienteId).order('publicado_em', { ascending: false }).limit(1).maybeSingle(),
-        supabase.from('consultas').select('id, data_hora, tipo, duracao_min, meet_link, links_extras, confirmada_em')
+        supabase.from('consultas').select('id, data_hora, tipo, duracao_min, confirmada_em')
           .eq('paciente_id', pacienteId).eq('status', 'agendada')
           .gte('data_hora', agora).order('data_hora', { ascending: true }).limit(1).maybeSingle(),
         supabase.from('checkin_envios').select('id, enviado_em, lembrete_enviado_em, nome, tipo')
@@ -220,13 +220,10 @@ export default function Inicio() {
 
   const dias = proximaConsulta ? diasAte(proximaConsulta.data_hora) : null;
   const urgente = dias !== null && dias <= 1;
-  const emBreve = proximaConsulta ? consultaEmBreve(proximaConsulta.data_hora) : false;
-  const callUrl = proximaConsulta ? linkCall(proximaConsulta) : null;
   const gcalUrl = proximaConsulta ? gerarGoogleCalendarUrl({
     titulo: `Consulta com ${nutriNome}`,
     dataHoraInicio: proximaConsulta.data_hora,
     duracaoMin: proximaConsulta.duracao_min,
-    descricao: `Link da call: ${callUrl ?? ''}`,
     local: 'Online',
   }) : null;
 
@@ -416,19 +413,6 @@ export default function Inicio() {
                 Adicionar à agenda
               </a>
             )}
-            {Array.isArray(proximaConsulta.links_extras) && proximaConsulta.links_extras.map((link, i) => (
-              <a key={i} href={link.url} target="_blank" rel="noreferrer"
-                onClick={e => e.stopPropagation()}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 5,
-                  background: 'transparent', color: 'var(--gold-deep)',
-                  border: '0.5px solid var(--gold)',
-                  padding: '5px 10px', borderRadius: 10, fontSize: 11, fontWeight: 500, textDecoration: 'none',
-                }}>
-                <i className="ti ti-external-link" style={{ fontSize: 12 }} aria-hidden="true"></i>
-                {link.label || 'Link'}
-              </a>
-            ))}
           </div>
           {erroConfirmar && (
             <div style={{ marginTop: 8, fontSize: 11, color: 'var(--red)' }}>{erroConfirmar}</div>
@@ -499,19 +483,6 @@ export default function Inicio() {
                   Adicionar à agenda
                 </a>
               )}
-              {Array.isArray(proximaConsulta.links_extras) && proximaConsulta.links_extras.map((link, i) => (
-                <a key={i} href={link.url} target="_blank" rel="noreferrer"
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 5,
-                    background: 'transparent',
-                    color: eHoje ? '#fff' : 'var(--gold-deep)',
-                    border: eHoje ? '0.5px solid rgba(255,255,255,.4)' : '0.5px solid var(--gold)',
-                    padding: '5px 10px', borderRadius: 10, fontSize: 11, fontWeight: 500, textDecoration: 'none',
-                  }}>
-                  <i className="ti ti-external-link" style={{ fontSize: 12 }} aria-hidden="true" />
-                  {link.label || 'Link'}
-                </a>
-              ))}
             </div>
             {erroConfirmar && (
               <div style={{
