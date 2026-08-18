@@ -445,7 +445,7 @@ export default function Visao() {
           }}>
             {alertasRelacionais.map((a, i) => (
               <button key={i}
-                onClick={() => navigate(`/nutri/pacientes/${a.paciente_id}`)}
+                onClick={() => navigate(`/nutri/pacientes/${a.paciente_id}`, { state: { from: '/nutri/visao', label: 'Visão geral' } })}
                 style={{
                   display: 'flex', alignItems: 'flex-start', gap: 12,
                   padding: 14, borderRadius: 12,

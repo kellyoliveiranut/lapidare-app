@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, lazy, Suspense, memo, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import {
@@ -35,6 +35,13 @@ import PlanoView from '../../components/PlanoView.jsx';
 export default function PacientePerfil() {
   const { id } = useParams();
   const navigate = useNavigate();
+  // De onde a nutri veio. O state só existe quando ela chegou por um clique
+  // dentro do painel; aí voltar de verdade preserva filtro e rolagem da tela
+  // de origem. Sem state (link direto, push, aba nova, atalho salvo) não há
+  // passo anterior nenhum — o destino honesto é a lista.
+  const { state } = useLocation();
+  const voltarLabel = state?.label ?? 'Pacientes';
+  const voltar = () => (state?.from ? navigate(-1) : navigate('/nutri/pacientes'));
   const { user } = useSession();
   const [paciente, setPaciente] = useState(null);
   const [tab, setTab] = useState('plano');
@@ -418,7 +425,7 @@ export default function PacientePerfil() {
         <div className="page-title">Paciente não encontrada</div>
         <div className="card empty-card">
           <div className="empty-sub">Talvez tenha sido removida ou o link esteja desatualizado.</div>
-          <button className="btn" onClick={() => navigate('/nutri/pacientes')}>Voltar à lista</button>
+          <button className="btn" onClick={voltar}>Voltar para {voltarLabel}</button>
         </div>
       </>
     );
@@ -433,10 +440,10 @@ export default function PacientePerfil() {
   return (
     <>
       <button
-        onClick={() => navigate('/nutri/pacientes')}
+        onClick={voltar}
         style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 12, display: 'inline-flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer' }}
       >
-        <i className="ti ti-arrow-left" aria-hidden="true"></i> Pacientes
+        <i className="ti ti-arrow-left" aria-hidden="true"></i> {voltarLabel}
       </button>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18 }}>

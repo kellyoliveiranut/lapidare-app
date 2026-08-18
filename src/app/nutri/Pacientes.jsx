@@ -323,7 +323,7 @@ const PacienteCard = memo(function PacienteCard({ paciente: p, enviado, onNaviga
   return (
     <div
       className="card"
-      onClick={() => onNavigate(`/nutri/pacientes/${p.id}`)}
+      onClick={() => onNavigate(`/nutri/pacientes/${p.id}`, { state: { from: '/nutri/pacientes', label: 'Pacientes' } })}
       style={{ padding: '20px 16px', cursor: 'pointer', textAlign: 'center', transition: 'box-shadow .15s' }}
       onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,.1)'}
       onMouseLeave={e => e.currentTarget.style.boxShadow = ''}

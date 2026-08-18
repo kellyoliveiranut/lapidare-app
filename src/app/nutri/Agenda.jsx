@@ -1043,7 +1043,7 @@ function ConsultaRow({ c, isLast, isPast, isCanceled, onClick, onToggleConfirmad
   // subiria para o wrapper e abriria o modal da consulta por cima do perfil.
   function abrirPerfil(e) {
     e.stopPropagation();
-    navigate(`/nutri/pacientes/${c.paciente.id}`);
+    navigate(`/nutri/pacientes/${c.paciente.id}`, { state: { from: '/nutri/agenda', label: 'Agenda' } });
   }
 
   // stopPropagation obrigatório: o wrapper da linha tem onClick que abre o
@@ -1498,7 +1498,7 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
         {isEdit && consulta.paciente?.id && (
           <button
             type="button"
-            onClick={() => { onClose(); navigate(`/nutri/pacientes/${consulta.paciente.id}`); }}
+            onClick={() => { onClose(); navigate(`/nutri/pacientes/${consulta.paciente.id}`, { state: { from: '/nutri/agenda', label: 'Agenda' } }); }}
             style={{
               marginTop: 14, width: '100%', padding: '10px 14px',
               background: 'transparent', color: 'var(--text2)',
