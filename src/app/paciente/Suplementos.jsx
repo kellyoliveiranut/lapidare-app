@@ -17,6 +17,10 @@ const DIAS_7 = (() => {
 
 const HOJE = () => new Date().toISOString().slice(0, 10);
 
+// foto_url às vezes aponta pra um PDF vindo da biblioteca. Nesse caso a linha
+// mostra o ícone de pílula e não há imagem nenhuma pra ampliar.
+const ehImagem = (url) => !!url && !/\.pdf(\?|#|$)/i.test(url);
+
 export default function Suplementos() {
   const { user, profile } = useSession();
   const pacienteId = profile?.id ?? user?.id;
@@ -25,6 +29,8 @@ export default function Suplementos() {
   const [logs, setLogs] = useState([]);
   const [biblioItems, setBiblioItems] = useState([]);
   const [erro, setErro] = useState(null);
+  // { url, nome } do suplemento com a foto aberta em tamanho grande
+  const [fotoAberta, setFotoAberta] = useState(null);
 
   async function carregar(signal) {
     if (!pacienteId) return;
@@ -65,6 +71,14 @@ export default function Suplementos() {
     carregar(signal);
     return () => { signal.cancelled = true; };
   }, [pacienteId]);
+
+  // ESC fecha a foto ampliada. Só escuta enquanto ela está aberta.
+  useEffect(() => {
+    if (!fotoAberta) return;
+    const onKey = (e) => { if (e.key === 'Escape') setFotoAberta(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [fotoAberta]);
 
   async function toggle(s) {
     const hoje = HOJE();
@@ -119,6 +133,8 @@ export default function Suplementos() {
   const hoje = HOJE();
   const tomadosHoje = (suplementos ?? []).filter(s => logMap[s.id]?.[hoje]?.tomado).length;
   const total = suplementos?.length ?? 0;
+  // A dica só faz sentido se existir ao menos uma foto pra clicar.
+  const algumaFoto = (suplementos ?? []).some(s => ehImagem(s.foto_url));
 
   if (suplementos === null) {
     return <div style={{ padding: 24, textAlign: 'center', color: 'var(--muted)' }}>Carregando…</div>;
@@ -184,6 +200,16 @@ export default function Suplementos() {
             Suplementos de hoje
           </div>
 
+          {algumaFoto && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              fontSize: 11, color: 'var(--muted)', margin: '0 4px 8px',
+            }}>
+              <i className="ti ti-zoom-in" style={{ fontSize: 13 }} aria-hidden="true"></i>
+              Clique na imagem para ver o suplemento
+            </div>
+          )}
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 18 }}>
             {suplementos.map(s => {
               const tomado = !!logMap[s.id]?.[hoje]?.tomado;
@@ -224,9 +250,14 @@ export default function Suplementos() {
                       </div>
                     )}
                   </div>
-                  {s.foto_url && !/\.pdf(\?|#|$)/i.test(s.foto_url) ? (
+                  {ehImagem(s.foto_url) ? (
+                    // stopPropagation obrigatório: a linha inteira é um botão que
+                    // marca o suplemento como tomado — sem isso, ver a foto também
+                    // marcaria a dose do dia.
                     <img src={s.foto_url} alt={s.nome} loading="lazy" decoding="async"
-                      style={{ width: 36, height: 36, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
+                      onClick={e => { e.stopPropagation(); setFotoAberta({ url: s.foto_url, nome: s.nome }); }}
+                      title="Clique para ver o suplemento"
+                      style={{ width: 36, height: 36, borderRadius: 8, objectFit: 'cover', flexShrink: 0, cursor: 'zoom-in' }} />
                   ) : (
                     <i className="ti ti-pill" style={{ fontSize: 18, color: 'var(--muted-2)', flexShrink: 0 }} aria-hidden="true"></i>
                   )}
@@ -313,6 +344,63 @@ export default function Suplementos() {
           </div>
         </>
       )}
+
+      {fotoAberta && (
+        <FotoSuplemento foto={fotoAberta} onClose={() => setFotoAberta(null)} />
+      )}
+    </div>
+  );
+}
+
+/**
+ * Foto do suplemento em tamanho grande. Overlay simples: clique em qualquer
+ * lugar fecha, ESC também (o listener fica na tela, não aqui). Sem zoom nem
+ * navegação entre fotos — é só pra conferir o rótulo do frasco.
+ */
+function FotoSuplemento({ foto, onClose }) {
+  return (
+    <div
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Foto de ${foto.nome}`}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 300,
+        background: 'rgba(28, 23, 18, .88)',
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        gap: 14, padding: 20,
+      }}>
+      <button
+        onClick={onClose}
+        aria-label="Fechar"
+        style={{
+          position: 'absolute', top: 14, right: 14,
+          width: 36, height: 36, borderRadius: '50%',
+          background: 'rgba(255,255,255,.14)', color: 'var(--paper)',
+          border: 'none', cursor: 'pointer', fontSize: 18,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+        <i className="ti ti-x" aria-hidden="true"></i>
+      </button>
+
+      <img
+        src={foto.url}
+        alt={foto.nome}
+        decoding="async"
+        onClick={e => e.stopPropagation()}
+        style={{
+          maxWidth: '100%', maxHeight: '78vh',
+          objectFit: 'contain', borderRadius: 12,
+          background: 'var(--paper)',
+        }} />
+
+      <div style={{ color: 'var(--paper)', fontSize: 14, fontWeight: 500, textAlign: 'center' }}>
+        {foto.nome}
+      </div>
+      <div style={{ color: 'rgba(255,255,255,.55)', fontSize: 11 }}>
+        Toque fora da imagem para fechar
+      </div>
     </div>
   );
 }
