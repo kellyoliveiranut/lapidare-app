@@ -364,6 +364,7 @@ export function EditarVendaModal({ venda, pacientes = [], pacienteFixo, onClose,
   const [servico, setServico] = useState(venda.servico ?? '');
   const [data, setData] = useState(venda.data_venda ?? '');
   const [obs, setObs] = useState(venda.obs ?? '');
+  const [nfEmitida, setNfEmitida] = useState(!!venda.nf_emitida);
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState(null);
 
@@ -380,6 +381,7 @@ export function EditarVendaModal({ venda, pacientes = [], pacienteFixo, onClose,
         servico: servico.trim(),
         data_venda: data,
         obs: obs.trim() || null,
+        nf_emitida: nfEmitida,
       })
       .eq('id', venda.id);
     setBusy(false);
@@ -410,6 +412,14 @@ export function EditarVendaModal({ venda, pacientes = [], pacienteFixo, onClose,
       <textarea rows="2" value={obs} onChange={e => setObs(e.target.value)}
         placeholder="Ex: desconto dado, condição especial..."
         style={{ resize: 'none' }} />
+
+      {/* A emissão acontece fora da app — aqui é só o registro de que já saiu.
+          Nota é do serviço vendido, não de cada parcela: 6x geram uma nota. */}
+      <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, fontSize: 13, cursor: 'pointer' }}>
+        <input type="checkbox" checked={nfEmitida}
+          onChange={e => setNfEmitida(e.target.checked)} />
+        Nota fiscal emitida
+      </label>
 
       <div style={{
         background: 'var(--bg2)', borderRadius: 7, padding: '10px 12px',

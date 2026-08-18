@@ -29,7 +29,7 @@ export default function Financeiro({ pacienteId, nutriId, pacienteNome }) {
     if (!nutriId || !pacienteId) return;
     const [vRes, sRes] = await Promise.all([
       supabase.from('vendas')
-        .select('id, paciente_id, servico_id, servico, valor_total, forma_pgto, data_venda, obs, parcelas(*)')
+        .select('id, paciente_id, servico_id, servico, valor_total, forma_pgto, data_venda, obs, nf_emitida, parcelas(*)')
         .eq('nutri_id', nutriId)
         .eq('paciente_id', pacienteId)
         .order('data_venda', { ascending: false }),

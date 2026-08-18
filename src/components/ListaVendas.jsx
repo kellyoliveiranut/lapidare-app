@@ -52,8 +52,22 @@ export default function ListaVendas({
             <div style={{ fontSize: 15, fontWeight: 500 }}>
               {mostrarPaciente ? `${v.paciente?.nome ?? 'Avulso'} · ${v.servico}` : v.servico}
             </div>
-            <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>
-              {dataBR(v.data_venda)} · {labelFormaPgto(v.forma_pgto)} · {ps.length} parcela{ps.length === 1 ? '' : 's'}
+            <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              <span>
+                {dataBR(v.data_venda)} · {labelFormaPgto(v.forma_pgto)} · {ps.length} parcela{ps.length === 1 ? '' : 's'}
+              </span>
+              {/* Só o selo positivo. A maioria das vendas antigas está sem nota
+                  registrada — um aviso em cada linha afogaria a lista. */}
+              {v.nf_emitida && (
+                <span style={{
+                  fontSize: 11, padding: '1px 7px', borderRadius: 20, fontWeight: 500,
+                  background: 'var(--green-bg)', color: 'var(--green)',
+                  display: 'inline-flex', alignItems: 'center', gap: 3,
+                }}>
+                  <i className="ti ti-file-invoice" style={{ fontSize: 12 }} aria-hidden="true" />
+                  NF emitida
+                </span>
+              )}
             </div>
           </div>
           <div style={{ textAlign: 'right' }}>

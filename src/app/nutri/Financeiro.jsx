@@ -36,7 +36,7 @@ export default function Financeiro() {
     if (!user) return;
     const [vRes, pRes, pacRes, sRes] = await Promise.all([
       supabase.from('vendas')
-        .select('id, paciente_id, servico_id, servico, valor_total, forma_pgto, data_venda, obs, paciente:pacientes(id, nome)')
+        .select('id, paciente_id, servico_id, servico, valor_total, forma_pgto, data_venda, obs, nf_emitida, paciente:pacientes(id, nome)')
         .eq('nutri_id', user.id)
         .order('data_venda', { ascending: false }),
       supabase.from('parcelas')
