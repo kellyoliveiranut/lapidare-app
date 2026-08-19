@@ -626,7 +626,13 @@ function NotificacoesCard() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? `Erro ${res.status}`);
-      setMsgTeste({ tipo: 'ok', texto: `Enviada! (${json.enviados} dispositivo${json.enviados !== 1 ? 's' : ''})` });
+      // res.ok só diz que a função respondeu — não que algo chegou. Com zero
+      // dispositivos inscritos nada é entregue, e pintar isso de sucesso
+      // esconde justamente a falha que este botão existe para revelar.
+      const n = json.enviados ?? 0;
+      setMsgTeste(n > 0
+        ? { tipo: 'ok',   texto: `Enviada! (${n} dispositivo${n !== 1 ? 's' : ''})` }
+        : { tipo: 'erro', texto: 'Nenhum dispositivo registrado — nada foi entregue. Ative as notificações neste aparelho e tente de novo.' });
     } catch (err) {
       setMsgTeste({ tipo: 'erro', texto: err.message });
     } finally {
