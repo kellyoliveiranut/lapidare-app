@@ -18,4 +18,23 @@ export default defineConfig([
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
   },
+
+  // O service worker roda fora da janela: 'self' e 'caches' ja vem de
+  // globals.browser, mas 'clients' so existe no escopo de service worker.
+  {
+    files: ['public/sw.js'],
+    languageOptions: {
+      globals: { ...globals.serviceworker },
+    },
+  },
+
+  // Funcoes Netlify sao CommonJS rodando em Node — require, exports e
+  // process nao sao globais do browser. Confere com netlify/functions/
+  // package.json, que declara { "type": "commonjs" }.
+  {
+    files: ['netlify/functions/*.js'],
+    languageOptions: {
+      globals: { ...globals.node },
+    },
+  },
 ])
