@@ -22,7 +22,6 @@ const MAIS_ITEMS = [
   { path: '/paciente/progresso',   icon: 'trending-up',     label: 'Progresso',          sub: 'Evolução e medidas' },
   { path: '/paciente/compras',     icon: 'shopping-cart',   label: 'Lista de compras',   sub: 'Lista da semana' },
   { path: '/paciente/suplementos', icon: 'pill',            label: 'Suplementos',        sub: 'Lista do dia' },
-  { path: '/paciente/prescricoes', icon: 'file-text',       label: 'Prescrições',        sub: 'Documentos da Dra.' },
   { path: '/paciente/ebooks',      icon: 'book-2',          label: 'E-books',            sub: 'Materiais da Dra.' },
   { path: '/paciente/chat',        icon: 'message-circle',  label: 'Chat com a Dra.',    sub: 'Conversa direta' },
   { path: '/paciente/treinos',     icon: 'run',             label: 'Treinos',            sub: 'Plano de exercícios' },
@@ -47,7 +46,6 @@ const HEADERS = {
   '/paciente/feed':         () =>                ({ eyebrow: 'Diário alimentar', title: 'Pratos',            subtitle: 'Registre o que você comeu' }),
   '/paciente/progresso':    () =>                ({ eyebrow: 'Minha evolução',   title: 'Progresso' }),
   '/paciente/compras':      () =>                ({ eyebrow: 'Lista',            title: 'Compras',           subtitle: 'Para a semana' }),
-  '/paciente/prescricoes':  () =>                ({ eyebrow: 'Documentos',       title: 'Prescrições' }),
   '/paciente/ebooks':       () =>                ({ eyebrow: 'Materiais',        title: 'E-books',           subtitle: 'Compartilhados pela sua nutri' }),
   '/paciente/suplementos':  () =>                ({ eyebrow: 'Habit tracker',    title: 'Meus suplementos',  subtitle: 'Marque diariamente' }),
   '/paciente/habitos':      () =>                ({ eyebrow: 'Hábitos do dia',   title: 'Meus hábitos',      subtitle: 'Acompanhe sua rotina' }),
@@ -68,7 +66,6 @@ export default function PacienteLayout() {
   const [unreadChat, setUnreadChat] = useState(0);
   const [ebooksNovos, setEbooksNovos] = useState(0);
   const [checkinsPendentes, setCheckinsPendentes] = useState(0);
-  const [prescricoesNovas, setPrescricoesNovas] = useState(0);
   const [suplementosNovos, setSuplementosNovos] = useState(0);
   const [treinosNovos, setTreinosNovos] = useState(0);
   const [progressoNovos, setProgressoNovos] = useState(0);
@@ -175,7 +172,7 @@ export default function PacienteLayout() {
     return () => { active = false; supabase.removeChannel(ch); };
   }, [pacienteId]);
 
-  // Conta novidades por seção via secoes_vistas (prescricoes, suplementos, treinos, progresso, compras)
+  // Conta novidades por seção via secoes_vistas (suplementos, treinos, progresso, compras)
   useEffect(() => {
     if (!pacienteId) return;
     let active = true;
@@ -188,9 +185,7 @@ export default function PacienteLayout() {
       const vm = Object.fromEntries((vistos ?? []).map(v => [v.secao, v.visto_em]));
       const ep = '1970-01-01T00:00:00.000Z';
 
-      const [presc, sup, trei, prog, comp] = await Promise.all([
-        supabase.from('prescricoes').select('id', { count: 'exact', head: true })
-          .eq('paciente_id', pacienteId).gt('created_at', vm['prescricoes'] ?? ep),
+      const [sup, trei, prog, comp] = await Promise.all([
         supabase.from('suplementos').select('id', { count: 'exact', head: true })
           .eq('paciente_id', pacienteId).eq('ativo', true).gt('created_at', vm['suplementos'] ?? ep),
         supabase.from('treinos_prescritos').select('id', { count: 'exact', head: true })
@@ -202,7 +197,6 @@ export default function PacienteLayout() {
       ]);
 
       if (!active) return;
-      setPrescricoesNovas(presc.count ?? 0);
       setSuplementosNovos(sup.count ?? 0);
       setTreinosNovos(trei.count ?? 0);
       setProgressoNovos(prog.count ?? 0);
@@ -212,7 +206,6 @@ export default function PacienteLayout() {
     recarregarNovidadesSecoes();
 
     const chs = [
-      supabase.channel(`sv-presc-${pacienteId}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'prescricoes', filter: `paciente_id=eq.${pacienteId}` }, recarregarNovidadesSecoes).subscribe(),
       supabase.channel(`sv-sups-${pacienteId}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'suplementos', filter: `paciente_id=eq.${pacienteId}` }, recarregarNovidadesSecoes).subscribe(),
       supabase.channel(`sv-trei-${pacienteId}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'treinos_prescritos', filter: `paciente_id=eq.${pacienteId}` }, recarregarNovidadesSecoes).subscribe(),
       supabase.channel(`sv-prog-${pacienteId}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'peso_registros', filter: `paciente_id=eq.${pacienteId}` }, recarregarNovidadesSecoes).subscribe(),
@@ -226,7 +219,6 @@ export default function PacienteLayout() {
   useEffect(() => {
     if (!pacienteId) return;
     const secoesMap = {
-      '/paciente/prescricoes': ['prescricoes', setPrescricoesNovas],
       '/paciente/suplementos': ['suplementos', setSuplementosNovos],
       '/paciente/treinos':     ['treinos',      setTreinosNovos],
       '/paciente/progresso':   ['progresso',    setProgressoNovos],
@@ -325,13 +317,12 @@ export default function PacienteLayout() {
   };
 
   const sectionBadges = {
-    '/paciente/prescricoes': prescricoesNovas,
     '/paciente/suplementos': suplementosNovos,
     '/paciente/treinos':     treinosNovos,
     '/paciente/progresso':   progressoNovos,
     '/paciente/compras':     comprasNovas,
   };
-  const totalNovas = prescricoesNovas + suplementosNovos + treinosNovos + progressoNovos + comprasNovas;
+  const totalNovas = suplementosNovos + treinosNovos + progressoNovos + comprasNovas;
 
   return (
     <div className="paciente-app">
@@ -421,7 +412,7 @@ export default function PacienteLayout() {
           {tabs.map(t => {
             const active = t.path
               ? location.pathname === t.path
-              : ['/paciente/checkins', '/paciente/progresso', '/paciente/compras', '/paciente/suplementos', '/paciente/prescricoes', '/paciente/ebooks', '/paciente/chat', '/paciente/treinos'].includes(location.pathname);
+              : ['/paciente/checkins', '/paciente/progresso', '/paciente/compras', '/paciente/suplementos', '/paciente/ebooks', '/paciente/chat', '/paciente/treinos'].includes(location.pathname);
             const blocked = isBlocked(t.path);
 
             if (!t.path) {

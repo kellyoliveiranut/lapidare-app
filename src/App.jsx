@@ -41,7 +41,6 @@ const PacientePerfil = lazy(() => import('./app/nutri/PacientePerfil.jsx'));
 const Agenda = lazy(() => import('./app/nutri/Agenda.jsx'));
 const ChatNutri = lazy(() => import('./app/nutri/Chat.jsx'));
 const FeedNutri = lazy(() => import('./app/nutri/Feed.jsx'));
-const PrescricoesNutri = lazy(() => import('./app/nutri/Prescricoes.jsx'));
 const Checkins = lazy(() => import('./app/nutri/Checkins.jsx'));
 const Questionarios = lazy(() => import('./app/nutri/Questionarios.jsx'));
 const Cadastrar = lazy(() => import('./app/nutri/Cadastrar.jsx'));
@@ -60,7 +59,6 @@ const Plano = lazy(() => import('./app/paciente/Plano.jsx'));
 const Compras = lazy(() => import('./app/paciente/Compras.jsx'));
 const FeedPaciente = lazy(() => import('./app/paciente/Feed.jsx'));
 const Progresso = lazy(() => import('./app/paciente/Progresso.jsx'));
-const PrescricoesPaciente = lazy(() => import('./app/paciente/Prescricoes.jsx'));
 const ChatPaciente = lazy(() => import('./app/paciente/Chat.jsx'));
 const Checkin = lazy(() => import('./app/paciente/Checkin.jsx'));
 const EbooksPaciente = lazy(() => import('./app/paciente/Ebooks.jsx'));
@@ -95,7 +93,6 @@ export default function App() {
                 <Route path="/nutri/agenda" element={<Agenda />} />
                 <Route path="/nutri/chat" element={<ChatNutri />} />
                 <Route path="/nutri/feed" element={<FeedNutri />} />
-                <Route path="/nutri/prescricoes" element={<PrescricoesNutri />} />
                 <Route path="/nutri/checkins" element={<Checkins />} />
                 <Route path="/nutri/questionarios" element={<Questionarios />} />
                 <Route path="/nutri/cadastrar" element={<Cadastrar />} />
@@ -127,7 +124,6 @@ export default function App() {
                 <Route path="/paciente/compras" element={<Compras />} />
                 <Route path="/paciente/feed" element={<FeedPaciente />} />
                 <Route path="/paciente/progresso" element={<Progresso />} />
-                <Route path="/paciente/prescricoes" element={<PrescricoesPaciente />} />
                 <Route path="/paciente/chat" element={<ChatPaciente />} />
                 <Route path="/paciente/ebooks" element={<EbooksPaciente />} />
                 <Route path="/paciente/suplementos" element={<SuplementosPaciente />} />

@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { dataBR, dataLocalISO } from '../../lib/utils.js';
 import { getProtocolo, temEstruturaCiclo, janelaRisco, rotuloJanelaRisco, marcosEfeitoAplicacao } from '../../lib/protocoloCiclo.js';
+import ExamesLaboratoriais from './_ExamesLaboratoriais.jsx';
 
 const TOTAL_STEPS = 11;
 
@@ -217,7 +218,7 @@ export default function MonitoramentoOncologico() {
   if (step === null) {
     return (
       <Wrap>
-        <LinhaDoTempoCiclo ciclos={ciclos} intervalo={intervalo} protocoloNome={protocoloNome} />
+        <LinhaDoTempoCiclo ciclos={ciclos} intervalo={intervalo} protocoloNome={protocoloNome} pacienteId={pacienteId} />
         <div style={{ textAlign: 'center', color: 'var(--muted)', padding: 40 }}>Carregando…</div>
       </Wrap>
     );
@@ -226,7 +227,7 @@ export default function MonitoramentoOncologico() {
   if (salvo) {
     return (
       <>
-        <LinhaDoTempoCiclo ciclos={ciclos} intervalo={intervalo} protocoloNome={protocoloNome} standalone />
+        <LinhaDoTempoCiclo ciclos={ciclos} intervalo={intervalo} protocoloNome={protocoloNome} pacienteId={pacienteId} standalone />
         <Concluido />
       </>
     );
@@ -235,7 +236,7 @@ export default function MonitoramentoOncologico() {
   if (step === 0 && registroHoje) {
     return (
       <>
-        <LinhaDoTempoCiclo ciclos={ciclos} intervalo={intervalo} protocoloNome={protocoloNome} standalone />
+        <LinhaDoTempoCiclo ciclos={ciclos} intervalo={intervalo} protocoloNome={protocoloNome} pacienteId={pacienteId} standalone />
         <JaPreenchidoHoje
           registro={registroHoje}
           onEditar={() => { preencherForm(registroHoje); setStep(1); }}
@@ -249,7 +250,7 @@ export default function MonitoramentoOncologico() {
 
   return (
     <Wrap>
-      <LinhaDoTempoCiclo ciclos={ciclos} intervalo={intervalo} protocoloNome={protocoloNome} />
+      <LinhaDoTempoCiclo ciclos={ciclos} intervalo={intervalo} protocoloNome={protocoloNome} pacienteId={pacienteId} />
 
       {/* Barra de progresso */}
       <div style={{ marginBottom: 28 }}>
@@ -635,7 +636,7 @@ export default function MonitoramentoOncologico() {
 }
 
 // ── Linha do tempo de ciclo (somente leitura) ─────────────────────
-function LinhaDoTempoCiclo({ ciclos, intervalo, protocoloNome, standalone }) {
+function LinhaDoTempoCiclo({ ciclos, intervalo, protocoloNome, standalone, pacienteId }) {
   const hoje = dataLocalISO();
 
   // standalone = usado fora do <Wrap>, precisa do próprio centramento
@@ -655,6 +656,8 @@ function LinhaDoTempoCiclo({ ciclos, intervalo, protocoloNome, standalone }) {
         }}>
           Seu primeiro ciclo ainda não aconteceu — sua linha do tempo aparece aqui quando ele começar.
         </div>
+        {/* Exames aparecem mesmo sem ciclo cadastrado */}
+        <ExamesLaboratoriais pacienteId={pacienteId} />
       </div>
     );
   }
@@ -747,6 +750,8 @@ function LinhaDoTempoCiclo({ ciclos, intervalo, protocoloNome, standalone }) {
           </div>
         </div>
       </div>
+
+      <ExamesLaboratoriais pacienteId={pacienteId} />
     </div>
   );
 }
