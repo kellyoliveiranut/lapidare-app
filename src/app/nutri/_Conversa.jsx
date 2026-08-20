@@ -51,7 +51,7 @@ function rotuloDia(dia) {
   return `${d}/${mes}/${ano}`;
 }
 
-export default function ConversaPanel({ paciente, nutriId, onAfterAction, onFechar }) {
+export default function ConversaPanel({ paciente, nutriId, onAfterAction, onFechar, onVerPerfil }) {
   const [msgs, setMsgs] = useState(undefined);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
@@ -201,9 +201,41 @@ export default function ConversaPanel({ paciente, nutriId, onAfterAction, onFech
           fontSize: 13, fontWeight: 600, color: 'var(--dark)',
         }}>{iniciais(paciente.nome)}</div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 15, fontWeight: 500 }}>{paciente.nome}</div>
+          {onVerPerfil ? (
+            <button
+              type="button"
+              onClick={onVerPerfil}
+              title={`Abrir perfil de ${paciente.nome}`}
+              style={{
+                fontSize: 15, fontWeight: 500,
+                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                maxWidth: '100%',
+                background: 'none', border: 'none', padding: 0,
+                fontFamily: 'inherit', color: 'inherit', textAlign: 'left',
+                cursor: 'pointer',
+              }}>
+              {paciente.nome}
+            </button>
+          ) : (
+            <div style={{ fontSize: 15, fontWeight: 500 }}>{paciente.nome}</div>
+          )}
           <div style={{ fontSize: 12, color: 'var(--text3)' }}>{paciente.email}</div>
         </div>
+        {/* Mesma regra do X: só existe quando quem monta sabe para onde ir.
+            O painel flutuante do perfil não passa — já se está no perfil. */}
+        {onVerPerfil && (
+          <button type="button" onClick={onVerPerfil}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              background: 'none', border: '0.5px solid var(--border)',
+              borderRadius: 8, padding: '5px 10px',
+              fontFamily: 'inherit', fontSize: 12, color: 'var(--text2)',
+              cursor: 'pointer', flexShrink: 0,
+            }}>
+            <i className="ti ti-user" aria-hidden="true"></i>
+            Ver perfil
+          </button>
+        )}
         {/* Só existe quando quem monta oferece um jeito de fechar — o painel
             flutuante. Na coluna do Chat não há o que fechar, e o X some. */}
         {onFechar && (

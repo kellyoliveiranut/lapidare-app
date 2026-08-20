@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { iniciais } from '../../lib/utils.js';
@@ -31,11 +32,37 @@ function porAtividade(a, b) {
   return a.nome.localeCompare(b.nome, 'pt-BR');
 }
 
+/**
+ * Regra única de casamento da busca. Vive fora dos dois filtros de propósito:
+ * a lista visível e a explicação de "por que ela não está aqui" precisam casar
+ * pelo MESMO critério. Se divergirem, a tela consegue dizer "não existe" para
+ * uma paciente que o filtro de cima teria mostrado — o oposto do conserto.
+ */
+function casaBusca(p, q) {
+  return p.nome?.toLowerCase().includes(q) || p.email?.toLowerCase().includes(q);
+}
+
+/** Por que ela não está no Chat. Finalizado e óbito dividem a mesma frase de
+ *  propósito: a tela não distingue os dois. */
+const MOTIVO = {
+  plano:   'o Chat é só para pacientes do plano Essentia.',
+  inativa: 'não está em acompanhamento ativo.',
+};
+const MOTIVO_CURTO = {
+  plano:   'fora do plano Essentia',
+  inativa: 'sem acompanhamento ativo',
+};
+
 export default function ChatNutri() {
   const { user } = useSession();
+  const navigate = useNavigate();
   const [lista, setLista] = useState(undefined);  // [{id, nome, email, ultima, naoLidas}]
   const [selecionada, setSelecionada] = useState(null);
   const [busca, setBusca] = useState('');
+  // Catálogo completo da nutri (todos os planos, todos os status). Carregado
+  // na primeira busca que não achar nada e válido pela sessão: serve para
+  // explicar uma ausência, não para decidir nada clínico.
+  const [todas, setTodas] = useState(null);
   const recarregarRef = useRef(null);
 
   // Duas requisições em paralelo e UM setState: a lista nasce ordenada, então
@@ -109,10 +136,42 @@ export default function ChatNutri() {
     if (!lista) return [];
     const q = busca.trim().toLowerCase();
     if (!q) return lista;
-    return lista.filter(c =>
-      c.nome?.toLowerCase().includes(q) || c.email?.toLowerCase().includes(q)
-    );
+    return lista.filter(c => casaBusca(c, q));
   }, [lista, busca]);
+
+  // A busca falhou na lista visível — só aqui vale perguntar ao banco.
+  const semResultado = !!lista && busca.trim() !== '' && filtradas.length === 0;
+
+  // Uma requisição por sessão, no máximo. Quem nunca erra uma busca nunca
+  // paga por ela; quem erra paga uma vez e as buscas seguintes saem de memória.
+  useEffect(() => {
+    if (!semResultado || todas || !user) return;
+    supabase
+      .from('pacientes')
+      .select('id, nome, email, tipo_plano, status_paciente')
+      .eq('nutri_id', user.id)
+      .then(({ data }) => setTodas(data ?? []));
+  }, [semResultado, todas, user]);
+
+  // Derivado, não estado: a busca falhou e o catálogo ainda não chegou. Erro
+  // de rede cai em `todas = []`, que encerra a espera e devolve o texto antigo.
+  const checando = semResultado && todas === null;
+
+  // Status antes de plano: quem saiu do acompanhamento se encaixa nas duas
+  // regras, e aí o plano virou detalhe. Até 3 — "ana" pega Mariana e Juliana
+  // junto, e uma lista longa não explica melhor que uma curta.
+  const foraDoFiltro = useMemo(() => {
+    if (!semResultado || !todas) return [];
+    const q = busca.trim().toLowerCase();
+    return todas
+      .filter(p => casaBusca(p, q))
+      .map(p => ({
+        id: p.id,
+        nome: p.nome,
+        motivo: p.status_paciente !== 'ativo' ? 'inativa' : 'plano',
+      }))
+      .slice(0, 3);
+  }, [semResultado, todas, busca]);
 
   if (lista === undefined) {
     return (
@@ -169,14 +228,47 @@ export default function ChatNutri() {
               padding: '18px 14px', fontSize: 12,
               color: 'var(--text3)', textAlign: 'center',
             }}>
-              Nenhuma paciente encontrada para "{busca}".
+              {checando ? (
+                // Sem este estado a tela afirma "não encontrada" e se corrige
+                // depois — exatamente o susto que a mudança existe para tirar.
+                'Procurando…'
+              ) : foraDoFiltro.length === 0 ? (
+                <>Nenhuma paciente encontrada para "{busca}".</>
+              ) : foraDoFiltro.length === 1 ? (
+                <>
+                  <strong style={{ fontWeight: 600 }}>{foraDoFiltro[0].nome}</strong>{' '}
+                  está cadastrada, mas {MOTIVO[foraDoFiltro[0].motivo]}
+                </>
+              ) : (
+                <>
+                  <div style={{ marginBottom: 8 }}>
+                    Nenhuma conversa para "{busca}". Fora do Chat:
+                  </div>
+                  {foraDoFiltro.map(p => (
+                    <div key={p.id} style={{ marginTop: 6 }}>
+                      <div style={{ fontWeight: 600, color: 'var(--dark)' }}>{p.nome}</div>
+                      <div style={{ fontSize: 11 }}>{MOTIVO_CURTO[p.motivo]}</div>
+                    </div>
+                  ))}
+                </>
+              )}
             </div>
           ) : filtradas.map(c => {
             const ativo = selecionada?.id === c.id;
             return (
-              <button
+              <div
                 key={c.id}
+                role="button"
+                tabIndex={0}
                 onClick={() => setSelecionada(c)}
+                onKeyDown={e => {
+                  // O item deixou de ser <button> para caber o nome clicável
+                  // dentro dele; o teclado precisa voltar na mão.
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setSelecionada(c);
+                  }
+                }}
                 style={{
                   display: 'flex', alignItems: 'flex-start', gap: 10,
                   padding: '12px 14px', width: '100%', textAlign: 'left',
@@ -194,9 +286,26 @@ export default function ChatNutri() {
                 }}>{iniciais(c.nome)}</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 6 }}>
-                    <span style={{ fontSize: 14, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <button
+                      type="button"
+                      title={`Abrir perfil de ${c.nome}`}
+                      onClick={e => {
+                        e.stopPropagation();
+                        navigate(`/nutri/pacientes/${c.id}`, { state: { from: '/nutri/chat', label: 'Chat' } });
+                      }}
+                      onKeyDown={e => {
+                        // Sem isto, Enter/Espaço no nome também acionariam o
+                        // item inteiro: abriria o perfil e trocaria a conversa.
+                        if (e.key === 'Enter' || e.key === ' ') e.stopPropagation();
+                      }}
+                      style={{
+                        fontSize: 14, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                        background: 'none', border: 'none', padding: 0,
+                        fontFamily: 'inherit', color: 'inherit', textAlign: 'left',
+                        cursor: 'pointer',
+                      }}>
                       {c.nome}
-                    </span>
+                    </button>
                     {c.ultima && (
                       <span style={{ fontSize: 11, color: 'var(--text3)', flexShrink: 0 }}>
                         {fmtDataCurta(c.ultima.created_at)}
@@ -222,7 +331,7 @@ export default function ChatNutri() {
                     )}
                   </div>
                 </div>
-              </button>
+              </div>
             );
           })}
         </div>
@@ -230,7 +339,14 @@ export default function ChatNutri() {
         {/* Painel da conversa */}
         <div className="card" style={{ padding: 0, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
           {selecionada ? (
-            <ConversaPanel paciente={selecionada} nutriId={user.id} onAfterAction={carregar} />
+            <ConversaPanel
+              paciente={selecionada}
+              nutriId={user.id}
+              onAfterAction={carregar}
+              onVerPerfil={() => navigate(`/nutri/pacientes/${selecionada.id}`, {
+                state: { from: '/nutri/chat', label: 'Chat' },
+              })}
+            />
           ) : (
             <div style={{
               flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
