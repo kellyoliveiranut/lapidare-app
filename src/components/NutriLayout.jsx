@@ -4,6 +4,7 @@ import { useSession, signOut } from '../lib/session.jsx';
 import { useTheme } from '../lib/theme.jsx';
 import { supabase } from '../lib/supabase.js';
 import BrandFooter from './BrandFooter.jsx';
+import BannerNovidades from './BannerNovidades.jsx';
 import { iniciais, mesAno } from '../lib/utils.js';
 import '../styles/nutri.css';
 
@@ -165,6 +166,7 @@ export default function NutriLayout() {
         </header>
 
         <div className="content">
+          <BannerNovidades />
           <Outlet />
           <BrandFooter />
         </div>
