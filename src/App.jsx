@@ -52,7 +52,6 @@ const Biblioteca = lazy(() => import('./app/nutri/Biblioteca.jsx'));
 const Personalizacao = lazy(() => import('./app/nutri/Personalizacao.jsx'));
 const MonitoramentoOncologicoNutri = lazy(() => import('./app/nutri/MonitoramentoOncologico.jsx'));
 const MensagemMotivacional = lazy(() => import('./app/nutri/MensagemMotivacional.jsx'));
-const MensagensArsenal = lazy(() => import('./app/nutri/MensagensArsenal.jsx'));
 
 const Inicio = lazy(() => import('./app/paciente/Inicio.jsx'));
 const Plano = lazy(() => import('./app/paciente/Plano.jsx'));
@@ -103,7 +102,6 @@ export default function App() {
                 <Route path="/nutri/biblioteca" element={<Biblioteca />} />
                 <Route path="/nutri/monitoramento-oncologico" element={<MonitoramentoOncologicoNutri />} />
                 <Route path="/nutri/mensagem-motivacional" element={<MensagemMotivacional />} />
-                <Route path="/nutri/mensagens-arsenal" element={<MensagensArsenal />} />
                 {/* Rotas antigas — as duas telas viraram abas de
                     /nutri/mensagem-motivacional em 2026-08-02. Redirecionam em
                     vez de sumir porque o catch-all no fim deste arquivo jogaria

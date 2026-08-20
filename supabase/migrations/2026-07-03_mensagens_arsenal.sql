@@ -1,3 +1,16 @@
+-- APOSENTADA em 2026-08-20. A tela do Arsenal saiu do app (o produto passa a
+-- ser do Oncostart): item de menu, rota, lazy import e MensagensArsenal.jsx
+-- foram removidos. O conteúdo — 51 mensagens em 8 categorias — está preservado
+-- em backup_mensagens_arsenal_2026-07-03.csv, na raiz do repo.
+--
+-- A TABELA CONTINUA NO BANCO, intacta e com RLS ligada. O `drop table` é
+-- decisão separada e ainda não foi tomada; enquanto a tabela existir em
+-- produção, este arquivo permanece como registro da estrutura dela.
+--
+-- Nota para quem recriar a tabela em outro produto: a coluna `enviada`
+-- (boolean) foi adicionada direto no banco depois desta migration e NÃO está
+-- no create table abaixo, embora a tela lesse e escrevesse nela.
+--
 -- Arsenal de mensagens prontas da nutri: textos que ela copia e cola no WhatsApp
 -- do grupo. Área INTERNA — a paciente nunca lê esta tabela (sem policy de paciente).
 -- Organizadas por `categoria` (texto livre) e `ordem` dentro da categoria.

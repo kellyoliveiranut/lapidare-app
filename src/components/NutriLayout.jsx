@@ -19,9 +19,11 @@ const NAV_CONFIG = [
       { id: 'biblioteca',      path: '/nutri/biblioteca',      label: 'Biblioteca',              icon: 'book-2' },
       { id: 'monitoramento',    path: '/nutri/monitoramento-oncologico', label: 'Oncologia',           icon: 'atom-2' },
       { id: 'mensagem-motivacional', path: '/nutri/mensagem-motivacional', label: 'Mensagem motivacional', icon: 'message-heart' },
-      { id: 'arsenal',         path: '/nutri/mensagens-arsenal', label: 'Mensagens',             icon: 'messages' },
       { id: 'checkins',        path: '/nutri/checkins',        label: 'Check-ins',               icon: 'clipboard-check' },
-      { id: 'questionarios', path: '/nutri/questionarios', label: 'Pré-consulta',       icon: 'clipboard-list' },
+      // "Pré-consulta" (/nutri/questionarios) saiu do menu em 2026-08-20: zero
+      // modelos cadastrados e dois envios antigos, que continuam visíveis pela
+      // aba de check-ins do perfil da paciente. A rota, o trigger que dispara
+      // os envios no cadastro e as tabelas seguem intactos — só o atalho saiu.
     ],
   },
   {
