@@ -2259,6 +2259,14 @@ create policy suplementos_storage_delete on storage.objects for delete using (
 -- =============================================================
 alter table public.consultas add column if not exists lembrete_ativo  boolean not null default true;
 alter table public.consultas add column if not exists lembrete_enviado boolean not null default false;
+-- Dois mecanismos distintos, cada um com o seu carimbo. O manual é marcado pela
+-- nutri no painel "Lembretes da semana" (Agenda.jsx); o push sai sozinho na
+-- véspera (netlify/functions/lembretes-consulta.js). Ambos são zerados quando a
+-- consulta é reagendada — ver consultas_limpa_ao_reagendar na seção 22.
+-- Registradas aqui só em 2026-08-19: existiam no banco e eram usadas pelo
+-- código desde antes, mas nunca tinham entrado neste arquivo.
+alter table public.consultas add column if not exists lembrete_enviado_em      timestamptz;
+alter table public.consultas add column if not exists push_lembrete_enviado_em timestamptz;
 
 
 
@@ -2413,13 +2421,17 @@ alter table public.consultas drop constraint if exists consultas_confirmada_por_
 alter table public.consultas add constraint consultas_confirmada_por_check
   check (confirmada_por is null or confirmada_por in ('nutri', 'paciente'));
 
--- Reagendar limpa a confirmação: a paciente confirmou OUTRO horário.
+-- Reagendar limpa a confirmação E os lembretes: todos falavam da data velha.
 -- No banco (e não no JS) porque data_hora muda em dois caminhos — Agenda.jsx e
 -- PacientePerfil.jsx (salvarDataConsulta) — e um terceiro é questão de tempo.
--- Guard 1: só age se data_hora mudou de valor (o payload do modal manda
+-- Guard comum: só age se data_hora mudou de valor (o payload do modal manda
 -- data_hora sempre, mesmo salvando só a obs).
--- Guard 2: não zera se o mesmo UPDATE já está setando confirmada_em de propósito.
-create or replace function public.consultas_limpa_confirmacao()
+-- Um guard por campo: confirmação, lembrete manual e push são marcados por
+-- caminhos diferentes, e assim "reagendar e já marcar na mesma tacada" segue
+-- funcionando nos três.
+-- Renomeada de consultas_limpa_confirmacao em 2026-08-19, quando passou a
+-- cuidar também dos lembretes — ver migrations/2026-08-19_lembrete_limpa_ao_reagendar.sql.
+create or replace function public.consultas_limpa_ao_reagendar()
 returns trigger
 language plpgsql
 as $$
@@ -2429,15 +2441,33 @@ begin
     new.confirmada_em  := null;
     new.confirmada_por := null;
   end if;
+
+  if new.data_hora is distinct from old.data_hora
+     and new.lembrete_enviado is not distinct from old.lembrete_enviado then
+    new.lembrete_enviado    := false;
+    new.lembrete_enviado_em := null;
+  end if;
+
+  -- Sem isto a consulta reagendada é pulada no lote da véspera da data nova
+  -- (lembretes-consulta.js filtra por push_lembrete_enviado_em is null) e a
+  -- paciente não recebe lembrete nenhum, sem nada na tela indicar.
+  if new.data_hora is distinct from old.data_hora
+     and new.push_lembrete_enviado_em is not distinct from old.push_lembrete_enviado_em then
+    new.push_lembrete_enviado_em := null;
+  end if;
+
   return new;
 end;
 $$;
 
 drop trigger if exists consultas_limpa_confirmacao_tg on public.consultas;
-create trigger consultas_limpa_confirmacao_tg
+drop trigger if exists consultas_limpa_ao_reagendar_tg on public.consultas;
+create trigger consultas_limpa_ao_reagendar_tg
   before update of data_hora on public.consultas
   for each row
-  execute function public.consultas_limpa_confirmacao();
+  execute function public.consultas_limpa_ao_reagendar();
+
+drop function if exists public.consultas_limpa_confirmacao();
 
 -- Etapa 2: a PACIENTE confirma pelo app. Ela NÃO ganha UPDATE em consultas —
 -- RLS no PostgREST não restringe coluna, então com UPDATE na tabela ela
