@@ -255,11 +255,18 @@ export default function FeedNutri() {
                   )}
                 </div>
 
+                {/* Sem clamp: a legenda é o que a paciente escreveu para a nutri
+                    ler, e cortar em uma linha entregava o recado pela metade. O
+                    `title` continua, mas nunca substituiu o texto — no celular
+                    não existe hover.
+
+                    wordBreak porque o card tem overflow: hidden (linha 210): sem
+                    ele, um link colado sem espaços seria cortado pela borda, em
+                    silêncio, em vez de quebrar em duas linhas. */}
                 {p.legenda && (
                   <div style={{
                     padding: '6px 12px', fontSize: 14, lineHeight: 1.5, color: 'var(--dark)',
-                    display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical',
-                    overflow: 'hidden',
+                    wordBreak: 'break-word',
                   }} title={p.legenda}>
                     {p.legenda}
                   </div>
