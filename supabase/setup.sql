@@ -1701,6 +1701,10 @@ drop policy if exists aval_fotos_nutri on public.avaliacoes_fotos;
 create policy aval_fotos_nutri on public.avaliacoes_fotos
   for all using (nutri_id = auth.uid()) with check (nutri_id = auth.uid());
 
+-- As policies de LEITURA da paciente para estas tabelas ficam na seção 16.8,
+-- não aqui: elas chamam minha_paciente_id(), que só existe a partir da 16.6,
+-- e o CREATE POLICY resolve a função na hora, não no primeiro select.
+
 -- Bucket privado para fotos de avaliação
 insert into storage.buckets (id, name, public)
 values ('avaliacoes_nutri', 'avaliacoes_nutri', false)
@@ -2085,6 +2089,39 @@ create policy monit_paciente_insert on public.monitoramento_oncologico for inser
 drop policy if exists monit_paciente_update on public.monitoramento_oncologico;
 create policy monit_paciente_update on public.monitoramento_oncologico for update using (
   paciente_id = public.minha_paciente_id()
+);
+
+-- Leitura da paciente nas tabelas do tratamento oncológico. As três existiam
+-- só no banco: este arquivo não as registrava, então instalação limpa nascia
+-- com a paciente cega nas três. A trat_paciente_select foi a última a existir
+-- (ver migration 2026-08-21_rls_trat_paciente_select) e a falta dela fazia
+-- faseDoDia e a linha do tempo do ciclo caírem no MARCOS_FALLBACK para todas.
+--
+-- Os dois ramos cobrem as duas gerações de cadastro: paciente_id = auth.uid()
+-- é o legado, de quando pacientes.id era o próprio id de auth; a função
+-- resolve pelo user_id, para quem a nutri cadastrou e ativou depois por token.
+--
+-- Escrita continua exclusiva da nutri, pelas policies *_nutri do bloco onde
+-- estas tabelas são criadas.
+--
+-- avaliacoes_fotos NÃO entra aqui de propósito: nenhum código do app a
+-- referencia — a tabela existe só neste arquivo. Se um dia ganhar uso, a
+-- policy de paciente se decide naquele momento, pelo caso de uso real, e não
+-- por simetria com estas três.
+
+drop policy if exists ciclos_paciente_select on public.ciclos_quimio;
+create policy ciclos_paciente_select on public.ciclos_quimio for select using (
+  paciente_id = auth.uid() or paciente_id = public.minha_paciente_id()
+);
+
+drop policy if exists trat_paciente_select on public.tratamentos_oncologicos;
+create policy trat_paciente_select on public.tratamentos_oncologicos for select using (
+  paciente_id = auth.uid() or paciente_id = public.minha_paciente_id()
+);
+
+drop policy if exists exames_paciente_select on public.exames_laboratoriais;
+create policy exames_paciente_select on public.exames_laboratoriais for select using (
+  paciente_id = auth.uid() or paciente_id = public.minha_paciente_id()
 );
 
 -- 16.9 Storage policies atualizadas
