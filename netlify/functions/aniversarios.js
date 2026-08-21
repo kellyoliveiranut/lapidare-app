@@ -11,7 +11,9 @@ exports.handler = async (event) => {
   try {
     const b = JSON.parse(event.body || '{}');
     isNetlifyCron = !!b.next_run;
-  } catch {}
+  } catch {
+    // corpo não-JSON = não é invocação agendada; segue com isNetlifyCron false
+  }
 
   if (!isNetlifyCron) {
     const secret = process.env.CRON_SECRET;
