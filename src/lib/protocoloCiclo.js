@@ -1,4 +1,5 @@
 import protocolosEfeitosData from '../data/protocolos_efeitos.json';
+import { dataLocalISO } from './utils.js';
 
 /**
  * Marcos de quem não traz `marcosEfeito` próprio no catálogo (+3/+7/+10/+14).
@@ -111,6 +112,17 @@ function addDaysISO(dateStr, n) {
 }
 
 /**
+ * Dias inteiros entre duas datas 'YYYY-MM-DD'. Meio-dia dos dois lados pela
+ * mesma razão de addDaysISO: a diferença atravessa horário de verão sem virar
+ * 23 ou 25 horas, e o arredondamento não erra o dia.
+ */
+function diffDias(de, ate) {
+  const a = new Date(de + 'T12:00:00');
+  const b = new Date(ate + 'T12:00:00');
+  return Math.round((b - a) / 86_400_000);
+}
+
+/**
  * Marcos de UMA aplicação, já datados (dataAplicacao = 'YYYY-MM-DD').
  * A data sai sempre de `de` — `ate` só existe para o rótulo e para a janela de
  * risco, e nunca vira ponto na linha do tempo. Nunca lê d3/d7/d10/d14.
@@ -213,4 +225,83 @@ export function datasSerieCiclos(proto, { dataInicial, intervaloDias, quantidade
     linhas.push(...linhasDoCiclo(proto, n0 + i, addDaysISO(dataInicial, i * iv)));
   }
   return linhas;
+}
+
+/**
+ * Sub-fases do ciclo, na ordem de precedência com que são testadas. É o
+ * vocabulário que casa a mensagem motivacional com o momento do tratamento —
+ * ver mensagens_ciclo.grupo_ciclo.
+ *
+ * São quatro, e não os seis rótulos da biblioteca de exemplos, porque estes
+ * valem para os 73 protocolos do catálogo. "Início da piora" e "Fim da janela"
+ * são ambos 'alerta'; "Janela" e "Pico" são ambos 'risco'. Casar mensagem pelo
+ * `desc` do marco funcionaria só para quem cai no MARCOS_FALLBACK e falharia
+ * calado em BEP, Taxol Semanal, FLOX, R-CHOP, T-DD e FOLFIRINOX, que têm
+ * marcos próprios com outras descrições.
+ */
+export const GRUPOS_CICLO = ['infusao', 'risco', 'alerta', 'recuperacao'];
+
+/**
+ * Em que sub-fase do ciclo a paciente está HOJE.
+ *
+ * Devolve 'infusao' | 'risco' | 'alerta' | 'recuperacao' | null. null quer
+ * dizer "não dá para afirmar" — sem aplicação, data anterior à aplicação ou
+ * ciclo velho demais —, e quem chama deve cair na mensagem genérica em vez de
+ * arriscar um palpite.
+ *
+ * `dataAplicacao` é a ÚLTIMA aplicação que já aconteceu ('YYYY-MM-DD'). Quem
+ * chama filtra por data_quimio <= hoje: a nutri cadastra ciclos futuros, e o
+ * mais recente da lista não é necessariamente o último aplicado.
+ *
+ * Precedência infusao > risco > alerta > recuperacao. Ela existe porque os
+ * marcos SE SOBREPÕEM: no BEP o D+7 cai ao mesmo tempo em 'risco' (de 6 a 13)
+ * e em 'alerta' (7 a 7). Sem ordem fixa, a fase sairia de quem viesse primeiro
+ * no array — e o mais grave é que deve ganhar. A infusão vem antes de tudo:
+ * no dia da aplicação a mensagem certa é a do dia da aplicação, mesmo quando um
+ * marco de efeito começa nele (BEP tem marco com `de: 0`).
+ */
+export function faseDoDia(proto, dataAplicacao, { hoje = dataLocalISO(), intervaloDias } = {}) {
+  if (!dataAplicacao || !hoje) return null;
+  if (hoje < dataAplicacao) return null;
+  if (hoje === dataAplicacao) return 'infusao';
+
+  const marcos = marcosDoProtocolo(proto);
+  const fimMarcos = marcos.reduce((max, m) => Math.max(max, m.ate), 0);
+
+  // Até quando esta aplicação ainda "explica" o dia de hoje. Sem este teto, a
+  // última quimio de um tratamento encerrado há meses continuaria valendo para
+  // sempre, e quem terminou o tratamento receberia mensagem de ciclo.
+  //
+  // duracaoCiclo do catálogo → intervalo do cadastro → 21. E nunca menos que o
+  // último marco: protocolo cujo marco passa da duração (o BEP vai até D+20)
+  // perderia o próprio fim de janela se o teto cortasse antes.
+  const base = proto?.duracaoCiclo ?? intervaloDias ?? 21;
+  const limite = Math.max(base, fimMarcos);
+
+  const d = diffDias(dataAplicacao, hoje);
+  if (d > limite) return null;
+
+  // ZONAS CONTÍNUAS, não "hoje cai em cima de um marco?".
+  //
+  // Os marcos são PONTOS na linha do tempo — no fallback, os dias 3, 7, 10 e
+  // 14. Testar pertencimento a marco deixava 15 dos 22 dias sem fase, caindo
+  // todos em 'recuperacao': a paciente lia "fase boa pra recuperar o pique" em
+  // D+1, no dia seguinte à quimio. Aqui os marcos definem FRONTEIRAS, e cada
+  // dia do ciclo pertence a alguma faixa:
+  //
+  //   D+0                              infusao
+  //   D+1 até a véspera da janela       alerta      (efeitos agudos subindo)
+  //   janela de risco (janelaRisco)     risco
+  //   do fim da janela ao último marco  alerta      (efeitos ainda em curso)
+  //   depois do último marco            recuperacao
+  //
+  // A janela vem de janelaRisco() — a mesma que pinta o banner e a linha do
+  // tempo —, então a fase nunca discorda do resto do app sobre onde o risco
+  // começa e termina.
+  const { inicio, fim } = janelaRisco(proto);
+  if (d < inicio) return 'alerta';
+  if (d <= fim) return 'risco';
+  if (d <= fimMarcos) return 'alerta';
+
+  return 'recuperacao';
 }
