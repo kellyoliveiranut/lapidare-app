@@ -1,27 +1,17 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
+import { estaFixada, restanteFixada } from '../../lib/rotacaoMensagens.js';
 
 // Mensagens semanais de Emagrecimento (tabela mensagens_emagrecimento).
 // Lista única, sem categorias. O placeholder {nome} é trocado pelo primeiro
 // nome da paciente na hora de exibir (ver Inicio.jsx) — aqui salvamos literal.
+//
+// Rotação e fixação vêm de lib/rotacaoMensagens.js, compartilhado com a tela
+// de mensagens de ciclo — funciona nas duas tabelas apesar dos nomes de coluna
+// divergentes (texto/ativa aqui, mensagem/ativo lá) porque só olha fixada_em.
 
 const temPlaceholder = t => /\{nome\}/.test(t);
-
-const TRES_DIAS = 3 * 86_400_000;
-
-// Uma mensagem está fixada se tem `fixada_em` e ainda não passaram 3 dias (72h).
-const estaFixada = m => !!m.fixada_em && Date.now() - new Date(m.fixada_em).getTime() < TRES_DIAS;
-
-// Rótulo "expira em Xd Yh" a partir de fixada_em + 3 dias.
-function restanteFixada(fixadaEm) {
-  const ms = new Date(fixadaEm).getTime() + TRES_DIAS - Date.now();
-  if (ms <= 0) return 'expirada';
-  const horas = Math.floor(ms / 3_600_000);
-  const d = Math.floor(horas / 24);
-  const h = horas % 24;
-  return d > 0 ? `expira em ${d}d ${h}h` : `expira em ${h}h`;
-}
 
 export default function MensagemEmagrecimento() {
   const { user } = useSession();

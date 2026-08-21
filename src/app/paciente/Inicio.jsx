@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { useTheme } from '../../lib/theme.jsx';
-import { textoDias, dataConsultaBR, horaConsultaBR, diasAte, gerarGoogleCalendarUrl, dataBR } from '../../lib/utils.js';
+import { textoDias, dataConsultaBR, horaConsultaBR, diasAte, gerarGoogleCalendarUrl, dataBR, dataLocalISO } from '../../lib/utils.js';
 import { cumpriuHabito } from './_HabitosHoje.jsx';
+import { escolherDaSemana } from '../../lib/rotacaoMensagens.js';
 
 
 const DIAS_SEG = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
@@ -131,58 +132,114 @@ export default function Inicio() {
     return () => { active = false; };
   }, [pacienteId]);
 
-  // Mensagem motivacional do topo.
-  // - Emagrecimento: banco próprio (mensagens_emagrecimento), rotação semanal.
-  // - Oncologia e demais objetivos: mensagem ativa da nutri (mensagens_ciclo).
+  // Mensagem motivacional do topo. Três caminhos, pelo objetivo da paciente:
+  //
+  //   Emagrecimento → mensagens_emagrecimento (tabela própria, sem sub-fase)
+  //   Oncologia     → mensagens_ciclo, fase 'oncologia', no grupo do dia dela
+  //   todo o resto  → mensagens_ciclo, fase 'neutra' (inclusive objetivo nulo)
+  //
+  // Em todos, quem decide qual das ativas vai ao ar é escolherDaSemana(): uma
+  // fixada válida ganha, senão gira uma por semana. O {nome} é trocado aqui, na
+  // exibição — no banco o texto fica literal.
   useEffect(() => {
     if (!profile?.nutri_id) return;
     let active = true;
     const primeiroNome = profile.apelido || profile.nome?.split(' ')[0] || '';
 
+    // `texto` em mensagens_emagrecimento, `mensagem` em mensagens_ciclo. É a
+    // borda onde a divergência de nome das duas tabelas para de importar.
+    const publicar = lista => {
+      const escolhida = escolherDaSemana(lista);
+      if (!active || !escolhida) return;
+      const bruto = escolhida.texto ?? escolhida.mensagem;
+      setMensagemCiclo({ texto: bruto.replace(/\{nome\}/g, primeiroNome) });
+    };
+
     if (profile.objetivo === 'Emagrecimento') {
-      // Âncora: segunda 05/01/2026 à meia-noite de Brasília (UTC-3).
-      // A virada da mensagem acontece toda segunda 00h no horário do Brasil.
-      const ANCORA = Date.UTC(2026, 0, 5, 3, 0, 0);
       supabase
         .from('mensagens_emagrecimento')
         .select('texto, fixada_em')
         .eq('nutri_id', profile.nutri_id)
         .eq('ativa', true)
         .order('ordem', { ascending: true })
-        .then(({ data }) => {
-          if (!active || !data?.length) return;
-          // Existe uma fixada válida (< 3 dias)? Ela ganha da rotação.
-          const TRES_DIAS = 3 * 86_400_000;
-          const fixada = data
-            .filter(m => m.fixada_em && Date.now() - new Date(m.fixada_em).getTime() < TRES_DIAS)
-            .sort((a, b) => new Date(b.fixada_em) - new Date(a.fixada_em))[0];
-          let escolhida = fixada;
-          if (!escolhida) {
-            // Rotação automática semanal (padrão).
-            const semanas = Math.floor((Date.now() - ANCORA) / (7 * 86_400_000));
-            const idx = ((semanas % data.length) + data.length) % data.length;
-            escolhida = data[idx];
-          }
-          const texto = escolhida.texto.replace(/\{nome\}/g, primeiroNome);
-          setMensagemCiclo({ texto });
-        });
+        .then(({ data }) => publicar(data ?? []));
       return () => { active = false; };
     }
 
-    supabase
-      .from('mensagens_ciclo')
-      .select('mensagem')
-      .eq('nutri_id', profile.nutri_id)
-      .eq('fase', 'ativa')
-      .maybeSingle()
-      .then(({ data }) => {
-        if (!active || !data?.mensagem) return;
-        const texto = data.mensagem.replace(/\{nome\}/g, primeiroNome);
-        setMensagemCiclo({ texto });
-      });
+    // Neutras: hipertrofia, saúde geral, performance, reeducação alimentar e
+    // quem está sem objetivo (o campo aceita nulo, e o CSV grava nulo quando
+    // não reconhece o texto). Esta fase não usa sub-fase de ciclo.
+    if (profile.objetivo !== 'Oncologia') {
+      supabase
+        .from('mensagens_ciclo')
+        .select('mensagem, fixada_em')
+        .eq('nutri_id', profile.nutri_id)
+        .eq('fase', 'neutra')
+        .eq('ativo', true)
+        .is('grupo_ciclo', null)
+        .order('ordem', { ascending: true })
+        .then(({ data }) => publicar(data ?? []));
+      return () => { active = false; };
+    }
+
+    // Oncologia: a mensagem acompanha o momento do ciclo.
+    async function carregarOncologia() {
+      const hoje = dataLocalISO();
+      // O catálogo dos 73 protocolos é um chunk de ~100 KB e só interessa
+      // aqui — vai por import dinâmico, em paralelo com as consultas, para
+      // não pesar a tela inicial de quem não é oncologia.
+      const [{ data: ciclo }, { data: trat }, proto] = await Promise.all([
+        // Só ciclo já aplicado: a nutri cadastra ciclos futuros, e o mais
+        // recente da tabela não é necessariamente o último que aconteceu.
+        supabase.from('ciclos_quimio')
+          .select('data_quimio')
+          .eq('paciente_id', pacienteId)
+          .lte('data_quimio', hoje)
+          .order('data_quimio', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        supabase.from('tratamentos_oncologicos')
+          .select('protocolo, intervalo_ciclos')
+          .eq('paciente_id', pacienteId)
+          .maybeSingle(),
+        import('../../lib/protocoloCiclo.js'),
+      ]);
+      if (!active) return;
+
+      // null = não dá para afirmar em que fase ela está: sem ciclo aplicado,
+      // ou o último é velho demais. Cai na genérica — mesmo destino de um
+      // grupo que exista mas esteja sem mensagem ativa.
+      const grupo = proto.faseDoDia(
+        proto.getProtocolo(trat?.protocolo),
+        ciclo?.data_quimio,
+        { hoje, intervaloDias: trat?.intervalo_ciclos }
+      );
+
+      // Uma consulta traz o grupo do dia E as genéricas; a separação é no
+      // cliente. Duas idas ao banco para escolher entre elas custariam mais
+      // que trazer as duas listas, que são curtas. Os valores de `grupo` são
+      // os quatro literais de GRUPOS_CICLO, nunca texto de fora.
+      const base = supabase
+        .from('mensagens_ciclo')
+        .select('mensagem, fixada_em, grupo_ciclo')
+        .eq('nutri_id', profile.nutri_id)
+        .eq('fase', 'oncologia')
+        .eq('ativo', true)
+        .order('ordem', { ascending: true });
+
+      const { data } = await (grupo
+        ? base.or(`grupo_ciclo.eq.${grupo},grupo_ciclo.is.null`)
+        : base.is('grupo_ciclo', null));
+      if (!active) return;
+
+      const lista = data ?? [];
+      const doGrupo = lista.filter(m => m.grupo_ciclo === grupo);
+      publicar(doGrupo.length ? doGrupo : lista.filter(m => m.grupo_ciclo === null));
+    }
+    carregarOncologia();
 
     return () => { active = false; };
-  }, [profile?.nutri_id, profile?.objetivo]);
+  }, [profile?.nutri_id, profile?.objetivo, pacienteId]);
 
   // Confirmação de presença. A paciente NÃO tem UPDATE em consultas — vai
   // pela RPC security definer confirmar_consulta, que só toca
