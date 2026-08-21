@@ -88,6 +88,16 @@ function calcIndicadores(registros) {
   };
 }
 
+/**
+ * Casamento da busca — mesmo critério do Chat (nome ou e-mail), para as duas
+ * telas não discordarem sobre o que "achar uma paciente" significa. O e-mail
+ * entra porque a consulta desta tela já o traz, e porque parte das pacientes
+ * é cadastrada sem ele: `p.email?` cobre o nulo sem exigir tratamento fora.
+ */
+function casaBusca(p, q) {
+  return p.nome?.toLowerCase().includes(q) || p.email?.toLowerCase().includes(q);
+}
+
 // ── Componente principal ──────────────────────────────────────────
 export default function MonitoramentoOncologico() {
   const { user } = useSession();
@@ -97,6 +107,7 @@ export default function MonitoramentoOncologico() {
   const [detalheRegs, setDetalheRegs] = useState([]); // registros da paciente selecionada
   const [loading, setLoading] = useState(true);
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
+  const [busca, setBusca] = useState('');
 
   useEffect(() => {
     function onResize() { setIsMobile(window.innerWidth < 768); }
@@ -148,6 +159,19 @@ export default function MonitoramentoOncologico() {
       return s === 'red' || s === 'yellow';
     }),
   [pacientesSorted, ultimoReg]);
+
+  // A busca filtra DENTRO da ordem por gravidade, não a substitui: quem está em
+  // vermelho continua no topo do que sobrou. Sai de pacientesSorted, e não de
+  // `pacientes`, justamente para não voltar à ordem alfabética do banco.
+  //
+  // O card de alertas do topo NÃO é filtrado de propósito — ele responde "quem
+  // precisa de atenção agora", pergunta que não muda porque a nutri está
+  // procurando outra pessoa.
+  const pacientesVisiveis = useMemo(() => {
+    const q = busca.trim().toLowerCase();
+    if (!q) return pacientesSorted;
+    return pacientesSorted.filter(p => casaBusca(p, q));
+  }, [pacientesSorted, busca]);
 
   // Ao selecionar uma paciente, filtra os registros dela
   function selecionar(id) {
@@ -224,15 +248,41 @@ export default function MonitoramentoOncologico() {
         {/* ── Lista de pacientes ── */}
         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
           <div style={{ padding: '12px 14px', borderBottom: '0.5px solid var(--border)', fontSize: 12, fontWeight: 600, color: 'var(--text3)', letterSpacing: '.05em', textTransform: 'uppercase' }}>
-            Pacientes ({pacientes.length})
+            Pacientes ({busca.trim()
+              ? `${pacientesVisiveis.length} de ${pacientes.length}`
+              : pacientes.length})
           </div>
+
+          {/* Sem `sticky`, ao contrário do Chat: lá o card inteiro é o que rola
+              e o campo subiria junto; aqui quem rola é só o div de baixo, então
+              o campo já fica parado sozinho. */}
+          {pacientes.length > 0 && (
+            <div style={{ padding: '10px 12px', borderBottom: '0.5px solid var(--border)' }}>
+              <input
+                className="input-field"
+                style={{ margin: 0 }}
+                placeholder="Buscar paciente..."
+                value={busca}
+                onChange={e => setBusca(e.target.value)}
+              />
+            </div>
+          )}
+
           {pacientes.length === 0 ? (
             <div style={{ padding: 20, fontSize: 13, color: 'var(--muted)' }}>
               Nenhuma paciente cadastrada.
             </div>
+          ) : pacientesVisiveis.length === 0 ? (
+            // Esta tela carrega TODAS as pacientes, sem filtro de plano ou
+            // status — então "não achei" aqui só pode ser erro de digitação. Não
+            // cabe a segunda camada do Chat, que vai ao banco explicar por que a
+            // paciente ficou de fora.
+            <div style={{ padding: '18px 14px', fontSize: 12, color: 'var(--text3)', textAlign: 'center' }}>
+              Nenhuma paciente encontrada para "{busca.trim()}".
+            </div>
           ) : (
             <div style={{ maxHeight: isMobile ? 260 : 'calc(100vh - 220px)', overflowY: 'auto' }}>
-              {pacientesSorted.map(p => {
+              {pacientesVisiveis.map(p => {
                 const ul = ultimoReg[p.id];
                 const sem = calcSemaforo(ul);
                 const cor = SEM_COR[sem];
