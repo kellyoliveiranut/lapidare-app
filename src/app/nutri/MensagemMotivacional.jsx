@@ -1,52 +1,73 @@
 import { lazy, Suspense } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
-// Casca das duas telas de mensagem motivacional — a faixa que a paciente vê no
+// Casca das três telas de mensagem motivacional — a faixa que a paciente vê no
 // topo do app (ver paciente/Inicio.jsx:137-184).
 //
-// As duas abas mantêm TABELAS E LÓGICAS SEPARADAS de propósito. Isto aqui é
+// As abas mantêm TABELAS E LÓGICAS SEPARADAS de propósito. Isto aqui é
 // unificação de interface, não de dado:
-//   - Demais objetivos → mensagens_ciclo, uma linha por nutri, upsert
-//   - Emagrecimento    → mensagens_emagrecimento, lista com rotação e fixação
+//   - Oncologia    → mensagens_ciclo, fase 'oncologia', mensagem única
+//   - Emagrecimento→ mensagens_emagrecimento, lista com rotação e fixação
+//   - Neutras      → mensagens_ciclo, fase 'neutra', mensagem única
 //
-// A divisão real NÃO é oncologia vs emagrecimento. Inicio.jsx:142 pergunta se
-// o objetivo é 'Emagrecimento'; qualquer outro valor — oncologia, hipertrofia,
-// reeducação alimentar — cai na primeira aba. Por isso o rótulo é "Demais
-// objetivos" e não "Oncologia": já existe paciente de hipertrofia na base, e
-// "Oncologia" mentiria hoje, não daqui a um ano.
+// A divisão é por OBJETIVO da paciente, e é o Inicio.jsx quem decide: quem é
+// 'Emagrecimento' vai para a tabela própria, quem é 'Oncologia' lê a fase
+// 'oncologia', e todo o resto — inclusive objetivo nulo — lê a fase 'neutra'.
+//
+// Até 2026-08-20 eram duas abas, e a de Oncologia se chamava "Demais
+// objetivos": a mensagem dela ia para qualquer objetivo que não fosse
+// Emagrecimento, embora o conteúdo fosse de ciclo de tratamento. Uma paciente
+// de hipertrofia podia ler "hoje é dia de químio". A aba Neutras existe para
+// fechar esse buraco.
 
-const DemaisObjetivos = lazy(() => import('./_MensagemDemaisObjetivos.jsx'));
+const Oncologia = lazy(() => import('./_MensagemOncologia.jsx'));
 const Emagrecimento = lazy(() => import('./_MensagemEmagrecimento.jsx'));
+const Neutras = lazy(() => import('./_MensagemNeutras.jsx'));
 
 const ABAS = [
   {
-    id: 'demais',
-    label: 'Demais objetivos',
-    sub: 'Aparece para todas as pacientes, exceto as de objetivo Emagrecimento — oncologia, hipertrofia, reeducação alimentar e qualquer outro.',
+    id: 'oncologia',
+    label: 'Oncologia',
+    sub: 'Aparece só para pacientes com objetivo Oncologia. O conteúdo acompanha o ciclo de tratamento — dia da químio, janela de imunidade, recuperação.',
   },
   {
     id: 'emagrecimento',
     label: 'Emagrecimento',
     sub: 'Aparece só para pacientes com objetivo Emagrecimento.',
   },
+  {
+    id: 'neutras',
+    label: 'Neutras',
+    sub: 'Aparece para todas as outras — hipertrofia, saúde geral, performance, reeducação alimentar e quem está sem objetivo definido.',
+  },
 ];
+
+const COMPONENTES = {
+  oncologia: Oncologia,
+  emagrecimento: Emagrecimento,
+  neutras: Neutras,
+};
 
 export default function MensagemMotivacional() {
   // A aba vive na URL: sobrevive ao recarregar e deixa as rotas antigas
   // redirecionarem direto para a aba certa.
   const [params, setParams] = useSearchParams();
-  const abaAtiva = params.get('publico') === 'emagrecimento' ? 'emagrecimento' : 'demais';
+  const pedida = params.get('publico');
+  // Valor desconhecido cai em Oncologia, como caía antes de existirem três
+  // abas: é a que tem conteúdo cadastrado hoje.
+  const abaAtiva = COMPONENTES[pedida] ? pedida : 'oncologia';
 
   function trocarAba(id) {
-    if (id === 'emagrecimento') setParams({ publico: 'emagrecimento' }, { replace: true });
-    else setParams({}, { replace: true });
+    if (id === 'oncologia') setParams({}, { replace: true });
+    else setParams({ publico: id }, { replace: true });
   }
 
   const meta = ABAS.find(a => a.id === abaAtiva);
+  const Ativo = COMPONENTES[abaAtiva];
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
         {ABAS.map(a => (
           <button
             key={a.id}
@@ -64,8 +85,8 @@ export default function MensagemMotivacional() {
       </div>
 
       {/* Só a aba ativa fica montada: trocar refaz a consulta, que é uma linha
-          de um lado e uma lista curta do outro. Manter as duas montadas
-          dobraria as consultas na abertura para exibir uma aba só. */}
+          de um lado e uma lista curta do outro. Manter as três montadas
+          triplicaria as consultas na abertura para exibir uma aba só. */}
       <Suspense
         fallback={
           <div className="card">
@@ -75,7 +96,7 @@ export default function MensagemMotivacional() {
           </div>
         }
       >
-        {abaAtiva === 'emagrecimento' ? <Emagrecimento /> : <DemaisObjetivos />}
+        <Ativo />
       </Suspense>
     </div>
   );
