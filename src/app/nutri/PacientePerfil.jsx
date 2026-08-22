@@ -5787,13 +5787,29 @@ const AlimentoLinha = memo(function AlimentoLinha({ alimento: a, refId, onSetAli
 });
 
 // ─── Modal: Agendar acompanhamento (6 consultas) ─────────────────────────────
-function gerarDatas(primeiraData, hora, intervaloDias, qtd) {
+// Fim de semana: o intervalo padrão de 15 dias faz o dia da semana andar +1 a
+// cada consulta (15 mod 7 = 1), então TODO pacote pegava pelo menos um sábado
+// ou domingo, qualquer que fosse a data de início. Cada data é ancorada em
+// base + i*intervalo e só depois empurrada para a segunda seguinte — empurrar
+// sem reancorar impede que o desvio se acumule nas consultas seguintes.
+function proximoDiaUtil(d) {
+  while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
+  return d;
+}
+
+function ehFimDeSemana(dataLocal) {
+  const d = new Date(`${dataLocal}T00:00:00`); // meia-noite LOCAL, sem UTC
+  return d.getDay() === 0 || d.getDay() === 6;
+}
+
+function gerarDatas(primeiraData, hora, intervaloDias, qtd, pularFimDeSemana = true) {
   const datas = [];
   const base = new Date(`${primeiraData}T00:00:00`); // meia-noite LOCAL, sem UTC
   const p = (n) => String(n).padStart(2, '0');
   for (let i = 0; i < qtd; i++) {
     const d = new Date(base);
     d.setDate(d.getDate() + i * intervaloDias);
+    if (pularFimDeSemana) proximoDiaUtil(d);
     datas.push({ data: `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`, hora });
   }
   return datas;
@@ -5813,17 +5829,21 @@ function ModalAgendarAcompanhamento({ pacienteId, nutriId, consultaAtiva, onClos
   const [hora, setHora] = useState(defaultHora);
   const [intervalo, setIntervalo] = useState(15);
   const [duracao, setDuracao] = useState(50);
-  const [datas, setDatas] = useState(() => gerarDatas(defaultData, defaultHora, 15, 6));
+  const [datas, setDatas] = useState(() => gerarDatas(defaultData, defaultHora, 15, 6, true));
   const [semData, setSemData] = useState(false);
+  const [permitirFds, setPermitirFds] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState(null);
 
-  function recalcular(nData, nHora, nIntervalo) {
-    setDatas(gerarDatas(nData, nHora, Number(nIntervalo), 6));
+  // nPermitir vem por parâmetro porque handlePermitirFds precisa recalcular com
+  // o valor novo — o setState do React só reflete no render seguinte.
+  function recalcular(nData, nHora, nIntervalo, nPermitir = permitirFds) {
+    setDatas(gerarDatas(nData, nHora, Number(nIntervalo), 6, !nPermitir));
   }
   function handlePrimeiraData(v) { setPrimeiraData(v); recalcular(v, hora, intervalo); }
   function handleHora(v) { setHora(v); recalcular(primeiraData, v, intervalo); }
   function handleIntervalo(v) { const n = Math.max(1, Number(v) || 1); setIntervalo(n); recalcular(primeiraData, hora, n); }
+  function handlePermitirFds(v) { setPermitirFds(v); recalcular(primeiraData, hora, intervalo, v); }
   function handleData(idx, campo, v) {
     setDatas(prev => prev.map((d, i) => i === idx ? { ...d, [campo]: v } : d));
   }
@@ -5833,6 +5853,12 @@ function ModalAgendarAcompanhamento({ pacienteId, nutriId, consultaAtiva, onClos
       if (datas.some(d => !d.data)) { setErro('Preencha todas as datas.'); return; }
       if (datas.some(d => !horaConsultaValida(d.hora))) {
         setErro('Todos os horários devem ser entre 08:00 e 17:00 (de 30 em 30 min).');
+        return;
+      }
+      // A geração já pula fim de semana; esta trava cobre o campo de data
+      // editado à mão, que aceita qualquer dia.
+      if (!permitirFds && datas.some(d => ehFimDeSemana(d.data))) {
+        setErro('Há consulta em sábado ou domingo. Ajuste a data ou marque "permitir fim de semana".');
         return;
       }
     }
@@ -5913,6 +5939,11 @@ function ModalAgendarAcompanhamento({ pacienteId, nutriId, consultaAtiva, onClos
               onChange={e => handleIntervalo(e.target.value)}
               style={selStyle}
             />
+          </label>
+
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18, cursor: 'pointer', fontSize: 13, color: 'var(--ink)' }}>
+            <input type="checkbox" checked={permitirFds} onChange={e => handlePermitirFds(e.target.checked)} />
+            Permitir fim de semana
           </label>
 
           {/* Tabela de 6 datas — cada uma com data + horário fixo */}
