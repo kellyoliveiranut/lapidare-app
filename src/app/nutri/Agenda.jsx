@@ -128,6 +128,20 @@ const JANELA_LEMBRETE_DIAS = 7;
 // Quantos pendentes o painel mostra antes de cortar com "Mostrar mais".
 const LIMITE_PENDENTES = 8;
 
+// O painel recolhido persiste por dispositivo, como o banner de novidades — a
+// alternativa era uma coluna em `nutris` e um update no banco a cada clique.
+// Sem regra automática: fica como a nutri deixou, inclusive numa semana em que
+// não há nada pendente.
+//
+// Guarda '1'/'0' explícito, e não a presença da chave, para "nunca mexeu" e
+// "expandiu de propósito" continuarem distinguíveis se um dia isso importar.
+const CHAVE_RECOLHIDO = 'agenda_lembretes_recolhido';
+
+/** Falha para EXPANDIDO: modo privado ou chave estranha caem no de hoje. */
+function lerRecolhido() {
+  try { return localStorage.getItem(CHAVE_RECOLHIDO) === '1'; } catch { return false; }
+}
+
 export default function Agenda() {
   const { user } = useSession();
   const [consultas, setConsultas] = useState(undefined);
@@ -625,6 +639,15 @@ function PainelLembretes({ lembretes, confirmadas = 0, locais, enviadosLocais, o
 
   const [verEnviados, setVerEnviados] = useState(false);
   const [verTodos, setVerTodos] = useState(false);
+  // A função por referência, não chamada: o localStorage é lido uma vez na
+  // montagem, e não a cada render.
+  const [recolhido, setRecolhido] = useState(lerRecolhido);
+
+  function alternarRecolhido() {
+    const proximo = !recolhido;
+    try { localStorage.setItem(CHAVE_RECOLHIDO, proximo ? '1' : '0'); } catch { /* modo privado */ }
+    setRecolhido(proximo);
+  }
 
   const foiEnviado = l =>
     !!enviadosLocais.get(l.id) || !!l.lembrete_enviado_em || !!l.lembrete_enviado;
@@ -676,22 +699,57 @@ function PainelLembretes({ lembretes, confirmadas = 0, locais, enviadosLocais, o
       <div style={{
         display: 'flex', alignItems: 'center', gap: 8,
         padding: '12px 16px',
-        borderBottom: '0.5px solid var(--orange)',
+        // Recolhido não há corpo embaixo, e a borda viraria um risco solto
+        // atravessando o fim do cartão.
+        borderBottom: recolhido ? 'none' : '0.5px solid var(--orange)',
       }}>
         <i className="ti ti-bell" style={{ fontSize: 16, color: 'var(--orange)' }} aria-hidden="true" />
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--orange)' }}>
             Lembretes da semana
           </div>
+          {/* Esta linha é o que sobra quando o painel está fechado — por isso
+              ela não muda com o recolher: é justamente o resumo que justifica
+              poder fechar o resto. */}
           <div style={{ fontSize: 11, color: 'var(--orange)', opacity: 0.85 }}>
             {pendentes === 0 ? 'Nada pendente ✓' : `${pendentes} pendente${pendentes > 1 ? 's' : ''} · próximos 7 dias`}
             {confirmadas > 0 && ` · ${confirmadas} confirmada${confirmadas > 1 ? 's' : ''} oculta${confirmadas > 1 ? 's' : ''}`}
           </div>
         </div>
+
+        {/* Mesmo idioma dos dois toggles de dentro do painel — chevron apontando
+            para cima quando aberto —, mas compacto: aqui é cabeçalho, não linha
+            de lista, então sem o btn-outline de largura inteira.
+
+            O cabeçalho inteiro não vira botão porque ele tem <div> dentro, e
+            <button> só aceita conteúdo de frase. */}
+        <button
+          type="button"
+          onClick={alternarRecolhido}
+          aria-expanded={!recolhido}
+          aria-controls="painel-lembretes-corpo"
+          title={recolhido ? 'Expandir lembretes' : 'Recolher lembretes'}
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            color: 'var(--orange)', padding: 4, lineHeight: 1, flexShrink: 0,
+          }}
+        >
+          <i className={`ti ti-chevron-${recolhido ? 'down' : 'up'}`}
+             style={{ fontSize: 16 }} aria-hidden="true" />
+        </button>
       </div>
 
       {/* Rows */}
-      <div style={{ padding: '8px 12px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {/* Não renderiza, em vez de esconder com display:none: cada cartão monta
+          um templateLembrete() e um encodeURIComponent da mensagem inteira, e
+          com 28 pendentes esse trabalho todo deixa de acontecer quando está
+          fechado. O conteúdo abaixo NÃO foi reindentado ao ganhar este wrapper
+          — reindentar ~190 linhas esconderia a mudança real no diff.
+
+          `verTodos` e `verEnviados` vivem neste componente, então sobrevivem a
+          recolher e expandir: o "Mostrar mais" já clicado continua valendo. */}
+      {!recolhido && (
+      <div id="painel-lembretes-corpo" style={{ padding: '8px 12px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
         {itens.length === 0 && (
           <div style={{ fontSize: 12, color: 'var(--orange)', opacity: 0.85, padding: '4px 2px' }}>
             Nenhum lembrete pendente nos próximos 7 dias.
@@ -879,6 +937,7 @@ function PainelLembretes({ lembretes, confirmadas = 0, locais, enviadosLocais, o
           );
         })}
       </div>
+      )}
     </div>
   );
 }
