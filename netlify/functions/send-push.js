@@ -71,6 +71,7 @@ exports.handler = async (event) => {
         foto_prato:     { title: primeiroNome, body: 'Nova foto do prato',       url: '/nutri/feed' },
         resposta_prato: { title: primeiroNome, body: 'Nova resposta num prato',  url: '/nutri/feed' },
         consulta_confirmada: { title: primeiroNome, body: 'Confirmou a consulta', url: '/nutri/agenda' },
+        checkin_respondido:  { title: primeiroNome, body: 'Respondeu o check-in',  url: '/nutri/checkins' },
       };
       const payload = NUTRI_PAYLOADS[body.kind] ?? NUTRI_PAYLOADS.mensagem;
 

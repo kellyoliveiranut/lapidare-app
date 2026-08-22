@@ -72,6 +72,18 @@ export default function Checkin() {
       .eq('id', envio.id);
     setBusy(false);
     if (error) return setErro(error.message);
+    // Notifica a nutri via push (fire-and-forget — nunca bloqueia a UI).
+    // Sai antes do navigate de 2,5s abaixo, e a navegação é do react-router,
+    // dentro da mesma página — não cancela a requisição em voo.
+    supabase.auth.getSession().then(({ data }) => {
+      const accessToken = data.session?.access_token;
+      if (!accessToken) return;
+      fetch('/.netlify/functions/send-push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+        body: JSON.stringify({ mode: 'notify_nutri', kind: 'checkin_respondido' }),
+      }).catch(() => {});
+    });
     setSucesso(true);
     setTimeout(() => navigate('/paciente/inicio', { replace: true }), 2500);
   }
