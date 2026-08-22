@@ -142,12 +142,56 @@ function lerRecolhido() {
   try { return localStorage.getItem(CHAVE_RECOLHIDO) === '1'; } catch { return false; }
 }
 
+/**
+ * Chave do dia no fuso da CLÍNICA, não no do navegador: "26/08/2026". Assim
+ * "Hoje" nunca discorda da data impressa dentro do próprio cartão.
+ *
+ * Serve de identidade de grupo no painel de lembretes e na lista de consultas.
+ */
+const chaveDia = d => d.toLocaleDateString('pt-BR', { timeZone: TZ_CLINICA });
+
+/**
+ * "Hoje", "Amanhã" ou "Ter 26/08".
+ *
+ * `agora` é PARÂMETRO, e não constante deste módulo, de propósito: calculado
+ * uma vez na importação, ele congelaria o que é "hoje" no instante em que a
+ * página carregou — a Agenda deixada aberta durante a virada da meia-noite
+ * continuaria chamando o dia anterior de "Hoje".
+ */
+function rotuloDoDia(dt, agora = new Date()) {
+  const k = chaveDia(dt);
+  if (k === chaveDia(agora)) return 'Hoje';
+  if (k === chaveDia(new Date(agora.getTime() + 24 * 3600 * 1000))) return 'Amanhã';
+  const s = dt.toLocaleDateString('pt-BR', { timeZone: TZ_CLINICA, weekday: 'short', day: '2-digit', month: '2-digit' }).replace('.', '');
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 export default function Agenda() {
   const { user } = useSession();
   const [consultas, setConsultas] = useState(undefined);
   const [pacientes, setPacientes] = useState([]);
   const [locais, setLocais] = useState([]);
-  const [modalState, setModalState] = useState({ open: false, consulta: null, pacienteInicialId: null });
+  const [modalState, setModalState] = useState({ open: false, consulta: null, pacienteInicialId: null, remarcando: false });
+
+  // Dias recolhidos na lista "Todas as próximas". Todos nascem EXPANDIDOS:
+  // recolher é escolha da nutri, e nascer com consulta escondida geraria
+  // "sumiu uma paciente".
+  //
+  // Não persiste no localStorage, ao contrário do painel de lembretes: lá o
+  // estado é um booleano, que vale para sempre; aqui as chaves são datas, e um
+  // Set gravado acumularia dias que já passaram, crescendo sem fim — além de
+  // "recolhi a terça passada" não querer dizer nada na semana seguinte.
+  const [diasRecolhidos, setDiasRecolhidos] = useState(() => new Set());
+
+  function alternarDia(chave) {
+    setDiasRecolhidos(prev => {
+      // Set NOVO, nunca mutado: o React compara por referência, e um
+      // prev.add() não dispararia re-render.
+      const proximo = new Set(prev);
+      if (proximo.has(chave)) proximo.delete(chave); else proximo.add(chave);
+      return proximo;
+    });
+  }
   const [novaPacienteOpen, setNovaPacienteOpen] = useState(false);
   // Convite da paciente recém-criada pelo cadastro rápido: fica na faixa verde
   // do topo até a nutri dispensar. Sem isso o link de primeiro acesso ficaria
@@ -331,6 +375,43 @@ export default function Agenda() {
   const canceladas = (consultas ?? []).filter(c => c.status === 'cancelada');
   const aConfirmar = futuras.filter(c => podeConfirmar(c) && !c.confirmada_em).length;
 
+  // Dias que ainda não acabaram — é o que a lista "Todas as próximas" mostra,
+  // no lugar de `futuras`.
+  //
+  // O corte é no DIA, não na consulta: o grupo fica na tela enquanto a ÚLTIMA
+  // consulta dele não passar. Numa terça com 9h, 14h e 17h, às 15h a terça
+  // continua inteira; antes ela encolhia para só a das 17h, e a nutri perdia de
+  // vista o que ainda estava acontecendo no dia.
+  //
+  // Sem useMemo de propósito: `ativas` é um filter novo a cada render, então a
+  // memoização nunca acertaria o cache. São dezenas de itens.
+  //
+  // A ordem sai de graça da consulta ao banco (.order('data_hora')): os dias
+  // saem cronológicos e as consultas dentro de cada dia também.
+  const diasFuturos = [];
+  {
+    const porChave = new Map();
+    for (const c of ativas) {
+      if (!c.data_hora) continue;
+      const chave = chaveDia(new Date(c.data_hora));
+      let g = porChave.get(chave);
+      if (!g) { g = { chave, consultas: [] }; porChave.set(chave, g); diasFuturos.push(g); }
+      g.consultas.push(c);
+    }
+  }
+  // Comparação NUMÉRICA, não de strings como nas linhas de `futuras` acima:
+  // data_hora vem do Postgres com sufixo +00:00 e `agora` termina em Z, então
+  // comparar texto só funciona porque o prefixo costuma decidir antes. Aqui o
+  // corte é exatamente "a última já passou?", e o limite deixa de ser hipótese.
+  //
+  // Sai do MESMO `agora` da linha de cima, e não de um Date.now() próprio: duas
+  // leituras de relógio podem cair em segundos diferentes, e aí os dois cortes
+  // discordariam sobre uma consulta bem no limite.
+  const agoraMs = new Date(agora).getTime();
+  const diasVisiveis = diasFuturos.filter(g =>
+    new Date(g.consultas[g.consultas.length - 1].data_hora).getTime() >= agoraMs
+  );
+
   // Quem já confirmou presença sai do painel: o lembrete existe para arrancar
   // a confirmação, e insistir com quem já respondeu é ruído. O critério é o
   // mesmo do resto do app — confirmada_em não nulo, independente de quem
@@ -348,9 +429,13 @@ export default function Agenda() {
       .sort((a, b) => a.data_hora.localeCompare(b.data_hora));
   }, [consultas, diaSelecionado]);
 
-  const abrirNova = () => setModalState({ open: true, consulta: null, pacienteInicialId: null });
-  const abrirEdit = (consulta) => setModalState({ open: true, consulta, pacienteInicialId: null });
-  const fechar = () => setModalState({ open: false, consulta: null, pacienteInicialId: null });
+  const abrirNova = () => setModalState({ open: true, consulta: null, pacienteInicialId: null, remarcando: false });
+  const abrirEdit = (consulta) => setModalState({ open: true, consulta, pacienteInicialId: null, remarcando: false });
+  // Mesmo modal, já em modo remarcação: a faixa explicativa, o destaque nos
+  // campos de data/hora e o rótulo "Salvar remarcação" saem todos do mesmo
+  // `remarcando` que o botão de dentro do modal já acionava.
+  const abrirRemarcacao = (consulta) => setModalState({ open: true, consulta, pacienteInicialId: null, remarcando: true });
+  const fechar = () => setModalState({ open: false, consulta: null, pacienteInicialId: null, remarcando: false });
 
   // Fluxo do cadastro rápido: fecha o modal de cadastro, mostra o convite e
   // emenda direto no agendamento com a paciente já escolhida.
@@ -462,7 +547,8 @@ export default function Agenda() {
         <div className="card" style={{ padding: 0 }}>
           {consultasDoDia.map((c, i) => (
             <ConsultaRow key={c.id} c={c} isLast={i === consultasDoDia.length - 1} onClick={() => abrirEdit(c)}
-              onToggleConfirmada={toggleConfirmada} />
+              onToggleConfirmada={toggleConfirmada}
+              onRemarcar={() => abrirRemarcacao(c)} />
           ))}
         </div>
       )}
@@ -481,15 +567,53 @@ export default function Agenda() {
             </>
           )}
 
-          {futuras.length > 0 && (
+          {/* Um cartão por dia: o cabeçalho de cada um é a separação visual
+              entre os dias, e o chevron recolhe o dia inteiro. Mesmo idioma do
+              painel de lembretes — seta para cima quando aberto, borda de baixo
+              some quando fechado. */}
+          {diasVisiveis.length > 0 && (
             <>
               <div className="section-label" style={{ marginTop: 20 }}>Todas as próximas</div>
-              <div className="card" style={{ padding: 0 }}>
-                {futuras.map((c, i) => (
-                  <ConsultaRow key={c.id} c={c} isLast={i === futuras.length - 1} onClick={() => abrirEdit(c)}
-                    onToggleConfirmada={toggleConfirmada} />
-                ))}
-              </div>
+              {diasVisiveis.map(g => {
+                const recolhido = diasRecolhidos.has(g.chave);
+                const rotulo = rotuloDoDia(new Date(g.consultas[0].data_hora));
+                const n = g.consultas.length;
+                return (
+                  <div key={g.chave} className="card" style={{ padding: 0, marginBottom: 8 }}>
+                    <div style={{
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      padding: '10px 16px',
+                      borderBottom: recolhido ? 'none' : '0.5px solid #f5f0e8',
+                    }}>
+                      {/* O contador é o que sobra quando o dia está recolhido. */}
+                      <div style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>
+                        {rotulo}
+                        <span style={{ fontWeight: 400, color: 'var(--text3)', marginLeft: 6 }}>
+                          · {n} consulta{n > 1 ? 's' : ''}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => alternarDia(g.chave)}
+                        aria-expanded={!recolhido}
+                        title={recolhido ? `Expandir ${rotulo}` : `Recolher ${rotulo}`}
+                        style={{
+                          background: 'none', border: 'none', cursor: 'pointer',
+                          color: 'var(--text3)', padding: 4, lineHeight: 1, flexShrink: 0,
+                        }}>
+                        <i className={`ti ti-chevron-${recolhido ? 'down' : 'up'}`}
+                           style={{ fontSize: 16 }} aria-hidden="true" />
+                      </button>
+                    </div>
+                    {!recolhido && g.consultas.map((c, i) => (
+                      <ConsultaRow key={c.id} c={c} isLast={i === n - 1}
+                        onClick={() => abrirEdit(c)}
+                        onToggleConfirmada={toggleConfirmada}
+                        onRemarcar={() => abrirRemarcacao(c)} />
+                    ))}
+                  </div>
+                );
+              })}
             </>
           )}
 
@@ -529,6 +653,7 @@ export default function Agenda() {
           locais={locais}
           nutriId={user.id}
           pacienteInicialId={modalState.pacienteInicialId}
+          remarcarAoAbrir={modalState.remarcando}
           onClose={fechar}
           onSaved={async () => { fechar(); await carregar(); }}
           onToggleConfirmada={toggleConfirmada}
@@ -659,19 +784,8 @@ function PainelLembretes({ lembretes, confirmadas = 0, locais, enviadosLocais, o
   const visiveis = verTodos ? pendentesList : pendentesList.slice(0, LIMITE_PENDENTES);
   const ocultos = pendentes - visiveis.length;
 
-  // Separadores no fuso da clínica, não no do navegador: assim "Hoje" nunca
-  // discorda da data impressa dentro do próprio cartão.
-  const chaveDia = d => d.toLocaleDateString('pt-BR', { timeZone: TZ_CLINICA });
-  const agora = new Date();
-  const chaveHoje = chaveDia(agora);
-  const chaveAmanha = chaveDia(new Date(agora.getTime() + 24 * 3600 * 1000));
-  function rotuloDoDia(dt) {
-    const k = chaveDia(dt);
-    if (k === chaveHoje) return 'Hoje';
-    if (k === chaveAmanha) return 'Amanhã';
-    const s = dt.toLocaleDateString('pt-BR', { timeZone: TZ_CLINICA, weekday: 'short', day: '2-digit', month: '2-digit' }).replace('.', '');
-    return s.charAt(0).toUpperCase() + s.slice(1);
-  }
+  // chaveDia e rotuloDoDia vivem no escopo do módulo — a lista de consultas
+  // agrupada por dia usa as mesmas.
 
   // Uma lista só, com marcadores, para o cartão do lembrete não precisar ser
   // duplicado entre a seção de pendentes e a de enviados.
@@ -1091,12 +1205,17 @@ function Legenda({ cor, label }) {
 /* ============================================================
    LINHA DE CONSULTA
    ============================================================ */
-function ConsultaRow({ c, isLast, isPast, isCanceled, onClick, onToggleConfirmada }) {
+function ConsultaRow({ c, isLast, isPast, isCanceled, onClick, onToggleConfirmada, onRemarcar }) {
   const navigate = useNavigate();
   const cor = tipoColor(c.tipo);
   const confirmavel = podeConfirmar(c) && typeof onToggleConfirmada === 'function';
   const confirmada = !!c.confirmada_em;
   const mod = modalidadeInfo(c.modalidade);
+
+  // A condição de status espelha a do botão dentro do modal. O teste de
+  // data_hora é próprio da linha: em "A definir" não há data para remarcar — ali
+  // o caminho é abrir e agendar.
+  const remarcavel = typeof onRemarcar === 'function' && c.status === 'agendada' && !!c.data_hora;
 
   // Mesmo motivo do alternarConfirmada: sem stopPropagation o clique no nome
   // subiria para o wrapper e abriria o modal da consulta por cima do perfil.
@@ -1110,6 +1229,13 @@ function ConsultaRow({ c, isLast, isPast, isCanceled, onClick, onToggleConfirmad
   function alternarConfirmada(e) {
     e.stopPropagation();
     onToggleConfirmada(c.id, !confirmada);
+  }
+
+  // Sem o stopPropagation o clique subiria para o wrapper e abriria o modal em
+  // modo normal, por cima do que o onRemarcar acabou de pedir.
+  function acionarRemarcar(e) {
+    e.stopPropagation();
+    onRemarcar();
   }
 
   return (
@@ -1171,25 +1297,47 @@ function ConsultaRow({ c, isLast, isPast, isCanceled, onClick, onToggleConfirmad
             <i className={`ti ${mod.icone}`} aria-hidden="true" style={{ fontSize: 12 }} /> {mod.label}
           </span>
         </div>
-        {confirmavel && (
-          <button
-            onClick={alternarConfirmada}
-            title={confirmada
-              ? 'Confirmada — toque para desmarcar'
-              : 'Marcar como confirmada (a paciente avisou pelo WhatsApp)'}
-            style={{
-              marginTop: 6, minHeight: 30, padding: '0 11px',
-              borderRadius: 20, cursor: 'pointer',
-              fontFamily: 'var(--font-sans)', fontSize: 11.5, fontWeight: 500,
-              display: 'inline-flex', alignItems: 'center', gap: 5,
-              background: confirmada ? '#dcfce7' : 'var(--orange-bg)',
-              color:      confirmada ? '#15803d' : 'var(--orange)',
-              border: `1px solid ${confirmada ? '#bbf7d0' : 'var(--orange)'}`,
-            }}>
-            {confirmada
-              ? <><i className="ti ti-check" aria-hidden="true" /> Confirmada</>
-              : 'Marcar confirmada'}
-          </button>
+        {/* flexWrap para os dois botões quebrarem em vez de espremer o nome da
+            paciente no celular. */}
+        {(confirmavel || remarcavel) && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+            {confirmavel && (
+              <button
+                onClick={alternarConfirmada}
+                title={confirmada
+                  ? 'Confirmada — toque para desmarcar'
+                  : 'Marcar como confirmada (a paciente avisou pelo WhatsApp)'}
+                style={{
+                  minHeight: 30, padding: '0 11px',
+                  borderRadius: 20, cursor: 'pointer',
+                  fontFamily: 'var(--font-sans)', fontSize: 11.5, fontWeight: 500,
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                  background: confirmada ? '#dcfce7' : 'var(--orange-bg)',
+                  color:      confirmada ? '#15803d' : 'var(--orange)',
+                  border: `1px solid ${confirmada ? '#bbf7d0' : 'var(--orange)'}`,
+                }}>
+                {confirmada
+                  ? <><i className="ti ti-check" aria-hidden="true" /> Confirmada</>
+                  : 'Marcar confirmada'}
+              </button>
+            )}
+            {/* Neutro de propósito: o laranja do confirmar é o que pede ação. */}
+            {remarcavel && (
+              <button
+                onClick={acionarRemarcar}
+                title="Abrir a consulta já na escolha de nova data e horário"
+                style={{
+                  minHeight: 30, padding: '0 11px',
+                  borderRadius: 20, cursor: 'pointer',
+                  fontFamily: 'var(--font-sans)', fontSize: 11.5, fontWeight: 500,
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                  background: 'var(--bg2)', color: 'var(--text2)',
+                  border: '1px solid var(--border)',
+                }}>
+                <i className="ti ti-calendar-event" aria-hidden="true" /> Remarcar
+              </button>
+            )}
+          </div>
         )}
       </div>
 
@@ -1218,7 +1366,7 @@ const destaqueRemarcacao = {
   boxShadow: '0 0 0 2px var(--orange-bg)',
 };
 
-function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId, onClose, onSaved, onToggleConfirmada }) {
+function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId, remarcarAoAbrir, onClose, onSaved, onToggleConfirmada }) {
   const isEdit = !!consulta;
   const navigate = useNavigate();
 
@@ -1254,7 +1402,7 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
   const [confirmada, setConfirmada] = useState(!!consulta?.confirmada_em);
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState(null);
-  const [remarcando, setRemarcando] = useState(false);
+  const [remarcando, setRemarcando] = useState(!!remarcarAoAbrir);
   const campoDataRef = useRef(null);
 
   // Remarcar não tem lógica própria: trocar data/horário e salvar já dispara o
@@ -1265,6 +1413,15 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
     campoDataRef.current?.focus({ preventScroll: true });
     campoDataRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
+
+  // Aberto pelo botão "Remarcar" da linha da lista. O estado já nasceu true no
+  // useState acima — aqui só falta o foco e a rolagem, que dependem do campo
+  // existir no DOM e por isso não podem acontecer no corpo do componente.
+  useEffect(() => {
+    if (!remarcarAoAbrir) return;
+    campoDataRef.current?.focus({ preventScroll: true });
+    campoDataRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [remarcarAoAbrir]);
 
   // Auto-sugere o tipo só ao CRIAR
   useEffect(() => {
