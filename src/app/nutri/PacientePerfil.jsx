@@ -12,7 +12,7 @@ import { TEMPLATE_PADRAO } from '../../lib/checkinDefault.js';
 import { mensagemAcesso } from '../../lib/mensagemAcesso.js';
 import { OBJETIVOS } from '../../lib/objetivos.js';
 import { PLANOS } from '../../lib/opcoesPaciente.js';
-import { callAnthropicComRetry } from '../../lib/anthropic.js';
+import { callAnthropicComRetry, lerPdfBase64 } from '../../lib/anthropic.js';
 import { buscarAlimento, medidaCaseira, kcalDoAlimento, kcalEquivalente, parseGramas } from '../../lib/taco.js';
 import DateInput, { parseDatePaste } from '../../components/DateInput.jsx';
 import CheckinForm from '../../components/CheckinForm.jsx';
@@ -1951,15 +1951,6 @@ const CAMPOS_LOTE = [
   { k: 'geb_kcal',      label: 'GEB (kcal)' },
   { k: 'get_kcal',      label: 'GET (kcal)' },
 ];
-
-function lerPdfBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result.split(',')[1]);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
 
 async function chamarShaped(base64) {
   const text = await callAnthropicComRetry([

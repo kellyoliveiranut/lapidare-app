@@ -82,7 +82,24 @@ const SENTIMENTO_OPTS = [
   { value: 'cansada', label: '😔 Cansada' },
 ];
 const EMOJI = { bem: '😊', regular: '😐', cansada: '😔' };
-const form0 = () => ({ intensidade_sentida: 'Normal', como_se_sentiu: 'bem', observacao: '' });
+const form0 = (dia_id = null) => ({ dia_id, intensidade_sentida: 'Normal', como_se_sentiu: 'bem', observacao: '' });
+
+// Mesmas siglas do cadastro da nutri (_TreinoDias.jsx).
+const DIAS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+
+// getDay() devolve 0=domingo…6=sábado; DIAS começa na SEGUNDA. O (+6)%7 gira o
+// índice: domingo 0→6 ('Dom'), segunda 1→0 ('Seg'), sábado 6→5 ('Sáb').
+const siglaDeHoje = (d = new Date()) => DIAS[(d.getDay() + 6) % 7];
+
+// Um dia só → é ele, e o seletor nem aparece. Vários → o que bate com hoje.
+// Nenhum bate → null, e o botão fica travado até ela escolher: registrar sem
+// saber qual foi é o que a coluna dia_id existe para evitar.
+function diaPadrao(dias) {
+  if (!dias?.length) return null;
+  if (dias.length === 1) return dias[0].id;
+  const hoje = siglaDeHoje();
+  return dias.find(d => d.dias_semana?.includes(hoje))?.id ?? null;
+}
 
 function youtubeEmbedUrl(url) {
   if (!url) return null;
@@ -199,17 +216,27 @@ export default function TreinosPaciente() {
   const [feedback, setFeedback] = useState(null);
   const [semanaCount, setSemanaCount] = useState(0);
 
+  // Dias do plano ativo, na ordem que a nutri montou. Plano antigo (sem dias)
+  // devolve [] e a tela fica exatamente como era antes.
+  const dias = [...(treino?.treinos_dias ?? [])].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
+
   async function carregar() {
     if (!pacienteId) return;
     const [treinoRes, registrosRes] = await Promise.all([
-      supabase.from('treinos_prescritos').select('*')
+      supabase.from('treinos_prescritos').select('*, treinos_dias(id, nome, dias_semana, ordem)')
         .eq('paciente_id', pacienteId).eq('ativo', true)
         .order('created_at', { ascending: false }).limit(1).maybeSingle(),
-      supabase.from('treinos_registros').select('*')
+      // O aninhado é o que dá NOME ao dia no histórico — sem ele, dia_id
+      // apareceria como uuid.
+      supabase.from('treinos_registros').select('*, dia:treinos_dias(nome)')
         .eq('paciente_id', pacienteId)
         .order('data_execucao', { ascending: false }).limit(30),
     ]);
-    setTreino(treinoRes.data ?? null);
+    const t = treinoRes.data ?? null;
+    setTreino(t);
+    // A escolha do dia é reavaliada a cada carga: o padrão depende do dia da
+    // semana de hoje, não de quando a tela abriu.
+    setForm(f => ({ ...f, dia_id: diaPadrao([...(t?.treinos_dias ?? [])].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0))) }));
     const regs = registrosRes.data ?? [];
     setRegistros(regs);
     const hoje = new Date();
@@ -228,6 +255,7 @@ export default function TreinosPaciente() {
     const { error } = await supabase.from('treinos_registros').insert({
       paciente_id: pacienteId,
       treino_id: treino.id,
+      dia_id: form.dia_id,
       intensidade_sentida: form.intensidade_sentida,
       como_se_sentiu: form.como_se_sentiu,
       observacao: form.observacao.trim() || null,
@@ -235,7 +263,10 @@ export default function TreinosPaciente() {
     setSalvando(false);
     if (error) { setFeedback({ tipo: 'erro', msg: 'Erro ao registrar: ' + error.message }); return; }
     setFeedback({ tipo: 'ok', msg: 'Sessão registrada! Continue assim 💪' });
-    setForm(form0());
+    // O reset devolve o dia PADRÃO, não null: isto é state, não remontagem —
+    // o efeito de carga não roda de novo, e um form0() seco deixaria o botão
+    // desabilitado esperando uma escolha que ela acabou de fazer.
+    setForm(form0(diaPadrao(dias)));
     carregar();
   }
 
@@ -377,6 +408,33 @@ export default function TreinosPaciente() {
           <div className="card" style={{ marginBottom: 12 }}>
             <div className="card-title" style={{ marginBottom: 14 }}>Registrar sessão de hoje</div>
 
+            {/* Some quando há um dia só: nesse caso ele já vem escolhido e
+                perguntar seria pedir uma decisão que não existe. */}
+            {dias.length > 1 && (
+              <>
+                <label className="field-label">Qual treino você fez?</label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, marginBottom: 14 }}>
+                  {dias.map(d => {
+                    const on = form.dia_id === d.id;
+                    return (
+                      <button key={d.id} onClick={() => setForm(f => ({ ...f, dia_id: d.id }))}
+                        style={{
+                          padding: '10px 8px', borderRadius: 8, cursor: 'pointer',
+                          fontFamily: 'var(--font-sans)', border: 'none', textAlign: 'center',
+                          background: on ? 'var(--ink)' : 'var(--bg-soft)',
+                          color: on ? 'var(--paper)' : 'var(--ink-soft)',
+                        }}>
+                        <div style={{ fontSize: 13, fontWeight: on ? 600 : 400 }}>{d.nome}</div>
+                        {d.dias_semana?.length > 0 && (
+                          <div style={{ fontSize: 11, opacity: .7, marginTop: 2 }}>{d.dias_semana.join(' · ')}</div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+
             <label className="field-label">Como foi a intensidade?</label>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, marginBottom: 14 }}>
               {INTENSIDADE_OPTS.map(op => (
@@ -417,7 +475,7 @@ export default function TreinosPaciente() {
               }}>{feedback.msg}</div>
             )}
             <button className="btn" style={{ width: '100%', justifyContent: 'center' }}
-              onClick={registrar} disabled={salvando}>
+              onClick={registrar} disabled={salvando || (dias.length > 0 && !form.dia_id)}>
               <i className="ti ti-check" aria-hidden="true" />
               {salvando ? 'Salvando...' : 'Fiz o treino hoje'}
             </button>
@@ -449,7 +507,7 @@ export default function TreinosPaciente() {
                     </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 14, fontWeight: 500 }}>
-                        {r.intensidade_sentida} · {dataStr} às {horaStr}
+                        {r.dia?.nome ? `${r.dia.nome} · ` : ''}{r.intensidade_sentida} · {dataStr} às {horaStr}
                       </div>
                       {r.observacao && (
                         <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{r.observacao}</div>

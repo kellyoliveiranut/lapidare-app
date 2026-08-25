@@ -56,6 +56,18 @@ export async function callAnthropicComRetry(messages, opts = {}, { tentativas = 
   throw ultimoErro;
 }
 
+// Irmã da urlToBase64, para arquivo escolhido no <input type="file">. Estava
+// duplicada como função local do PacientePerfil.jsx; mora aqui porque o import
+// de treino por PDF (_Treinos.jsx) precisa da mesma coisa.
+export function lerPdfBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 export async function urlToBase64(url) {
   const res = await fetch(url);
   const blob = await res.blob();

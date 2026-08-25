@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
+import { callAnthropicComRetry, lerPdfBase64 } from '../../lib/anthropic.js';
 import { dataBR } from '../../lib/utils.js';
+import TreinoDias from './_TreinoDias.jsx';
 
 const TIPOS = [
   'Aeróbico (caminhada, bicicleta ergométrica)',
@@ -35,6 +37,116 @@ function youtubeEmbedUrl(url) {
   return m ? `https://www.youtube.com/embed/${m[1]}` : null;
 }
 
+/* ── Import de plano por PDF: leitura por IA ── */
+
+const PROMPT_TREINO_PDF = `Você vai analisar um PDF de plano de treino (prescrição de educador físico ou personal) e extrair o cabeçalho do plano e a divisão em dias com os exercícios de cada um.
+
+Retorne um OBJETO JSON puro (sem nenhum texto fora do objeto).
+
+═══ REGRA GERAL ═══
+- Se um valor não estiver no documento, use null — NÃO invente.
+- Copie séries, repetições, carga e intervalo LITERALMENTE como estão escritos ("3", "3-4", "12/10/8", "até a falha", "30s", "RPE 7"). NÃO converta para número, NÃO padronize, NÃO arredonde.
+
+═══ FORMATO ═══
+{
+  plano: {
+    tipo: string|null — ESCOLHA EXATAMENTE UM desta lista:
+      ${TIPOS.map(t => `"${t}"`).join('\n      ')}
+    intensidade: "Leve"|"Moderada"|"Moderada-alta"|null
+    frequencia_semanal: 1|2|3|4|5|null
+    duracao_minutos: 10|15|20|30|45|60|null (o mais próximo do documento)
+    fase_tratamento: string|null — EXATAMENTE UM desta lista, ou null:
+      ${FASES.map(f => `"${f}"`).join('\n      ')}
+    divisao: string|null (ex: "A/B", "ABC", "Full body")
+    contexto_clinico: string|null (situação clínica que o plano assume)
+    local_equipamentos: string|null (onde treina e com o quê)
+    objetivo_treino: string|null
+    precaucoes: string|null
+    progressao: string|null
+    observacoes: string|null
+  },
+  dias: [
+    {
+      nome: string (rótulo do documento: "Treino A", "Superiores"...)
+      dias_semana: array de strings|null — SOMENTE destes valores, com o acento exato: ${DIAS.map(d => `"${d}"`).join(' ')}
+      exercicios: [
+        { nome: string, series: string|null, repeticoes: string|null,
+          intensidade: string|null (carga OU percepção de esforço),
+          intervalo: string|null, observacao: string|null }
+      ]
+    }
+  ]
+}
+
+Se o plano não tiver divisão em dias, devolva dias: [] — não invente "Treino A".
+
+Retorne SOMENTE o objeto JSON.`;
+
+async function chamarTreinoPdf(base64) {
+  const text = await callAnthropicComRetry([
+    {
+      role: 'user',
+      content: [
+        { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
+        { type: 'text', text: PROMPT_TREINO_PDF },
+      ],
+    },
+  ], { maxTokens: 8192 });
+  // A IA às vezes cerca a resposta em bloco de código — mesmo tratamento do
+  // chamarShaped em PacientePerfil.jsx.
+  const parsed = JSON.parse(text.replace(/```(?:json)?\n?/g, '').trim());
+  return {
+    plano: parsed?.plano ?? {},
+    dias: Array.isArray(parsed?.dias) ? parsed.dias.filter(Boolean) : [],
+  };
+}
+
+// Um <select> com value fora das <option> renderiza VAZIO — mesmo modo de
+// falha documentado no Agenda.jsx. Enumerar a lista no prompt não é garantia:
+// estas duas funções é que garantem.
+const naLista = (v, lista, padrao) => lista.includes(v) ? v : padrao;
+const maisProximo = (v, lista, padrao) => Number.isFinite(Number(v))
+  ? lista.reduce((a, b) => Math.abs(b - Number(v)) < Math.abs(a - Number(v)) ? b : a)
+  : padrao;
+
+// Devolve só as chaves do form que dá para preencher; o resto fica como está.
+function mapPlanoParaForm(p = {}) {
+  const txt = v => (typeof v === 'string' && v.trim()) ? v.trim() : '';
+  return {
+    tipo:               naLista(p.tipo, TIPOS, TIPOS[0]),
+    intensidade:        naLista(p.intensidade, INTENSIDADES, 'Leve'),
+    frequencia_semanal: maisProximo(p.frequencia_semanal, FREQUENCIAS, 3),
+    duracao_minutos:    maisProximo(p.duracao_minutos, DURACOES, 30),
+    fase_tratamento:    naLista(p.fase_tratamento, FASES, ''),
+    objetivo_treino:    txt(p.objetivo_treino),
+    precaucoes:         txt(p.precaucoes),
+    progressao:         txt(p.progressao),
+    observacoes:        txt(p.observacoes),
+    contexto_clinico:   txt(p.contexto_clinico),
+    local_equipamentos: txt(p.local_equipamentos),
+    divisao:            txt(p.divisao),
+  };
+}
+
+// Os dias_semana da IA passam pelo mesmo crivo: sigla fora da lista é
+// descartada em vez de virar chip fantasma no editor.
+function normalizarDias(dias) {
+  return (dias ?? []).map(d => ({
+    nome: (d?.nome ?? '').trim() || 'Treino',
+    dias_semana: (Array.isArray(d?.dias_semana) ? d.dias_semana : []).filter(x => DIAS.includes(x)),
+    exercicios: (Array.isArray(d?.exercicios) ? d.exercicios : [])
+      .filter(e => (e?.nome ?? '').trim())
+      .map(e => ({
+        nome: e.nome.trim(),
+        series: e.series ?? '',
+        repeticoes: e.repeticoes ?? '',
+        intensidade: e.intensidade ?? '',
+        intervalo: e.intervalo ?? '',
+        observacao: e.observacao ?? '',
+      })),
+  }));
+}
+
 const form0 = () => ({
   tipo: TIPOS[0],
   intensidade: 'Leve',
@@ -42,6 +154,11 @@ const form0 = () => ({
   duracao_minutos: 30,
   fase_tratamento: '',
   dias_semana: [],
+  // As três da migration 2026-08-25. O PDF costuma trazer as três no
+  // cabeçalho; sem campo no form, o que a IA lê se perderia em silêncio.
+  contexto_clinico: '',
+  local_equipamentos: '',
+  divisao: '',
   objetivo_treino: '',
   precaucoes: '',
   progressao: '',
@@ -57,11 +174,24 @@ export default function Treinos({ pacienteId, nutriId, pacienteNome }) {
   const [feedback, setFeedback] = useState(null);
   const [ascoOpen, setAscoOpen] = useState(false);
   const [erroLista, setErroLista] = useState(null);
+  // Treino cujo editor de dias/exercícios está aberto. Recebe o treino inteiro
+  // (não só o id) porque o modal mostra tipo e data no cabeçalho.
+  const [editorTreino, setEditorTreino] = useState(null);
+  // Dias vindos do PDF, semeados no editor quando ele abrir. Null em qualquer
+  // outro caminho — e é isso que faz o editor ler do banco no caso normal.
+  const [editorRascunho, setEditorRascunho] = useState(null);
+  // Segura os dias lidos do PDF entre o import e o Publicar. Some depois, para
+  // um PDF alimentar UMA publicação.
+  const [rascunhoPdf, setRascunhoPdf] = useState(null);
+  const [importando, setImportando] = useState(false);
+  const pdfRef = useRef(null);
 
+  // O aninhado traz só ids, para o cartão poder mostrar "2 dias, 11
+  // exercícios" sem uma query por linha. São poucas linhas por paciente.
   async function carregar() {
     const { data } = await supabase
       .from('treinos_prescritos')
-      .select('*')
+      .select('*, treinos_dias(id, treinos_exercicios(id))')
       .eq('paciente_id', pacienteId)
       .order('created_at', { ascending: false });
     setTreinos(data ?? []);
@@ -79,10 +209,43 @@ export default function Treinos({ pacienteId, nutriId, pacienteNome }) {
       : [...f.dias_semana, dia],
   }));
 
+  // O PDF preenche o CABEÇALHO (o form abaixo) e guarda os dias para depois:
+  // eles só existem quando houver um treino_id, e o treino só nasce no
+  // Publicar. É o mesmo fluxo de dois passos do formulário manual.
+  async function importarTreinoPdf(file) {
+    setImportando(true);
+    setFeedback(null);
+    try {
+      const base64 = await lerPdfBase64(file);
+      const { plano, dias } = await chamarTreinoPdf(base64);
+      const limpos = normalizarDias(dias);
+      setForm(f => ({ ...f, ...mapPlanoParaForm(plano) }));
+      setRascunhoPdf(limpos);
+      const nEx = limpos.reduce((n, d) => n + d.exercicios.length, 0);
+      setFeedback({
+        tipo: 'ok',
+        msg: `Plano lido: ${limpos.length} dia(s), ${nEx} exercício(s). Confira o cabeçalho e publique — os dias abrem para conferência em seguida.`,
+      });
+    } catch (err) {
+      console.error('[importarTreinoPdf]', err);
+      setFeedback({ tipo: 'erro', msg: 'Erro ao ler o PDF: ' + (err?.message ?? 'tente novamente') });
+    } finally {
+      setImportando(false);
+      if (pdfRef.current) pdfRef.current.value = '';
+    }
+  }
+
+  // Publicar aposenta os planos anteriores desta paciente. A ordem é
+  // deliberada: INSERT primeiro, desativação depois.
+  //
+  // Se desativasse antes e o insert falhasse, ela ficaria sem NENHUM plano
+  // ativo — a tela de treinos dela esvaziaria. Nesta ordem, um update que
+  // falhe deixa dois ativos, e paciente/Treinos.jsx pega o mais recente, que é
+  // justamente o novo. Por isso o erro do update avisa e não aborta.
   async function publicar() {
     setFeedback(null);
     setBusy(true);
-    const { error } = await supabase.from('treinos_prescritos').insert({
+    const { data: novo, error } = await supabase.from('treinos_prescritos').insert({
       paciente_id:      pacienteId,
       nutri_id:         nutriId,
       tipo:             form.tipo,
@@ -91,6 +254,9 @@ export default function Treinos({ pacienteId, nutriId, pacienteNome }) {
       duracao_minutos:  form.duracao_minutos,
       fase_tratamento:  form.fase_tratamento || null,
       dias_semana:      form.dias_semana.length ? form.dias_semana : null,
+      contexto_clinico:   form.contexto_clinico.trim() || null,
+      local_equipamentos: form.local_equipamentos.trim() || null,
+      divisao:            form.divisao.trim() || null,
       objetivo_treino:  form.objetivo_treino.trim() || null,
       precaucoes:       form.precaucoes.trim() || null,
       progressao:       form.progressao.trim() || null,
@@ -98,12 +264,30 @@ export default function Treinos({ pacienteId, nutriId, pacienteNome }) {
       video_url:             form.video_url.trim() || null,
       data_liberacao_video:  form.data_liberacao_video || null,
       ativo: true,
-    });
+    }).select().single();
+
+    if (error) { setBusy(false); setFeedback({ tipo: 'erro', msg: error.message }); return; }
+
+    // O .neq é obrigatório: sem ele o update desativaria o que acabou de
+    // nascer. O filtro por ativo evita reescrever linhas já inativas.
+    const { error: erroDesativar } = await supabase
+      .from('treinos_prescritos')
+      .update({ ativo: false })
+      .eq('paciente_id', pacienteId)
+      .eq('ativo', true)
+      .neq('id', novo.id);
+
     setBusy(false);
-    if (error) { setFeedback({ tipo: 'erro', msg: error.message }); return; }
-    setFeedback({ tipo: 'ok', msg: `Treino publicado para ${pacienteNome.split(' ')[0]}!` });
     setForm(form0());
-    carregar();
+    await carregar();
+    setFeedback(erroDesativar
+      ? { tipo: 'aviso', msg: 'Treino publicado, mas o plano anterior continua ativo — desative pela lista.' }
+      : { tipo: 'ok', msg: `Treino publicado para ${pacienteNome.split(' ')[0]}!` });
+    // Abre o editor já no treino novo: é o momento em que ela tem o plano na
+    // frente para cadastrar os dias. Vindo de PDF, abre pré-populado.
+    setEditorTreino(novo);
+    setEditorRascunho(rascunhoPdf);
+    setRascunhoPdf(null);
   }
 
   async function desativar(id) {
@@ -218,6 +402,39 @@ export default function Treinos({ pacienteId, nutriId, pacienteNome }) {
         </div>
         <div className="card-body">
 
+          {/* Importar de PDF — antes do formulário porque é ele que o preenche */}
+          <div style={{ marginBottom: 16 }}>
+            <input
+              ref={pdfRef}
+              type="file"
+              accept="application/pdf,.pdf"
+              style={{ display: 'none' }}
+              onChange={e => { const f = e.target.files?.[0]; if (f) importarTreinoPdf(f); }}
+            />
+            <button
+              type="button"
+              onClick={() => pdfRef.current?.click()}
+              disabled={importando || busy}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 7,
+                padding: '8px 14px', borderRadius: 8,
+                border: '1px dashed var(--border)',
+                background: 'var(--bg2)', color: 'var(--text2)',
+                fontSize: 13, cursor: (importando || busy) ? 'default' : 'pointer',
+                fontFamily: 'var(--font-sans)',
+              }}>
+              {importando
+                ? <><i className="ti ti-loader-2" style={{ fontSize: 15 }} aria-hidden="true" /> Lendo o plano…</>
+                : <>📄 Importar treino de PDF</>
+              }
+            </button>
+            {rascunhoPdf && (
+              <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 6, lineHeight: 1.4 }}>
+                {rascunhoPdf.length} dia(s) lido(s) do PDF, esperando o Publicar.
+              </div>
+            )}
+          </div>
+
           {/* Tipo */}
           <label className="field-label">Tipo de treino</label>
           <select value={form.tipo} onChange={set('tipo')}>
@@ -257,8 +474,11 @@ export default function Treinos({ pacienteId, nutriId, pacienteNome }) {
 
           {/* Dias da semana */}
           <div style={{ marginTop: 12 }}>
-            <label className="field-label">Dias da semana (opcional)</label>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
+            <label className="field-label">Dias da semana — resumo do plano (opcional)</label>
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2, lineHeight: 1.4 }}>
+              Se você cadastrar dias (Treino A/B), os dias de cada um têm prioridade sobre este campo.
+            </div>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
               {DIAS.map(dia => {
                 const ativo = form.dias_semana.includes(dia);
                 return (
@@ -278,6 +498,38 @@ export default function Treinos({ pacienteId, nutriId, pacienteNome }) {
                   </button>
                 );
               })}
+            </div>
+          </div>
+
+          {/* Contexto clínico / local e equipamentos / divisão */}
+          <div style={{ marginTop: 10 }}>
+            <label className="field-label">Contexto clínico (opcional)</label>
+            <input
+              type="text"
+              placeholder="ex: Em quimioterapia, linfedema no braço direito"
+              value={form.contexto_clinico}
+              onChange={set('contexto_clinico')}
+            />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 10, marginTop: 10 }}>
+            <div>
+              <label className="field-label">Local e equipamentos (opcional)</label>
+              <input
+                type="text"
+                placeholder="ex: Casa, elástico e halter de 2kg"
+                value={form.local_equipamentos}
+                onChange={set('local_equipamentos')}
+              />
+            </div>
+            <div>
+              <label className="field-label">Divisão (opcional)</label>
+              <input
+                type="text"
+                placeholder="ex: A/B"
+                value={form.divisao}
+                onChange={set('divisao')}
+              />
             </div>
           </div>
 
@@ -389,8 +641,10 @@ export default function Treinos({ pacienteId, nutriId, pacienteNome }) {
           {feedback && (
             <div style={{
               marginTop: 12, padding: '8px 12px', borderRadius: 6, fontSize: 13,
-              background: feedback.tipo === 'ok' ? 'var(--green-bg)' : 'var(--red-bg)',
-              color: feedback.tipo === 'ok' ? 'var(--green)' : 'var(--red)',
+              background: feedback.tipo === 'ok' ? 'var(--green-bg)'
+                : feedback.tipo === 'aviso' ? 'var(--orange-bg)' : 'var(--red-bg)',
+              color: feedback.tipo === 'ok' ? 'var(--green)'
+                : feedback.tipo === 'aviso' ? 'var(--orange)' : 'var(--red)',
             }}>{feedback.msg}</div>
           )}
 
@@ -421,7 +675,10 @@ export default function Treinos({ pacienteId, nutriId, pacienteNome }) {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {treinos.map(t => (
+          {treinos.map(t => {
+            const nDias = t.treinos_dias?.length ?? 0;
+            const nEx = (t.treinos_dias ?? []).reduce((n, d) => n + (d.treinos_exercicios?.length ?? 0), 0);
+            return (
             <div key={t.id} className="card" style={{ padding: 0 }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 14px' }}>
                 <div style={{
@@ -439,6 +696,7 @@ export default function Treinos({ pacienteId, nutriId, pacienteNome }) {
                   <div style={{ fontSize: 12, color: 'var(--text3)' }}>
                     {t.intensidade} · {t.frequencia_semanal}×/semana · {t.duracao_minutos} min
                     {t.dias_semana?.length ? ` · ${t.dias_semana.join(', ')}` : ''}
+                    {nDias > 0 && ` · ${nDias} dia${nDias > 1 ? 's' : ''}, ${nEx} exercício${nEx === 1 ? '' : 's'}`}
                   </div>
                   {t.fase_tratamento && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{t.fase_tratamento}</div>}
                   {t.objetivo_treino && (
@@ -459,6 +717,13 @@ export default function Treinos({ pacienteId, nutriId, pacienteNome }) {
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+                  <button
+                    onClick={() => setEditorTreino(t)}
+                    title="Dias e exercícios"
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 4 }}>
+                    <i className="ti ti-list-details" style={{ fontSize: 15 }} aria-hidden="true" />
+                  </button>
+
                   {t.ativo && (
                     <button
                       onClick={() => desativar(t.id)}
@@ -477,8 +742,18 @@ export default function Treinos({ pacienteId, nutriId, pacienteNome }) {
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
+      )}
+
+      {editorTreino && (
+        <TreinoDias
+          treino={editorTreino}
+          rascunhoInicial={editorRascunho}
+          onClose={() => { setEditorTreino(null); setEditorRascunho(null); }}
+          onSaved={async () => { setEditorTreino(null); setEditorRascunho(null); await carregar(); }}
+        />
       )}
     </>
   );
