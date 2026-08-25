@@ -2782,6 +2782,46 @@
           "desc": "Queda dos leucócitos, maior risco de infecção",
           "fase": "risco"
         }
+      ],
+      "conduta_base": "Regime em bolus com oxaliplatina — atenção especial à neuropatia induzida por frio (evitar bebidas geladas e contato com objetos frios nos primeiros dias) e ao risco de diarreia, que costuma ser mais intensa nesse esquema do que em infusão contínua. Nadir de leucócitos entre D6 e D13.",
+      "efeitos": [
+        {
+          "efeito": "Sensibilidade ao frio / neuropatia periférica",
+          "relacionado_a": "Oxaliplatina",
+          "manejo": "Evitar bebidas e alimentos gelados nos primeiros 3-5 dias após a infusão, preferir temperatura ambiente ou morna. Orientar sobre a sensação de aperto na garganta ao engolir frio — é esperado e passageiro."
+        },
+        {
+          "efeito": "Diarreia",
+          "relacionado_a": "5-fluorouracil (5-FU)",
+          "manejo": "Dieta pobre em fibras insolúveis e gordura durante episódios agudos, hidratação com reposição de eletrólitos, evitar laticínios se houver intolerância transitória."
+        },
+        {
+          "efeito": "Náuseas e vômitos",
+          "relacionado_a": "Oxaliplatina e 5-FU",
+          "manejo": "Refeições fracionadas, evitar cheiros fortes durante o preparo, priorizar alimentos secos e de fácil digestão nas primeiras 48h."
+        },
+        {
+          "efeito": "Mucosite oral",
+          "relacionado_a": "5-fluorouracil (5-FU)",
+          "manejo": "Alimentos macios e pastosos, evitar ácidos, picantes e muito quentes."
+        },
+        {
+          "efeito": "Neutropenia (imunossupressão)",
+          "relacionado_a": "Conjunto do protocolo",
+          "manejo": "Reforçar higiene alimentar entre D6 e D13 — evitar crus ou mal cozidos, priorizar bem lavados e bem cozidos."
+        },
+        {
+          "efeito": "Fadiga",
+          "relacionado_a": "Conjunto do protocolo",
+          "manejo": "Refeições fracionadas e práticas, evitar jejum prolongado."
+        }
+      ],
+      "sinais_alerta": [
+        "Febre acima de 38°C",
+        "Diarreia intensa ou persistente (mais de 4-6 episódios/dia)",
+        "Incapacidade de manter hidratação oral",
+        "Dificuldade para engolir persistente (não confundir com a sensibilidade ao frio esperada)",
+        "Sinais de infecção — dor, vermelhidão ou inchaço em qualquer região"
       ]
     },
     {
@@ -2888,6 +2928,46 @@
           "desc": "Queda dos leucócitos, maior risco de infecções",
           "fase": "risco"
         }
+      ],
+      "conduta_base": "Agente único (paclitaxel) em esquema quinzenal — intervalo mais curto que o convencional, então a recuperação nutricional entre ciclos é mais apertada. Atenção a mialgia/artralgia nos primeiros dias e ao nadir de leucócitos entre D6 e D9.",
+      "efeitos": [
+        {
+          "efeito": "Mialgia e artralgia (dor muscular e articular)",
+          "relacionado_a": "Paclitaxel",
+          "manejo": "Boa hidratação, alimentação anti-inflamatória quando possível (fontes de ômega-3, se já fizerem parte da dieta), proteína distribuída ao longo do dia para suporte à recuperação muscular."
+        },
+        {
+          "efeito": "Neuropatia periférica",
+          "relacionado_a": "Paclitaxel",
+          "manejo": "Não há manejo nutricional específico — orientar sobre a importância de comunicar formigamento/dormência em mãos e pés à equipe médica para ajuste de dose se necessário."
+        },
+        {
+          "efeito": "Alteração de paladar (disgeusia)",
+          "relacionado_a": "Paclitaxel",
+          "manejo": "Temperos leves, variar textura e apresentação, testar novas combinações se o sabor habitual estiver desagradável."
+        },
+        {
+          "efeito": "Fadiga",
+          "relacionado_a": "Paclitaxel",
+          "manejo": "Refeições fracionadas e de fácil preparo, evitar jejum prolongado — especialmente importante no esquema quinzenal, com menos tempo de recuperação entre ciclos."
+        },
+        {
+          "efeito": "Neutropenia (imunossupressão)",
+          "relacionado_a": "Paclitaxel",
+          "manejo": "Reforçar higiene alimentar entre D6 e D9 — evitar crus ou mal cozidos."
+        },
+        {
+          "efeito": "Náuseas",
+          "relacionado_a": "Paclitaxel",
+          "manejo": "Geralmente mais leve que em protocolos com antraciclina — refeições fracionadas costumam ser suficientes."
+        }
+      ],
+      "sinais_alerta": [
+        "Febre acima de 38°C",
+        "Dor muscular ou articular incapacitante (diferente do desconforto leve esperado)",
+        "Formigamento ou dormência progressiva em mãos e pés",
+        "Sinais de infecção — dor, vermelhidão ou inchaço em qualquer região",
+        "Falta de ar ou reação após a infusão"
       ]
     },
     {
