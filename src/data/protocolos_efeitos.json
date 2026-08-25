@@ -2812,6 +2812,51 @@
           "desc": "Neutropenia, maior risco de infecções",
           "fase": "risco"
         }
+      ],
+      "conduta_base": "Protocolo com cinco drogas combinadas — atenção especial a náuseas nos primeiros dias, imunossupressão na janela de neutropenia (D+7 a D+14) e ao apetite aumentado pela prednisona nos dias de corticoide. Priorizar fracionamento das refeições e hidratação constante.",
+      "efeitos": [
+        {
+          "efeito": "Náuseas e vômitos",
+          "relacionado_a": "Ciclofosfamida e doxorrubicina",
+          "manejo": "Fracionar refeições em porções menores, evitar cheiros fortes durante o preparo, priorizar alimentos gelados ou em temperatura ambiente — costumam ser mais bem tolerados que quentes."
+        },
+        {
+          "efeito": "Mucosite oral (feridas na boca)",
+          "relacionado_a": "Ciclofosfamida e doxorrubicina",
+          "manejo": "Alimentos macios e pastosos, evitar ácidos, picantes e muito quentes. Priorizar temperatura fria ou morna."
+        },
+        {
+          "efeito": "Neutropenia (imunossupressão)",
+          "relacionado_a": "Conjunto do protocolo",
+          "manejo": "Reforçar cuidados de higiene alimentar — evitar alimentos crus ou mal cozidos, priorizar bem lavados e bem cozidos, especialmente na janela de maior risco."
+        },
+        {
+          "efeito": "Alteração de paladar",
+          "relacionado_a": "Conjunto do protocolo",
+          "manejo": "Temperos leves, variar textura e apresentação dos alimentos, testar novas combinações se o sabor habitual estiver desagradável."
+        },
+        {
+          "efeito": "Constipação",
+          "relacionado_a": "Vincristina",
+          "manejo": "Aumentar fibras solúveis, manter boa hidratação, estimular atividade leve se liberada pela equipe médica."
+        },
+        {
+          "efeito": "Aumento de apetite e retenção de líquido",
+          "relacionado_a": "Prednisona (corticoide)",
+          "manejo": "Atenção ao consumo de sódio, monitorar peso, distribuir a proteína ao longo do dia para não concentrar tudo numa refeição só."
+        },
+        {
+          "efeito": "Fadiga",
+          "relacionado_a": "Conjunto do protocolo",
+          "manejo": "Refeições fracionadas e práticas, evitar jejum prolongado, priorizar alimentos de fácil preparo nos dias de maior cansaço."
+        }
+      ],
+      "sinais_alerta": [
+        "Febre acima de 38°C",
+        "Incapacidade de manter hidratação oral",
+        "Diarreia ou vômitos persistentes",
+        "Sinais de infecção — dor, vermelhidão ou inchaço em qualquer região",
+        "Dor no peito ou falta de ar"
       ]
     },
     {
