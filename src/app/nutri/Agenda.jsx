@@ -216,7 +216,7 @@ export default function Agenda() {
       .select(`
         id, data_hora, duracao_min, tipo, status, modalidade, local_id, obs,
         lembrete_ativo, lembrete_enviado,
-        confirmada_em, confirmada_por,
+        confirmada_em, confirmada_por, nao_confirmada_em,
         paciente:pacientes(id, nome)
       `)
       .eq('nutri_id', user.id)
@@ -248,7 +248,7 @@ export default function Agenda() {
     const fim = new Date(agora.getTime() + JANELA_LEMBRETE_DIAS * 24 * 3600 * 1000);
     const { data, error } = await supabase
       .from('consultas')
-      .select('id, data_hora, modalidade, local_id, lembrete_enviado, lembrete_enviado_em, confirmada_em, paciente:pacientes(id, nome, telefone)')
+      .select('id, data_hora, modalidade, local_id, lembrete_enviado, lembrete_enviado_em, confirmada_em, nao_confirmada_em, paciente:pacientes(id, nome, telefone)')
       .eq('nutri_id', user.id)
       .eq('lembrete_ativo', true)
       .eq('status', 'agendada')
@@ -304,31 +304,63 @@ export default function Agenda() {
   // do salvar() do modal, que sobrescreveria com um state possivelmente velho.
   // Atualiza o state local direto (igual marcarEnviado) — sem carregar(), que
   // refaz a lista inteira e faz o calendário piscar a cada clique.
-  async function toggleConfirmada(consultaId, confirmar) {
-    const patch = confirmar
-      ? { confirmada_em: new Date().toISOString(), confirmada_por: 'nutri' }
-      : { confirmada_em: null, confirmada_por: null };
-
+  // As duas marcações de presença (confirmada / não confirmou) dividem este
+  // corpo — só o patch muda. E o patch SEMPRE traz as três colunas: mandar só a
+  // que liga deixaria a outra preenchida e o UPDATE bateria na constraint
+  // consultas_confirmacao_exclusiva. Nenhuma delas toca data_hora, então o
+  // trigger consultas_limpa_ao_reagendar_tg não dispara aqui.
+  async function aplicarPresenca(consultaId, patch, mensagemErro) {
     // Guarda o valor anterior para reverter se o banco recusar
     const anterior = (consultas ?? []).find(c => c.id === consultaId);
     setConsultas(prev => (prev ?? []).map(c => c.id === consultaId ? { ...c, ...patch } : c));
-    // Espelha no painel de lembretes: confirmar tira o cartão da lista na hora
+    // Espelha no painel de lembretes: responder tira o cartão da lista na hora
     // e desfazer traz de volta, sem esperar o poll de 5 minutos.
-    setLembretes(prev => prev.map(l => l.id === consultaId ? { ...l, confirmada_em: patch.confirmada_em } : l));
+    setLembretes(prev => prev.map(l => l.id === consultaId ? {
+      ...l,
+      confirmada_em:     patch.confirmada_em,
+      nao_confirmada_em: patch.nao_confirmada_em,
+    } : l));
 
     const { error } = await supabase.from('consultas').update(patch).eq('id', consultaId);
     if (error) {
       setConsultas(prev => (prev ?? []).map(c => c.id === consultaId ? {
         ...c,
-        confirmada_em:  anterior?.confirmada_em  ?? null,
-        confirmada_por: anterior?.confirmada_por ?? null,
+        confirmada_em:     anterior?.confirmada_em     ?? null,
+        confirmada_por:    anterior?.confirmada_por    ?? null,
+        nao_confirmada_em: anterior?.nao_confirmada_em ?? null,
       } : c));
-      setLembretes(prev => prev.map(l => l.id === consultaId
-        ? { ...l, confirmada_em: anterior?.confirmada_em ?? null }
-        : l));
-      setErroLembrete('Não consegui salvar a confirmação, tente novamente');
+      setLembretes(prev => prev.map(l => l.id === consultaId ? {
+        ...l,
+        confirmada_em:     anterior?.confirmada_em     ?? null,
+        nao_confirmada_em: anterior?.nao_confirmada_em ?? null,
+      } : l));
+      setErroLembrete(mensagemErro);
       setTimeout(() => setErroLembrete(null), 4000);
     }
+  }
+
+  // Confirmar zera nao_confirmada_em — espelha no cliente o que a RPC da
+  // paciente faz no servidor: a resposta nova substitui a anterior.
+  function toggleConfirmada(consultaId, confirmar) {
+    return aplicarPresenca(
+      consultaId,
+      confirmar
+        ? { confirmada_em: new Date().toISOString(), confirmada_por: 'nutri', nao_confirmada_em: null }
+        : { confirmada_em: null, confirmada_por: null, nao_confirmada_em: null },
+      'Não consegui salvar a confirmação, tente novamente',
+    );
+  }
+
+  // Simétrica da anterior: marcar que não vem apaga uma confirmação existente,
+  // e desmarcar devolve a consulta ao estado pendente (os dois campos nulos).
+  function toggleNaoConfirmada(consultaId, marcar) {
+    return aplicarPresenca(
+      consultaId,
+      marcar
+        ? { confirmada_em: null, confirmada_por: null, nao_confirmada_em: new Date().toISOString() }
+        : { confirmada_em: null, confirmada_por: null, nao_confirmada_em: null },
+      'Não consegui salvar, tente novamente',
+    );
   }
 
   useEffect(() => {
@@ -340,9 +372,10 @@ export default function Agenda() {
     return () => clearInterval(intervalo);
   }, [user]);
 
-  // Realtime: a paciente confirma pelo app e o chip vira verde sem F5.
-  // Aplica só as duas colunas de confirmação no state, em vez de chamar
-  // carregar() — que refaz a lista e faz o calendário piscar (mesma razão do
+  // Realtime: a paciente confirma pelo app e o chip vira verde sem F5; a nutri
+  // remarca em outra aba/celular e o horário acompanha.
+  // Copia uma LISTA FECHADA de colunas escalares, em vez de chamar carregar()
+  // — que refaz a lista e faz o calendário piscar (mesma razão do
   // toggleConfirmada). Espalhar payload.new inteiro apagaria o join
   // `paciente:pacientes(...)`, que o realtime não traz.
   useEffect(() => {
@@ -356,11 +389,34 @@ export default function Agenda() {
         const nova = payload.new;
         if (!nova?.id) return;
         setConsultas(prev => (prev ?? []).map(c => c.id === nova.id
-          ? { ...c, confirmada_em: nova.confirmada_em, confirmada_por: nova.confirmada_por }
+          ? {
+              ...c,
+              data_hora:         nova.data_hora,
+              lembrete_enviado:  nova.lembrete_enviado,
+              confirmada_em:     nova.confirmada_em,
+              confirmada_por:    nova.confirmada_por,
+              nao_confirmada_em: nova.nao_confirmada_em,
+            }
           : c));
-        // A paciente confirma pelo app e o cartão sai do painel sozinho.
+        // Remarcar em outro lugar zera lembrete_enviado pelo trigger. O cache
+        // local tem prioridade na pintura do cartão, então copiar a coluna sem
+        // apagar a entrada do cache não mudaria nada na tela.
+        setEnviadosLocais(prev => {
+          if (!prev.has(nova.id) || nova.lembrete_enviado) return prev;
+          const m = new Map(prev); m.delete(nova.id); return m;
+        });
+        // A paciente confirma pelo app e o cartão sai do painel sozinho. O
+        // nao_confirmada_em vem junto porque a RPC dela o zera no mesmo UPDATE
+        // — sem espelhar, o painel local seguiria achando que ela não vem.
         setLembretes(prev => prev.map(l => l.id === nova.id
-          ? { ...l, confirmada_em: nova.confirmada_em }
+          ? {
+              ...l,
+              data_hora:           nova.data_hora,
+              lembrete_enviado:    nova.lembrete_enviado,
+              lembrete_enviado_em: nova.lembrete_enviado_em,
+              confirmada_em:       nova.confirmada_em,
+              nao_confirmada_em:   nova.nao_confirmada_em,
+            }
           : l));
       })
       .subscribe();
@@ -373,7 +429,10 @@ export default function Agenda() {
   const passadas = ativas.filter(c => c.data_hora && c.data_hora < agora);
   const aDefinir = ativas.filter(c => !c.data_hora);
   const canceladas = (consultas ?? []).filter(c => c.status === 'cancelada');
-  const aConfirmar = futuras.filter(c => podeConfirmar(c) && !c.confirmada_em).length;
+  // Pendente de verdade = os DOIS campos nulos. Quem a nutri marcou como "não
+  // confirmou" já teve resposta; contá-la aqui pediria uma ação que ela já fez.
+  const aConfirmar = futuras.filter(c =>
+    podeConfirmar(c) && !c.confirmada_em && !c.nao_confirmada_em).length;
 
   // Dias que ainda não acabaram — é o que a lista "Todas as próximas" mostra,
   // no lugar de `futuras`.
@@ -412,12 +471,25 @@ export default function Agenda() {
     new Date(g.consultas[g.consultas.length - 1].data_hora).getTime() >= agoraMs
   );
 
-  // Quem já confirmou presença sai do painel: o lembrete existe para arrancar
-  // a confirmação, e insistir com quem já respondeu é ruído. O critério é o
-  // mesmo do resto do app — confirmada_em não nulo, independente de quem
-  // confirmou (nutri pelo WhatsApp ou paciente pelo app).
-  const lembretesPendentes = useMemo(() => lembretes.filter(l => !l.confirmada_em), [lembretes]);
-  const confirmadasOcultas = lembretes.length - lembretesPendentes.length;
+  // Quem já respondeu sai do painel: o lembrete existe para arrancar a
+  // confirmação, e insistir com quem já respondeu é ruído — vale tanto para
+  // quem confirmou (nutri pelo WhatsApp ou paciente pelo app) quanto para quem
+  // a nutri marcou que não vem.
+  const lembretesPendentes = useMemo(
+    () => lembretes.filter(l => !l.confirmada_em && !l.nao_confirmada_em),
+    [lembretes],
+  );
+  // Contagens próprias, não a subtração de antes: com dois motivos de saída, a
+  // diferença `total - pendentes` juntaria os dois num rótulo só e anunciaria
+  // "3 confirmadas" contando quem disse que NÃO vem.
+  const confirmadasOcultas = useMemo(
+    () => lembretes.filter(l => l.confirmada_em).length,
+    [lembretes],
+  );
+  const semConfirmacaoOcultas = useMemo(
+    () => lembretes.filter(l => l.nao_confirmada_em).length,
+    [lembretes],
+  );
 
   // Consultas do dia selecionado
   const consultasDoDia = useMemo(() => {
@@ -436,6 +508,24 @@ export default function Agenda() {
   // `remarcando` que o botão de dentro do modal já acionava.
   const abrirRemarcacao = (consulta) => setModalState({ open: true, consulta, pacienteInicialId: null, remarcando: true });
   const fechar = () => setModalState({ open: false, consulta: null, pacienteInicialId: null, remarcando: false });
+
+  // Depois de salvar/remarcar as DUAS listas precisam voltar do banco. Só
+  // carregar() deixaria o painel de lembretes com o horário velho até o poll
+  // de 5 minutos — e é dele que sai o texto do WhatsApp, então o lembrete iria
+  // à paciente com o horário ANTIGO.
+  //
+  // O cache de envio some junto: remarcar dispara o trigger
+  // consultas_limpa_ao_reagendar_tg, que zera lembrete_enviado no banco, mas o
+  // cartão lê enviadosLocais ANTES do banco — sem apagar a entrada, o selo
+  // verde "Enviado" ficaria até um F5 e a nutri não reenviaria o lembrete.
+  // Consulta nova não tem id, e também não tem nada em cache para limpar.
+  async function consultaSalva(consultaId) {
+    fechar();
+    if (consultaId) {
+      setEnviadosLocais(prev => { const m = new Map(prev); m.delete(consultaId); return m; });
+    }
+    await Promise.all([carregar(), verificarLembretes()]);
+  }
 
   // Fluxo do cadastro rápido: fecha o modal de cadastro, mostra o convite e
   // emenda direto no agendamento com a paciente já escolhida.
@@ -520,6 +610,7 @@ export default function Agenda() {
         <PainelLembretes
           lembretes={lembretesPendentes}
           confirmadas={confirmadasOcultas}
+          semConfirmacao={semConfirmacaoOcultas}
           locais={locais}
           enviadosLocais={enviadosLocais}
           onEnviar={marcarEnviado}
@@ -548,6 +639,7 @@ export default function Agenda() {
           {consultasDoDia.map((c, i) => (
             <ConsultaRow key={c.id} c={c} isLast={i === consultasDoDia.length - 1} onClick={() => abrirEdit(c)}
               onToggleConfirmada={toggleConfirmada}
+              onToggleNaoConfirmada={toggleNaoConfirmada}
               onRemarcar={() => abrirRemarcacao(c)} />
           ))}
         </div>
@@ -609,6 +701,7 @@ export default function Agenda() {
                       <ConsultaRow key={c.id} c={c} isLast={i === n - 1}
                         onClick={() => abrirEdit(c)}
                         onToggleConfirmada={toggleConfirmada}
+                        onToggleNaoConfirmada={toggleNaoConfirmada}
                         onRemarcar={() => abrirRemarcacao(c)} />
                     ))}
                   </div>
@@ -655,7 +748,7 @@ export default function Agenda() {
           pacienteInicialId={modalState.pacienteInicialId}
           remarcarAoAbrir={modalState.remarcando}
           onClose={fechar}
-          onSaved={async () => { fechar(); await carregar(); }}
+          onSaved={() => consultaSalva(modalState.consulta?.id ?? null)}
           onToggleConfirmada={toggleConfirmada}
         />
       )}
@@ -752,7 +845,7 @@ function FaixaConvite({ convite, nutriId, onDispensar }) {
 /* ============================================================
    PAINEL DE LEMBRETES DA SEMANA
    ============================================================ */
-function PainelLembretes({ lembretes, confirmadas = 0, locais, enviadosLocais, onEnviar, onDesfazer }) {
+function PainelLembretes({ lembretes, confirmadas = 0, semConfirmacao = 0, locais, enviadosLocais, onEnviar, onDesfazer }) {
   const [copiadoId, setCopiadoId] = useState(null);
 
   async function copiarMensagem(id, texto) {
@@ -828,6 +921,7 @@ function PainelLembretes({ lembretes, confirmadas = 0, locais, enviadosLocais, o
           <div style={{ fontSize: 11, color: 'var(--orange)', opacity: 0.85 }}>
             {pendentes === 0 ? 'Nada pendente ✓' : `${pendentes} pendente${pendentes > 1 ? 's' : ''} · próximos 7 dias`}
             {confirmadas > 0 && ` · ${confirmadas} confirmada${confirmadas > 1 ? 's' : ''} oculta${confirmadas > 1 ? 's' : ''}`}
+            {semConfirmacao > 0 && ` · ${semConfirmacao} sem confirmação`}
           </div>
         </div>
 
@@ -1205,11 +1299,18 @@ function Legenda({ cor, label }) {
 /* ============================================================
    LINHA DE CONSULTA
    ============================================================ */
-function ConsultaRow({ c, isLast, isPast, isCanceled, onClick, onToggleConfirmada, onRemarcar }) {
+function ConsultaRow({ c, isLast, isPast, isCanceled, onClick, onToggleConfirmada, onToggleNaoConfirmada, onRemarcar }) {
   const navigate = useNavigate();
   const cor = tipoColor(c.tipo);
   const confirmavel = podeConfirmar(c) && typeof onToggleConfirmada === 'function';
   const confirmada = !!c.confirmada_em;
+  const naoConfirmou = !!c.nao_confirmada_em;
+  // Quem confirmou. O dado existe desde 2026-07-23 e nunca tinha sido lido no
+  // render: até aqui, nutri e paciente pintavam o mesmo verde.
+  const confirmouPelaPaciente = confirmada && c.confirmada_por === 'paciente';
+  // Pendente de verdade = nenhuma das duas respostas. Mesmo critério do
+  // contador do topo e do painel de lembretes.
+  const semResposta = !confirmada && !naoConfirmou;
   const mod = modalidadeInfo(c.modalidade);
 
   // A condição de status espelha a do botão dentro do modal. O teste de
@@ -1231,6 +1332,12 @@ function ConsultaRow({ c, isLast, isPast, isCanceled, onClick, onToggleConfirmad
     onToggleConfirmada(c.id, !confirmada);
   }
 
+  // Mesmo stopPropagation, mesma razão.
+  function alternarNaoConfirmada(e) {
+    e.stopPropagation();
+    onToggleNaoConfirmada(c.id, !naoConfirmou);
+  }
+
   // Sem o stopPropagation o clique subiria para o wrapper e abriria o modal em
   // modo normal, por cima do que o onRemarcar acabou de pedir.
   function acionarRemarcar(e) {
@@ -1245,9 +1352,10 @@ function ConsultaRow({ c, isLast, isPast, isCanceled, onClick, onToggleConfirmad
         display: 'flex', alignItems: 'center', gap: 12,
         padding: '12px 16px',
         borderBottom: isLast ? 'none' : '0.5px solid #f5f0e8',
-        // Faixa laranja à esquerda = falta confirmar. Transparente nos outros
-        // casos para o conteúdo não deslocar 3px entre linhas.
-        borderLeft: `3px solid ${confirmavel && !confirmada ? 'var(--orange)' : 'transparent'}`,
+        // Faixa laranja à esquerda = falta resposta. Quem já disse que não vem
+        // não acende: a resposta chegou, não há o que cobrar. Transparente nos
+        // outros casos para o conteúdo não deslocar 3px entre linhas.
+        borderLeft: `3px solid ${confirmavel && semResposta ? 'var(--orange)' : 'transparent'}`,
         cursor: 'pointer', transition: 'background .15s',
       }}
       onMouseEnter={e => e.currentTarget.style.background = '#faf8f5'}
@@ -1297,7 +1405,7 @@ function ConsultaRow({ c, isLast, isPast, isCanceled, onClick, onToggleConfirmad
             <i className={`ti ${mod.icone}`} aria-hidden="true" style={{ fontSize: 12 }} /> {mod.label}
           </span>
         </div>
-        {/* flexWrap para os dois botões quebrarem em vez de espremer o nome da
+        {/* flexWrap para os botões quebrarem em vez de espremer o nome da
             paciente no celular. */}
         {(confirmavel || remarcavel) && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
@@ -1305,20 +1413,54 @@ function ConsultaRow({ c, isLast, isPast, isCanceled, onClick, onToggleConfirmad
               <button
                 onClick={alternarConfirmada}
                 title={confirmada
-                  ? 'Confirmada — toque para desmarcar'
+                  ? (confirmouPelaPaciente
+                      ? 'A paciente confirmou pelo app — toque para desmarcar'
+                      : 'Você marcou como confirmada — toque para desmarcar')
                   : 'Marcar como confirmada (a paciente avisou pelo WhatsApp)'}
                 style={{
                   minHeight: 30, padding: '0 11px',
                   borderRadius: 20, cursor: 'pointer',
                   fontFamily: 'var(--font-sans)', fontSize: 11.5, fontWeight: 500,
                   display: 'inline-flex', alignItems: 'center', gap: 5,
-                  background: confirmada ? '#dcfce7' : 'var(--orange-bg)',
-                  color:      confirmada ? '#15803d' : 'var(--orange)',
+                  // Três aparências, não duas: o verde cheio fica reservado para
+                  // a confirmação que veio DELA. A marcação manual da nutri usa
+                  // o mesmo verde em contorno — é informação de segunda mão, e a
+                  // tela não deve dar a ela o mesmo peso.
+                  background: confirmada
+                    ? (confirmouPelaPaciente ? '#dcfce7' : 'transparent')
+                    : 'var(--orange-bg)',
+                  color:  confirmada ? '#15803d' : 'var(--orange)',
                   border: `1px solid ${confirmada ? '#bbf7d0' : 'var(--orange)'}`,
                 }}>
                 {confirmada
-                  ? <><i className="ti ti-check" aria-hidden="true" /> Confirmada</>
+                  ? (confirmouPelaPaciente
+                      ? <><i className="ti ti-check" aria-hidden="true" /> Confirmada</>
+                      : <><i className="ti ti-check" aria-hidden="true" /> Confirmada por você</>)
                   : 'Marcar confirmada'}
+              </button>
+            )}
+            {/* Cinza forte, não vermelho: a consulta não foi cancelada nem deu
+                erro — ela segue agendada, só sem confirmação. Vermelho nesta
+                fileira leria como cancelamento. Ativo inverte para fundo
+                escuro, para não se confundir com o "Remarcar" ao lado. */}
+            {confirmavel && typeof onToggleNaoConfirmada === 'function' && (
+              <button
+                onClick={alternarNaoConfirmada}
+                title={naoConfirmou
+                  ? 'Marcada como "não confirmou" — toque para voltar a pendente'
+                  : 'Marcar que a paciente não confirmou / provavelmente não vem'}
+                style={{
+                  minHeight: 30, padding: '0 11px',
+                  borderRadius: 20, cursor: 'pointer',
+                  fontFamily: 'var(--font-sans)', fontSize: 11.5, fontWeight: 500,
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                  background: naoConfirmou ? 'var(--dark)'   : 'var(--bg2)',
+                  color:      naoConfirmou ? '#ffffff'       : 'var(--text2)',
+                  border: `1px solid ${naoConfirmou ? 'var(--dark)' : 'var(--border)'}`,
+                }}>
+                {naoConfirmou
+                  ? <><i className="ti ti-x" aria-hidden="true" /> Não confirmou</>
+                  : 'Não confirmou'}
               </button>
             )}
             {/* Neutro de propósito: o laranja do confirmar é o que pede ação. */}

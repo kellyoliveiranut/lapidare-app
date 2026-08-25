@@ -132,6 +132,44 @@ export default function Inicio() {
     return () => { active = false; };
   }, [pacienteId]);
 
+  // Realtime: a nutri remarca e o card do topo acompanha sem F5 — antes ele
+  // ficava com o horário antigo até a paciente sair da rota e voltar. Mesmo
+  // padrão do banner em PacienteLayout.jsx, que já escutava esta tabela.
+  // event '*' e não 'UPDATE': agendar uma consulta mais próxima (INSERT) ou
+  // apagar a que estava marcada (DELETE) também trocam qual é a próxima.
+  useEffect(() => {
+    if (!pacienteId) return;
+    let active = true;
+    // Refetch só da próxima consulta — o load() acima traz a mesma linha, mas
+    // em lote com outras sete queries, e não faz sentido refazer todas elas a
+    // cada evento. Mora aqui dentro, e não no corpo do componente, pelo mesmo
+    // motivo do fetchBanner em PacienteLayout.jsx: função de fora seria
+    // recriada a cada render e entraria nas deps, reassinando o canal à toa.
+    //
+    // Refazer a query em vez de espelhar payload.new é obrigatório: o card
+    // mostra "a próxima agendada", e remarcar pode trocar QUAL consulta é a
+    // próxima, não só o horário da que já estava na tela.
+    async function recarregarProximaConsulta() {
+      const { data } = await supabase.from('consultas')
+        .select('id, data_hora, tipo, duracao_min, confirmada_em')
+        .eq('paciente_id', pacienteId).eq('status', 'agendada')
+        .gte('data_hora', new Date().toISOString())
+        .order('data_hora', { ascending: true }).limit(1).maybeSingle();
+      if (active) setProximaConsulta(data ?? null);
+    }
+    const channel = supabase
+      .channel(`inicio-consultas-${pacienteId}`)
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'consultas',
+        filter: `paciente_id=eq.${pacienteId}`,
+      }, () => { recarregarProximaConsulta(); })
+      .subscribe();
+    return () => {
+      active = false;
+      supabase.removeChannel(channel);
+    };
+  }, [pacienteId]);
+
   // Mensagem motivacional do topo. Três caminhos, pelo objetivo da paciente:
   //
   //   Emagrecimento → mensagens_emagrecimento (tabela própria, sem sub-fase)
