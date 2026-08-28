@@ -61,6 +61,35 @@ function ConfirmarPresenca({ confirmada, escuro, ocupado, onConfirmar }) {
   );
 }
 
+// Onde a consulta acontece. Um componente só, usado nos DOIS cards (o normal e
+// o banner da véspera), para os dois não divergirem.
+//
+// Três motivos para não renderizar nada, todos legítimos e nenhum é erro:
+//   - consulta online (o local nem existe: há check no banco amarrando
+//     local_id a modalidade = 'presencial');
+//   - presencial sem local preenchido — o campo é opcional na Agenda;
+//   - `local` nulo porque o join foi barrado pela RLS. É o caso que motivou a
+//     migration 2026-08-28b; sem ela, TODA paciente cai aqui em silêncio.
+function LocalConsulta({ consulta, escuro = false }) {
+  if (consulta?.modalidade !== 'presencial') return null;
+  const nome = consulta.local?.nome;
+  if (!nome) return null;
+  const endereco = consulta.local?.endereco;
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'flex-start', gap: 6,
+      fontSize: 12, lineHeight: 1.4, marginBottom: 10,
+      color: escuro ? 'rgba(255,255,255,.85)' : 'var(--muted)',
+    }}>
+      <i className="ti ti-map-pin" style={{ fontSize: 14, flexShrink: 0, marginTop: 1 }} aria-hidden="true" />
+      <span>
+        <strong style={{ fontWeight: 600 }}>{nome}</strong>
+        {endereco && <><br />{endereco}</>}
+      </span>
+    </div>
+  );
+}
+
 
 export default function Inicio() {
   const tema = useTheme();
@@ -94,7 +123,14 @@ export default function Inicio() {
           .eq('paciente_id', pacienteId).eq('tipo', 'dieta').order('created_at', { ascending: false }).limit(1).maybeSingle(),
         supabase.from('listas_compras').select('dados, publicado_em')
           .eq('paciente_id', pacienteId).order('publicado_em', { ascending: false }).limit(1).maybeSingle(),
-        supabase.from('consultas').select('id, data_hora, tipo, duracao_min, confirmada_em')
+        // modalidade/local_id/local: sem eles o card não tinha como dizer ONDE
+        // é a consulta presencial. O join depende da policy
+        // locais_atendimento_paciente (migration 2026-08-28b) — sem ela o
+        // PostgREST devolve `local: null` em silêncio, sem erro.
+        // O MESMO select existe no refetch do realtime, mais abaixo: mudar só
+        // um faz o local sumir na primeira atualização que chegar.
+        supabase.from('consultas')
+          .select('id, data_hora, tipo, duracao_min, confirmada_em, modalidade, local_id, local:locais_atendimento(nome, endereco)')
           .eq('paciente_id', pacienteId).eq('status', 'agendada')
           .gte('data_hora', agora).order('data_hora', { ascending: true }).limit(1).maybeSingle(),
         supabase.from('checkin_envios').select('id, enviado_em, lembrete_enviado_em, nome, tipo')
@@ -151,7 +187,9 @@ export default function Inicio() {
     // próxima, não só o horário da que já estava na tela.
     async function recarregarProximaConsulta() {
       const { data } = await supabase.from('consultas')
-        .select('id, data_hora, tipo, duracao_min, confirmada_em')
+        // Mesmo select da carga inicial, incluindo o local — os dois andam
+        // juntos, senão o local some assim que o realtime atualizar.
+        .select('id, data_hora, tipo, duracao_min, confirmada_em, modalidade, local_id, local:locais_atendimento(nome, endereco)')
         .eq('paciente_id', pacienteId).eq('status', 'agendada')
         .gte('data_hora', new Date().toISOString())
         .order('data_hora', { ascending: true }).limit(1).maybeSingle();
@@ -489,6 +527,7 @@ export default function Inicio() {
           <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 10 }}>
             {labelTipo(proximaConsulta.tipo)} · {dataConsultaBR(proximaConsulta.data_hora)} · {nutriNome}
           </div>
+          <LocalConsulta consulta={proximaConsulta} />
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             <ConfirmarPresenca
               confirmada={!!proximaConsulta.confirmada_em}
@@ -558,6 +597,10 @@ export default function Inicio() {
                 </div>
               </div>
             </div>
+            {/* Fora do cabeçalho e em largura inteira: é o card da véspera, e
+                endereço quebra em duas linhas. `escuro` acompanha o fundo
+                verde do "consulta hoje". */}
+            <LocalConsulta consulta={proximaConsulta} escuro={eHoje} />
             {/* Sempre renderiza: mesmo sem links, tem o botão/selo de confirmação */}
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               <ConfirmarPresenca
