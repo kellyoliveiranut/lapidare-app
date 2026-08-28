@@ -20,10 +20,34 @@
  * checkin_envios continua sendo snapshot — check-in já mandado não muda.
  */
 
-// ── Sexo ────────────────────────────────────────────────────────────────
+// ── Remoção de perguntas ────────────────────────────────────────────────
 
-/** Perguntas que só fazem sentido para paciente do sexo feminino. */
-const SO_FEMININO = new Set(['inchaco', 'ciclo']);
+/**
+ * Quando cada pergunta some, por id. Duas regras DISTINTAS de propósito —
+ * elas coincidiam por acidente enquanto só o sexo importava, e viviam num Set
+ * único (`SO_FEMININO`) que tratava as duas igual.
+ *
+ * 'inchaco' depende só do sexo: é queixa de corpo pertinente ao público
+ * feminino, sem relação com ciclo ou menopausa.
+ *
+ * 'ciclo' (fase do ciclo menstrual) some também para QUALQUER paciente
+ * oncológica: quimioterapia frequentemente induz menopausa / castração
+ * química, então perguntar a fase do ciclo a uma mulher em tratamento é
+ * clinicamente errado — e doloroso. Enquanto a remoção morava dentro do
+ * `if (!feminino)`, mulher nenhuma podia perder pergunta, e a oncológica
+ * recebia a do ciclo.
+ *
+ * O gate é `objetivo === 'Oncologia'`, que não separa "em quimioterapia agora"
+ * de "histórico oncológico". Decidido assim: o erro nesta direção é perder uma
+ * pergunta que talvez fosse útil; na outra é perguntar a fase do ciclo a uma
+ * mulher castrada quimicamente. Não são comparáveis.
+ */
+const REMOVER_SE = {
+  inchaco: ({ feminino })       => !feminino,
+  ciclo:   ({ feminino, onco }) => !feminino || onco,
+};
+
+// ── Sexo ────────────────────────────────────────────────────────────────
 
 /**
  * Reescritas de gênero, por id de pergunta. São os QUATRO termos marcados
@@ -116,17 +140,20 @@ function inserirAntesDaSentinela(opcoes, novas) {
 export function perguntasParaPaciente(perguntas, paciente) {
   const feminino = paciente?.sexo === 'feminino';
   const onco     = paciente?.objetivo === 'Oncologia';
+  const ctx      = { feminino, onco };
 
-  let out = perguntas ?? [];
+  // 1ª passada — REMOÇÃO, por regra própria de cada pergunta. Roda SEMPRE, e
+  // é isso que corrige o caso da paciente oncológica: enquanto isto vivia
+  // dentro do `if (!feminino)`, nenhuma regra alcançava quem é do sexo
+  // feminino, por mais que a lista mudasse.
+  let out = (perguntas ?? []).filter(p => !REMOVER_SE[p?.id]?.(ctx));
 
-  // 1ª passada — sexo: tira as perguntas exclusivas e neutraliza os termos.
+  // 2ª passada — NEUTRALIZAÇÃO de gênero, só para quem não é feminino.
   if (!feminino) {
-    out = out
-      .filter(p => !SO_FEMININO.has(p?.id))
-      .map(p => (NEUTRO[p?.id] ? { ...p, ...NEUTRO[p.id] } : p));
+    out = out.map(p => (NEUTRO[p?.id] ? { ...p, ...NEUTRO[p.id] } : p));
   }
 
-  // 2ª passada — oncologia: acrescenta opções dentro de perguntas existentes.
+  // 3ª passada — oncologia: acrescenta opções dentro de perguntas existentes.
   if (onco) {
     out = out.map(p => (
       ONCO_OPCOES[p?.id]
