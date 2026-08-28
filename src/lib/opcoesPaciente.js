@@ -1,5 +1,5 @@
 /**
- * Listas canônicas de tipo de plano e modalidade da paciente.
+ * Listas canônicas de sexo, tipo de plano e modalidade da paciente.
  *
  * Mesma razão de existir de lib/objetivos.js: estas listas nasceram copiadas
  * em cada tela que precisava do select. Quando o cadastro rápido pela Agenda
@@ -14,6 +14,23 @@
  * a modalidade da CONSULTA, que é minúscula e só aceita online|presencial —
  * essa vive em Agenda.jsx e é travada pelo check consultas_modalidade_check.
  */
+
+/**
+ * Sexo da paciente. Decide a variação de conteúdo do check-in
+ * (lib/checkinVariacao.js): 'feminino' mantém a seção "Corpo & ciclo" e o texto
+ * atual; 'masculino' — e o NULL de quem nunca foi marcada — caem na versão
+ * neutra. NÃO é campo de identidade de gênero: existe para escolher entre DUAS
+ * variações de conteúdo, e um terceiro valor não teria conteúdo para apontar.
+ *
+ * SÓ OS VALORES VÁLIDOS: o "— não informado —" que aparece nos selects é opção
+ * de TELA, e cada uma escreve a sua. Deixar o '' fora da lista preserva a
+ * regra que vale para PLANOS e MODALIDADES — o que está aqui é gravável no
+ * banco, e a constraint pacientes_sexo_check recusaria string vazia.
+ */
+export const SEXOS = [
+  { v: 'feminino',  l: 'Feminino' },
+  { v: 'masculino', l: 'Masculino' },
+];
 
 /** Tipo de plano contratado. O valor gravado é minúsculo: o gate do plano
  *  avulso compara com 'avulsa' estrito. */

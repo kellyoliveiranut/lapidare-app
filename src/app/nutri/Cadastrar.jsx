@@ -6,8 +6,13 @@ import { dataBR, brl, gerarParcelas, FORMAS_PGTO_LIST, normalizarTelefone, telef
 import { criarVendaComParcelas } from '../../lib/vendas.js';
 import { linkConvite, mensagemConviteEncoded } from '../../lib/convite.js';
 import { OBJETIVOS } from '../../lib/objetivos.js';
-import { PLANOS, MODALIDADES } from '../../lib/opcoesPaciente.js';
+import { SEXOS, PLANOS, MODALIDADES } from '../../lib/opcoesPaciente.js';
+import { perguntasParaPaciente } from '../../lib/checkinVariacao.js';
 import DateInput from '../../components/DateInput.jsx';
+
+// O "— não informado —" é opção de tela, não valor de banco: por isso mora
+// aqui e não em SEXOS. Hoisted para não remontar o array a cada render.
+const SEXOS_COM_VAZIO = [{ v: '', l: '— não informado —' }, ...SEXOS];
 
 export default function Cadastrar() {
   const { user } = useSession();
@@ -17,6 +22,10 @@ export default function Cadastrar() {
   const [email, setEmail] = useState('');
   const [telefone, setTelefone] = useState('');
   const [nascimento, setNascimento] = useState('');
+  // Nasce VAZIO, ao contrário de objetivo/plano/modalidade, que têm padrão. Um
+  // default aqui gravaria um palpite na ficha como se fosse informado — é
+  // exatamente o erro que a coluna existe para evitar.
+  const [sexo, setSexo] = useState('');
   const [objetivo, setObjetivo] = useState('Emagrecimento');
   const [tipoPlano, setTipoPlano] = useState('avulsa');
   const [modalidade, setModalidade] = useState('Online');
@@ -109,6 +118,7 @@ export default function Cadastrar() {
 
   function resetForm() {
     setNome(''); setEmail(''); setTelefone(''); setNascimento('');
+    setSexo('');
     setObjetivo('Emagrecimento'); setTipoPlano('avulsa');
     setModalidade('Online'); setEndereco(''); setObs('');
     setPreConsultaId('');
@@ -140,6 +150,9 @@ export default function Cadastrar() {
       email: emailVal,
       telefone: telefone.trim(),
       nascimento: nascimento || null,
+      // `|| null` e não `|| ''`: a constraint pacientes_sexo_check só aceita
+      // 'feminino', 'masculino' ou NULL.
+      sexo: sexo || null,
       objetivo,
       tipo_plano: tipoPlano,
       modalidade,
@@ -183,7 +196,10 @@ export default function Cadastrar() {
           paciente_id: pacienteData.id,
           nome: tpl.nome,
           tipo: 'pre_consulta',
-          perguntas: tpl.perguntas,
+          // O estado do formulário É a ficha que acabou de nascer — buscar a
+          // paciente de volta só para ler sexo/objetivo custaria uma ida ao
+          // banco por nada (o insert acima devolve só id, nome, email).
+          perguntas: perguntasParaPaciente(tpl.perguntas, { sexo, objetivo }),
         });
       }
     }
@@ -277,6 +293,11 @@ export default function Cadastrar() {
             </label>
           </div>
 
+          {/* Sexo decide a variação do check-in (lib/checkinVariacao.js):
+              feminino mantém a seção "Corpo & ciclo" e o texto atual;
+              masculino e não-informado caem na versão neutra. */}
+          <SelectField label="Sexo" value={sexo} onChange={setSexo} options={SEXOS_COM_VAZIO}
+            hint={sexo ? null : 'Sem isso, o check-in vai na versão neutra — sem as perguntas de inchaço e ciclo menstrual.'} />
           <SelectField label="Objetivo" value={objetivo} onChange={setObjetivo} options={OBJETIVOS} />
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <SelectField label="Tipo de plano" value={tipoPlano} onChange={setTipoPlano} options={PLANOS} />
@@ -681,7 +702,9 @@ function Field({ label, value, onChange, type = 'text', required, autoFocus, pla
   );
 }
 
-function SelectField({ label, value, onChange, options }) {
+// `hint`: texto de apoio abaixo do select, opcional. As chamadas que não
+// passam nada seguem idênticas — sem hint, nada é renderizado.
+function SelectField({ label, value, onChange, options, hint }) {
   const opts = options.map(o => typeof o === 'string' ? { v: o, l: o } : o);
   return (
     <label style={{ display: 'block', marginBottom: 12 }}>
@@ -698,6 +721,11 @@ function SelectField({ label, value, onChange, options }) {
         }}>
         {opts.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
       </select>
+      {hint && (
+        <span style={{
+          display: 'block', fontSize: 11, color: 'var(--text3)', marginTop: 4,
+        }}>{hint}</span>
+      )}
     </label>
   );
 }

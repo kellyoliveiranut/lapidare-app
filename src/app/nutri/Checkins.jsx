@@ -10,6 +10,7 @@ import {
   proximaDataAgendamento,
   labelFrequencia,
 } from '../../lib/checkinDefault.js';
+import { perguntasParaPaciente } from '../../lib/checkinVariacao.js';
 import CheckinForm from '../../components/CheckinForm.jsx';
 import DicaJSON from '../../components/DicaJSON.jsx';
 
@@ -47,7 +48,9 @@ export default function Checkins() {
   async function carregar(signal = { cancelled: false }) {
     if (!user) return;
     const [pacRes, envRes, tplRes, agRes] = await Promise.all([
-      supabase.from('pacientes').select('id, nome, telefone').eq('nutri_id', user.id).order('nome'),
+      // sexo e objetivo alimentam perguntasParaPaciente nos envios avulso e em
+      // lote — sem eles, toda paciente cairia na versão neutra.
+      supabase.from('pacientes').select('id, nome, telefone, sexo, objetivo').eq('nutri_id', user.id).order('nome'),
       supabase.from('checkin_envios')
         .select('id, paciente_id, perguntas, enviado_em, respondido_em, respostas, lembrete_enviado_em, paciente:pacientes(id, nome)')
         .eq('nutri_id', user.id)
@@ -56,7 +59,9 @@ export default function Checkins() {
         .or('tipo.eq.recorrente,tipo.is.null')
         .order('created_at'),
       supabase.from('checkin_agendamentos')
-        .select('*, template:checkin_templates(nome, perguntas), paciente:pacientes(id, nome)')
+        // sexo e objetivo no join: é o que evita uma query extra dentro do
+        // processador de agendamentos, depois do claim (ver lá).
+        .select('*, template:checkin_templates(nome, perguntas), paciente:pacientes(id, nome, sexo, objetivo)')
         .eq('nutri_id', user.id)
         .order('proximo_envio'),
     ]);
@@ -113,7 +118,7 @@ export default function Checkins() {
       paciente_id: paciente.id,
       nome: template.nome ?? 'Check-in',
       tipo: 'recorrente',
-      perguntas: template.perguntas,
+      perguntas: perguntasParaPaciente(template.perguntas, paciente),
     });
     if (error) return mostraToast('Erro: ' + error.message);
     mostraToast(`Enviado para ${paciente.nome.split(' ')[0]}: ${template.nome}`);
@@ -154,7 +159,7 @@ export default function Checkins() {
       paciente_id: p.id,
       nome: template.nome ?? 'Check-in',
       tipo: 'recorrente',
-      perguntas: template.perguntas,
+      perguntas: perguntasParaPaciente(template.perguntas, p),
     }));
     const { error } = await supabase.from('checkin_envios').insert(linhas);
     if (error) return mostraToast('Erro: ' + error.message);
@@ -455,26 +460,33 @@ async function processarAgendamentosVencidos(nutriId, agendamentos, mostraToast)
 
     if (!claim || claim.length === 0) continue; // outra aba já processou
 
-    // Determina pacientes-alvo
-    let pacientesIds;
+    // Determina pacientes-alvo. Passou a ser a LINHA da paciente, e não só o
+    // id, porque perguntasParaPaciente precisa de sexo e objetivo.
+    let pacientesAlvo;
     if (ag.paciente_id) {
-      pacientesIds = [ag.paciente_id];
+      // A linha já veio no join do agendamento (ver carregar()), então não há
+      // query extra aqui. Se o join não a trouxer, segue com o id sozinho:
+      // sexo indefinido cai na versão neutra, que é o padrão seguro. Pular o
+      // envio seria pior — o agendamento já foi RESERVADO logo acima
+      // (proximo_envio andou) e não volta atrás; a paciente ficaria sem
+      // check-in nesta rodada, calada.
+      pacientesAlvo = [ag.paciente ?? { id: ag.paciente_id }];
     } else {
       const { data: pacs } = await supabase
-        .from('pacientes').select('id').eq('nutri_id', nutriId);
-      pacientesIds = (pacs ?? []).map(p => p.id);
+        .from('pacientes').select('id, sexo, objetivo').eq('nutri_id', nutriId);
+      pacientesAlvo = pacs ?? [];
     }
 
-    if (pacientesIds.length === 0) continue;
+    if (pacientesAlvo.length === 0) continue;
 
     // Cria envios
-    const linhas = pacientesIds.map(pid => ({
+    const linhas = pacientesAlvo.map(p => ({
       nutri_id: nutriId,
-      paciente_id: pid,
-      perguntas: ag.template.perguntas,
+      paciente_id: p.id,
+      perguntas: perguntasParaPaciente(ag.template.perguntas, p),
     }));
     const { error } = await supabase.from('checkin_envios').insert(linhas);
-    if (!error) total += pacientesIds.length;
+    if (!error) total += pacientesAlvo.length;
   }
 
   if (total > 0) mostraToast(`${total} check-in${total === 1 ? '' : 's'} disparado${total === 1 ? '' : 's'} automaticamente`);

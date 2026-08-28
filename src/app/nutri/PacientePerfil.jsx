@@ -11,7 +11,8 @@ import {
 import { TEMPLATE_PADRAO } from '../../lib/checkinDefault.js';
 import { mensagemAcesso } from '../../lib/mensagemAcesso.js';
 import { OBJETIVOS } from '../../lib/objetivos.js';
-import { PLANOS } from '../../lib/opcoesPaciente.js';
+import { SEXOS, PLANOS } from '../../lib/opcoesPaciente.js';
+import { perguntasParaPaciente } from '../../lib/checkinVariacao.js';
 import { callAnthropicComRetry, lerPdfBase64 } from '../../lib/anthropic.js';
 import { buscarAlimento, medidaCaseira, kcalDoAlimento, kcalEquivalente, parseGramas } from '../../lib/taco.js';
 import DateInput, { parseDatePaste } from '../../components/DateInput.jsx';
@@ -1086,7 +1087,9 @@ export default function PacientePerfil() {
         {tab === 'compras'       && <PublicarLista pacienteId={paciente.id} nutriId={user.id} />}
         {tab === 'ebooks'        && <EbooksDaPaciente pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
         {tab === 'avaliacao'     && <RegistrarAvaliacao pacienteId={paciente.id} nutriId={user.id} paciente={paciente} />}
-        {tab === 'checkin'       && <CheckinPersonalizado pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
+        {/* `paciente` inteiro além do id: perguntasParaPaciente precisa de sexo
+            e objetivo. Mesmo idioma de RegistrarAvaliacao, abaixo. */}
+        {tab === 'checkin'       && <CheckinPersonalizado pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} paciente={paciente} />}
         {tab === 'calculos'      && <Calculos pacienteId={paciente.id} nutriId={user.id} paciente={paciente} onUsarNaDieta={(vals) => { setCalculosImportados(vals); setTab('plano'); }} />}
         {tab === 'treinos'       && <Treinos pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
         {tab === 'financeiro'    && <FinanceiroPaciente pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
@@ -1411,6 +1414,9 @@ function ModalEditarDados({ paciente, onClose, onSaved }) {
     nome:       paciente.nome       ?? '',
     email:      paciente.email      ?? '',
     telefone:   paciente.telefone   ?? '',
+    // '' aqui representa o NULL do banco — é o estado das fichas anteriores à
+    // coluna, e continua salvável de volta como null (ver o payload em salvar).
+    sexo:       paciente.sexo       ?? '',
     objetivo:   paciente.objetivo   ?? '',
     tipo_plano: paciente.tipo_plano ?? '',
     modalidade: paciente.modalidade ?? '',
@@ -1452,6 +1458,9 @@ function ModalEditarDados({ paciente, onClose, onSaved }) {
         email:      emailVal           || null,
         telefone:   form.telefone.trim() || null,
         nascimento: nascISO            || null,
+        // `|| null` e não `|| ''`: a constraint pacientes_sexo_check só aceita
+        // 'feminino', 'masculino' ou NULL — string vazia seria rejeitada.
+        sexo:       form.sexo          || null,
         objetivo:   form.objetivo      || null,
         tipo_plano: form.tipo_plano    || null,
         modalidade: form.modalidade    || null,
@@ -1536,6 +1545,25 @@ function ModalEditarDados({ paciente, onClose, onSaved }) {
             )}
           </div>
 
+          {/* Sexo decide a variação do check-in (src/lib/checkinVariacao.js):
+              feminino mantém a seção "Corpo & ciclo" e o texto atual; masculino
+              e não-informado caem na versão neutra. É por AQUI que as fichas
+              antigas — cadastradas antes da coluna existir — ganham o valor. */}
+          <div>
+            <label className="field-label">Sexo</label>
+            <select value={form.sexo} onChange={set('sexo')}>
+              <option value="">— não informado —</option>
+              {SEXOS.map(o => (
+                <option key={o.v} value={o.v}>{o.l}</option>
+              ))}
+            </select>
+            {!form.sexo && (
+              <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 3 }}>
+                Sem isso, o check-in vai na versão neutra — sem as perguntas de inchaço e ciclo menstrual.
+              </div>
+            )}
+          </div>
+
           <div>
             <label className="field-label">Objetivo</label>
             <select value={form.objetivo} onChange={set('objetivo')}>
@@ -1609,7 +1637,7 @@ function ModalEditarDados({ paciente, onClose, onSaved }) {
    CHECK-IN — envio rápido + histórico desta paciente
    (gerenciamento de templates fica em /nutri/checkins)
    ============================================================ */
-function CheckinPersonalizado({ pacienteId, nutriId, pacienteNome }) {
+function CheckinPersonalizado({ pacienteId, nutriId, pacienteNome, paciente }) {
   const navigate = useNavigate();
   const [templates, setTemplates] = useState([]);
   const [envios, setEnvios] = useState([]);
@@ -1660,7 +1688,7 @@ function CheckinPersonalizado({ pacienteId, nutriId, pacienteNome }) {
     const rows = tpls.map(t => ({
       nutri_id: nutriId,
       paciente_id: pacienteId,
-      perguntas: t.perguntas,
+      perguntas: perguntasParaPaciente(t.perguntas, paciente),
     }));
     const { error } = await supabase.from('checkin_envios').insert(rows);
     setBusy(false);
