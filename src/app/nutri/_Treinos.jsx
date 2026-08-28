@@ -200,7 +200,12 @@ export default function Treinos({ pacienteId, nutriId, pacienteNome }) {
   const [treinos, setTreinos] = useState(null);
   const [form, setForm] = useState(form0());
   const [busy, setBusy] = useState(false);
+  // `feedback` é do PUBLICAR e mora no rodapé, ao lado do botão dele.
+  // `feedbackPdf` é do IMPORTAR e mora junto do botão de importar, lá em cima:
+  // a leitura do PDF pode levar meia dúzia de segundos, e o retorno aparecia
+  // a ~220 linhas de JSX de distância, provavelmente fora da tela.
   const [feedback, setFeedback] = useState(null);
+  const [feedbackPdf, setFeedbackPdf] = useState(null);
   const [ascoOpen, setAscoOpen] = useState(false);
   const [erroLista, setErroLista] = useState(null);
   // Treino cujo editor de dias/exercícios está aberto. Recebe o treino inteiro
@@ -243,7 +248,7 @@ export default function Treinos({ pacienteId, nutriId, pacienteNome }) {
   // Publicar. É o mesmo fluxo de dois passos do formulário manual.
   async function importarTreinoPdf(file) {
     setImportando(true);
-    setFeedback(null);
+    setFeedbackPdf(null);
     try {
       const base64 = await lerPdfBase64(file);
       const { plano, dias } = await chamarTreinoPdf(base64);
@@ -251,13 +256,13 @@ export default function Treinos({ pacienteId, nutriId, pacienteNome }) {
       setForm(f => ({ ...f, ...mapPlanoParaForm(plano) }));
       setRascunhoPdf(limpos);
       const nEx = limpos.reduce((n, d) => n + d.exercicios.length, 0);
-      setFeedback({
+      setFeedbackPdf({
         tipo: 'ok',
         msg: `Plano lido: ${limpos.length} dia(s), ${nEx} exercício(s). Confira o cabeçalho e publique — os dias abrem para conferência em seguida.`,
       });
     } catch (err) {
       console.error('[importarTreinoPdf]', err);
-      setFeedback({ tipo: 'erro', msg: 'Erro ao ler o PDF: ' + (err?.message ?? 'tente novamente') });
+      setFeedbackPdf({ tipo: 'erro', msg: 'Erro ao ler o PDF: ' + (err?.message ?? 'tente novamente') });
     } finally {
       setImportando(false);
       if (pdfRef.current) pdfRef.current.value = '';
@@ -273,6 +278,10 @@ export default function Treinos({ pacienteId, nutriId, pacienteNome }) {
   // justamente o novo. Por isso o erro do update avisa e não aborta.
   async function publicar() {
     setFeedback(null);
+    // Limpa o retorno do import junto: nesse momento o rascunho do PDF foi
+    // consumido, e "Plano lido: 3 dia(s)" ficaria pendurado lá em cima
+    // descrevendo algo que já virou treino publicado.
+    setFeedbackPdf(null);
     setBusy(true);
     const { data: novo, error } = await supabase.from('treinos_prescritos').insert({
       paciente_id:      pacienteId,
@@ -461,6 +470,17 @@ export default function Treinos({ pacienteId, nutriId, pacienteNome }) {
               <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 6, lineHeight: 1.4 }}>
                 {rascunhoPdf.length} dia(s) lido(s) do PDF, esperando o Publicar.
               </div>
+            )}
+            {/* Junto do botão que disparou a leitura, e não no rodapé do
+                formulário: é aqui que a nutri está olhando quando o PDF volta. */}
+            {feedbackPdf && (
+              <div style={{
+                marginTop: 8, padding: '8px 12px', borderRadius: 6, fontSize: 13,
+                background: feedbackPdf.tipo === 'ok' ? 'var(--green-bg)'
+                  : feedbackPdf.tipo === 'aviso' ? 'var(--orange-bg)' : 'var(--red-bg)',
+                color: feedbackPdf.tipo === 'ok' ? 'var(--green)'
+                  : feedbackPdf.tipo === 'aviso' ? 'var(--orange)' : 'var(--red)',
+              }}>{feedbackPdf.msg}</div>
             )}
           </div>
 

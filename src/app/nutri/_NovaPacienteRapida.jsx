@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase.js';
 import { callAnthropicComRetry } from '../../lib/anthropic.js';
 import { telefoneValido } from '../../lib/utils.js';
 import { OBJETIVOS } from '../../lib/objetivos.js';
-import { PLANOS, MODALIDADES } from '../../lib/opcoesPaciente.js';
+import { SEXOS, PLANOS, MODALIDADES } from '../../lib/opcoesPaciente.js';
 import DateInput from '../../components/DateInput.jsx';
 
 // Teto do texto colado. Protege custo e o max_tokens da resposta: uma conversa
@@ -124,6 +124,12 @@ export default function NovaPacienteRapida({ nutriId, onClose, onCriada }) {
   const [endereco, setEndereco] = useState('');
   const [cpf, setCpf] = useState('');
   const [rg, setRg] = useState('');
+
+  // Sexo nasce VAZIO, fora do bloco de defaults abaixo: um padrão aqui
+  // gravaria um palpite na ficha como se fosse informado. Não é pedido à IA de
+  // extração de propósito — inferir sexo de texto colado é exatamente esse
+  // palpite. Ver lib/checkinVariacao.js, que consome o campo.
+  const [sexo, setSexo] = useState('');
 
   // Mesmos defaults do Cadastrar.jsx
   const [objetivo, setObjetivo] = useState('Emagrecimento');
@@ -251,6 +257,11 @@ export default function NovaPacienteRapida({ nutriId, onClose, onCriada }) {
         email: emailVal,
         telefone: telefone.trim(),
         nascimento: nascimento || null,
+        // `|| null` e não `|| ''`: a constraint pacientes_sexo_check só aceita
+        // 'feminino', 'masculino' ou NULL. Não vai para pacientes_pendentes
+        // logo abaixo — aquela tabela não tem a coluna, e a ficha já nasce com
+        // o valor aqui.
+        sexo: sexo || null,
         objetivo,
         tipo_plano: tipoPlano,
         modalidade,
@@ -462,6 +473,23 @@ export default function NovaPacienteRapida({ nutriId, onClose, onCriada }) {
                 Pode salvar assim mesmo, se forem fichas diferentes.
               </div>
             )}
+
+            {/* Linha própria, largura inteira, em vez de virar uma quarta
+                coluna: o grid de baixo já fica apertado no celular, e assim o
+                campo aparece igual ao do Cadastrar.jsx. Sexo decide a variação
+                do check-in (lib/checkinVariacao.js). */}
+            <div style={{ marginBottom: 8 }}>
+              <label className="form-lbl">Sexo</label>
+              <select value={sexo} onChange={e => setSexo(e.target.value)}>
+                <option value="">— não informado —</option>
+                {SEXOS.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
+              </select>
+              {!sexo && (
+                <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 3 }}>
+                  Sem isso, o check-in vai na versão neutra — sem as perguntas de inchaço e ciclo menstrual.
+                </div>
+              )}
+            </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
               <div>

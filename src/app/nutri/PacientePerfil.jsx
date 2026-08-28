@@ -13,6 +13,7 @@ import { mensagemAcesso } from '../../lib/mensagemAcesso.js';
 import { OBJETIVOS } from '../../lib/objetivos.js';
 import { SEXOS, PLANOS } from '../../lib/opcoesPaciente.js';
 import { perguntasParaPaciente } from '../../lib/checkinVariacao.js';
+import { ehFeriado, feriadoDe } from '../../lib/feriados.js';
 import { callAnthropicComRetry, lerPdfBase64 } from '../../lib/anthropic.js';
 import { buscarAlimento, medidaCaseira, kcalDoAlimento, kcalEquivalente, parseGramas } from '../../lib/taco.js';
 import DateInput, { parseDatePaste } from '../../components/DateInput.jsx';
@@ -1714,6 +1715,36 @@ function CheckinPersonalizado({ pacienteId, nutriId, pacienteNome, paciente }) {
     carregar();
   }
 
+  // Só para envio NÃO RESPONDIDO, e a checagem é feita aqui além de no render.
+  // `checkin_envios.respostas` alimenta a evolução (_Evolucao.jsx) e o
+  // relatório (_RelatorioEvolucao.jsx): apagar um check-in respondido tiraria
+  // um ponto do gráfico e uma linha do relatório, em silêncio. Se um dia isso
+  // for desejado, que seja por um caminho próprio e com aviso à altura.
+  //
+  // A policy checkin_envios_delete_nutri (nutri_id = auth.uid()) já existe no
+  // banco — conferida em pg_policies, não pelo setup.sql.
+  async function excluirEnvio(envio) {
+    if (envio.respondido_em) return;
+    if (!window.confirm(
+      `Excluir o check-in enviado em ${dataBR(envio.enviado_em)}?\n\n` +
+      'A paciente deixa de vê-lo na hora. Não dá para desfazer.'
+    )) return;
+    const { error, count } = await supabase
+      .from('checkin_envios')
+      .delete({ count: 'exact' })
+      .eq('id', envio.id)
+      .is('respondido_em', null);   // corrida: ela pode ter respondido agora
+    if (error) return setAviso({ tipo: 'erro', msg: 'Erro ao excluir: ' + error.message });
+    // count 0 sem erro é o caso da RLS barrando ou do guard acima pegando uma
+    // resposta que chegou nesse intervalo — os dois devolvem sucesso vazio.
+    if (!count) {
+      setAviso({ tipo: 'erro', msg: 'Nada foi excluído — ou a paciente acabou de responder, ou falta permissão no banco.' });
+      return carregar();
+    }
+    setAviso({ tipo: 'ok', msg: 'Check-in excluído.' });
+    carregar();
+  }
+
   const todosChecados = templates.length > 0 && selecionados.size === templates.length;
   const qtd = selecionados.size;
 
@@ -1902,6 +1933,22 @@ function CheckinPersonalizado({ pacienteId, nutriId, pacienteNome, paciente }) {
                     <i className="ti ti-bell" aria-hidden="true"></i> Lembrete
                   </button>
                 )}
+                {/* Só para não respondido: o check-in respondido é dado
+                    clínico, e sai do gráfico de evolução junto. Discreto de
+                    propósito — é ação destrutiva, não atalho. */}
+                {!respondeu && (
+                  <button
+                    title="Excluir este check-in"
+                    aria-label={`Excluir o check-in enviado em ${dataBR(e.enviado_em)}`}
+                    onClick={() => excluirEnvio(e)}
+                    style={{
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      color: 'var(--text3)', padding: '4px 6px', fontSize: 15,
+                      lineHeight: 1, flexShrink: 0,
+                    }}>
+                    <i className="ti ti-trash" aria-hidden="true"></i>
+                  </button>
+                )}
               </div>
             );
           })}
@@ -2055,7 +2102,17 @@ function RegistrarAvaliacao({ pacienteId, nutriId, paciente }) {
   const [historico, setHistorico] = useState([]);
   const [form, setForm] = useState(novaAvaliacao());
   const [busy, setBusy] = useState(false);
+  // DOIS estados de propósito. Este componente tem cinco fluxos que dão
+  // retorno, e eles vivem em duas alturas diferentes da tela:
+  //   `feedback`     — salvar rascunhos do lote e salvar avaliação manual;
+  //                    fica no RODAPÉ, ao lado dos botões de salvar.
+  //   `feedbackTopo` — enviar link por push, importar Shaped e importar em
+  //                    lote; ficam no BLOCO DE CIMA, junto dos seus botões.
+  // Antes era um estado só, no rodapé: quem clicava em importar no topo via a
+  // resposta ~140 linhas de JSX abaixo, fora da tela numa leitura que leva
+  // dezenas de segundos.
   const [feedback, setFeedback] = useState(null);
+  const [feedbackTopo, setFeedbackTopo] = useState(null);
   const [analisarOpen, setAnalisarOpen] = useState(false);
   const [importandoShaped, setImportandoShaped] = useState(false);
   const shapedRef = useRef(null);
@@ -2068,7 +2125,7 @@ function RegistrarAvaliacao({ pacienteId, nutriId, paciente }) {
   // único aviso que a paciente recebe, então a nutri precisa saber se chegou.
   async function enviarLinkAvaliacao() {
     setEnviandoLink(true);
-    setFeedback(null);
+    setFeedbackTopo(null);
     try {
       const { data: s } = await supabase.auth.getSession();
       const accessToken = s.session?.access_token;
@@ -2085,13 +2142,13 @@ function RegistrarAvaliacao({ pacienteId, nutriId, paciente }) {
       // enviarParaUsuario devolve 200 com enviados:0 quando não há nenhuma
       // subscription. Sem esta checagem a tela diria "enviado" para ninguém.
       if (json.enviados === 0) {
-        setFeedback({ tipo: 'erro', msg: 'Ninguém recebeu — a paciente ainda não ativou as notificações no app dela.' });
+        setFeedbackTopo({ tipo: 'erro', msg: 'Ninguém recebeu — a paciente ainda não ativou as notificações no app dela.' });
         return;
       }
-      setFeedback({ tipo: 'ok', msg: `Link enviado! (${json.enviados} aparelho${json.enviados !== 1 ? 's' : ''})` });
+      setFeedbackTopo({ tipo: 'ok', msg: `Link enviado! (${json.enviados} aparelho${json.enviados !== 1 ? 's' : ''})` });
       setLinkShaped('');
     } catch (err) {
-      setFeedback({ tipo: 'erro', msg: err.message });
+      setFeedbackTopo({ tipo: 'erro', msg: err.message });
     } finally {
       setEnviandoLink(false);
     }
@@ -2134,20 +2191,20 @@ function RegistrarAvaliacao({ pacienteId, nutriId, paciente }) {
   // só comporta uma, a importação individual abre a MESMA tela de conferência do lote.
   async function importarShaped(file) {
     setImportandoShaped(true);
-    setFeedback(null);
+    setFeedbackTopo(null);
     try {
       const base64 = await lerPdfBase64(file);
       const avals = await chamarShaped(base64);
       if (!avals.length) throw new Error('nenhuma avaliação encontrada no PDF');
       setRascunhos(rascunhosDeAvaliacoes(file, avals));
       const nHist = avals.length - 1;
-      setFeedback({
+      setFeedbackTopo({
         tipo: 'ok',
         msg: `${avals.length} avaliação(ões) lida(s) (1 atual${nHist > 0 ? ` + ${nHist} do histórico` : ''}). Confira e salve.`,
       });
     } catch (err) {
       console.error('[importarShaped]', err);
-      setFeedback({ tipo: 'erro', msg: 'Erro ao ler avaliação Shaped: ' + (err?.message ?? 'tente novamente') });
+      setFeedbackTopo({ tipo: 'erro', msg: 'Erro ao ler avaliação Shaped: ' + (err?.message ?? 'tente novamente') });
     } finally {
       setImportandoShaped(false);
       if (shapedRef.current) shapedRef.current.value = '';
@@ -2159,7 +2216,7 @@ function RegistrarAvaliacao({ pacienteId, nutriId, paciente }) {
     const arr = Array.from(files);
     if (arr.length === 0) return;
     setImportandoLote(true);
-    setFeedback(null);
+    setFeedbackTopo(null);
     setProgresso({ feito: 0, total: arr.length });
     const resultados = await runPool(
       arr,
@@ -2505,6 +2562,11 @@ function RegistrarAvaliacao({ pacienteId, nutriId, paciente }) {
           <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 16, lineHeight: 1.5 }}>
             Só aceita link do Shaped. A paciente recebe uma notificação e o link abre ao tocar.
           </div>
+
+          {/* Fecha o bloco de cima: retorno dos três botões acima (importar
+              Shaped, importar em lote, enviar link), junto de quem os disparou.
+              O feedback dos dois SALVAR continua no rodapé, mais abaixo. */}
+          {feedbackTopo && <FeedbackInline f={feedbackTopo} />}
 
           {/* Linha 1: Data, Peso, Altura */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
@@ -5811,8 +5873,22 @@ const AlimentoLinha = memo(function AlimentoLinha({ alimento: a, refId, onSetAli
 // ou domingo, qualquer que fosse a data de início. Cada data é ancorada em
 // base + i*intervalo e só depois empurrada para a segunda seguinte — empurrar
 // sem reancorar impede que o desvio se acumule nas consultas seguintes.
-function proximoDiaUtil(d) {
-  while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
+// Feriado é bloqueio RÍGIDO: não existe "permitir feriado", ao contrário do
+// fim de semana. Consultório fechado não é preferência de agenda.
+const isoLocal = (d) => {
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+};
+
+// Empurra para a frente enquanto o dia não servir. O laço combina as duas
+// regras num só avanço porque elas se cruzam: pular um feriado pode cair num
+// sábado, e pular o sábado pode cair em outro feriado. Termina sempre —
+// feriado não emenda indefinidamente.
+function proximoDiaValido(d, pularFimDeSemana = true) {
+  const fds = () => d.getDay() === 0 || d.getDay() === 6;
+  while ((pularFimDeSemana && fds()) || ehFeriado(isoLocal(d))) {
+    d.setDate(d.getDate() + 1);
+  }
   return d;
 }
 
@@ -5824,12 +5900,13 @@ function ehFimDeSemana(dataLocal) {
 function gerarDatas(primeiraData, hora, intervaloDias, qtd, pularFimDeSemana = true) {
   const datas = [];
   const base = new Date(`${primeiraData}T00:00:00`); // meia-noite LOCAL, sem UTC
-  const p = (n) => String(n).padStart(2, '0');
   for (let i = 0; i < qtd; i++) {
     const d = new Date(base);
     d.setDate(d.getDate() + i * intervaloDias);
-    if (pularFimDeSemana) proximoDiaUtil(d);
-    datas.push({ data: `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`, hora });
+    // Chamado SEMPRE, e não mais só quando pularFimDeSemana: o feriado é
+    // pulado mesmo com o fim de semana liberado.
+    proximoDiaValido(d, pularFimDeSemana);
+    datas.push({ data: isoLocal(d), hora });
   }
   return datas;
 }
@@ -5878,6 +5955,15 @@ function ModalAgendarAcompanhamento({ pacienteId, nutriId, consultaAtiva, onClos
       // editado à mão, que aceita qualquer dia.
       if (!permitirFds && datas.some(d => ehFimDeSemana(d.data))) {
         setErro('Há consulta em sábado ou domingo. Ajuste a data ou marque "permitir fim de semana".');
+        return;
+      }
+      // Feriado: trava RÍGIDA, independente do permitirFds. Cobre o campo
+      // editado à mão, e nomeia a data e o feriado — "há consulta em feriado"
+      // mandaria a nutri caçar qual das seis é.
+      const emFeriado = datas.find(d => d.data && feriadoDe(d.data));
+      if (emFeriado) {
+        const [a, m, dia] = emFeriado.data.split('-');
+        setErro(`${dia}/${m}/${a} é feriado (${feriadoDe(emFeriado.data)}). Ajuste a data.`);
         return;
       }
     }
