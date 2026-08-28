@@ -6,13 +6,21 @@ const { createClient } = require('@supabase/supabase-js');
 // anthropic-dangerous-direct-browser-access. Qualquer visitante do site podia
 // ler a chave no JS publicado.
 //
-// Chamado por src/lib/anthropic.js -> callAnthropic(). Hoje serve três telas da
-// nutri: leitura do PDF do Shaped (PacientePerfil), análise de avaliação e
-// relatório de evolução.
+// Chamado por src/lib/anthropic.js -> callAnthropic(). Hoje serve SEIS telas da
+// nutri: leitura do PDF do Shaped (PacientePerfil), análise de avaliação,
+// relatório de evolução, tratamento oncológico, nova paciente rápida e import
+// de plano de treino por PDF (_Treinos).
 
-// Modelo fixo no servidor: se viesse do cliente, uma sessão válida poderia
-// pedir qualquer modelo. Era o default de callAnthropic antes desta mudança.
-const MODELO = 'claude-sonnet-4-6';
+// O cliente PODE escolher o modelo, mas só dentro da allowlist. O motivo do
+// modelo fixo continua valendo — uma sessão válida não pode pedir QUALQUER
+// modelo — e a lista é o que preserva isso enquanto libera a escolha.
+//
+// Haiku 4.5 entrou por causa do import de plano de treino por PDF: a chamada
+// levava 32,2s e voltava 504. O tempo de LEITURA do PDF é 3,8s (medido), ou
+// seja a geração é que domina — e Haiku gera mais rápido. Só _Treinos.jsx pede
+// Haiku; todo o resto omite `model` e continua no padrão.
+const MODELO_PADRAO = 'claude-sonnet-4-6';
+const MODELOS_PERMITIDOS = new Set(['claude-sonnet-4-6', 'claude-haiku-4-5']);
 const MAX_TOKENS_TETO = 8192;   // maior uso atual (chamarShaped, leitura do PDF)
 
 // Calibrado para o LOTE, não para a chamada avulsa: a importação em lote roda
@@ -78,6 +86,14 @@ exports.handler = async (event) => {
       return json(400, { error: `maxTokens deve estar entre 1 e ${MAX_TOKENS_TETO}.`, status: 400 });
     }
 
+    // Modelo fora da lista responde 400 em vez de cair no padrão calado: um
+    // typo que voltasse ao Sonnet sem avisar deixaria o 504 acontecendo e a
+    // causa invisível. Omitir o campo continua sendo o caminho normal.
+    const model = body.model ?? MODELO_PADRAO;
+    if (!MODELOS_PERMITIDOS.has(model)) {
+      return json(400, { error: `model não permitido: ${model}`, status: 400 });
+    }
+
     // 4) Rate-limit por nutri, janela deslizante. Limpeza oportunista primeiro:
     //    mantém a tabela pequena sem depender de job agendado.
     await supabase.from('ia_chamadas').delete()
@@ -116,7 +132,7 @@ exports.handler = async (event) => {
         'anthropic-version': '2023-06-01',
         'content-type': 'application/json',
       },
-      body: JSON.stringify({ model: MODELO, max_tokens: maxTokens, messages }),
+      body: JSON.stringify({ model, max_tokens: maxTokens, messages }),
     });
 
     if (!resp.ok) {

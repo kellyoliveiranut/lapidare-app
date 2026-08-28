@@ -44,44 +44,55 @@ const PROMPT_TREINO_PDF = `Você vai analisar um PDF de plano de treino (prescri
 Retorne um OBJETO JSON puro (sem nenhum texto fora do objeto).
 
 ═══ REGRA GERAL ═══
-- Se um valor não estiver no documento, use null — NÃO invente.
+- Se um valor não estiver no documento, OMITA a chave — NÃO invente e NÃO escreva null.
 - Copie séries, repetições, carga e intervalo LITERALMENTE como estão escritos ("3", "3-4", "12/10/8", "até a falha", "30s", "RPE 7"). NÃO converta para número, NÃO padronize, NÃO arredonde.
 
 ═══ FORMATO ═══
 {
   plano: {
-    tipo: string|null — ESCOLHA EXATAMENTE UM desta lista:
+    tipo: ESCOLHA EXATAMENTE UM desta lista:
       ${TIPOS.map(t => `"${t}"`).join('\n      ')}
-    intensidade: "Leve"|"Moderada"|"Moderada-alta"|null
-    frequencia_semanal: 1|2|3|4|5|null
-    duracao_minutos: 10|15|20|30|45|60|null (o mais próximo do documento)
-    fase_tratamento: string|null — EXATAMENTE UM desta lista, ou null:
+    intensidade: "Leve" | "Moderada" | "Moderada-alta"
+    frequencia_semanal: 1|2|3|4|5
+    duracao_minutos: 10|15|20|30|45|60 (o mais próximo do documento)
+    fase_tratamento: EXATAMENTE UM desta lista:
       ${FASES.map(f => `"${f}"`).join('\n      ')}
-    divisao: string|null (ex: "A/B", "ABC", "Full body")
-    contexto_clinico: string|null (situação clínica que o plano assume)
-    local_equipamentos: string|null (onde treina e com o quê)
-    objetivo_treino: string|null
-    precaucoes: string|null
-    progressao: string|null
-    observacoes: string|null
+    divisao: string (ex: "A/B", "ABC", "Full body")
+    contexto_clinico: string (situação clínica que o plano assume, no máximo 2 frases)
+    local_equipamentos: string (onde treina e com o quê, no máximo 1 frase)
+    objetivo_treino: string (no máximo 1 frase)
+    precaucoes: string (no máximo 2 frases)
+    progressao: string (no máximo 2 frases)
+    observacoes: string (no máximo 2 frases)
   },
   dias: [
     {
       nome: string (rótulo do documento: "Treino A", "Superiores"...)
-      dias_semana: array de strings|null — SOMENTE destes valores, com o acento exato: ${DIAS.map(d => `"${d}"`).join(' ')}
-      exercicios: [
-        { nome: string, series: string|null, repeticoes: string|null,
-          intensidade: string|null (carga OU percepção de esforço),
-          intervalo: string|null, observacao: string|null }
-      ]
+      dias_semana: array de strings — SOMENTE destes valores, com o acento exato: ${DIAS.map(d => `"${d}"`).join(' ')}
+      exercicios: [ ARRAY DE ARRAYS — veja abaixo ]
     }
   ]
 }
+
+═══ ECONOMIA DE SAÍDA — SIGA À RISCA ═══
+1. OMITA a chave inteira quando não houver valor. NÃO escreva "campo": null
+   nem "campo": "". Chave ausente já significa "não informado".
+2. Cada exercício é um ARRAY DE STRINGS, nesta ordem exata, NUNCA um objeto:
+      [nome, series, repeticoes, carga_ou_intensidade, intervalo, observacao]
+   Exemplo: ["Agachamento livre", "3", "12/10/8", "20kg", "60s"]
+   PODE ENCURTAR o array quando os últimos campos não existirem — o exemplo
+   acima tem 5 posições porque não havia observação. Um exercício só com nome
+   e séries é ["Remada baixa", "3"].
+   Posição intermediária vazia usa "" para não desalinhar as seguintes:
+   ["Prancha", "", "30s"] = sem séries, 30s de repetição/tempo.
 
 Se o plano não tiver divisão em dias, devolva dias: [] — não invente "Treino A".
 
 Retorne SOMENTE o objeto JSON.`;
 
+// Haiku 4.5 SÓ aqui: esta chamada estourava o timeout da Netlify (32,2s, 504)
+// e a geração é a fatia cara — a leitura do PDF mede 3,8s. As outras cinco
+// telas omitem `model` e seguem no padrão do servidor.
 async function chamarTreinoPdf(base64) {
   const text = await callAnthropicComRetry([
     {
@@ -91,7 +102,7 @@ async function chamarTreinoPdf(base64) {
         { type: 'text', text: PROMPT_TREINO_PDF },
       ],
     },
-  ], { maxTokens: 8192 });
+  ], { maxTokens: 8192, model: 'claude-haiku-4-5' });
   // A IA às vezes cerca a resposta em bloco de código — mesmo tratamento do
   // chamarShaped em PacientePerfil.jsx.
   const parsed = JSON.parse(text.replace(/```(?:json)?\n?/g, '').trim());
@@ -128,6 +139,31 @@ function mapPlanoParaForm(p = {}) {
   };
 }
 
+// O prompt pede o exercício como ARRAY POSICIONAL — seis nomes de chave por
+// exercício era a maior fatia da saída, e a saída é o que dita a latência (a
+// chamada de 32,2s estourou o timeout da Netlify). A ordem das posições é a
+// mesma declarada no prompt, e o array pode vir CURTO quando os últimos campos
+// não existem.
+//
+// O ramo do objeto continua aceito de propósito: se o modelo escorregar para o
+// formato antigo, a importação degrada em vez de quebrar.
+const ORDEM_EX = ['nome', 'series', 'repeticoes', 'intensidade', 'intervalo', 'observacao'];
+
+function normalizarExercicio(e) {
+  const bruto = Array.isArray(e)
+    ? Object.fromEntries(ORDEM_EX.map((k, i) => [k, e[i]]))
+    : (e ?? {});
+  const txt = v => (typeof v === 'string' ? v.trim() : v == null ? '' : String(v).trim());
+  return {
+    nome: txt(bruto.nome),
+    series: txt(bruto.series),
+    repeticoes: txt(bruto.repeticoes),
+    intensidade: txt(bruto.intensidade),
+    intervalo: txt(bruto.intervalo),
+    observacao: txt(bruto.observacao),
+  };
+}
+
 // Os dias_semana da IA passam pelo mesmo crivo: sigla fora da lista é
 // descartada em vez de virar chip fantasma no editor.
 function normalizarDias(dias) {
@@ -135,15 +171,8 @@ function normalizarDias(dias) {
     nome: (d?.nome ?? '').trim() || 'Treino',
     dias_semana: (Array.isArray(d?.dias_semana) ? d.dias_semana : []).filter(x => DIAS.includes(x)),
     exercicios: (Array.isArray(d?.exercicios) ? d.exercicios : [])
-      .filter(e => (e?.nome ?? '').trim())
-      .map(e => ({
-        nome: e.nome.trim(),
-        series: e.series ?? '',
-        repeticoes: e.repeticoes ?? '',
-        intensidade: e.intensidade ?? '',
-        intervalo: e.intervalo ?? '',
-        observacao: e.observacao ?? '',
-      })),
+      .map(normalizarExercicio)
+      .filter(e => e.nome),   // exercício sem nome não tem o que conferir
   }));
 }
 

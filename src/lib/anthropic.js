@@ -4,9 +4,11 @@ import { supabase } from './supabase.js';
 // Function (netlify/functions/anthropic-proxy.js), que autentica a nutri pelo
 // Bearer token, aplica rate-limit e chama a Anthropic com a chave de lá.
 //
-// O `model` deixou de ser parâmetro: é fixado no servidor, para uma sessão
-// válida não conseguir pedir qualquer modelo. Nenhum chamador passava model.
-export async function callAnthropic(messages, { maxTokens = 2048 } = {}) {
+// O `model` é OPCIONAL e validado no servidor contra uma allowlist: omitir (o
+// caso de quase todos os chamadores) usa o padrão de lá; passar um valor fora
+// da lista devolve 400, não cai no padrão calado. Só o import de plano de
+// treino por PDF pede modelo explícito hoje.
+export async function callAnthropic(messages, { maxTokens = 2048, model } = {}) {
   const { data: { session } } = await supabase.auth.getSession();
   const token = session?.access_token;
   if (!token) throw new Error('Sessão expirada. Entre novamente.');
@@ -17,7 +19,9 @@ export async function callAnthropic(messages, { maxTokens = 2048 } = {}) {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`,
     },
-    body: JSON.stringify({ messages, maxTokens }),
+    // `model` só entra no corpo quando pedido: sem isso os chamadores que não
+    // escolhem modelo mandariam "model": undefined e o JSON mudaria à toa.
+    body: JSON.stringify({ messages, maxTokens, ...(model ? { model } : {}) }),
   });
 
   const body = await res.json().catch(() => ({}));
