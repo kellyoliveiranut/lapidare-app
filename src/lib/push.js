@@ -63,3 +63,39 @@ export async function desativarNotificacoes() {
   await subscription.unsubscribe();
   await supabase.from('push_subscriptions').delete().eq('endpoint', endpoint);
 }
+
+/**
+ * Começa a resolver o token do push ANTES de qualquer outra chamada ao Supabase.
+ *
+ * A ordem não é estilo, é o conserto de um bug: getSession() disputa o mesmo
+ * lock de auth que toda query do PostgREST usa. Quando era chamado DEPOIS do
+ * insert, com outra query saindo logo atrás (o carregar() do feed, o navigate
+ * do check-in), o .then() podia nunca resolver — o fetch do push não chegava a
+ * ser criado, e não havia erro nenhum para aparecer, nem no cliente nem no log
+ * da function. Chat e confirmação de consulta funcionavam só porque nada mais
+ * saía depois deles.
+ *
+ * Chame no topo da função, antes do primeiro await de Supabase, e guarde a
+ * promise. Não use await aqui: se esta promise entrar no caminho crítico, uma
+ * sessão travada deixa de custar o push e passa a custar o insert.
+ */
+export function iniciarTokenPush() {
+  return supabase.auth.getSession()
+    .then(r => r.data.session?.access_token ?? null)
+    .catch(() => null);
+}
+
+/**
+ * Avisa a nutri (fire-and-forget — nunca bloqueia a UI).
+ * Recebe a promise devolvida por iniciarTokenPush(), não o token pronto.
+ */
+export function avisarNutri(tokenPush, kind) {
+  tokenPush.then(accessToken => {
+    if (!accessToken) return;
+    fetch('/.netlify/functions/send-push', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+      body: JSON.stringify({ mode: 'notify_nutri', kind }),
+    }).catch(() => {});
+  });
+}

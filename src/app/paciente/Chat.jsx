@@ -4,6 +4,7 @@ import { useSession } from '../../lib/session.jsx';
 import { useTheme } from '../../lib/theme.jsx';
 import { iniciais, dataLocalISO } from '../../lib/utils.js';
 import { comprimirImagem, getAnexoUrl } from '../../lib/imagem.js';
+import { iniciarTokenPush, avisarNutri } from '../../lib/push.js';
 
 function fmtHora(iso) {
   if (!iso) return '';
@@ -153,6 +154,7 @@ export default function ChatPaciente() {
     const conteudo = text.trim();
     if ((!conteudo && !anexo) || !user || !profile?.nutri_id) return;
     setBusy(true);
+    const tokenPush = iniciarTokenPush();
 
     let imagem_path = null;
     if (anexo) {
@@ -180,16 +182,7 @@ export default function ChatPaciente() {
 
     setText('');
     limparAnexo();
-    // Notifica a nutri via push (fire-and-forget — nunca bloqueia a UI)
-    supabase.auth.getSession().then(({ data }) => {
-      const accessToken = data.session?.access_token;
-      if (!accessToken) return;
-      fetch('/.netlify/functions/send-push', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
-        body: JSON.stringify(imagem_path ? { mode: 'notify_nutri', kind: 'mensagem_foto' } : { mode: 'notify_nutri' }),
-      }).catch(() => {});
-    });
+    avisarNutri(tokenPush, imagem_path ? 'mensagem_foto' : 'mensagem');
     // a UI atualiza via realtime — não precisa recarregar
   }
 

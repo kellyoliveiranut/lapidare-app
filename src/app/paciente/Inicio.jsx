@@ -6,6 +6,7 @@ import { useTheme } from '../../lib/theme.jsx';
 import { textoDias, dataConsultaBR, horaConsultaBR, diasAte, gerarGoogleCalendarUrl, dataBR, dataLocalISO } from '../../lib/utils.js';
 import { cumpriuHabito } from './_HabitosHoje.jsx';
 import { escolherDaSemana } from '../../lib/rotacaoMensagens.js';
+import { iniciarTokenPush, avisarNutri } from '../../lib/push.js';
 
 
 const DIAS_SEG = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
@@ -324,6 +325,7 @@ export default function Inicio() {
     if (!proximaConsulta || confirmando) return;
     setConfirmando(true);
     setErroConfirmar(null);
+    const tokenPush = iniciarTokenPush();
     const { data, error } = await supabase.rpc('confirmar_consulta', {
       p_consulta_id: proximaConsulta.id,
     });
@@ -335,16 +337,7 @@ export default function Inicio() {
     }
     // A RPC devolve o carimbo — atualiza local, sem refazer a query.
     setProximaConsulta(c => (c ? { ...c, confirmada_em: data } : c));
-    // Avisa a nutri (fire-and-forget — nunca bloqueia a UI)
-    supabase.auth.getSession().then(({ data: s }) => {
-      const accessToken = s.session?.access_token;
-      if (!accessToken) return;
-      fetch('/.netlify/functions/send-push', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ mode: 'notify_nutri', kind: 'consulta_confirmada' }),
-      }).catch(() => {});
-    });
+    avisarNutri(tokenPush, 'consulta_confirmada');
   }
 
   // ─── Derivados básicos ────────────────────────────────────────────────────

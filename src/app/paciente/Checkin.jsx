@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { respostasIniciais } from '../../lib/checkinDefault.js';
+import { iniciarTokenPush, avisarNutri } from '../../lib/push.js';
 import CheckinForm from '../../components/CheckinForm.jsx';
 
 export default function Checkin() {
@@ -63,6 +64,7 @@ export default function Checkin() {
   async function enviar() {
     setErro(null);
     setBusy(true);
+    const tokenPush = iniciarTokenPush();
     const { error } = await supabase
       .from('checkin_envios')
       .update({
@@ -72,18 +74,7 @@ export default function Checkin() {
       .eq('id', envio.id);
     setBusy(false);
     if (error) return setErro(error.message);
-    // Notifica a nutri via push (fire-and-forget — nunca bloqueia a UI).
-    // Sai antes do navigate de 2,5s abaixo, e a navegação é do react-router,
-    // dentro da mesma página — não cancela a requisição em voo.
-    supabase.auth.getSession().then(({ data }) => {
-      const accessToken = data.session?.access_token;
-      if (!accessToken) return;
-      fetch('/.netlify/functions/send-push', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
-        body: JSON.stringify({ mode: 'notify_nutri', kind: 'checkin_respondido' }),
-      }).catch(() => {});
-    });
+    avisarNutri(tokenPush, 'checkin_respondido');
     setSucesso(true);
     setTimeout(() => navigate('/paciente/inicio', { replace: true }), 2500);
   }

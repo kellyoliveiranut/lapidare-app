@@ -4,6 +4,7 @@ import { useSession } from '../../lib/session.jsx';
 import { useTheme } from '../../lib/theme.jsx';
 import { iniciais, dataBR } from '../../lib/utils.js';
 import { comprimirImagem } from '../../lib/imagem.js';
+import { iniciarTokenPush, avisarNutri } from '../../lib/push.js';
 
 const REFEICOES = ['Café da manhã', 'Lanche da manhã', 'Almoço', 'Lanche da tarde', 'Jantar', 'Ceia', 'Outro'];
 
@@ -116,6 +117,7 @@ export default function FeedPaciente() {
     setErro(null);
     if (!arquivo) return setErro('Selecione uma foto.');
     setBusy(true);
+    const tokenPush = iniciarTokenPush();
 
     // Comprime antes de subir: foto de celular de ~4MB vira ~200-500KB.
     // Mesma configuração dos chats (1600px no maior lado, JPEG 0.8).
@@ -149,16 +151,7 @@ export default function FeedPaciente() {
       await supabase.storage.from('fotos_pratos').remove([path]);
       return setErro('Erro: ' + insErr.message);
     }
-    // Notifica a nutri via push (fire-and-forget — nunca bloqueia a UI)
-    supabase.auth.getSession().then(({ data }) => {
-      const accessToken = data.session?.access_token;
-      if (!accessToken) return;
-      fetch('/.netlify/functions/send-push', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
-        body: JSON.stringify({ mode: 'notify_nutri', kind: 'foto_prato' }),
-      }).catch(() => {});
-    });
+    avisarNutri(tokenPush, 'foto_prato');
     cancelar();
     carregar({ cancelled: false });
   }
@@ -167,6 +160,7 @@ export default function FeedPaciente() {
     const texto = (respostas[post.id] ?? '').trim();
     if (!texto) return;
     setEnviandoResp(s => ({ ...s, [post.id]: true }));
+    const tokenPush = iniciarTokenPush();
     const { error } = await supabase.from('feed_pratos_comentarios').insert({
       prato_id: post.id,
       paciente_id: pacienteId,
@@ -176,16 +170,7 @@ export default function FeedPaciente() {
     setEnviandoResp(s => ({ ...s, [post.id]: false }));
     if (error) return setErro('Erro ao enviar resposta: ' + error.message);
     setRespostas(r => { const n = { ...r }; delete n[post.id]; return n; });
-    // Avisa a nutri via push (fire-and-forget — nunca bloqueia a UI)
-    supabase.auth.getSession().then(({ data }) => {
-      const accessToken = data.session?.access_token;
-      if (!accessToken) return;
-      fetch('/.netlify/functions/send-push', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
-        body: JSON.stringify({ mode: 'notify_nutri', kind: 'resposta_prato' }),
-      }).catch(() => {});
-    });
+    avisarNutri(tokenPush, 'resposta_prato');
     carregar({ cancelled: false });
   }
 
