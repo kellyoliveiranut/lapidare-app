@@ -5,6 +5,7 @@ import { useSession } from '../../lib/session.jsx';
 import DateInput from '../../components/DateInput.jsx';
 import NovaPacienteRapida from './_NovaPacienteRapida.jsx';
 import { linkConvite, mensagemConviteEncoded } from '../../lib/convite.js';
+import { validarDiaConsulta } from '../../lib/feriados.js';
 import {
   dataConsultaBR, horaConsultaBR, TZ_CLINICA, textoDias, iniciais,
   gerarDiasCalendario, ehMesmoDia, mesAnoExtenso, DIAS_SEMANA_CURTOS,
@@ -1617,6 +1618,17 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
     if (!horaConsultaValida(hora)) {
       setErro('O horário deve ser um dos valores entre 08:00 e 18:00 (de 30 em 30 min).');
       return;
+    }
+    // Fim de semana e feriado: rígidos, sem escape. Vale para nova, editar e
+    // remarcar — o modal é o mesmo salvar().
+    //
+    // Ao EDITAR, só cobra a data quando ela mudou. Consulta antiga já gravada
+    // num sábado existe no banco, e travar o save impediria trocar o local, a
+    // observação ou a duração dela sem antes mexer na data. Não é escape: para
+    // marcar em fim de semana ainda é preciso passar por esta trava.
+    if (!isEdit || data !== initial.data) {
+      const problemaDia = validarDiaConsulta(data);
+      if (problemaDia) { setErro(problemaDia); return; }
     }
     if (modalidade === 'presencial' && !localId) {
       setErro(locaisDisponiveis.length === 0

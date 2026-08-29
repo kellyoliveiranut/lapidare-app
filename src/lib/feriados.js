@@ -1,6 +1,11 @@
 /**
  * Feriados que bloqueiam agendamento de consulta.
  *
+ * Também é a casa de validarDiaConsulta(), no fim do arquivo, que junta feriado
+ * e fim de semana numa resposta só. As duas regras vivem juntas porque as telas
+ * sempre perguntam as duas ao mesmo tempo — separá-las foi o que deixou a
+ * consulta avulsa sem trava enquanto o pacote de 6 tinha.
+ *
  * Escopo: feriados NACIONAIS + os de Belém/PA, que é onde a Kelly atende. Não
  * é uma biblioteca de feriados do Brasil — é a lista que importa para não
  * marcar consulta em dia fechado.
@@ -142,4 +147,47 @@ export function feriadoDe(dataLocal) {
 /** Atalho booleano. Recebe 'YYYY-MM-DD'. */
 export function ehFeriado(dataLocal) {
   return feriadoDe(dataLocal) !== null;
+}
+
+/** 'YYYY-MM-DD' -> 'DD/MM/YYYY', para a mensagem de tela. */
+function formatarBR(dataISO) {
+  const [a, m, d] = dataISO.slice(0, 10).split('-');
+  return `${d}/${m}/${a}`;
+}
+
+/**
+ * A data serve para marcar consulta? Recebe 'YYYY-MM-DD'.
+ *
+ * Devolve null quando serve, e a MENSAGEM PRONTA quando não serve — nomeando a
+ * data e o motivo. Mensagem e não booleano pela mesma razão do feriadoDe: se
+ * quem chama tiver que escrever o texto, cada tela inventa o seu e a regra volta
+ * a ter três versões, que foi exatamente como a avulsa ficou sem trava.
+ *
+ * Feriado é rígido em toda tela. Fim de semana também, EXCETO no pacote de 6 —
+ * a única tela com o checkbox "permitir fim de semana". Por isso permitirFds é
+ * parâmetro e não constante.
+ *
+ * dicaFds é acrescentada só à mensagem de fim de semana, e só onde o checkbox
+ * existe: apontar um controle que a tela não tem seria pior que não dizer nada.
+ *
+ * Data vazia devolve null de propósito: "sem data" não é dia inválido, e as três
+ * telas já tratam isso antes ("Preencha a data").
+ */
+export function validarDiaConsulta(dataISO, { permitirFds = false, dicaFds = '' } = {}) {
+  if (typeof dataISO !== 'string' || dataISO.length < 10) return null;
+
+  // Feriado primeiro: quando a data é as duas coisas (o Círio cai sempre num
+  // domingo), o nome do feriado diz mais do que "cai num domingo".
+  const feriado = feriadoDe(dataISO);
+  if (feriado) return `${formatarBR(dataISO)} é feriado (${feriado}). Ajuste a data.`;
+
+  if (!permitirFds) {
+    const d = new Date(`${dataISO}T00:00:00`);   // meia-noite LOCAL, sem UTC
+    const dow = d.getDay();
+    if (dow === 0 || dow === 6) {
+      return `${formatarBR(dataISO)} cai num ${dow === 0 ? 'domingo' : 'sábado'}. Ajuste a data.${dicaFds}`;
+    }
+  }
+
+  return null;
 }

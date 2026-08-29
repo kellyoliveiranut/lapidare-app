@@ -13,7 +13,7 @@ import { mensagemAcesso } from '../../lib/mensagemAcesso.js';
 import { OBJETIVOS } from '../../lib/objetivos.js';
 import { SEXOS, PLANOS } from '../../lib/opcoesPaciente.js';
 import { perguntasParaPaciente } from '../../lib/checkinVariacao.js';
-import { ehFeriado, feriadoDe } from '../../lib/feriados.js';
+import { ehFeriado, validarDiaConsulta } from '../../lib/feriados.js';
 import { callAnthropicComRetry, lerPdfBase64 } from '../../lib/anthropic.js';
 import { buscarAlimento, medidaCaseira, kcalDoAlimento, kcalEquivalente, parseGramas } from '../../lib/taco.js';
 import DateInput, { parseDatePaste } from '../../components/DateInput.jsx';
@@ -5892,11 +5892,6 @@ function proximoDiaValido(d, pularFimDeSemana = true) {
   return d;
 }
 
-function ehFimDeSemana(dataLocal) {
-  const d = new Date(`${dataLocal}T00:00:00`); // meia-noite LOCAL, sem UTC
-  return d.getDay() === 0 || d.getDay() === 6;
-}
-
 function gerarDatas(primeiraData, hora, intervaloDias, qtd, pularFimDeSemana = true) {
   const datas = [];
   const base = new Date(`${primeiraData}T00:00:00`); // meia-noite LOCAL, sem UTC
@@ -5951,20 +5946,17 @@ function ModalAgendarAcompanhamento({ pacienteId, nutriId, consultaAtiva, onClos
         setErro('Todos os horários devem ser entre 08:00 e 17:00 (de 30 em 30 min).');
         return;
       }
-      // A geração já pula fim de semana; esta trava cobre o campo de data
-      // editado à mão, que aceita qualquer dia.
-      if (!permitirFds && datas.some(d => ehFimDeSemana(d.data))) {
-        setErro('Há consulta em sábado ou domingo. Ajuste a data ou marque "permitir fim de semana".');
-        return;
-      }
-      // Feriado: trava RÍGIDA, independente do permitirFds. Cobre o campo
-      // editado à mão, e nomeia a data e o feriado — "há consulta em feriado"
-      // mandaria a nutri caçar qual das seis é.
-      const emFeriado = datas.find(d => d.data && feriadoDe(d.data));
-      if (emFeriado) {
-        const [a, m, dia] = emFeriado.data.split('-');
-        setErro(`${dia}/${m}/${a} é feriado (${feriadoDe(emFeriado.data)}). Ajuste a data.`);
-        return;
+      // A geração já pula fim de semana e feriado; esta trava cobre o campo de
+      // data editado à mão, que aceita qualquer dia. Para na PRIMEIRA data ruim
+      // e nomeia ela — "há consulta em feriado" mandaria a nutri caçar qual das
+      // seis é. Feriado é rígido mesmo com permitirFds marcado; quem decide
+      // isso é a própria validarDiaConsulta.
+      for (const d of datas) {
+        const problema = validarDiaConsulta(d.data, {
+          permitirFds,
+          dicaFds: ' Ou marque "permitir fim de semana".',
+        });
+        if (problema) { setErro(problema); return; }
       }
     }
     setSalvando(true);
@@ -6111,6 +6103,11 @@ function ModalAgendarAvulsa({ pacienteId, nutriId, onClose, onSalvo }) {
         setErro('Escolha um horário entre 08:00 e 17:00 (de 30 em 30 min).');
         return;
       }
+      // Fim de semana e feriado: rígidos, sem escape. A avulsa não tem o
+      // checkbox do pacote de 6, e por isso também não recebe dicaFds —
+      // apontar um controle que esta tela não tem só confundiria.
+      const problema = validarDiaConsulta(data);
+      if (problema) { setErro(problema); return; }
     }
     setSalvando(true);
     setErro(null);
