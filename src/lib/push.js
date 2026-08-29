@@ -88,14 +88,20 @@ export function iniciarTokenPush() {
 /**
  * Avisa a nutri (fire-and-forget — nunca bloqueia a UI).
  * Recebe a promise devolvida por iniciarTokenPush(), não o token pronto.
+ *
+ * [diag] TEMPORÁRIO: devolve uma string de diagnóstico. A promise devolvida
+ * NUNCA rejeita — os outros quatro chamadores continuam ignorando o retorno
+ * com segurança. Remover o retorno junto com o resto do diagnóstico.
  */
 export function avisarNutri(tokenPush, kind) {
-  tokenPush.then(accessToken => {
-    if (!accessToken) return;
-    fetch('/.netlify/functions/send-push', {
+  return tokenPush.then(accessToken => {
+    if (!accessToken) return '[diag] token nulo';
+    return fetch('/.netlify/functions/send-push', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
       body: JSON.stringify({ mode: 'notify_nutri', kind }),
-    }).catch(() => {});
+    })
+      .then(r => r.text().then(t => `[diag] HTTP ${r.status} · ${t}`))
+      .catch(err => `[diag] fetch falhou · ${err?.name}: ${err?.message}`);
   });
 }
