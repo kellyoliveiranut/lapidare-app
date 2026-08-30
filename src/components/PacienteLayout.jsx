@@ -560,6 +560,8 @@ export default function PacienteLayout() {
 
             <div style={{ height: 1, background: 'var(--hair)', margin: '12px 0 8px' }}></div>
 
+            <NotificacoesItem />
+
             <button
               className="sheet-item"
               onClick={async () => {
@@ -611,6 +613,97 @@ export default function PacienteLayout() {
 }
 
 /* ─────────────────────────────────────────────────────────
+   Item permanente do sheet "Mais" para ativar notificações.
+   O convite abaixo aparece UMA vez e tem três portas de mão
+   única: nunca instalou, bloqueou, dispensou. Este item é o
+   caminho de volta, alcançável de qualquer tela.
+   ───────────────────────────────────────────────────────── */
+function NotificacoesItem() {
+  const suporte = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+  const standalone =
+    window.matchMedia('(display-mode: standalone)').matches ||
+    window.navigator.standalone === true;
+  const ehIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+
+  const [ativo, setAtivo] = useState(false);
+  const [permissao, setPermissao] = useState(suporte ? Notification.permission : 'unsupported');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState(null);
+
+  // Mesma leitura do Personalizacao.jsx:571-577: quem manda é a subscription
+  // que existe no aparelho, não o que a gente acha que gravou.
+  useEffect(() => {
+    if (!suporte) return;
+    navigator.serviceWorker.ready
+      .then(reg => reg.pushManager.getSubscription())
+      .then(sub => setAtivo(!!sub))
+      .catch(() => {});
+  }, [suporte]);
+
+  // iOS só tem push com o app instalado na tela de início; nos outros, a aba
+  // comum serve. Sem esta distinção a paciente de iPhone leria "não suportado",
+  // que é falso — e esconderia justamente o que ela precisa fazer.
+  const precisaInstalar = ehIOS && !standalone;
+  const bloqueado = permissao === 'denied';
+  const indisponivel = !suporte && !precisaInstalar;
+
+  async function ativar() {
+    setMsg(null);
+    setBusy(true);
+    try {
+      // Idempotente de propósito: getSubscription() reaproveita a assinatura
+      // existente e o upsert casa por endpoint. Tocar com tudo já ativo
+      // reescreve a linha em push_subscriptions — que é exatamente o conserto
+      // de quem tem permissão concedida mas perdeu a linha no banco.
+      await ativarNotificacoes();
+      setAtivo(true);
+      setPermissao('granted');
+      setMsg({ tipo: 'ok', texto: 'Pronto! Você vai receber os avisos da sua nutri neste aparelho.' });
+    } catch (err) {
+      setMsg({ tipo: 'erro', texto: err.message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const { label, sub, icone, cor } =
+      precisaInstalar ? { label: 'Ativar notificações', icone: 'device-mobile-share', cor: 'var(--gold-deep)',
+                          sub: 'Toque em Compartilhar → Adicionar à Tela de Início e abra por lá' }
+    : bloqueado      ? { label: 'Notificações bloqueadas', icone: 'bell-off', cor: 'var(--muted)',
+                          sub: 'Libere nos ajustes do navegador e volte aqui' }
+    : indisponivel   ? { label: 'Notificações indisponíveis', icone: 'bell-off', cor: 'var(--muted)',
+                          sub: 'Este navegador não oferece o recurso' }
+    : ativo          ? { label: 'Notificações ativadas', icone: 'bell-check', cor: 'var(--green)',
+                          sub: 'Toque para reconferir neste aparelho' }
+                     : { label: 'Ativar notificações', icone: 'bell', cor: 'var(--gold-deep)',
+                          sub: 'Receba avisos da sua nutri' };
+
+  return (
+    <>
+      <button className="sheet-item"
+        disabled={busy || precisaInstalar || bloqueado || indisponivel}
+        // Não fecha o sheet: a resposta (sucesso ou erro) aparece logo abaixo,
+        // e fechar esconderia o único retorno que ela tem.
+        onClick={ativar}
+        style={{ opacity: (precisaInstalar || bloqueado || indisponivel) ? .75 : 1 }}>
+        <div className="icon-wrap"><i className={`ti ti-${icone}`} style={{ color: cor }} aria-hidden="true" /></div>
+        <div style={{ flex: 1 }}>
+          <div className="label" style={{ color: cor }}>{busy ? 'Ativando…' : label}</div>
+          <div className="sub">{sub}</div>
+        </div>
+      </button>
+      {msg && (
+        <div style={{
+          fontSize: 11, borderRadius: 8, padding: '6px 10px', margin: '-4px 0 8px',
+          color: msg.tipo === 'ok' ? 'var(--green)' : 'var(--red)',
+          background: msg.tipo === 'ok' ? 'var(--green-soft)' : 'var(--red-soft)',
+        }}>{msg.texto}</div>
+      )}
+    </>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────
    Banner de convite para ativar notificações push
    Aparece apenas em modo standalone (PWA instalado),
    permissão ainda não decidida, e se não foi dispensado.
@@ -625,10 +718,20 @@ function AtivarNotificacoesPaciente() {
       window.matchMedia('(display-mode: standalone)').matches ||
       window.navigator.standalone === true;
     const suporte = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
-    const dispensado = localStorage.getItem('push_convite_dispensado');
+    // Soneca, não porta trancada: 14 dias. A chave é NOVA de propósito — as
+    // que já guardam 'push_convite_dispensado' passam a ser ignoradas, então
+    // quem dispensou uma vez volta a ver o convite na próxima abertura, que é
+    // o objetivo. 65% das pacientes nunca chegaram a ter assinatura.
+    const dispensadoEm = Number(localStorage.getItem('push_convite_soneca') ?? 0);
+    const dispensado = Date.now() - dispensadoEm < 14 * 86_400_000;
     const permissao = suporte ? Notification.permission : null;
+    const ehIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
 
-    if (standalone && suporte && permissao === 'default' && !dispensado) {
+    // iOS só entrega push com o app instalado na tela de início; nos demais, a
+    // aba comum basta. Enquanto o gate era `standalone` para todo mundo, quem
+    // usa Android pelo navegador nunca via o convite — e não havia outro
+    // caminho para ativar depois.
+    if ((standalone || !ehIOS) && suporte && permissao === 'default' && !dispensado) {
       // Pequeno delay para não disputar atenção com o carregamento inicial
       const t = setTimeout(() => setVisivel(true), 1500);
       return () => clearTimeout(t);
@@ -650,7 +753,7 @@ function AtivarNotificacoesPaciente() {
   }
 
   function handleDispensado() {
-    localStorage.setItem('push_convite_dispensado', '1');
+    localStorage.setItem('push_convite_soneca', String(Date.now()));
     setVisivel(false);
   }
 
