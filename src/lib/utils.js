@@ -53,16 +53,20 @@ export function telefoneValido(raw) {
 }
 
 /**
- * Conta dias entre hoje (00:00) e a data informada (00:00).
+ * Conta dias entre hoje (00:00) e a data informada (00:00), SEMPRE no fuso da
+ * clínica — mesma técnica de dataConsultaBR/horaConsultaBR (o helper mora lá
+ * embaixo, junto do TZ_CLINICA de que ele depende).
+ * Ler getFullYear/getMonth/getDate direto usaria o fuso do APARELHO: um celular
+ * fora de UTC-3 respondia "amanhã" para a consulta que dataConsultaBR mostrava
+ * como hoje, e o card de 48h não escreve data nenhuma para desmentir o rótulo.
  * Retorna número inteiro: 0 = hoje, 1 = amanhã, negativo = passado.
  */
 export function diasAte(iso) {
   if (!iso) return null;
   const alvo = new Date(iso);
   if (Number.isNaN(alvo.getTime())) return null;
-  const hoje = new Date();
-  const a = new Date(alvo.getFullYear(), alvo.getMonth(), alvo.getDate());
-  const b = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+  const a = meiaNoiteClinicaUTC(alvo);
+  const b = meiaNoiteClinicaUTC(new Date());
   return Math.round((a - b) / 86_400_000);
 }
 
@@ -85,6 +89,25 @@ export function textoDias(iso) {
  */
 export const TZ_CLINICA = 'America/Belem';
 const TZ_CLINICA_OFFSET_MS = 3 * 60 * 60 * 1000;
+
+// Formatador único, criado uma vez: construir Intl.DateTimeFormat é caro, e o
+// diasAte roda a cada tick de minuto do banner da paciente.
+const FMT_DIA_CLINICA = new Intl.DateTimeFormat('en-CA', {
+  timeZone: TZ_CLINICA, year: 'numeric', month: '2-digit', day: '2-digit',
+});
+
+/**
+ * Meia-noite do dia CIVIL de Belém em que `d` cai, expressa em UTC.
+ * formatToParts e não format(): o número sai por campo nomeado, sem depender
+ * de o locale montar a string nesta ou naquela ordem.
+ * Date.UTC dos dois lados da subtração é o que garante a conta em DIAS — UTC
+ * não tem horário de verão, então a diferença é múltiplo exato de 24h.
+ */
+function meiaNoiteClinicaUTC(d) {
+  const p = {};
+  for (const { type, value } of FMT_DIA_CLINICA.formatToParts(d)) p[type] = value;
+  return Date.UTC(Number(p.year), Number(p.month) - 1, Number(p.day));
+}
 
 /** "Quinta, 15/05 às 14:00" — no fuso da clínica */
 export function dataConsultaBR(iso) {

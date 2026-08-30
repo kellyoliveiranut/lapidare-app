@@ -345,7 +345,6 @@ export default function Inicio() {
   const totalCompras = compras?.lista?.reduce((a, c) => a + (c.itens?.length ?? 0), 0) ?? 0;
 
   const dias = proximaConsulta ? diasAte(proximaConsulta.data_hora) : null;
-  const urgente = dias !== null && dias <= 1;
   const gcalUrl = proximaConsulta ? gerarGoogleCalendarUrl({
     titulo: `Consulta com ${nutriNome}`,
     dataHoraInicio: proximaConsulta.data_hora,
@@ -488,9 +487,12 @@ export default function Inicio() {
   // ─── Helpers de exibição ─────────────────────────────────────────────────
   const isOnco = profile?.objetivo === 'Oncologia';
   const mostrarHumor = habiToHumor != null || (isOnco && !!profile?.nutri_id);
-  // Ocultar card quando o banner de lembrete já está visível (consulta dentro de 48h)
-  const dentroJanelaBanner = proximaConsulta != null &&
-    (new Date(proximaConsulta.data_hora) - Date.now()) <= 48 * 3600 * 1000;
+  // Ocultar card quando o banner de lembrete já está visível.
+  // Dia CIVIL, não 48h corridas: o card 1b não escreve data nenhuma, só o
+  // rótulo e a hora, então ele só pode aparecer quando "hoje"/"amanhã" é
+  // verdade. O que passa disso cai no card 1a, que já diz "em 2 dias" com
+  // todas as letras e ainda mostra a data completa ao lado.
+  const dentroJanelaBanner = dias !== null && dias <= 1;
 
   function fmtNum(v, unidade) {
     const s = Number.isInteger(v) ? String(v) : v.toFixed(1).replace('.', ',');

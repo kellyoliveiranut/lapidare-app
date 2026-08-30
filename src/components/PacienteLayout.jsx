@@ -286,6 +286,14 @@ export default function PacienteLayout() {
     }
   }, [location.pathname, profile?.tipo_plano]);
 
+  // Dias civis (fuso da clínica) até a consulta do banner. Sai do memo e vem
+  // para cima porque o GATE e o RÓTULO precisam do mesmo número: enquanto eram
+  // contas diferentes, dava para o gate deixar passar (48h corridas) o que o
+  // rótulo não sabia dizer (só tem "hoje" e "amanhã"). Recalculado a cada
+  // render, e o tick de minuto garante que a virada da meia-noite troque
+  // "amanhã" por "hoje" sozinha.
+  const bannerDias = proximaBanner ? diasAte(proximaBanner.data_hora) : null;
+
   // mostrarBanner: reavalia a cada tick de minuto e a cada mudança de proximaBanner
   // Oculto em /paciente/inicio — o card grande do Inicio.jsx cobre este caso
   const mostrarBanner = useMemo(() => {
@@ -295,13 +303,12 @@ export default function PacienteLayout() {
     const dh    = new Date(proximaBanner.data_hora).getTime();
     return (
       proximaBanner.status === 'agendada' &&
-      dh - agora <= 48 * 3600 * 1000 &&   // ainda dentro das 48h
-      agora < dh + 15 * 60 * 1000          // não passou 15min do horário
+      bannerDias !== null && bannerDias <= 1 &&  // hoje ou amanhã, em dia CIVIL
+      agora < dh + 15 * 60 * 1000                // não passou 15min do horário
     );
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [proximaBanner, bannerTick, location.pathname]);
+  }, [proximaBanner, bannerTick, location.pathname, bannerDias]);
 
-  const bannerDias = mostrarBanner ? diasAte(proximaBanner.data_hora) : null;
   const bannerHora = mostrarBanner
     ? horaConsultaBR(proximaBanner.data_hora)
     : null;
@@ -386,7 +393,10 @@ export default function PacienteLayout() {
             </div>
             <div style={{ fontSize: 12, color: 'var(--ink)', lineHeight: 1.35 }}>
               Consulta{' '}
-              <strong>{bannerDias === 0 ? 'hoje' : 'amanhã'}</strong>
+              {/* Ramo padrão é "hoje": o gate acima só deixa passar 0 ou 1, e
+                  no caso degenerado (consulta que começou há menos de 15min,
+                  com a meia-noite virando no meio) "hoje" é o que vale. */}
+              <strong>{bannerDias === 1 ? 'amanhã' : 'hoje'}</strong>
               {bannerHora && ` às ${bannerHora}`}
               {tema.nutri_nome && ` · ${tema.nutri_nome}`}
             </div>
