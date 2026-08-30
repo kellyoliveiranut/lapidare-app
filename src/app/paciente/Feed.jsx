@@ -49,6 +49,9 @@ export default function FeedPaciente() {
   const [respostas, setRespostas] = useState({});      // {postId: texto}
   const [enviandoResp, setEnviandoResp] = useState({}); // {postId: bool}
   const [visiveis, setVisiveis] = useState(PAGINA);
+  // Por id, e não booleano: são N cards na tela, e um `busy` global
+  // desabilitaria o botão de todos enquanto um só está saindo.
+  const [excluindo, setExcluindo] = useState(null);     // id do post em exclusão
   const fileInputRef = useRef(null);
   const pedidos = useRef(new Set());                    // ids já solicitados
 
@@ -159,6 +162,10 @@ export default function FeedPaciente() {
   async function responder(post) {
     const texto = (respostas[post.id] ?? '').trim();
     if (!texto) return;
+    // Limpa antes de tentar: agora que o bloco de erro é visível fora do
+    // formulário, uma falha anterior ficaria na tela enquanto esta tentativa
+    // dá certo. Quem escreve o erro é quem tem de apagá-lo.
+    setErro(null);
     setEnviandoResp(s => ({ ...s, [post.id]: true }));
     const tokenPush = iniciarTokenPush();
     const { error } = await supabase.from('feed_pratos_comentarios').insert({
@@ -171,6 +178,39 @@ export default function FeedPaciente() {
     if (error) return setErro('Erro ao enviar resposta: ' + error.message);
     setRespostas(r => { const n = { ...r }; delete n[post.id]; return n; });
     avisarNutri(tokenPush, 'resposta_prato');
+    carregar({ cancelled: false });
+  }
+
+  // Ordem INVERTIDA em relação ao Progresso.jsx, de propósito. Lá o arquivo sai
+  // primeiro e nenhum dos dois retornos é checado; aqui sai a LINHA, com o erro
+  // verificado, e só depois o arquivo.
+  // Se o storage falhar, sobra um arquivo órfão no bucket: ninguém o enxerga, e
+  // o post já sumiu do feed. Na ordem contrária, um delete que falhasse depois
+  // do arquivo removido deixaria o post na tela com a imagem quebrada para
+  // sempre — de longe o pior dos dois estados.
+  async function excluirPost(post) {
+    const nNutri = (post.comentarios ?? []).filter(c => c.autor === 'nutri').length;
+    const aviso =
+      nNutri === 0 ? 'Excluir esta foto?'
+      : nNutri === 1 ? 'Excluir esta foto? O comentário da sua nutricionista nesta foto também será apagado.'
+      : `Excluir esta foto? Os ${nNutri} comentários da sua nutricionista nesta foto também serão apagados.`;
+    if (!window.confirm(aviso)) return;
+
+    setExcluindo(post.id);
+    const { error } = await supabase.from('feed_pratos').delete().eq('id', post.id);
+    if (error) {
+      setExcluindo(null);
+      // alert, e não setErro, mesmo com o bloco de erro agora fora do
+      // formulário: ele fica no topo da tela, e o botão que falhou pode estar
+      // no décimo card, longe da rolagem. Mesmo recurso do Chat.jsx:179.
+      alert('Não consegui excluir a foto: ' + error.message);
+      return;
+    }
+    // Sem await e sem checagem: a linha já foi (e os comentários com ela, por
+    // CASCADE). Prender a tela ao storage só atrasaria o que ela já vê feito.
+    // O .catch existe só para uma falha de rede não virar unhandled rejection.
+    supabase.storage.from('fotos_pratos').remove([post.storage_path]).catch(() => {});
+    setExcluindo(null);
     carregar({ cancelled: false });
   }
 
@@ -235,13 +275,6 @@ export default function FeedPaciente() {
               fontFamily: 'var(--font-sans)', boxSizing: 'border-box',
             }} />
 
-          {erro && (
-            <div style={{
-              fontSize: 11, color: 'var(--red)', background: 'var(--red-soft)',
-              padding: '6px 10px', borderRadius: 8, marginTop: 8,
-            }}>{erro}</div>
-          )}
-
           <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
             <button className="btn ghost" onClick={cancelar} disabled={busy}
               style={{ flex: 1 }}>Cancelar</button>
@@ -251,6 +284,17 @@ export default function FeedPaciente() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* FORA do formulário de propósito. Enquanto morava lá dentro, o erro só
+          era visível com o formulário aberto — e responder() escreve aqui
+          (`Erro ao enviar resposta:`) justamente quando ele está fechado, então
+          aquela mensagem nunca chegava à paciente. */}
+      {erro && (
+        <div style={{
+          fontSize: 11, color: 'var(--red)', background: 'var(--red-soft)',
+          padding: '6px 10px', borderRadius: 8, margin: '0 0 12px',
+        }}>{erro}</div>
       )}
 
       {posts === undefined ? (
@@ -273,6 +317,20 @@ export default function FeedPaciente() {
                   {p.refeicao ?? 'Refeição'} · {dataBR(p.created_at)}
                 </div>
               </div>
+              {/* Fora da imagem, ao contrário do Progresso.jsx: lá a miniatura
+                  não tem cabeçalho onde pendurar o botão; aqui tem, e a foto
+                  fica sem tarja. Cor neutra de propósito — a confirmação é a
+                  trava, o ícone não precisa gritar. */}
+              <button onClick={() => excluirPost(p)} disabled={excluindo === p.id}
+                title="Excluir esta foto" aria-label="Excluir esta foto"
+                style={{
+                  background: 'none', border: 'none', padding: 4, lineHeight: 0,
+                  flexShrink: 0, color: 'var(--muted-2)',
+                  cursor: excluindo === p.id ? 'default' : 'pointer',
+                  opacity: excluindo === p.id ? .4 : 1,
+                }}>
+                <i className="ti ti-trash" style={{ fontSize: 15 }} aria-hidden="true" />
+              </button>
             </div>
             <div style={{ background: 'var(--bg-deep)', height: 240 }}>
               {urls[p.id] ? (
