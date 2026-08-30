@@ -14,6 +14,7 @@ import { OBJETIVOS } from '../../lib/objetivos.js';
 import { SEXOS, PLANOS } from '../../lib/opcoesPaciente.js';
 import { perguntasParaPaciente } from '../../lib/checkinVariacao.js';
 import { ehFeriado, validarDiaConsulta } from '../../lib/feriados.js';
+import { iniciarTokenPush, avisarPaciente } from '../../lib/push.js';
 import { callAnthropicComRetry, lerPdfBase64 } from '../../lib/anthropic.js';
 import { buscarAlimento, medidaCaseira, kcalDoAlimento, kcalEquivalente, parseGramas } from '../../lib/taco.js';
 import DateInput, { parseDatePaste } from '../../components/DateInput.jsx';
@@ -3431,6 +3432,7 @@ Estrutura JSON obrigatória:
     if (!v.ok) return setFeedback({ tipo: 'erro', msg: v.erro });
 
     setBusy(true);
+    const tokenPush = iniciarTokenPush();
     try {
       const { error } = await supabase.from('planos').insert({
         paciente_id: pacienteId, nutri_id: nutriId,
@@ -3438,16 +3440,7 @@ Estrutura JSON obrigatória:
       });
       if (error) throw error;
       setFeedback({ tipo: 'ok', msg: 'Plano publicado! A paciente já pode visualizar. Continue editando e republique para atualizar.' });
-      // Notifica a paciente via push (fire-and-forget)
-      supabase.auth.getSession().then(({ data }) => {
-        const accessToken = data.session?.access_token;
-        if (!accessToken) return;
-        fetch('/.netlify/functions/send-push', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
-          body: JSON.stringify({ mode: 'notify_paciente', paciente_id: pacienteId, kind: 'plano' }),
-        }).catch(() => {});
-      });
+      avisarPaciente(tokenPush, pacienteId, 'plano');
       carregar();
     } catch (err) {
       setFeedback({ tipo: 'erro', msg: err?.message || 'Erro ao publicar plano' });

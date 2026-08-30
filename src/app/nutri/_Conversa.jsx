@@ -2,6 +2,7 @@ import { Fragment, useEffect, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { iniciais, dataLocalISO } from '../../lib/utils.js';
 import { comprimirImagem, getAnexoUrl } from '../../lib/imagem.js';
+import { iniciarTokenPush, avisarPaciente } from '../../lib/push.js';
 
 // Uma conversa: histórico, envio, anexo e realtime de UMA paciente.
 //
@@ -145,6 +146,7 @@ export default function ConversaPanel({ paciente, nutriId, onAfterAction, onFech
     const conteudo = text.trim();
     if (!conteudo && !anexo) return;
     setBusy(true);
+    const tokenPush = iniciarTokenPush();
 
     let imagem_path = null;
     if (anexo) {
@@ -173,16 +175,7 @@ export default function ConversaPanel({ paciente, nutriId, onAfterAction, onFech
     setText('');
     limparAnexo();
     onAfterAction?.();
-    // Notifica a paciente via push (fire-and-forget)
-    supabase.auth.getSession().then(({ data }) => {
-      const accessToken = data.session?.access_token;
-      if (!accessToken) return;
-      fetch('/.netlify/functions/send-push', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
-        body: JSON.stringify({ mode: 'notify_paciente', paciente_id: paciente.id, kind: imagem_path ? 'mensagem_foto' : 'mensagem' }),
-      }).catch(() => {});
-    });
+    avisarPaciente(tokenPush, paciente.id, imagem_path ? 'mensagem_foto' : 'mensagem');
   }
 
   return (

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { dataBR, iniciais } from '../../lib/utils.js';
+import { iniciarTokenPush, avisarPaciente } from '../../lib/push.js';
 
 const SECOES = [
   { id: 'receitas',    emoji: '📖', label: 'Receitas'    },
@@ -565,6 +566,7 @@ function ModalAtribuir({ item, pacientes, atribuidos, onClose, onSaved }) {
 
   async function salvar() {
     setBusy(true);
+    const tokenPush = iniciarTokenPush();
     const atual = new Set(atribuidos);
     const adicionar = [...selecionadas].filter(id => !atual.has(id));
     const remover   = [...atual].filter(id => !selecionadas.has(id));
@@ -573,18 +575,8 @@ function ModalAtribuir({ item, pacientes, atribuidos, onClose, onSaved }) {
         adicionar.map(paciente_id => ({ ebook_id: item.id, paciente_id }))
       );
       if (!addErr) {
-        // Notifica cada paciente nova via push (fire-and-forget)
-        supabase.auth.getSession().then(({ data }) => {
-          const accessToken = data.session?.access_token;
-          if (!accessToken) return;
-          adicionar.forEach(paciente_id => {
-            fetch('/.netlify/functions/send-push', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
-              body: JSON.stringify({ mode: 'notify_paciente', paciente_id, kind: 'material' }),
-            }).catch(() => {});
-          });
-        });
+        // Uma tokenPush só para as N pacientes — o getSession não se repete.
+        adicionar.forEach(paciente_id => avisarPaciente(tokenPush, paciente_id, 'material'));
       }
     }
     if (remover.length > 0) {

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { iniciais, dataBR } from '../../lib/utils.js';
+import { iniciarTokenPush, avisarPaciente } from '../../lib/push.js';
 
 const PAGINA = 12;
 const TTL = 3600;   // era 300 — evitava a URL expirar antes do loading="lazy" puxar a imagem
@@ -96,6 +97,7 @@ export default function FeedNutri() {
     const texto = (comentarioEdit[post.id] ?? '').trim();
     if (!texto) return;
     setSalvando(s => ({ ...s, [post.id]: true }));
+    const tokenPush = iniciarTokenPush();
     const { error } = await supabase.from('feed_pratos_comentarios').insert({
       prato_id: post.id,
       paciente_id: post.paciente?.id,
@@ -109,16 +111,7 @@ export default function FeedNutri() {
       delete novo[post.id];
       return novo;
     });
-    // Avisa a paciente via push (fire-and-forget — nunca bloqueia a UI)
-    supabase.auth.getSession().then(({ data }) => {
-      const accessToken = data.session?.access_token;
-      if (!accessToken || !post.paciente?.id) return;
-      fetch('/.netlify/functions/send-push', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
-        body: JSON.stringify({ mode: 'notify_paciente', paciente_id: post.paciente.id, kind: 'comentario_prato' }),
-      }).catch(() => {});
-    });
+    avisarPaciente(tokenPush, post.paciente?.id, 'comentario_prato');
     carregar();
   }
 

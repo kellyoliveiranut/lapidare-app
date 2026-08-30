@@ -99,3 +99,22 @@ export function avisarNutri(tokenPush, kind) {
     }).catch(() => {});
   });
 }
+
+/**
+ * Avisa a paciente (fire-and-forget — nunca bloqueia a UI).
+ * Mesma regra de ordem do avisarNutri: a tokenPush tem que vir do topo da
+ * função, antes do primeiro await de Supabase.
+ *
+ * A mesma promise pode alimentar vários avisos — é o caso da Biblioteca, que
+ * atribui um material a N pacientes de uma vez e não precisa de N getSession.
+ */
+export function avisarPaciente(tokenPush, pacienteId, kind) {
+  tokenPush.then(accessToken => {
+    if (!accessToken || !pacienteId) return;
+    fetch('/.netlify/functions/send-push', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+      body: JSON.stringify({ mode: 'notify_paciente', paciente_id: pacienteId, kind }),
+    }).catch(() => {});
+  });
+}
