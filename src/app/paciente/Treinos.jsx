@@ -101,6 +101,38 @@ function diaPadrao(dias) {
   return dias.find(d => d.dias_semana?.includes(hoje))?.id ?? null;
 }
 
+// Dias na ordem da nutri, cada um com os exercícios na ordem dela também.
+// Existe como função (e não inline) porque o render e o seed do acordeão
+// precisam da MESMA lista: semear a partir de uma ordenação diferente da que
+// está na tela abriria um dia e destacaria outro.
+function ordenarDias(treinosDias) {
+  return [...(treinosDias ?? [])]
+    .sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0))
+    .map(d => ({
+      ...d,
+      exercicios: [...(d.treinos_exercicios ?? [])]
+        .sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0)),
+    }));
+}
+
+// Linha de baixo do exercício: "2 × 10-12 · Carga leve RIR 3-4 · descanso 60s".
+// Sem rótulo em nenhum campo — o PDF já escreve "RIR 3-4", "12kg", "60% 1RM",
+// e prefixar "Intensidade:" empurraria a linha para duas em tela estreita sem
+// acrescentar nada. O "×" só aparece quando os dois lados existem; sozinho,
+// cada número precisa da palavra para não virar adivinhação.
+// Atenção ao nome: exercicio.intensidade é CARGA (12kg, RPE 7), enquanto
+// treino.intensidade, no card acima, é o nível da prescrição (Leve, Moderado).
+// Mesma palavra, dois sentidos, os dois nesta tela.
+function linhaMeta(ex) {
+  const carga = ex.series && ex.repeticoes
+    ? `${ex.series} × ${ex.repeticoes}`
+    : ex.series     ? `${ex.series} séries`
+    : ex.repeticoes ? `${ex.repeticoes} repetições`
+    : null;
+  return [carga, ex.intensidade, ex.intervalo && `descanso ${ex.intervalo}`]
+    .filter(Boolean).join('  ·  ');
+}
+
 function youtubeEmbedUrl(url) {
   if (!url) return null;
   const m = url.match(/(?:v=|youtu\.be\/|embed\/)([a-zA-Z0-9_-]{11})/);
@@ -118,6 +150,69 @@ function formatDataBR(dataISO) {
   if (!dataISO) return '';
   const [ano, mes, dia] = dataISO.split('-');
   return `${dia}/${mes}/${ano}`;
+}
+
+// Um dia do plano, recolhível. Sem <table> de propósito: em celular a tabela
+// ou rola de lado ou espreme as colunas até o nome do exercício quebrar em
+// cada letra. Nome numa linha, números na de baixo.
+function SecaoDia({ dia, aberto, onToggle }) {
+  return (
+    <div className="card" style={{ marginBottom: 8, padding: 0, overflow: 'hidden' }}>
+      <button onClick={onToggle}
+        style={{
+          width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+          padding: '13px 14px', background: 'none', border: 'none',
+          cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--font-sans)',
+        }}>
+        <i className={`ti ti-chevron-${aberto ? 'down' : 'right'}`}
+          style={{ fontSize: 15, color: 'var(--muted)', flexShrink: 0 }} aria-hidden="true" />
+        <span style={{
+          flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600,
+          letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--ink)',
+        }}>{dia.nome}</span>
+        {dia.dias_semana?.length > 0 && (
+          <span style={{ fontSize: 11, color: 'var(--muted)', flexShrink: 0 }}>
+            {dia.dias_semana.join(' · ')}
+          </span>
+        )}
+      </button>
+
+      {aberto && (
+        <div style={{ padding: '0 14px 14px' }}>
+          <div style={{ height: 1, background: 'var(--hair)', marginBottom: 12 }} />
+          {dia.exercicios.length === 0 ? (
+            <div style={{ fontSize: 13, color: 'var(--muted)' }}>
+              Nenhum exercício cadastrado neste dia.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {dia.exercicios.map(ex => {
+                const meta = linhaMeta(ex);
+                return (
+                  <div key={ex.id}>
+                    <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--ink)', lineHeight: 1.35 }}>
+                      {ex.nome}
+                    </div>
+                    {meta && (
+                      <div style={{ fontSize: 13, color: 'var(--ink-soft)', marginTop: 3 }}>{meta}</div>
+                    )}
+                    {/* A nutri digita observação no editor dela; deixá-la fora
+                        repetiria, um nível abaixo, o problema que esta tela
+                        veio resolver. */}
+                    {ex.observacao && (
+                      <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 3, lineHeight: 1.45 }}>
+                        {ex.observacao}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function AvisoImportante() {
@@ -216,14 +311,29 @@ export default function TreinosPaciente() {
   const [feedback, setFeedback] = useState(null);
   const [semanaCount, setSemanaCount] = useState(0);
 
+  // Qual dia está ABERTO na lista de exercícios. Estado próprio, e não
+  // form.dia_id, de propósito: tocar num dia só para LER não pode mudar qual
+  // dia ela vai registrar como feito — é para isso que dia_id existe.
+  // undefined = ainda não semeado; null = todos fechados, escolha legítima
+  // dela (e o que acontece quando hoje não é dia de treino).
+  const [diaAberto, setDiaAberto] = useState(undefined);
+
   // Dias do plano ativo, na ordem que a nutri montou. Plano antigo (sem dias)
   // devolve [] e a tela fica exatamente como era antes.
-  const dias = [...(treino?.treinos_dias ?? [])].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
+  // Os exercícios são ordenados AQUI, no cliente, e não pelo PostgREST: o nome
+  // do parâmetro de ordenar tabela aninhada mudou entre versões do supabase-js
+  // (foreignTable → referencedTable), mesma razão de _TreinoDias.jsx:90.
+  const dias = ordenarDias(treino?.treinos_dias);
 
   async function carregar() {
     if (!pacienteId) return;
     const [treinoRes, registrosRes] = await Promise.all([
-      supabase.from('treinos_prescritos').select('*, treinos_dias(id, nome, dias_semana, ordem)')
+      // Os exercícios vêm no mesmo join: a policy paciente_select_treinos_
+      // exercicios (migration 2026-08-25) resolve a permissão por
+      // treinos_dias → treinos_prescritos → paciente, então não há ida extra.
+      supabase.from('treinos_prescritos').select(
+        '*, treinos_dias(id, nome, dias_semana, ordem, ' +
+        'treinos_exercicios(id, nome, series, repeticoes, intensidade, intervalo, observacao, ordem))')
         .eq('paciente_id', pacienteId).eq('ativo', true)
         .order('created_at', { ascending: false }).limit(1).maybeSingle(),
       // O aninhado é o que dá NOME ao dia no histórico — sem ele, dia_id
@@ -234,9 +344,14 @@ export default function TreinosPaciente() {
     ]);
     const t = treinoRes.data ?? null;
     setTreino(t);
+    const diasOrdenados = ordenarDias(t?.treinos_dias);
     // A escolha do dia é reavaliada a cada carga: o padrão depende do dia da
     // semana de hoje, não de quando a tela abriu.
-    setForm(f => ({ ...f, dia_id: diaPadrao([...(t?.treinos_dias ?? [])].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0))) }));
+    setForm(f => ({ ...f, dia_id: diaPadrao(diasOrdenados) }));
+    // O acordeão, ao contrário do form, semeia UMA VEZ: carregar() roda de
+    // novo depois de cada sessão registrada, e reabrir sozinho fecharia na
+    // cara dela o dia que estava lendo.
+    setDiaAberto(atual => atual === undefined ? diaPadrao(diasOrdenados) : atual);
     const regs = registrosRes.data ?? [];
     setRegistros(regs);
     const hoje = new Date();
@@ -376,6 +491,20 @@ export default function TreinosPaciente() {
               </div>
             </div>
           </div>
+
+          {/* Dias do plano, com os exercícios. Renderiza só quando há dias:
+              plano antigo (linha única em treinos_prescritos, sem treinos_dias)
+              continua exibindo exatamente a tela de antes. Vem antes do vídeo
+              porque a lista É o plano — o vídeo é apoio. */}
+          {dias.length > 0 && (
+            <>
+              <div className="section-label">Seu treino</div>
+              {dias.map(d => (
+                <SecaoDia key={d.id} dia={d} aberto={diaAberto === d.id}
+                  onToggle={() => setDiaAberto(atual => atual === d.id ? null : d.id)} />
+              ))}
+            </>
+          )}
 
           {/* Vídeo da prescrição */}
           {embedUrl && (
