@@ -29,6 +29,7 @@ export default function Cadastrar() {
   const [objetivo, setObjetivo] = useState('Emagrecimento');
   const [tipoPlano, setTipoPlano] = useState('avulsa');
   const [modalidade, setModalidade] = useState('Online');
+  const [valorContrato, setValorContrato] = useState('');
   const [endereco, setEndereco] = useState('');
   const [obs, setObs] = useState('');
 
@@ -50,6 +51,12 @@ export default function Cadastrar() {
   const [pgObs, setPgObs] = useState('');
 
   const pgValorNum = Number(String(pgValor).replace(',', '.')) || 0;
+
+  // Tira o separador de milhar antes de trocar a vírgula: aceita "2700,00" e
+  // "2.700,00". Difere do pgValorNum acima de propósito — o valor do contrato
+  // entra num documento com força probatória, e o ponto digitado por hábito
+  // não pode virar NaN silencioso.
+  const valorContratoNum = Number(String(valorContrato).replace(/\./g, '').replace(',', '.')) || 0;
 
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState(null);
@@ -120,7 +127,7 @@ export default function Cadastrar() {
     setNome(''); setEmail(''); setTelefone(''); setNascimento('');
     setSexo('');
     setObjetivo('Emagrecimento'); setTipoPlano('avulsa');
-    setModalidade('Online'); setEndereco(''); setObs('');
+    setModalidade('Online'); setValorContrato(''); setEndereco(''); setObs('');
     setPreConsultaId('');
     // pagamento
     setPagOpen(false);
@@ -134,6 +141,11 @@ export default function Cadastrar() {
     if (!nome.trim()) return setErro('Informe o nome.');
     if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return setErro('Email inválido.');
     if (!telefone.trim()) return setErro('Informe o telefone.');
+    // !(x > 0) e não x <= 0: assim pega NaN junto. O banco tambem barra
+    // (check valor > 0), mas la o erro chegaria depois da paciente criada.
+    if (tipoPlano === 'essentia' && !(valorContratoNum > 0)) {
+      return setErro('Informe o valor do contrato (ex: 2700,00) para o plano Essentia.');
+    }
 
     // Pagamento: só lança se serviço E valor > 0. Se preencheu só um, avisa.
     const querPagamento    = pgServico.trim() !== '' || pgValorNum > 0;
@@ -188,6 +200,39 @@ export default function Cadastrar() {
       }
     }
 
+    // Contrato Essentia: nasce pendente aqui, e a paciente aceita depois na tela
+    // dela. Mesmo precedente da venda — se falhar, MANTÉM a paciente e só avisa.
+    // texto_html fica FORA do payload: o check snapshot_coerente exige que ele
+    // seja nulo enquanto aceito_em for nulo. O snapshot só nasce no aceite.
+    let avisoContrato = null;
+    if (tipoPlano === 'essentia') {
+      // Índice único parcial garante no máximo um ativo por nutri — sem order by.
+      const { data: tplContrato, error: tplErro } = await supabase
+        .from('contratos_templates')
+        .select('id')
+        .eq('nutri_id', user.id)
+        .eq('ativo', true)
+        .maybeSingle();
+
+      if (tplErro || !tplContrato) {
+        avisoContrato = 'Paciente cadastrada, mas o contrato não foi gerado — nenhum template ativo encontrado.'
+          + (tplErro ? ' (' + tplErro.message + ')' : '');
+      } else {
+        const { error: contratoErro } = await supabase
+          .from('contratos_essentia')
+          .insert({
+            paciente_id: pacienteData.id,
+            nutri_id: user.id,
+            template_id: tplContrato.id,
+            valor: valorContratoNum,
+            aceito_em: null,
+          });
+        if (contratoErro) {
+          avisoContrato = 'Paciente cadastrada, mas o contrato não foi gerado — gere pelo perfil dela. (' + contratoErro.message + ')';
+        }
+      }
+    }
+
     if (preConsultaId) {
       const tpl = templatesPreConsulta.find(t => t.id === preConsultaId);
       if (tpl) {
@@ -228,7 +273,7 @@ export default function Cadastrar() {
     const pendente = pData ?? null;
 
     setBusy(false);
-    setSucesso({ id: pacienteData.id, nome: pacienteData.nome, email: pacienteData.email, pendente, avisoVenda });
+    setSucesso({ id: pacienteData.id, nome: pacienteData.nome, email: pacienteData.email, pendente, avisoVenda, avisoContrato });
     resetForm();
     carregarPendentes();
   }
@@ -303,6 +348,13 @@ export default function Cadastrar() {
             <SelectField label="Tipo de plano" value={tipoPlano} onChange={setTipoPlano} options={PLANOS} />
             <SelectField label="Modalidade" value={modalidade} onChange={setModalidade} options={MODALIDADES} />
           </div>
+
+          {/* Só faz sentido no Essentia: é o valor que entra na Cláusula Terceira
+              do contrato. Na Avulsa o campo desmonta, e com ele o required. */}
+          {tipoPlano === 'essentia' && (
+            <Field label="Valor do contrato (R$) *" value={valorContrato} onChange={setValorContrato}
+              required placeholder="2700,00" />
+          )}
 
           <Field label="Endereço completo (opcional · para nota fiscal)" value={endereco} onChange={setEndereco} placeholder="Rua, número, bairro, cidade, UF, CEP" />
 
@@ -508,6 +560,7 @@ export default function Cadastrar() {
               nome={sucesso.nome}
               pendente={sucesso.pendente}
               avisoVenda={sucesso.avisoVenda}
+              avisoContrato={sucesso.avisoContrato}
               link={sucesso.pendente ? linkDe(sucesso.pendente) : null}
               mensagemWhats={sucesso.pendente ? mensagemWhats(sucesso.pendente) : null}
               onCopiar={sucesso.pendente ? () => copiarLink(sucesso.pendente) : null}
@@ -602,7 +655,7 @@ export default function Cadastrar() {
 }
 
 
-function CartaoSucesso({ pacienteId, nome, pendente, avisoVenda, link, mensagemWhats, onCopiar, onDispensar, onIrPerfil }) {
+function CartaoSucesso({ pacienteId, nome, pendente, avisoVenda, avisoContrato, link, mensagemWhats, onCopiar, onDispensar, onIrPerfil }) {
   const primeiroNome = nome?.split(' ')[0] ?? '';
   return (
     <div style={{
@@ -632,16 +685,18 @@ function CartaoSucesso({ pacienteId, nome, pendente, avisoVenda, link, mensagemW
         </button>
       </div>
 
-      {avisoVenda && (
-        <div style={{
+      {/* Os dois podem cair juntos — venda e contrato falham de forma
+          independente, e esconder um dos avisos seria perder informação. */}
+      {[avisoVenda, avisoContrato].filter(Boolean).map((aviso, i) => (
+        <div key={i} style={{
           marginTop: 10, padding: '8px 10px', borderRadius: 6,
           background: 'var(--orange-bg, #fff7ed)', color: 'var(--orange, #c2410c)',
           fontSize: 12, lineHeight: 1.5, display: 'flex', gap: 6,
         }}>
           <i className="ti ti-alert-triangle" style={{ fontSize: 14, marginTop: 1, flexShrink: 0 }} aria-hidden="true"></i>
-          <span>{avisoVenda}</span>
+          <span>{aviso}</span>
         </div>
-      )}
+      ))}
 
       {pendente && link ? (
         <>

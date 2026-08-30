@@ -34,6 +34,7 @@ const NutriLayout = lazy(() => import('./components/NutriLayout.jsx'));
 const PacienteLayout = lazy(() => import('./components/PacienteLayout.jsx'));
 const TermoConsentimento = lazy(() => import('./components/TermoConsentimento.jsx'));
 const PacienteBloqueio = lazy(() => import('./components/PacienteBloqueio.jsx'));
+const ContratoEssentia = lazy(() => import('./components/ContratoEssentia.jsx'));
 
 const Visao = lazy(() => import('./app/nutri/Visao.jsx'));
 const Pacientes = lazy(() => import('./app/nutri/Pacientes.jsx'));
@@ -117,7 +118,7 @@ export default function App() {
               </Route>
 
               {/* App da Paciente */}
-              <Route element={<RequireAuth role="paciente"><PacienteErrorBoundary><PacienteBloqueio><TermoConsentimento><PacienteLayout /></TermoConsentimento></PacienteBloqueio></PacienteErrorBoundary></RequireAuth>}>
+              <Route element={<RequireAuth role="paciente"><PacienteErrorBoundary><PacienteBloqueio><TermoConsentimento><ContratoEssentia><PacienteLayout /></ContratoEssentia></TermoConsentimento></PacienteBloqueio></PacienteErrorBoundary></RequireAuth>}>
                 <Route path="/paciente" element={<Navigate to="/paciente/inicio" replace />} />
                 <Route path="/paciente/inicio" element={<Inicio />} />
                 <Route path="/paciente/plano" element={<Plano />} />
