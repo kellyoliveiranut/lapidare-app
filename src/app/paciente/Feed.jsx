@@ -46,7 +46,6 @@ export default function FeedPaciente() {
   const [preview, setPreview] = useState(null);
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState(null);
-  const [diag, setDiag] = useState(null);              // [diag] TEMPORÁRIO — remover depois
   const [respostas, setRespostas] = useState({});      // {postId: texto}
   const [enviandoResp, setEnviandoResp] = useState({}); // {postId: bool}
   const [visiveis, setVisiveis] = useState(PAGINA);
@@ -152,8 +151,7 @@ export default function FeedPaciente() {
       await supabase.storage.from('fotos_pratos').remove([path]);
       return setErro('Erro: ' + insErr.message);
     }
-    // [diag] TEMPORÁRIO — remover depois (voltar para a chamada sem .then)
-    avisarNutri(tokenPush, 'foto_prato').then(msg => setDiag(msg));
+    avisarNutri(tokenPush, 'foto_prato');
     cancelar();
     carregar({ cancelled: false });
   }
@@ -180,20 +178,6 @@ export default function FeedPaciente() {
     <>
       <input ref={fileInputRef} type="file" accept="image/*"
         onChange={selecionarFoto} style={{ display: 'none' }} />
-
-      {/* [diag] TEMPORÁRIO — remover depois. Fica FORA do bloco {formOpen && …}
-          de propósito: o cancelar() fecha o formulário antes de a resposta do
-          push chegar, e a caixa de erro de lá já teria sumido. */}
-      {diag && (
-        <div onClick={() => setDiag(null)} style={{
-          position: 'fixed', left: 8, right: 8, bottom: 8, zIndex: 9999,
-          background: '#1c1712', color: '#fff', fontSize: 11,
-          fontFamily: 'monospace', padding: '10px 12px', borderRadius: 10,
-          wordBreak: 'break-all', lineHeight: 1.5, cursor: 'pointer',
-        }}>
-          {diag} <span style={{ opacity: .6 }}>· toque para fechar</span>
-        </div>
-      )}
 
       {/* CTA topo — só quando form fechado */}
       {!formOpen && (

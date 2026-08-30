@@ -15,13 +15,6 @@ function normalizarUrlShaped(raw) {
   return ok ? u.href : null;                  // href normalizado, nunca a string crua
 }
 
-// [diag] TEMPORÁRIO — remover depois. Só o host do endpoint, para distinguir
-// iPhone (web.push.apple.com) de Chrome (fcm.googleapis.com) sem jogar a URL
-// inteira no log: o endpoint é o segredo que autoriza entregar naquele aparelho.
-function hostDe(endpoint) {
-  try { return new URL(endpoint).host; } catch { return null; }
-}
-
 exports.handler = async (event) => {
   try {
     if (event.httpMethod !== 'POST') {
@@ -57,9 +50,6 @@ exports.handler = async (event) => {
     } catch {
       return { statusCode: 400, body: JSON.stringify({ error: 'Body JSON inválido.' }) };
     }
-
-    // [diag] TEMPORÁRIO — remover depois.
-    console.log('[diag] entrada', JSON.stringify({ mode: body.mode ?? null, kind: body.kind ?? null }));
 
     // === Modo: notify_nutri (paciente → nutri) ===
     // O servidor resolve o nutri_id a partir do token da paciente — o frontend nunca passa user_id arbitrário.
@@ -191,16 +181,6 @@ async function enviarParaUsuario(supabase, userId, payload) {
     .select('endpoint, subscription')
     .eq('user_id', userId);
 
-  // [diag] TEMPORÁRIO — remover depois. payload.title é o primeiro nome da
-  // paciente e fica de fora de propósito: log não é lugar de nome de paciente.
-  console.log('[diag] enviarParaUsuario', JSON.stringify({
-    userId,
-    corpo:   payload?.body ?? null,     // 'Nova foto do prato' vs 'Nova mensagem'
-    url:     payload?.url ?? null,
-    linhas:  rows?.length ?? 0,
-    dbError: dbError?.message ?? null,
-  }));
-
   if (dbError) {
     return { statusCode: 500, body: JSON.stringify({ error: dbError.message }) };
   }
@@ -218,28 +198,9 @@ async function enviarParaUsuario(supabase, userId, payload) {
   await Promise.all(
     rows.map(async (row) => {
       try {
-        const res = await webpush.sendNotification(row.subscription, JSON.stringify(payload));
+        await webpush.sendNotification(row.subscription, JSON.stringify(payload));
         enviados++;
-        // [diag] TEMPORÁRIO — remover depois. O statusCode do serviço de push
-        // (201 = aceito) é a única prova de que a entrega saiu daqui.
-        console.log('[diag] aceito', JSON.stringify({
-          host:   hostDe(row.endpoint),
-          status: res?.statusCode ?? null,
-          body:   res?.body ?? null,
-        }));
       } catch (err) {
-        // [diag] TEMPORÁRIO — remover depois. Loga o err INTEIRO antes de
-        // classificar: se não for um WebPushError, statusCode e body vêm
-        // undefined, e a linha permanente lá embaixo imprime "undefined
-        // undefined" — que é possivelmente o que escondeu isso até agora.
-        console.error('[diag] sendNotification falhou', JSON.stringify({
-          host:       hostDe(row.endpoint),
-          name:       err?.name ?? null,
-          message:    err?.message ?? null,
-          statusCode: err?.statusCode ?? null,
-          body:       err?.body ?? null,
-          stack:      err?.stack ?? null,
-        }));
         if (err.statusCode === 404 || err.statusCode === 410) {
           await supabase.from('push_subscriptions').delete().eq('endpoint', row.endpoint);
           removidos++;
@@ -250,9 +211,6 @@ async function enviarParaUsuario(supabase, userId, payload) {
       }
     }),
   );
-
-  // [diag] TEMPORÁRIO — remover depois.
-  console.log('[diag] resultado', JSON.stringify({ enviados, removidos, falhas }));
 
   return {
     statusCode: 200,
