@@ -16,9 +16,12 @@
    ============================================================= */
 
 .lamina-pagina {
-  /* tokens.css define body{background:var(--bg)} e height:100% em
-     html/body/#root — os dois precisam ser neutralizados aqui, senão
-     o bege do app vaza na borda e a página herda altura fixa. */
+  /* Só a TELA. tokens.css pinta body com var(--bg) e o bege vazaria na
+     borda; o min-height garante a folha ocupando a janela inteira.
+
+     A altura fixa de html/body/#root que vem do tokens.css NÃO se resolve
+     aqui: quem corta é o ancestral, não esta div. A neutralização mora no
+     @media print, no fim do arquivo. */
   min-height: 100vh;
   height: auto;
   background: #e8e4dd;
@@ -238,6 +241,21 @@
    ============================================================= */
 @media print {
   @page { size: A4 portrait; margin: 16mm 14mm 18mm; }
+
+  /* ── Desmonta o clipper do app ──
+     tokens.css tem: html, body, #root { height: 100%; overflow-x: hidden }.
+     O height:100% dá altura fixa, e o overflow-x:hidden faz o overflow-y
+     visible COMPUTAR PARA AUTO — juntos, #root vira container de rolagem de
+     altura definida. Na tela ele só rola e nada se perde; no papel um
+     container de rolagem imprime SÓ a caixa visível e corta o resto na
+     primeira dobra, em vez de paginar. Foi o que escondeu 11 dos 15 efeitos
+     do BEP, que deveria sair em 3 páginas. Mesmo bloco de print.css, pelo
+     mesmo motivo — o !important é para vencer o tokens.css. */
+  html, body, #root {
+    height: auto !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
 
   .lamina-pagina {
     background: #ffffff;
