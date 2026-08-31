@@ -14,6 +14,10 @@ import protocolosEfeitosData from '../data/protocolos_efeitos.json';
 export default function CardProtocoloEfeitos({
   proto,
   children,
+  // Nó opcional à direita do título. Existe para o botão da lâmina caber nas
+  // duas telas sem que o card precise saber qual delas é — .card-header já é
+  // flex com space-between, então não há CSS novo.
+  acoes = null,
   mensagemVazio = 'Selecione um protocolo para ver os efeitos colaterais e orientações nutricionais.',
 }) {
   const temConteudo = !!(proto && (proto.conduta_base || proto.fases_ciclo?.length ||
@@ -39,6 +43,7 @@ export default function CardProtocoloEfeitos({
           <div className="card-title">Efeitos colaterais do protocolo</div>
           <div className="card-sub">Referência nutricional interna · {protocolosEfeitosData.meta.aviso}</div>
         </div>
+        {acoes}
       </div>
 
       <div className="card-body">

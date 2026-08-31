@@ -32,8 +32,13 @@ export function rotuloMarco(de, ate) {
  * Chave de comparação de nome de protocolo: sem acento, sem caixa, sem nada que
  * não seja letra ou dígito. O campo "Protocolo" do cadastro é texto livre, então
  * "Flox", "T--DD" e "T DD" chegam aqui como grafias da mesma coisa.
+ *
+ * Exportada porque também é o slug da URL da lâmina imprimível. Nome com barra
+ * ("CAPOX / XELOX") ou vírgula ("ZOLADEX 3,6MG") não sobrevive a um path param
+ * nem escapado — %2F é decodificado em pontos diferentes por servidor e router.
+ * A chave sobrevive, e getProtocolo() faz o caminho de volta.
  */
-function chaveProtocolo(s) {
+export function chaveProtocolo(s) {
   return String(s ?? '')
     // NFD separa o acento da letra base; o strip abaixo leva a marca embora
     // junto com o resto do que não é [a-z0-9]. Sem o NFD, 'Manutenção' viraria

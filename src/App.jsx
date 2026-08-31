@@ -54,6 +54,7 @@ const Biblioteca = lazy(() => import('./app/nutri/Biblioteca.jsx'));
 const Personalizacao = lazy(() => import('./app/nutri/Personalizacao.jsx'));
 const MonitoramentoOncologicoNutri = lazy(() => import('./app/nutri/MonitoramentoOncologico.jsx'));
 const Protocolos = lazy(() => import('./app/nutri/Protocolos.jsx'));
+const LaminaProtocolo = lazy(() => import('./app/nutri/LaminaProtocolo.jsx'));
 const MensagemMotivacional = lazy(() => import('./app/nutri/MensagemMotivacional.jsx'));
 
 const Inicio = lazy(() => import('./app/paciente/Inicio.jsx'));
@@ -118,6 +119,14 @@ export default function App() {
                        element={<Navigate to="/nutri/mensagem-motivacional?publico=emagrecimento" replace />} />
                 <Route path="/nutri/personalizacao" element={<Personalizacao />} />
               </Route>
+
+              {/* Lâmina imprimível de protocolo — FORA do NutriLayout de
+                  propósito: a página é o documento, e sem sidebar nem topbar
+                  não há chrome para desmontar no @media print. O parâmetro é a
+                  chave normalizada, não o nome: "CAPOX / XELOX" tem barra, que
+                  não sobrevive a um path param nem escapada. */}
+              <Route path="/nutri/lamina/:chave"
+                     element={<RequireAuth role="nutri"><LaminaProtocolo /></RequireAuth>} />
 
               {/* App da Paciente */}
               <Route element={<RequireAuth role="paciente"><PacienteErrorBoundary><PacienteBloqueio><TermoConsentimento><ContratoEssentia><PacienteLayout /></ContratoEssentia></TermoConsentimento></PacienteBloqueio></PacienteErrorBoundary></RequireAuth>}>

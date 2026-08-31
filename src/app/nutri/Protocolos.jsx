@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import CardProtocoloEfeitos from '../../components/CardProtocoloEfeitos.jsx';
-import { buscarProtocolos } from '../../lib/protocoloCiclo.js';
+import { buscarProtocolos, chaveProtocolo } from '../../lib/protocoloCiclo.js';
 import protocolosEfeitosData from '../../data/protocolos_efeitos.json';
 
 const TOTAL = protocolosEfeitosData.protocolos.length;
@@ -79,6 +79,20 @@ export default function Protocolos() {
       <CardProtocoloEfeitos
         proto={escolhido}
         mensagemVazio="Digite o nome do protocolo ou de uma droga para ver os efeitos colaterais e orientações nutricionais."
+        acoes={escolhido && (
+          // <a> de verdade, não window.open: link nunca é barrado por bloqueador
+          // de pop-up, ao contrário do window.open + document.write que os
+          // impressos internos usam e que já precisou do aviso "permita pop-ups".
+          <a
+            className="btn-outline"
+            href={`/nutri/lamina/${chaveProtocolo(escolhido.nome)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <i className="ti ti-printer" style={{ fontSize: 15 }} aria-hidden="true" />
+            Lâmina da paciente
+          </a>
+        )}
       >
         <label className="field-label" htmlFor="busca-protocolo">Protocolo</label>
         <div ref={caixaRef} style={{ position: 'relative' }}>

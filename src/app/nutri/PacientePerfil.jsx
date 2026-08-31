@@ -1079,7 +1079,7 @@ export default function PacientePerfil() {
       <Suspense fallback={<div className="card empty-card"><div className="empty-sub">Carregando…</div></div>}>
         {tab === 'evolucao'      && <Evolucao pacienteId={paciente.id} paciente={paciente} nutriId={user.id} />}
         {tab === 'relatorio'     && <RelatorioEvolucao pacienteId={paciente.id} paciente={paciente} nutriId={user.id} />}
-        {tab === 'oncologia'     && <TratamentoOncologico pacienteId={paciente.id} nutriId={user.id} />}
+        {tab === 'oncologia'     && <TratamentoOncologico pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
         {tab === 'emagrecimento' && <Emagrecimento pacienteId={paciente.id} nutriId={user.id} />}
         {tab === 'anamnese'      && <Anamnese pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
         {tab === 'followup'      && <FollowUp pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}

@@ -5,7 +5,7 @@ import { callAnthropic } from '../../lib/anthropic.js';
 import DateInput from '../../components/DateInput.jsx';
 import CardProtocoloEfeitos from '../../components/CardProtocoloEfeitos.jsx';
 import protocolosEfeitosData from '../../data/protocolos_efeitos.json';
-import { getProtocolo, temEstruturaCiclo, janelaRisco, rotuloJanelaRisco, marcosDoProtocolo, marcosEfeitoAplicacao, datasAplicacoesCiclo, datasSerieCiclos, intervaloMinimoSerie, linhasDoCiclo } from '../../lib/protocoloCiclo.js';
+import { getProtocolo, chaveProtocolo, temEstruturaCiclo, janelaRisco, rotuloJanelaRisco, marcosDoProtocolo, marcosEfeitoAplicacao, datasAplicacoesCiclo, datasSerieCiclos, intervaloMinimoSerie, linhasDoCiclo } from '../../lib/protocoloCiclo.js';
 
 const GRUPOS_EFEITOS = (() => {
   const groups = {};
@@ -83,7 +83,7 @@ function exameDefault() {
   return { data_exame: dataLocalISO(), hemoglobina: '', leucocitos: '', neutrofilos: '', linfocitos: '', plaquetas: '', pcr: '', albumina: '', glicemia: '', obs: '' };
 }
 
-export default function TratamentoOncologico({ pacienteId, nutriId }) {
+export default function TratamentoOncologico({ pacienteId, nutriId, pacienteNome }) {
   const [secao, setSecao] = useState('diagnostico');
   const [dados, setDados] = useState(dadosDefault());
   const [tratamentoId, setTratamentoId] = useState(null);
@@ -864,7 +864,21 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
 
       {/* ── Referência de Efeitos Colaterais por Protocolo ── */}
       {secao === 'efeitos' && (
-        <CardProtocoloEfeitos proto={protoEfeito}>
+        <CardProtocoloEfeitos
+          proto={protoEfeito}
+          acoes={protoEfeito && (
+            <a
+              className="btn-outline"
+              href={`/nutri/lamina/${chaveProtocolo(protoEfeito.nome)}` +
+                    (pacienteNome ? `?paciente=${encodeURIComponent(pacienteNome.split(' ')[0])}` : '')}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <i className="ti ti-printer" style={{ fontSize: 15 }} aria-hidden="true" />
+              Lâmina da paciente
+            </a>
+          )}
+        >
           <label className="field-label">Protocolo</label>
           <select
             value={efeitoProtocolo}
