@@ -19,6 +19,7 @@ const NAV_CONFIG = [
       { id: 'feed',         path: '/nutri/feed',         label: 'Feed de pratos',      icon: 'camera' },
       { id: 'biblioteca',      path: '/nutri/biblioteca',      label: 'Biblioteca',              icon: 'book-2' },
       { id: 'monitoramento',    path: '/nutri/monitoramento-oncologico', label: 'Oncologia',           icon: 'atom-2' },
+      { id: 'protocolos',       path: '/nutri/protocolos',       label: 'Protocolos',              icon: 'list-search' },
       { id: 'mensagem-motivacional', path: '/nutri/mensagem-motivacional', label: 'Mensagem motivacional', icon: 'message-heart' },
       { id: 'checkins',        path: '/nutri/checkins',        label: 'Check-ins',               icon: 'clipboard-check' },
       // "Pré-consulta" (/nutri/questionarios) saiu do menu em 2026-08-20: zero

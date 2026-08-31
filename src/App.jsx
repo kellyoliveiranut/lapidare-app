@@ -53,6 +53,7 @@ const Financeiro = lazy(() => import('./app/nutri/Financeiro.jsx'));
 const Biblioteca = lazy(() => import('./app/nutri/Biblioteca.jsx'));
 const Personalizacao = lazy(() => import('./app/nutri/Personalizacao.jsx'));
 const MonitoramentoOncologicoNutri = lazy(() => import('./app/nutri/MonitoramentoOncologico.jsx'));
+const Protocolos = lazy(() => import('./app/nutri/Protocolos.jsx'));
 const MensagemMotivacional = lazy(() => import('./app/nutri/MensagemMotivacional.jsx'));
 
 const Inicio = lazy(() => import('./app/paciente/Inicio.jsx'));
@@ -104,6 +105,7 @@ export default function App() {
                 <Route path="/nutri/financeiro" element={<Financeiro />} />
                 <Route path="/nutri/biblioteca" element={<Biblioteca />} />
                 <Route path="/nutri/monitoramento-oncologico" element={<MonitoramentoOncologicoNutri />} />
+                <Route path="/nutri/protocolos" element={<Protocolos />} />
                 <Route path="/nutri/mensagem-motivacional" element={<MensagemMotivacional />} />
                 {/* Rotas antigas — as duas telas viraram abas de
                     /nutri/mensagem-motivacional em 2026-08-02. Redirecionam em
