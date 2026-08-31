@@ -69,6 +69,51 @@ export function getProtocolo(nome) {
 }
 
 /**
+ * Sugestões de protocolo para busca digitada: casa por INCLUSÃO de chave
+ * normalizada em `nome` e em `aliases`.
+ *
+ * É o oposto deliberado de getProtocolo(), e as duas coisas não se misturam.
+ * Lá o texto chega pronto do cadastro e ninguém confere o resultado, então
+ * casar 'AC' com 'AC-T' mostraria à paciente a janela de risco errada — por
+ * isso é igualdade. Aqui a nutri está digitando e escolhe na lista, então
+ * inclusão é o que faz "oxali" achar FOLFOX. Quem resolve o protocolo de uma
+ * paciente continua sendo getProtocolo(), sempre.
+ *
+ * Retorna [{ proto, via }], no máximo `limite` itens. `via` é o alias que
+ * casou, ou null quando o casamento veio do nome — sem isso, digitar "oxali"
+ * e ver "FOLFOX" na lista parece defeito.
+ *
+ * Ordem: nome que começa com o termo, nome que contém, alias que começa,
+ * alias que contém; empate desempatado pelo nome.
+ */
+export function buscarProtocolos(termo, { limite = 12 } = {}) {
+  const chave = chaveProtocolo(termo);
+  if (!chave) return [];
+
+  const achados = [];
+  for (const p of protocolosEfeitosData.protocolos) {
+    const doNome = chaveProtocolo(p.nome);
+    if (doNome.startsWith(chave)) { achados.push({ proto: p, via: null, peso: 0 }); continue; }
+    if (doNome.includes(chave))   { achados.push({ proto: p, via: null, peso: 1 }); continue; }
+
+    // Só o melhor alias de cada protocolo entra: senão "dato" traria a mesma
+    // Datroway quatro vezes, uma por alias.
+    let melhor = null;
+    for (const alias of p.aliases ?? []) {
+      const doAlias = chaveProtocolo(alias);
+      if (doAlias.startsWith(chave)) { melhor = { via: alias, peso: 2 }; break; }
+      if (doAlias.includes(chave) && !melhor) melhor = { via: alias, peso: 3 };
+    }
+    if (melhor) achados.push({ proto: p, ...melhor });
+  }
+
+  return achados
+    .sort((a, b) => a.peso - b.peso || a.proto.nome.localeCompare(b.proto.nome, 'pt-BR'))
+    .slice(0, limite)
+    .map(({ proto, via }) => ({ proto, via }));
+}
+
+/**
  * Só é "estruturado" quando tem estruturaCiclo E marcosEfeito.
  *
  * Isso governa a GERAÇÃO DE LINHAS (ver linhasDoCiclo): N aplicações por ciclo,
