@@ -3059,6 +3059,62 @@
         "Sangramento",
         "Dor abdominal intensa ou persistente"
       ]
+    },
+    {
+      "nome": "Datroway",
+      "indicacao": "Câncer de mama HR+/HER2-, câncer de mama triplo-negativo, câncer de pulmão (NSCLC) EGFR-mutado",
+      "aliases": [
+        "datopotamabe derruxtecana",
+        "dato-dxd",
+        "datroway",
+        "datopotamab deruxtecan"
+      ],
+      "duracaoCiclo": 21,
+      "conduta_base": "Anticorpo-droga conjugado (ADC) — a estomatite é o efeito mais característico e mais precoce: costuma aparecer já nas primeiras semanas de tratamento, antes do que a paciente esperaria. Antecipar orientação sobre boca desde o primeiro ciclo, não esperar ela reclamar. Atenção também a sinais oculares (olho seco, visão turva) — não é queixa nutricional, mas é sinal de alerta para a equipe médica.",
+      "efeitos": [
+        {
+          "efeito": "Estomatite / feridas na boca",
+          "relacionado_a": "Datopotamabe derruxtecana (efeito mais comum, até 59% das pacientes)",
+          "manejo": "Alimentos macios e pastosos, temperatura fria ou morna (nunca quente), evitar ácidos, picantes e crocantes. Chupar gelo ou manter água gelada na boca durante a infusão pode ajudar a prevenir — vale reforçar com a paciente antes do ciclo."
+        },
+        {
+          "efeito": "Náuseas",
+          "relacionado_a": "Datopotamabe derruxtecana",
+          "manejo": "Refeições fracionadas, evitar cheiros fortes durante o preparo, priorizar alimentos secos e de fácil digestão nas primeiras 48h após a infusão."
+        },
+        {
+          "efeito": "Fadiga",
+          "relacionado_a": "Datopotamabe derruxtecana",
+          "manejo": "Refeições fracionadas e práticas, evitar jejum prolongado."
+        },
+        {
+          "efeito": "Constipação",
+          "relacionado_a": "Datopotamabe derruxtecana",
+          "manejo": "Aumentar fibras solúveis, boa hidratação, estimular atividade leve se liberada pela equipe médica."
+        },
+        {
+          "efeito": "Diarreia",
+          "relacionado_a": "Datopotamabe derruxtecana",
+          "manejo": "Dieta pobre em fibras insolúveis e gordura durante episódios agudos, hidratação com reposição de eletrólitos."
+        },
+        {
+          "efeito": "Perda de apetite",
+          "relacionado_a": "Conjunto do protocolo, agravado pela estomatite",
+          "manejo": "Priorizar densidade calórica e proteica nas porções pequenas que a paciente consegue tolerar, refeições mais frequentes em menor quantidade."
+        },
+        {
+          "efeito": "Neutropenia (imunossupressão)",
+          "relacionado_a": "Datopotamabe derruxtecana",
+          "manejo": "Reforçar higiene alimentar — evitar crus ou mal cozidos, priorizar bem lavados e bem cozidos."
+        }
+      ],
+      "sinais_alerta": [
+        "Febre acima de 38°C",
+        "Feridas na boca que impedem comer ou beber",
+        "Dor ocular, visão turva ou sensibilidade à luz (efeito colateral conhecido dessa droga — procurar oftalmologista/equipe médica)",
+        "Tosse nova, falta de ar ou febre persistente (sinal de possível comprometimento pulmonar, efeito raro mas sério dessa classe de droga)",
+        "Sangramento ou hematomas incomuns"
+      ]
     }
   ]
 }
