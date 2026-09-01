@@ -3115,6 +3115,52 @@
         "Tosse nova, falta de ar ou febre persistente (sinal de possível comprometimento pulmonar, efeito raro mas sério dessa classe de droga)",
         "Sangramento ou hematomas incomuns"
       ]
+    },
+    {
+      "nome": "Lenalidomida",
+      "indicacao": "Mieloma múltiplo, síndrome mielodisplásica",
+      "aliases": [
+        "lenalidomida cp",
+        "revlimid",
+        "lenalidomida cápsula",
+        "Lenalidomida + Dexametasona"
+      ],
+      "duracaoCiclo": 28,
+      "conduta_base": "Imunomodulador oral (cápsula, não é infusão) — esquema comum é 21 dias de uso seguidos de 7 dias de descanso, repetindo a cada 28 dias. A diarreia é o efeito mais característico e pode ser dose-limitante: reforçar o manejo desde o primeiro ciclo. Frequentemente combinado com dexametasona, o que pode adicionar efeitos próprios do corticoide (aumento de apetite, retenção de líquido) — vale confirmar com a equipe médica se é o caso da paciente.",
+      "efeitos": [
+        {
+          "efeito": "Diarreia",
+          "relacionado_a": "Lenalidomida (efeito mais característico, pode ser dose-limitante)",
+          "manejo": "Dieta pobre em fibras insolúveis e gordura durante episódios agudos, hidratação com reposição de eletrólitos. Diarreia grave (7 ou mais episódios/dia) pode exigir hidratação intravenosa — não é só desconforto, é sinal de alerta."
+        },
+        {
+          "efeito": "Constipação",
+          "relacionado_a": "Lenalidomida",
+          "manejo": "Aumentar fibras solúveis, boa hidratação, estimular atividade leve se liberada pela equipe médica."
+        },
+        {
+          "efeito": "Fadiga / astenia",
+          "relacionado_a": "Lenalidomida",
+          "manejo": "Refeições fracionadas e práticas, evitar jejum prolongado."
+        },
+        {
+          "efeito": "Náuseas",
+          "relacionado_a": "Lenalidomida, mais frequente se combinada com dexametasona",
+          "manejo": "Refeições fracionadas, evitar cheiros fortes durante o preparo, priorizar alimentos secos e de fácil digestão."
+        },
+        {
+          "efeito": "Neutropenia (imunossupressão)",
+          "relacionado_a": "Lenalidomida",
+          "manejo": "Reforçar higiene alimentar — evitar crus ou mal cozidos, priorizar bem lavados e bem cozidos."
+        }
+      ],
+      "sinais_alerta": [
+        "Febre acima de 38°C",
+        "Diarreia intensa ou persistente (7 ou mais episódios/dia)",
+        "Sangramento ou hematomas incomuns",
+        "Dor, inchaço ou vermelhidão numa perna, ou falta de ar súbita (a lenalidomida tem risco aumentado de trombose — procurar equipe médica imediatamente)",
+        "Incapacidade de manter hidratação oral"
+      ]
     }
   ]
 }
