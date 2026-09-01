@@ -3152,6 +3152,16 @@
           "efeito": "Neutropenia (imunossupressão)",
           "relacionado_a": "Lenalidomida",
           "manejo": "Reforçar higiene alimentar — evitar crus ou mal cozidos, priorizar bem lavados e bem cozidos."
+        },
+        {
+          "efeito": "Anemia",
+          "relacionado_a": "Lenalidomida (efeito muito frequente, mais de 1 em cada 10 pacientes)",
+          "manejo": "Priorizar alimentos fonte de ferro nas refeições (carnes vermelhas, feijão, folhas verde-escuras), e reforçar com a equipe médica se o cansaço/falta de ar persistir — pode indicar necessidade de investigação."
+        },
+        {
+          "efeito": "Alteração no paladar",
+          "relacionado_a": "Lenalidomida",
+          "manejo": "Testar temperaturas diferentes dos alimentos, reforçar temperos naturais (limão, ervas) se o sabor estiver metálico ou reduzido, e não insistir em alimentos que passaram a desagradar."
         }
       ],
       "sinais_alerta": [
@@ -3159,7 +3169,9 @@
         "Diarreia intensa ou persistente (7 ou mais episódios/dia)",
         "Sangramento ou hematomas incomuns",
         "Dor, inchaço ou vermelhidão numa perna, ou falta de ar súbita (a lenalidomida tem risco aumentado de trombose — procurar equipe médica imediatamente)",
-        "Incapacidade de manter hidratação oral"
+        "Incapacidade de manter hidratação oral",
+        "Manchas roxas, vermelhidão ou erupção na pele que aumenta de tamanho (pode exigir suspender o tratamento — avise a equipe médica, não espere)",
+        "Formigamento, dormência ou ardor nas mãos ou nos pés"
       ]
     }
   ]
