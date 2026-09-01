@@ -71,12 +71,18 @@ function modalidadeDaPaciente(modalidade) {
 // (0 = domingo). Sábado e domingo ficam de fora porque agendar em fim de
 // semana já é barrado antes de chegar aqui — e um dia ausente do mapa cai no
 // comportamento antigo em vez de escolher errado.
+// O nome tem que ser IGUAL ao de locais_atendimento.nome no banco: nomeIgual()
+// compara por igualdade, sem inclusão nem normalização de acento. Um nome que
+// não bate não escolhe errado — cai no fallback e não pré-seleciona nada, em
+// silêncio. Foi o que aconteceu com 'Wanderloock' (nome que veio do seed em
+// 2026-08-08_locais_atendimento.sql e não corresponde ao do banco).
+// Renomear o local no cadastro exige atualizar este mapa junto.
 const LOCAL_POR_DIA = {
-  1: 'CTO',          // segunda
-  2: 'Wanderloock',  // terça
-  3: 'Wanderloock',  // quarta
-  4: 'Wanderloock',  // quinta
-  5: 'CTO',          // sexta
+  1: 'CTO',                    // segunda
+  2: 'Ed Village Millenium',   // terça
+  3: 'Ed Village Millenium',   // quarta
+  4: 'Ed Village Millenium',   // quinta
+  5: 'CTO',                    // sexta
 };
 
 // Nome do local é digitado no cadastro; comparar cru faria "cto" não casar
@@ -90,7 +96,7 @@ function nomeIgual(a, b) {
 // escolhe, e o salvar() trava enquanto ela não escolher.
 //
 // Com uma data, a regra de dia da semana decide antes: segunda e sexta no CTO,
-// terça a quinta no Wanderloock. É só o valor INICIAL — a nutri troca no
+// terça a quinta no Ed Village Millenium. É só o valor INICIAL — a nutri troca no
 // select quando quiser, e a flag localEditado impede que a data volte a
 // atropelar a escolha dela.
 //
