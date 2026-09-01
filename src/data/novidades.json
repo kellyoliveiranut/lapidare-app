@@ -4,5 +4,29 @@
     "data": "2026-08-20",
     "rota": "/nutri/chat",
     "texto": "No Chat, o nome da paciente virou link: clique nele na lista de conversas ou no cabeçalho da conversa para abrir o perfil direto."
+  },
+  {
+    "id": 2,
+    "data": "2026-08-31",
+    "rota": "/nutri/pacientes",
+    "texto": "Na aba Oncologia, a seção Ref. Efeitos agora abre já no protocolo da paciente, em vez de vazia — o seletor continua ali para ver outro."
+  },
+  {
+    "id": 3,
+    "data": "2026-08-31",
+    "rota": "/nutri/protocolos",
+    "texto": "O botão Lâmina da paciente, no topo do card, gera uma folha de orientações para imprimir e entregar — sem nada de uso interno. Também está na aba Oncologia do perfil."
+  },
+  {
+    "id": 4,
+    "data": "2026-08-31",
+    "rota": null,
+    "texto": "Nova tela Protocolos, em Atendimento: digite o nome do protocolo ou de uma droga — \"oxali\" acha FOLFOX — e veja os efeitos colaterais sem precisar abrir uma paciente."
+  },
+  {
+    "id": 5,
+    "data": "2026-08-31",
+    "rota": "/nutri/visao",
+    "texto": "Quem nunca ativou as notificações agora tem um item fixo em Mais, no app da paciente, para ligar quando quiser — antes o convite aparecia uma vez só e não tinha caminho de volta."
   }
 ]
