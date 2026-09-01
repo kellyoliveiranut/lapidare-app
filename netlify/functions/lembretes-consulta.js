@@ -48,7 +48,11 @@ exports.handler = async (event) => {
     // Consultas de amanhã (Belém), agendadas, com lembrete ativo, push ainda não enviado
     const { data: consultas, error: qErr } = await supabase
       .from('consultas')
-      .select('id, data_hora, paciente:pacientes(user_id, nome)')
+      // modalidade/local: sem eles o push não tem como dizer ONDE é a consulta.
+      // É o mesmo join que Inicio.jsx faz para os cards (:135 e :201) — aqui
+      // não depende da policy locais_atendimento_paciente, porque a function
+      // usa a service role e não passa por RLS.
+      .select('id, data_hora, modalidade, local_id, local:locais_atendimento(nome, endereco), paciente:pacientes(user_id, nome)')
       .eq('status', 'agendada')
       .eq('lembrete_ativo', true)
       .is('push_lembrete_enviado_em', null)
@@ -67,9 +71,21 @@ exports.handler = async (event) => {
       const horaBelemDate = new Date(new Date(c.data_hora).getTime() - BELEM_OFFSET_MS);
       const hora = `${String(horaBelemDate.getUTCHours()).padStart(2, '0')}:${String(horaBelemDate.getUTCMinutes()).padStart(2, '0')}`;
 
+      // Só o NOME do local, nunca o endereço: o corpo do push aparece na tela
+      // de bloqueio, e endereço completo ali é ruído. Quem quiser o endereço
+      // toca e cai no Inicio, onde LocalConsulta mostra nome E endereço.
+      //
+      // Mesma condição do LocalConsulta (Inicio.jsx:75-78): exige presencial E
+      // nome preenchido. Os três motivos de não ter local são legítimos e
+      // nenhum é erro — consulta online, presencial sem local (o campo é
+      // opcional na Agenda) ou local removido. Nos três o texto fica idêntico
+      // ao que era antes.
+      const localNome = c.modalidade === 'presencial' ? c.local?.nome : null;
       const payload = {
         title: 'Essentia',
-        body: `Lembrete: você tem consulta amanhã às ${hora}`,
+        body: localNome
+          ? `Lembrete: você tem consulta amanhã às ${hora} — ${localNome}`
+          : `Lembrete: você tem consulta amanhã às ${hora}`,
         url: '/paciente/inicio',
       };
 
