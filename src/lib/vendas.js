@@ -1,4 +1,4 @@
-import { gerarParcelas } from './utils.js';
+import { gerarParcelas, distribuirTaxa } from './utils.js';
 
 /**
  * Cria uma venda e suas parcelas de forma atômica (com rollback manual da
@@ -10,13 +10,13 @@ import { gerarParcelas } from './utils.js';
  * @param supabase  cliente supabase
  * @param dados     {
  *   nutriId, pacienteId, servicoId, servico, valorTotal (number),
- *   forma, dataVenda, nParcelas, nMeses, diaVenc, obs
+ *   forma, dataVenda, nParcelas, nMeses, diaVenc, obs, taxaTotal (number)
  * }
  * @returns {{ venda: {id}|null, parcelas: number, error: string|null }}
  */
 export async function criarVendaComParcelas(supabase, {
   nutriId, pacienteId, servicoId, servico, valorTotal,
-  forma, dataVenda, nParcelas, nMeses, diaVenc, obs,
+  forma, dataVenda, nParcelas, nMeses, diaVenc, obs, taxaTotal,
 }) {
   // Regra de nº de parcelas por forma — idêntica ao preview do modal.
   const n_parcelas = forma === 'asaas' ? nMeses
@@ -49,7 +49,12 @@ export async function criarVendaComParcelas(supabase, {
     return { venda: null, parcelas: 0, error: 'Erro ao salvar venda: ' + vErr.message };
   }
 
-  const linhas = linhasPreview.map(p => ({
+  // A taxa da maquininha é digitada uma vez, para a venda inteira, e desce
+  // repartida entre as parcelas — é na parcela que ela mora, porque é parcela
+  // a parcela que o repasse acontece e é ali que cada uma vira editável.
+  const taxas = distribuirTaxa(taxaTotal, linhasPreview);
+
+  const linhas = linhasPreview.map((p, i) => ({
     venda_id: venda.id,
     nutri_id: nutriId,
     numero: p.numero,
@@ -57,6 +62,7 @@ export async function criarVendaComParcelas(supabase, {
     vencimento: p.vencimento,
     status: p.status ?? 'pendente',
     data_pgto: p.data_pgto ?? null,
+    taxa_cartao: taxas[i] ?? 0,
   }));
   const { error: pErr } = await supabase.from('parcelas').insert(linhas);
   if (pErr) {

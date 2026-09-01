@@ -4,9 +4,14 @@ import DateInput from './DateInput.jsx';
 import ModalShell from './ModalShell.jsx';
 import {
   brl, dataBR, dataLocalISO,
-  gerarParcelas, FORMAS_PGTO_LIST, STATUS_PARCELA_INFO,
+  gerarParcelas, distribuirTaxa, FORMAS_PGTO_LIST, STATUS_PARCELA_INFO,
 } from '../lib/utils.js';
 import { criarVendaComParcelas } from '../lib/vendas.js';
+
+// Formas em que a maquininha cobra. Pix e dinheiro entram inteiros, então o
+// campo de taxa nem aparece neles — mostrar convida a digitar um valor que
+// não existe.
+const FORMAS_COM_TAXA = ['credito1x', 'parcelado', 'asaas'];
 
 /* ============================================================
    NOVA VENDA — modal
@@ -27,6 +32,7 @@ export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo
   const [nMeses, setNMeses] = useState(3);
   const [diaVenc, setDiaVenc] = useState(15);
   const [obs, setObs] = useState('');
+  const [taxa, setTaxa] = useState('');
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState(null);
 
@@ -47,11 +53,16 @@ export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo
   }
 
   const valorNum = Number(String(valor).replace(',', '.')) || 0;
+  const taxaNum = Number(String(taxa).replace(',', '.')) || 0;
+  const comTaxa = FORMAS_COM_TAXA.includes(forma);
 
   function escolherForma(f) {
     setForma(f);
     if (f === 'pix' || f === 'dinheiro') setNParcelas(1);
     else if (f === 'parcelado' && nParcelas < 2) setNParcelas(2);
+    // Sem isto, uma taxa digitada para cartão sobreviveria à troca para Pix e
+    // seria gravada numa venda que não tem taxa nenhuma.
+    if (!FORMAS_COM_TAXA.includes(f)) setTaxa('');
   }
 
   const parcelasPreview = useMemo(() => {
@@ -67,11 +78,23 @@ export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo
     });
   }, [forma, valorNum, data, nParcelas, nMeses, diaVenc]);
 
+  // Mesma função que criarVendaComParcelas usa para gravar. O que a nutri
+  // confere aqui é, centavo a centavo, o que vai para o banco.
+  const taxasPreview = useMemo(
+    () => distribuirTaxa(taxaNum, parcelasPreview),
+    [taxaNum, parcelasPreview],
+  );
+
   async function salvar() {
     setErro(null);
     if (!servico.trim()) return setErro('Informe o serviço.');
     if (!valorNum) return setErro('Informe um valor válido.');
     if (!data) return setErro('Informe a data da venda.');
+    // O banco recusa taxa > valor da parcela (parcelas_taxa_menor_que_valor).
+    // Barrar aqui dá uma frase em português em vez de erro de constraint.
+    if (comTaxa && taxaNum >= valorNum) {
+      return setErro('A taxa não pode ser maior ou igual ao valor da venda.');
+    }
 
     setBusy(true);
     const { error } = await criarVendaComParcelas(supabase, {
@@ -86,6 +109,7 @@ export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo
       nMeses,
       diaVenc,
       obs,
+      taxaTotal: comTaxa ? taxaNum : 0,
     });
     setBusy(false);
     if (error) return setErro(error);
@@ -203,6 +227,14 @@ export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo
         </>
       )}
 
+      {comTaxa && (
+        <>
+          <label className="form-lbl">Taxa da maquininha (R$, total da venda)</label>
+          <input inputMode="decimal" value={taxa} onChange={e => setTaxa(e.target.value)}
+            placeholder="Ex: 500,00 — o que a maquininha desconta no total" />
+        </>
+      )}
+
       {parcelasPreview.length > 0 && (
         <div style={{
           background: 'var(--bg2)', borderRadius: 6, padding: '8px 10px',
@@ -213,6 +245,37 @@ export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo
             ? `1 parcela única de ${brl(parcelasPreview[0].valor)} no dia ${dataBR(parcelasPreview[0].vencimento)}`
             : `${parcelasPreview.length}x de ${brl(parcelasPreview[0].valor)}${parcelasPreview[0].valor !== parcelasPreview[parcelasPreview.length-1].valor ? ` (última ${brl(parcelasPreview[parcelasPreview.length-1].valor)})` : ''} — primeira ${dataBR(parcelasPreview[0].vencimento)} / última ${dataBR(parcelasPreview[parcelasPreview.length-1].vencimento)}`
           }
+
+          {/* Três colunas só quando há taxa. Sem taxa, o resumo de uma linha
+              acima já diz tudo e a tabela seria ruído. */}
+          {taxaNum > 0 && (
+            <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 8, fontSize: 12.5 }}>
+              <thead>
+                <tr style={{ color: 'var(--text3)', textAlign: 'right' }}>
+                  <th style={{ textAlign: 'left', fontWeight: 500, padding: '3px 0' }}>#</th>
+                  <th style={{ fontWeight: 500, padding: '3px 0' }}>Bruto</th>
+                  <th style={{ fontWeight: 500, padding: '3px 0' }}>Taxa</th>
+                  <th style={{ fontWeight: 500, padding: '3px 0' }}>Líquido</th>
+                </tr>
+              </thead>
+              <tbody>
+                {parcelasPreview.map((p, i) => (
+                  <tr key={p.numero} style={{ textAlign: 'right' }}>
+                    <td style={{ textAlign: 'left', padding: '2px 0' }}>{p.numero}</td>
+                    <td style={{ padding: '2px 0' }}>{brl(p.valor)}</td>
+                    <td style={{ padding: '2px 0', color: 'var(--red)' }}>−{brl(taxasPreview[i] ?? 0)}</td>
+                    <td style={{ padding: '2px 0', fontWeight: 600 }}>{brl(p.valor - (taxasPreview[i] ?? 0))}</td>
+                  </tr>
+                ))}
+                <tr style={{ textAlign: 'right', borderTop: '0.5px solid var(--border)' }}>
+                  <td style={{ textAlign: 'left', padding: '4px 0', fontWeight: 600 }}>Total</td>
+                  <td style={{ padding: '4px 0' }}>{brl(valorNum)}</td>
+                  <td style={{ padding: '4px 0', color: 'var(--red)' }}>−{brl(taxaNum)}</td>
+                  <td style={{ padding: '4px 0', fontWeight: 700 }}>{brl(valorNum - taxaNum)}</td>
+                </tr>
+              </tbody>
+            </table>
+          )}
         </div>
       )}
 
@@ -249,12 +312,21 @@ export function EditarParcelaModal({ parcela, venda, pacienteNome, onClose, onSa
   const [status, setStatus] = useState(parcela.status);
   const [dataPgto, setDataPgto] = useState(parcela.data_pgto ?? dataLocalISO());
   const [valor, setValor] = useState(String(parcela.valor));
+  const [taxaCartao, setTaxaCartao] = useState(String(parcela.taxa_cartao ?? 0));
   const [obs, setObs] = useState(parcela.obs ?? '');
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState(null);
 
+  const valorEditNum = Number(String(valor).replace(',', '.')) || Number(parcela.valor);
+  const taxaNum = Number(String(taxaCartao).replace(',', '.')) || 0;
+
   async function salvar() {
     setErro(null);
+    // Mesmo check do banco, em português. Sem ele o erro chega como violação
+    // de constraint, que não diz nada para quem está digitando.
+    if (taxaNum > valorEditNum) {
+      return setErro('A taxa não pode ser maior que o valor da parcela.');
+    }
     setBusy(true);
     const { error } = await supabase
       .from('parcelas')
@@ -262,6 +334,7 @@ export function EditarParcelaModal({ parcela, venda, pacienteNome, onClose, onSa
         status,
         data_pgto: status === 'pago' ? dataPgto : null,
         valor: Number(String(valor).replace(',', '.')) || parcela.valor,
+        taxa_cartao: taxaNum,
         obs: obs.trim() || null,
       })
       .eq('id', parcela.id);
@@ -315,6 +388,16 @@ export function EditarParcelaModal({ parcela, venda, pacienteNome, onClose, onSa
       <label className="form-lbl">Valor recebido (R$)</label>
       <input inputMode="decimal" value={valor} onChange={e => setValor(e.target.value)}
         placeholder="Pode diferir se adiantou ou pagou parcial" />
+
+      {/* Editável parcela a parcela porque a maquininha desconta valores
+          ligeiramente diferentes em cada repasse, e é assim que chega no
+          extrato. A distribuição feita na criação é só o ponto de partida. */}
+      <label className="form-lbl">Taxa da maquininha (R$)</label>
+      <input inputMode="decimal" value={taxaCartao} onChange={e => setTaxaCartao(e.target.value)}
+        placeholder="Quanto a maquininha ficou neste repasse" />
+      <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: -4, marginBottom: 8 }}>
+        Líquido desta parcela: <strong>{brl(valorEditNum - taxaNum)}</strong>
+      </div>
 
       <label className="form-lbl">Observação</label>
       <input value={obs} onChange={e => setObs(e.target.value)}

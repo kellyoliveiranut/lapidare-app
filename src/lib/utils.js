@@ -253,6 +253,57 @@ export function gerarParcelas({ forma_pgto, valor_total, data_venda, n_parcelas,
 }
 
 /**
+ * Reparte a taxa TOTAL da maquininha entre as parcelas, proporcional ao valor
+ * de cada uma. Devolve um array de números alinhado com `linhas`.
+ *
+ * Fonte única: o preview do modal e o que vai para o banco chamam esta mesma
+ * função. Se cada lado fizesse a própria conta, a nutri conferiria um número
+ * e salvaria outro — é a razão de gerarParcelas também ser compartilhado.
+ *
+ * Centavos como em gerarParcelas: as primeiras n-1 são truncadas para baixo e
+ * a última recebe o resto, então a soma bate EXATAMENTE com a taxa digitada.
+ * Repartir 500 em 3 e arredondar cada uma daria 499,98.
+ *
+ * O clamp da última existe por causa do check parcelas_taxa_menor_que_valor:
+ * o resto acumulado poderia, no limite, empurrar a última acima do valor dela
+ * e o insert inteiro seria recusado pelo banco. A UI já barra taxa >= total,
+ * então na prática isto nunca dispara — é rede, não regra.
+ */
+/**
+ * O que de fato entra na conta por esta parcela: bruto menos a taxa da
+ * maquininha.
+ *
+ * Existe para o `?? 0` ficar num lugar só. As parcelas anteriores à coluna
+ * taxa_cartao vêm com 0 do banco (default not null), mas um select que
+ * esqueça a coluna traria undefined — e `2700 - undefined` é NaN, que soma
+ * em silêncio e zera o card inteiro sem erro nenhum.
+ */
+export function liquidoParcela(p) {
+  return Number(p?.valor ?? 0) - Number(p?.taxa_cartao ?? 0);
+}
+
+export function distribuirTaxa(taxaTotal, linhas) {
+  const taxa = Number(taxaTotal) || 0;
+  const n = linhas.length;
+  if (n === 0) return [];
+  if (taxa <= 0) return linhas.map(() => 0);
+
+  const total = linhas.reduce((a, l) => a + Number(l.valor), 0);
+  if (total <= 0) return linhas.map(() => 0);
+
+  const out = [];
+  let acumulado = 0;
+  for (let i = 0; i < n - 1; i++) {
+    const parte = Math.floor((taxa * Number(linhas[i].valor) / total) * 100) / 100;
+    out.push(parte);
+    acumulado += parte;
+  }
+  const resto = Number((taxa - acumulado).toFixed(2));
+  out.push(Math.min(resto, Number(linhas[n - 1].valor)));
+  return out;
+}
+
+/**
  * Calcula status "efetivo" de uma parcela:
  *  - pago        → 'pago'
  *  - pendente + vencimento < hoje → 'atrasado'
