@@ -649,7 +649,59 @@ export default function Inicio() {
         </div>
       )}
 
-
+      {/* 3 — Avaliação física pendente
+          Logo abaixo da mensagem do dia, e não no fim da tela: é uma pendência
+          com prazo, e no rodapé ela competia com nove blocos acima.
+          Clone do bloco de check-in (mais abaixo), sem o ramo de urgência: não
+          existe lembrete de avaliação, então o estado "urgente" não teria o que
+          ligar. Este banner é o que torna o push dispensável — enquanto a linha
+          estiver sem preenchido_em, o link está aqui. */}
+      {avaliacaoPendente && (
+        <div
+          onClick={() => navigate('/paciente/avaliacao')}
+          style={{
+            margin: '0 0 12px',
+            background: 'var(--paper)',
+            border: '1.5px dashed var(--gold)',
+            borderRadius: 14, padding: '14px 16px',
+            display: 'flex', alignItems: 'center', gap: 12,
+            cursor: 'pointer',
+          }}>
+          <div style={{
+            width: 42, height: 42, borderRadius: 11,
+            background: 'var(--gold-soft)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+          }}>
+            <i className="ti ti-ruler-measure" style={{
+              fontSize: 20, color: 'var(--gold-deep)',
+            }} aria-hidden="true"></i>
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{
+              fontSize: 9, letterSpacing: '.22em', textTransform: 'uppercase',
+              color: 'var(--gold-deep)', fontWeight: 500, marginBottom: 2,
+            }}>
+              Avaliação física
+            </div>
+            <div className="serif" style={{ fontSize: 18, lineHeight: 1.1, marginBottom: 2 }}>
+              Sua avaliação física está esperando
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 8 }}>
+              Enviada em {dataBR(avaliacaoPendente.enviado_em)} · abre no site do Shaped
+            </div>
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              fontSize: 12, fontWeight: 600,
+              background: 'var(--gold-soft)', color: 'var(--gold-deep)',
+              padding: '5px 12px', borderRadius: 20,
+            }}>
+              Abrir avaliação
+              <i className="ti ti-arrow-right" style={{ fontSize: 12 }} aria-hidden="true" />
+            </span>
+          </div>
+          <i className="ti ti-chevron-right" style={{ fontSize: 18, color: 'var(--muted)', flexShrink: 0 }} aria-hidden="true"></i>
+        </div>
+      )}
 
       {/* 5 — BLOCO B: Água + Adesão compactos lado a lado, Sequência abaixo */}
       {habitos.length > 0 && (adesaoSemana !== null || habiToAgua != null || habitosStreak > 0) && (
@@ -976,57 +1028,6 @@ export default function Inicio() {
         </div>
       )}
 
-      {/* 11 — Avaliação física pendente
-          Clone do bloco de check-in acima, sem o ramo de urgência: não existe
-          lembrete de avaliação, então o estado "urgente" não teria o que ligar.
-          Este banner é o que torna o push dispensável — enquanto a linha
-          estiver sem preenchido_em, o link está aqui. */}
-      {avaliacaoPendente && (
-        <div
-          onClick={() => navigate('/paciente/avaliacao')}
-          style={{
-            margin: '0 0 12px',
-            background: 'var(--paper)',
-            border: '1.5px dashed var(--gold)',
-            borderRadius: 14, padding: '14px 16px',
-            display: 'flex', alignItems: 'center', gap: 12,
-            cursor: 'pointer',
-          }}>
-          <div style={{
-            width: 42, height: 42, borderRadius: 11,
-            background: 'var(--gold-soft)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-          }}>
-            <i className="ti ti-ruler-measure" style={{
-              fontSize: 20, color: 'var(--gold-deep)',
-            }} aria-hidden="true"></i>
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{
-              fontSize: 9, letterSpacing: '.22em', textTransform: 'uppercase',
-              color: 'var(--gold-deep)', fontWeight: 500, marginBottom: 2,
-            }}>
-              Avaliação física
-            </div>
-            <div className="serif" style={{ fontSize: 18, lineHeight: 1.1, marginBottom: 2 }}>
-              Sua avaliação física está esperando
-            </div>
-            <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 8 }}>
-              Enviada em {dataBR(avaliacaoPendente.enviado_em)} · abre no site do Shaped
-            </div>
-            <span style={{
-              display: 'inline-flex', alignItems: 'center', gap: 5,
-              fontSize: 12, fontWeight: 600,
-              background: 'var(--gold-soft)', color: 'var(--gold-deep)',
-              padding: '5px 12px', borderRadius: 20,
-            }}>
-              Abrir avaliação
-              <i className="ti ti-arrow-right" style={{ fontSize: 12 }} aria-hidden="true" />
-            </span>
-          </div>
-          <i className="ti ti-chevron-right" style={{ fontSize: 18, color: 'var(--muted)', flexShrink: 0 }} aria-hidden="true"></i>
-        </div>
-      )}
     </>
   );
 }
