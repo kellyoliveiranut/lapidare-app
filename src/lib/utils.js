@@ -304,6 +304,56 @@ export function distribuirTaxa(taxaTotal, linhas) {
 }
 
 /**
+ * Taxa que a maquininha provavelmente vai cobrar nesta venda, a partir dos
+ * percentuais que a nutri configurou (colunas taxa_pct_* em `nutris`, que
+ * chegam prontas em useSession().profile porque session.jsx faz select(*)).
+ *
+ * Devolve { pct, valor } — a tela mostra os dois: "sugerido: R$ 510,30 (18,9%)".
+ *
+ * O PARCELADO TEM DOIS NÚMEROS porque a taxa cresce com o número de parcelas:
+ *
+ *     pct(n) = base + por_parcela * (n - 1)
+ *
+ * Um percentual único erraria a faixa inteira — 500 sobre 2.700 são 18,5%, que
+ * é parcelamento longo; a mesma venda em 3x custa perto de 6%.
+ *
+ * MORA AQUI, e não dentro de uma tela, porque são DOIS caminhos que criam
+ * venda: o NovaVendaModal e o formulário próprio do Cadastrar.jsx. A última
+ * vez que uma regra dessas ficou numa tela só, o cadastro ficou para trás em
+ * silêncio (ver 67bc225).
+ *
+ * Percentual zero (o default das colunas) devolve zero: é o estado "não
+ * configurado", em que o campo de taxa segue manual, como antes.
+ */
+export function taxaSugerida(perfil, forma, valorTotal, nParcelas) {
+  const vazio = { pct: 0, valor: 0 };
+  if (!perfil || !FORMAS_COM_TAXA.includes(forma)) return vazio;
+
+  const num = v => Number(v ?? 0) || 0;
+  let pct;
+  if (forma === 'credito1x') {
+    pct = num(perfil.taxa_pct_credito1x);
+  } else if (forma === 'asaas') {
+    // Recorrência cobra por cobrança, não por parcelamento: percentual chapado.
+    pct = num(perfil.taxa_pct_asaas);
+  } else {
+    const n = Math.max(1, Math.floor(Number(nParcelas) || 1));
+    pct = num(perfil.taxa_pct_parcelado_base)
+        + num(perfil.taxa_pct_parcelado_por_parcela) * (n - 1);
+  }
+
+  // Teto de 100 na taxa COMPOSTA. Cada coluna é limitada a 0..100 no banco,
+  // mas base + por_parcela * 11 pode passar disso com valores absurdos — e uma
+  // sugestão maior que a própria venda nasceria recusada pela validação do
+  // modal, o que é pior do que uma sugestão exagerada porém aceitável.
+  pct = Math.min(Math.max(pct, 0), 100);
+  if (pct === 0) return vazio;
+
+  const bruto = num(valorTotal);
+  return { pct, valor: Math.round(bruto * pct) / 100 };
+}
+
+/**
  * Calcula status "efetivo" de uma parcela:
  *  - pago        → 'pago'
  *  - pendente + vencimento < hoje → 'atrasado'

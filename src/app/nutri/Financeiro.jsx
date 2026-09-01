@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
-import { brl, statusParcela, liquidoParcela } from '../../lib/utils.js';
+import { brl, statusParcela, liquidoParcela, taxaSugerida } from '../../lib/utils.js';
 import ListaVendas from '../../components/ListaVendas.jsx';
 import { NovaVendaModal, EditarParcelaModal, EditarVendaModal } from '../../components/VendaModais.jsx';
 import Gastos from './Gastos.jsx';
 
 export default function Financeiro() {
-  const { user } = useSession();
+  const { user, profile, refreshProfile } = useSession();
   const [tab, setTab] = useState('entradas');  // 'entradas' | 'gastos'
   const [vendas, setVendas] = useState(undefined);
   const [parcelas, setParcelas] = useState([]);
@@ -243,6 +243,19 @@ export default function Financeiro() {
         />
       )}
 
+      {/* Configuração das taxas. Fica no fim da aba, recolhida: é
+          parâmetro que se ajusta uma vez, não algo do dia a dia. Mora aqui
+          e não na Personalização porque é número financeiro, e o
+          precedente da casa (Previsibilidade) é editar esses números na
+          tela onde eles fazem efeito.
+
+          Só monta com o profile carregado, para o estado inicial nascer
+          com os valores certos — evita um useEffect que copiaria profile
+          para o estado e cairia na regra de setState-em-effect. */}
+      {profile && (
+        <TaxasCartao perfil={profile} nutriId={user.id} onSalvo={refreshProfile} />
+      )}
+
       {novaVendaOpen && (
         <NovaVendaModal
           pacientes={pacientes}
@@ -271,5 +284,135 @@ export default function Financeiro() {
       )}
       </>)}
     </>
+  );
+}
+
+/* ============================================================
+   TAXAS DA MAQUININHA — configuração
+
+   Os percentuais viram a SUGESTÃO de taxa nos dois caminhos que criam
+   venda. A sugestão nunca é imposta: o campo continua editável, porque o
+   extrato real chega com centavos diferentes e é ele que manda.
+
+   O parcelado tem dois números porque a taxa cresce com o número de
+   parcelas — ver taxaSugerida() em utils.js.
+   ============================================================ */
+function TaxasCartao({ perfil, nutriId, onSalvo }) {
+  const [aberto, setAberto] = useState(false);
+  const [form, setForm] = useState(() => ({
+    credito1x: String(perfil.taxa_pct_credito1x ?? 0).replace('.', ','),
+    asaas: String(perfil.taxa_pct_asaas ?? 0).replace('.', ','),
+    base: String(perfil.taxa_pct_parcelado_base ?? 0).replace('.', ','),
+    porParcela: String(perfil.taxa_pct_parcelado_por_parcela ?? 0).replace('.', ','),
+  }));
+  const [busy, setBusy] = useState(false);
+  const [erro, setErro] = useState(null);
+  const [feedback, setFeedback] = useState(null);
+
+  const num = v => Number(String(v).replace(',', '.')) || 0;
+
+  // Prévia do modelo base + acréscimo. Sem ela, dois números soltos não
+  // dizem nada — é esta linha que mostra que 1,4 por parcela vira 18,9% em
+  // 12x, que é a conta que a Kelly confere contra o extrato.
+  //
+  // Usa taxaSugerida(), a MESMA função dos dois modais, com um perfil de
+  // mentira montado do formulário. Repetir a fórmula aqui faria a prévia
+  // poder discordar do que a venda realmente aplica — que é exatamente o
+  // tipo de divergência que motivou centralizar isso em utils.js.
+  const perfilPreview = {
+    taxa_pct_parcelado_base: num(form.base),
+    taxa_pct_parcelado_por_parcela: num(form.porParcela),
+  };
+  const previa = [3, 6, 12].map(n => ({
+    n,
+    pct: taxaSugerida(perfilPreview, 'parcelado', 0, n).pct,
+  }));
+
+  async function salvar() {
+    setErro(null); setFeedback(null);
+    const valores = {
+      taxa_pct_credito1x: num(form.credito1x),
+      taxa_pct_asaas: num(form.asaas),
+      taxa_pct_parcelado_base: num(form.base),
+      taxa_pct_parcelado_por_parcela: num(form.porParcela),
+    };
+    // Mesmos limites dos checks do banco, em português.
+    if (Object.values(valores).some(v => v < 0 || v > 100)) {
+      return setErro('Cada percentual precisa ficar entre 0 e 100.');
+    }
+    setBusy(true);
+    const { error } = await supabase.from('nutris').update(valores).eq('id', nutriId);
+    setBusy(false);
+    if (error) return setErro('Erro ao salvar: ' + error.message);
+    setFeedback('Taxas salvas.');
+    // Recarrega o profile da sessão: sem isto os modais continuariam
+    // sugerindo com os percentuais antigos até um F5.
+    if (typeof onSalvo === 'function') await onSalvo();
+  }
+
+  return (
+    <div className="card" style={{ marginTop: 16 }}>
+      <div
+        className="card-header"
+        onClick={() => setAberto(v => !v)}
+        style={{ cursor: 'pointer' }}
+      >
+        <div>
+          <div className="card-title">Taxas da maquininha</div>
+          <div className="card-sub">
+            Configure uma vez e a taxa vem calculada em cada venda — sempre editável
+          </div>
+        </div>
+        <i className={`ti ti-chevron-${aberto ? 'up' : 'down'}`}
+          style={{ fontSize: 16, color: 'var(--text3)' }} aria-hidden="true" />
+      </div>
+
+      {aberto && (
+        <div className="card-body">
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label className="form-lbl" style={{ marginTop: 0 }}>Crédito à vista (%)</label>
+              <input inputMode="decimal" value={form.credito1x}
+                onChange={e => setForm(f => ({ ...f, credito1x: e.target.value }))}
+                placeholder="Ex: 3,5" />
+            </div>
+            <div>
+              <label className="form-lbl" style={{ marginTop: 0 }}>Recorrente Asaas (%)</label>
+              <input inputMode="decimal" value={form.asaas}
+                onChange={e => setForm(f => ({ ...f, asaas: e.target.value }))}
+                placeholder="Ex: 4" />
+            </div>
+            <div>
+              <label className="form-lbl" style={{ marginTop: 0 }}>Parcelado — base (%)</label>
+              <input inputMode="decimal" value={form.base}
+                onChange={e => setForm(f => ({ ...f, base: e.target.value }))}
+                placeholder="Ex: 3,5" />
+            </div>
+            <div>
+              <label className="form-lbl" style={{ marginTop: 0 }}>Parcelado — por parcela a mais (%)</label>
+              <input inputMode="decimal" value={form.porParcela}
+                onChange={e => setForm(f => ({ ...f, porParcela: e.target.value }))}
+                placeholder="Ex: 1,4" />
+            </div>
+          </div>
+
+          <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 10 }}>
+            No parcelado isso dá{' '}
+            {previa.map(p => `${p.n}x = ${p.pct.toFixed(2).replace('.', ',')}%`).join(' · ')}
+          </div>
+
+          {erro && (
+            <div style={{ background: 'var(--red-bg)', color: 'var(--red)', padding: '6px 10px', borderRadius: 6, fontSize: 13, marginTop: 10 }}>{erro}</div>
+          )}
+          {feedback && (
+            <div style={{ background: 'var(--green-soft)', color: 'var(--green)', padding: '6px 10px', borderRadius: 6, fontSize: 13, marginTop: 10 }}>{feedback}</div>
+          )}
+
+          <button className="btn" style={{ marginTop: 12 }} onClick={salvar} disabled={busy}>
+            <i className="ti ti-check" aria-hidden="true"></i> {busy ? '...' : 'Salvar taxas'}
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
