@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
-import { dataBR, brl, gerarParcelas, distribuirTaxa, taxaSugerida, FORMAS_PGTO_LIST, FORMAS_COM_TAXA, normalizarTelefone, telefoneValido, dataLocalISO } from '../../lib/utils.js';
+import { dataBR, brl, gerarParcelas, distribuirTaxa, taxaSugerida, maxParcelas, clampParcelas, MAX_PARCELAS_ESSENTIA, FORMAS_PGTO_LIST, FORMAS_COM_TAXA, normalizarTelefone, telefoneValido, dataLocalISO } from '../../lib/utils.js';
 import { criarVendaComParcelas } from '../../lib/vendas.js';
 import { linkConvite, mensagemConviteEncoded } from '../../lib/convite.js';
 import { OBJETIVOS } from '../../lib/objetivos.js';
@@ -57,6 +57,9 @@ export default function Cadastrar() {
   const pgValorNum = Number(String(pgValor).replace(',', '.')) || 0;
   const pgComTaxa = FORMAS_COM_TAXA.includes(pgForma);
 
+  // Aqui o plano é o do próprio formulário — a paciente está nascendo agora.
+  const pgMaxN = maxParcelas(pgForma, tipoPlano);
+
   // Número de parcelas EFETIVO, extraído porque dois cálculos dependem dele:
   // gerarParcelas e a sugestão de taxa. Duplicá-lo faria a taxa sugerida ser
   // de um parcelamento e as parcelas de outro.
@@ -96,10 +99,19 @@ export default function Cadastrar() {
     if (s) { setPgServico(s.nome); setPgValor(String(s.ticket).replace('.', ',')); }
   }
 
+  // Trocar o plano depois de já ter escolhido a venda pode baixar o teto:
+  // Avulsa em 12x virando Essentia tem que voltar para 10.
+  function escolherPlano(v) {
+    setTipoPlano(v);
+    setPgNParcelas(n => clampParcelas(n, pgForma, v));
+  }
+
   function escolherForma(f) {
     setPgForma(f);
     if (f === 'pix' || f === 'dinheiro') setPgNParcelas(1);
-    else if (f === 'parcelado' && pgNParcelas < 2) setPgNParcelas(2);
+    // clampParcelas cuida do piso (2) e do teto: 12x escolhido no Pix não pode
+    // sobreviver à troca para Parcelado numa Essentia, onde o select só vai a 10.
+    else if (f === 'parcelado') setPgNParcelas(n => clampParcelas(n, f, tipoPlano));
     // Sem isto, uma taxa digitada para cartão sobreviveria à troca para Pix e
     // seria gravada numa venda que não tem taxa nenhuma.
     if (!FORMAS_COM_TAXA.includes(f)) setPgTaxa('');
@@ -388,7 +400,7 @@ export default function Cadastrar() {
             hint={sexo ? null : 'Sem isso, o check-in vai na versão neutra — sem as perguntas de inchaço e ciclo menstrual.'} />
           <SelectField label="Objetivo" value={objetivo} onChange={setObjetivo} options={OBJETIVOS} />
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <SelectField label="Tipo de plano" value={tipoPlano} onChange={setTipoPlano} options={PLANOS} />
+            <SelectField label="Tipo de plano" value={tipoPlano} onChange={escolherPlano} options={PLANOS} />
             <SelectField label="Modalidade" value={modalidade} onChange={setModalidade} options={MODALIDADES} />
           </div>
 
@@ -537,10 +549,15 @@ export default function Cadastrar() {
                       {(pgForma === 'pix' || pgForma === 'dinheiro') && (
                         <option value={1}>1x — à vista (entra como recebido)</option>
                       )}
-                      {Array.from({ length: 11 }, (_, i) => i + 2).map(n => (
+                      {Array.from({ length: pgMaxN - 1 }, (_, i) => i + 2).map(n => (
                         <option key={n} value={n}>{n}x (venc. mensais)</option>
                       ))}
                     </select>
+                    {pgMaxN === MAX_PARCELAS_ESSENTIA && (
+                      <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 3 }}>
+                        Essentia: o contrato prevê até {MAX_PARCELAS_ESSENTIA}x no cartão
+                      </div>
+                    )}
                   </>
                 )}
 

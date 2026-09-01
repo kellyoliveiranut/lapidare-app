@@ -16,14 +16,16 @@ import { NovaVendaModal, EditarParcelaModal, EditarVendaModal } from '../../comp
  * As parcelas vêm aninhadas no mesmo select: parcelas.venda_id tem FK para
  * vendas.id, então o PostgREST resolve o embedding numa query só.
  */
-export default function Financeiro({ pacienteId, nutriId, pacienteNome }) {
+export default function Financeiro({ pacienteId, nutriId, pacienteNome, pacienteTipoPlano }) {
   const [vendas, setVendas] = useState(undefined);
   const [novaVendaOpen, setNovaVendaOpen] = useState(false);
   const [parcelaEdit, setParcelaEdit] = useState(null);
   const [vendaEdit, setVendaEdit] = useState(null);
   const [servicos, setServicos] = useState([]);
 
-  const pacienteFixo = { id: pacienteId, nome: pacienteNome };
+  // tipo_plano viaja junto porque o NovaVendaModal precisa dele para o teto
+  // de parcelas no cartão (10 na Essentia, 12 nas demais).
+  const pacienteFixo = { id: pacienteId, nome: pacienteNome, tipo_plano: pacienteTipoPlano };
 
   async function carregar() {
     if (!nutriId || !pacienteId) return;

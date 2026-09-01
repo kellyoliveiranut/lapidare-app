@@ -1094,7 +1094,7 @@ export default function PacientePerfil() {
         {tab === 'checkin'       && <CheckinPersonalizado pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} paciente={paciente} />}
         {tab === 'calculos'      && <Calculos pacienteId={paciente.id} nutriId={user.id} paciente={paciente} onUsarNaDieta={(vals) => { setCalculosImportados(vals); setTab('plano'); }} />}
         {tab === 'treinos'       && <Treinos pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
-        {tab === 'financeiro'    && <FinanceiroPaciente pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
+        {tab === 'financeiro'    && <FinanceiroPaciente pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} pacienteTipoPlano={paciente.tipo_plano} />}
       </Suspense>
 
       <div style={{ marginTop: 32, paddingTop: 16, borderTop: '0.5px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20 }}>

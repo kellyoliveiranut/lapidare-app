@@ -44,7 +44,9 @@ export default function Financeiro() {
         .eq('nutri_id', user.id)
         .order('vencimento', { ascending: true }),
       supabase.from('pacientes')
-        .select('id, nome')
+        // tipo_plano: o NovaVendaModal usa para saber se o teto de parcelas
+        // no cartão é 10 (Essentia) ou 12.
+        .select('id, nome, tipo_plano')
         .eq('nutri_id', user.id)
         .eq('status_paciente', 'ativo')
         .order('nome'),

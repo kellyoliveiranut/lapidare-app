@@ -184,6 +184,43 @@ export function contarItensLista(dados) {
   return dados?.lista?.reduce((a, c) => a + (c.itens?.length ?? 0), 0) ?? 0;
 }
 
+/* ------------------------------------------------------------------
+   TETO DE PARCELAS
+
+   O contrato Essentia (Cláusula Terceira) promete "parcelamento via cartão
+   de crédito em até 10x". Uma paciente Essentia, portanto, não pode ser
+   parcelada em 11 ou 12 no cartão. Vale SÓ para a forma 'parcelado': pix e
+   dinheiro parcelados não são o cartão de que o contrato fala, e o Asaas tem
+   campo próprio ("número de meses").
+
+   Aqui a caixa É normalizada, ao contrário do gate do chat em
+   PacientePerfil.jsx — lá a comparação estrita casa com um .eq() no banco;
+   aqui não há query nenhuma, e uma linha gravada 'Essentia' tem que ganhar o
+   limite, não escapar dele.
+
+   Isto é trava de tela: gerarParcelas continua clampando em 12 (não conhece
+   o plano) e não há check constraint em vendas.n_parcelas.
+   ------------------------------------------------------------------ */
+export const MAX_PARCELAS = 12;
+export const MAX_PARCELAS_ESSENTIA = 10;
+
+export function maxParcelas(forma, tipoPlano) {
+  const essentia = String(tipoPlano ?? '').trim().toLowerCase() === 'essentia';
+  return forma === 'parcelado' && essentia ? MAX_PARCELAS_ESSENTIA : MAX_PARCELAS;
+}
+
+/**
+ * Devolve `n` cabendo na faixa válida da forma atual. Existe porque o número
+ * de parcelas é estado: escolher Pix 12x e depois trocar para Parcelado numa
+ * Essentia deixaria 12 preso num select que só oferece até 10 — o campo
+ * renderiza vazio e a venda grava 12 assim mesmo. Chamado sempre que muda a
+ * forma, a paciente ou o plano.
+ */
+export function clampParcelas(n, forma, tipoPlano) {
+  const piso = forma === 'parcelado' ? 2 : 1;
+  return Math.min(Math.max(Number(n) || piso, piso), maxParcelas(forma, tipoPlano));
+}
+
 /**
  * Gera as parcelas a partir de uma venda. Retorna array de
  * { numero, valor, vencimento (YYYY-MM-DD) }.

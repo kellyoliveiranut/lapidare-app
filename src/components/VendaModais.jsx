@@ -4,7 +4,8 @@ import DateInput from './DateInput.jsx';
 import ModalShell from './ModalShell.jsx';
 import {
   brl, dataBR, dataLocalISO,
-  gerarParcelas, distribuirTaxa, taxaSugerida, FORMAS_PGTO_LIST, FORMAS_COM_TAXA, STATUS_PARCELA_INFO,
+  gerarParcelas, distribuirTaxa, taxaSugerida, maxParcelas, clampParcelas,
+  MAX_PARCELAS_ESSENTIA, FORMAS_PGTO_LIST, FORMAS_COM_TAXA, STATUS_PARCELA_INFO,
 } from '../lib/utils.js';
 import { criarVendaComParcelas } from '../lib/vendas.js';
 import { useSession } from '../lib/session.jsx';
@@ -12,9 +13,12 @@ import { useSession } from '../lib/session.jsx';
 /* ============================================================
    NOVA VENDA — modal
 
-   `pacienteFixo` ({ id, nome }) é para quando o modal abre de dentro do
-   perfil de uma paciente: o seletor vira texto estático e a venda já nasce
-   atribuída a ela. Sem a prop, mantém o seletor completo do Financeiro.
+   `pacienteFixo` ({ id, nome, tipo_plano }) é para quando o modal abre de
+   dentro do perfil de uma paciente: o seletor vira texto estático e a venda já
+   nasce atribuída a ela. Sem a prop, mantém o seletor completo do Financeiro.
+
+   O tipo_plano entra pelas duas portas — no pacienteFixo, ou em cada item de
+   `pacientes` — porque o teto de parcelas no cartão depende dele.
    ============================================================ */
 export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo, onClose, onSaved }) {
   const hoje = dataLocalISO();
@@ -54,6 +58,14 @@ export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo
   const valorNum = Number(String(valor).replace(',', '.')) || 0;
   const comTaxa = FORMAS_COM_TAXA.includes(forma);
 
+  // Um valor só para o plano, venha o modal do perfil (pacienteFixo) ou do
+  // Financeiro (seletor). Sem paciente — venda avulsa — fica undefined, e o
+  // teto cai no padrão de 12.
+  const planoPaciente = pacienteFixo
+    ? pacienteFixo.tipo_plano
+    : pacientes.find(p => p.id === pacienteId)?.tipo_plano;
+  const maxN = maxParcelas(forma, planoPaciente);
+
   // Número de parcelas EFETIVO, extraído porque agora dois cálculos dependem
   // dele: gerarParcelas e a sugestão de taxa. Antes vivia embutido no memo,
   // e duplicá-lo faria a taxa sugerida ser de um parcelamento e as parcelas
@@ -78,10 +90,20 @@ export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo
     ? (Number(String(taxa).replace(',', '.')) || 0)
     : sugestao.valor;
 
+  // Trocar de paciente pode trocar o teto: sair de uma Avulsa em 12x para uma
+  // Essentia tem que puxar o número de parcelas de volta para 10.
+  function escolherPaciente(id) {
+    setPacienteId(id);
+    const plano = pacientes.find(p => p.id === id)?.tipo_plano;
+    setNParcelas(n => clampParcelas(n, forma, plano));
+  }
+
   function escolherForma(f) {
     setForma(f);
     if (f === 'pix' || f === 'dinheiro') setNParcelas(1);
-    else if (f === 'parcelado' && nParcelas < 2) setNParcelas(2);
+    // clampParcelas cuida do piso (2) e do teto: 12x escolhido no Pix não pode
+    // sobreviver à troca para Parcelado numa Essentia, onde o select só vai a 10.
+    else if (f === 'parcelado') setNParcelas(n => clampParcelas(n, f, planoPaciente));
     // Sem isto, uma taxa digitada para cartão sobreviveria à troca para Pix e
     // seria gravada numa venda que não tem taxa nenhuma.
     if (!FORMAS_COM_TAXA.includes(f)) setTaxa('');
@@ -152,7 +174,7 @@ export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo
           {pacienteFixo.nome}
         </div>
       ) : (
-        <select value={pacienteId} onChange={e => setPacienteId(e.target.value)}>
+        <select value={pacienteId} onChange={e => escolherPaciente(e.target.value)}>
           <option value="">— Avulso / não atribuir —</option>
           {pacientes.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
         </select>
@@ -224,10 +246,15 @@ export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo
             {(forma === 'pix' || forma === 'dinheiro') && (
               <option value={1}>1x — à vista (entra como recebido)</option>
             )}
-            {Array.from({ length: 11 }, (_, i) => i + 2).map(n => (
+            {Array.from({ length: maxN - 1 }, (_, i) => i + 2).map(n => (
               <option key={n} value={n}>{n}x (venc. mensais)</option>
             ))}
           </select>
+          {maxN === MAX_PARCELAS_ESSENTIA && (
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 3 }}>
+              Essentia: o contrato prevê até {MAX_PARCELAS_ESSENTIA}x no cartão
+            </div>
+          )}
         </>
       )}
 
