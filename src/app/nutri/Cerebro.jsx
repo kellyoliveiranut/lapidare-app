@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
-import { brl, labelFormaPgto, iconFormaPgto, iniciais } from '../../lib/utils.js';
+import { brl, labelFormaPgto, iconFormaPgto, iniciais, liquidoParcela } from '../../lib/utils.js';
 
 const MES_CURTO = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
@@ -25,7 +25,7 @@ export default function Cerebro() {
           .eq('nutri_id', user.id),
         // TODAS as parcelas (pagas, pendentes, atrasadas) — precisa para previsão
         supabase.from('parcelas')
-          .select('valor, data_pgto, vencimento, status')
+          .select('valor, taxa_cartao, data_pgto, vencimento, status')
           .eq('nutri_id', user.id),
         supabase.from('pacientes')
           .select('id, nome, created_at')
@@ -64,22 +64,25 @@ export default function Cerebro() {
       });
     }
 
+    // Realizado e previsto são FLUXO DE CAIXA: o que entrou e o que vai
+    // entrar, já sem a maquininha. Diferente do ticket médio e da receita
+    // por serviço logo abaixo, que continuam em bruto de propósito.
     for (const p of parcelas) {
       if (p.status === 'pago' && p.data_pgto) {
         const key = p.data_pgto.slice(0, 7);
-        if (mapa.has(key)) mapa.get(key).realizado += Number(p.valor);
+        if (mapa.has(key)) mapa.get(key).realizado += liquidoParcela(p);
       } else if (p.status !== 'pago' && p.vencimento) {
         // pendente ou atrasada → previsto no mês do vencimento
         const key = p.vencimento.slice(0, 7);
-        if (mapa.has(key)) mapa.get(key).previsto += Number(p.valor);
+        if (mapa.has(key)) mapa.get(key).previsto += liquidoParcela(p);
       }
     }
     return Array.from(mapa.values());
   }, [parcelas]);
 
-  // Total recebido (todas as parcelas pagas)
+  // Total recebido (todas as parcelas pagas), líquido de maquininha
   const totalRecebido = parcelas.filter(p => p.status === 'pago')
-    .reduce((a, p) => a + Number(p.valor), 0);
+    .reduce((a, p) => a + liquidoParcela(p), 0);
 
   // Previsto nos próximos 6 meses (parcelas pendentes/atrasadas vencendo após hoje)
   const previstoProximosMeses = useMemo(() => {
@@ -90,12 +93,17 @@ export default function Cerebro() {
 
   const previstoEsseMes = linhaTempo.find(m => m.ehAtual)?.previsto ?? 0;
 
-  // Ticket médio real (média do valor_total das vendas)
+  // Ticket médio real (média do valor_total das vendas).
+  // BRUTO de propósito: é o preço do serviço, não o repasse. Descontar a
+  // maquininha daqui faria o ticket variar conforme a forma de pagamento da
+  // paciente, e ele existe para responder "quanto vale o meu serviço".
   const ticketMedio = vendas.length > 0
     ? vendas.reduce((a, v) => a + Number(v.valor_total), 0) / vendas.length
     : 0;
 
-  // Receita por serviço (mês corrente)
+  // Receita por serviço (mês corrente).
+  // BRUTO pelo mesmo motivo do ticket: aqui se COMPARA preço entre serviços,
+  // e a taxa da maquininha é propriedade da venda, não do serviço.
   const inicioMes = new Date(); inicioMes.setDate(1); inicioMes.setHours(0,0,0,0);
   const receitaPorServico = useMemo(() => {
     const mapa = new Map();

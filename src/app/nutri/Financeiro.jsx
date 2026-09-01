@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
-import { brl, statusParcela } from '../../lib/utils.js';
+import { brl, statusParcela, liquidoParcela } from '../../lib/utils.js';
 import ListaVendas from '../../components/ListaVendas.jsx';
 import { NovaVendaModal, EditarParcelaModal, EditarVendaModal } from '../../components/VendaModais.jsx';
 import Gastos from './Gastos.jsx';
@@ -96,22 +96,26 @@ export default function Financeiro() {
     let recebido = 0, recebidoN = 0;
     let aReceber = 0, aReceberN = 0;
     let atrasado = 0, atrasadoN = 0;
+    // Guardado à parte só para o card mostrar "· R$ X bruto" quando os dois
+    // números diferem. O que soma nos cards é sempre o líquido.
+    let recebidoBruto = 0;
 
     parcelas.forEach(p => {
       const s = statusParcela(p);
       const venc = p.vencimento ? new Date(p.vencimento + 'T00:00:00') : null;
       const pgto = p.data_pgto ? new Date(p.data_pgto + 'T00:00:00') : null;
       if (s === 'pago' && pgto && pgto >= inicioMes && pgto <= fimMes) {
-        recebido += Number(p.valor); recebidoN++;
+        recebido += liquidoParcela(p); recebidoN++;
+        recebidoBruto += Number(p.valor);
       }
       if (s === 'pendente' && venc && venc >= inicioMes && venc <= fimMes) {
-        aReceber += Number(p.valor); aReceberN++;
+        aReceber += liquidoParcela(p); aReceberN++;
       }
       if (s === 'atrasado') {
-        atrasado += Number(p.valor); atrasadoN++;
+        atrasado += liquidoParcela(p); atrasadoN++;
       }
     });
-    return { recebido, recebidoN, aReceber, aReceberN, atrasado, atrasadoN };
+    return { recebido, recebidoBruto, recebidoN, aReceber, aReceberN, atrasado, atrasadoN };
   }, [parcelas]);
 
   return (
@@ -151,7 +155,12 @@ export default function Financeiro() {
         <div className="stat-card">
           <div className="stat-label">Recebido este mês</div>
           <div className="stat-val">{brl(stats.recebido)}</div>
-          <div className="stat-sub">{stats.recebidoN} pagamento{stats.recebidoN === 1 ? '' : 's'}</div>
+          <div className="stat-sub">
+            {stats.recebidoN} pagamento{stats.recebidoN === 1 ? '' : 's'}
+            {/* O bruto só aparece quando difere — sem taxa, repetir o mesmo
+                número duas vezes na mesma linha confunde mais do que informa. */}
+            {stats.recebidoBruto > stats.recebido && ` · ${brl(stats.recebidoBruto)} bruto`}
+          </div>
         </div>
         <div className="stat-card">
           <div className="stat-label">A receber este mês</div>

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
-import { brl } from '../../lib/utils.js';
+import { brl, liquidoParcela } from '../../lib/utils.js';
 
 const DEFAULTS = {
   meta_mensal:     15000,
@@ -39,7 +39,7 @@ export default function Previsibilidade() {
         supabase.from('servicos').select('*')
           .eq('nutri_id', user.id).eq('ativo', true)
           .order('ticket', { ascending: false }),
-        supabase.from('parcelas').select('valor, data_pgto')
+        supabase.from('parcelas').select('valor, taxa_cartao, data_pgto')
           .eq('nutri_id', user.id).eq('status', 'pago')
           .gte('data_pgto', inicioMes).lte('data_pgto', fimMes),
         // vendas realizadas no mês corrente para cruzar com planejamento
@@ -56,7 +56,10 @@ export default function Previsibilidade() {
         horas_semanais: d.horas_semanais ?? DEFAULTS.horas_semanais,
       });
       setServicos(servRes.data ?? []);
-      setReceitaMes((parcelasRes.data ?? []).reduce((a, p) => a + Number(p.valor ?? 0), 0));
+      // A tela mais sensível ao bruto-vs-líquido: esta receita é comparada
+      // com a meta de faturamento logo abaixo. Somando bruto, a barra dizia
+      // que a meta foi batida com dinheiro que a maquininha ficou.
+      setReceitaMes((parcelasRes.data ?? []).reduce((a, p) => a + liquidoParcela(p), 0));
 
       // Conta vendas realizadas por serviço
       const contagem = {};

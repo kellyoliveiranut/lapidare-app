@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
-import { brl, statusParcela } from '../../lib/utils.js';
+import { brl, statusParcela, liquidoParcela } from '../../lib/utils.js';
 import ListaVendas from '../../components/ListaVendas.jsx';
 import { NovaVendaModal, EditarParcelaModal, EditarVendaModal } from '../../components/VendaModais.jsx';
 
@@ -58,18 +58,24 @@ export default function Financeiro({ pacienteId, nutriId, pacienteNome }) {
     let pago = 0, pagoN = 0;
     let aReceber = 0, aReceberN = 0;
     let atrasado = 0, atrasadoN = 0;
+    // Ver comentário do totalVendido logo abaixo: aqui é fluxo de caixa,
+    // lá é preço combinado.
+    let pagoBruto = 0;
 
     (vendas ?? []).forEach(v => {
       (v.parcelas ?? []).forEach(p => {
         const s = statusParcela(p);
-        if (s === 'pago')     { pago     += Number(p.valor); pagoN++; }
-        if (s === 'pendente') { aReceber += Number(p.valor); aReceberN++; }
-        if (s === 'atrasado') { atrasado += Number(p.valor); atrasadoN++; }
+        if (s === 'pago')     { pago     += liquidoParcela(p); pagoN++; pagoBruto += Number(p.valor); }
+        if (s === 'pendente') { aReceber += liquidoParcela(p); aReceberN++; }
+        if (s === 'atrasado') { atrasado += liquidoParcela(p); atrasadoN++; }
       });
     });
-    return { pago, pagoN, aReceber, aReceberN, atrasado, atrasadoN };
+    return { pago, pagoBruto, pagoN, aReceber, aReceberN, atrasado, atrasadoN };
   }, [vendas]);
 
+  // BRUTO de propósito: é o preço combinado com a paciente, o que vai no
+  // contrato e na nota. Descontar a maquininha daqui responderia outra
+  // pergunta, não "quanto ela comprou".
   const totalVendido = useMemo(
     () => (vendas ?? []).reduce((a, v) => a + Number(v.valor_total), 0),
     [vendas],
@@ -101,7 +107,10 @@ export default function Financeiro({ pacienteId, nutriId, pacienteNome }) {
             <div className="stat-card">
               <div className="stat-label">Pago</div>
               <div className="stat-val">{brl(stats.pago)}</div>
-              <div className="stat-sub">{stats.pagoN} parcela{stats.pagoN === 1 ? '' : 's'}</div>
+              <div className="stat-sub">
+                {stats.pagoN} parcela{stats.pagoN === 1 ? '' : 's'}
+                {stats.pagoBruto > stats.pago && ` · ${brl(stats.pagoBruto)} bruto`}
+              </div>
             </div>
             <div className="stat-card">
               <div className="stat-label">A receber</div>

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
-import { brl, dataBR, iniciais, statusParcela, TZ_CLINICA } from '../../lib/utils.js';
+import { brl, dataBR, iniciais, statusParcela, liquidoParcela, TZ_CLINICA } from '../../lib/utils.js';
 
 // Nº esperado de consultas por tipo de plano (para alertar planos chegando ao fim).
 // Só entra aqui plano com pacote fechado: 'avulsa' fica de fora de propósito —
@@ -77,7 +77,7 @@ export default function Visao() {
           .gte('data_hora', isoSegunda).lte('data_hora', isoDomingo)
           .order('data_hora'),
         // parcelas vencendo na semana (pendentes ou atrasadas)
-        supabase.from('parcelas').select('id, valor, vencimento, status, venda:vendas(servico, paciente:pacientes(id, nome))')
+        supabase.from('parcelas').select('id, valor, taxa_cartao, vencimento, status, venda:vendas(servico, paciente:pacientes(id, nome))')
           .eq('nutri_id', user.id).neq('status', 'pago')
           .lte('vencimento', dataDomingo)
           .order('vencimento'),
@@ -85,8 +85,10 @@ export default function Visao() {
         supabase.from('checkin_envios').select('id, enviado_em, paciente:pacientes(id, nome)')
           .eq('nutri_id', user.id).is('respondido_em', null)
           .order('enviado_em'),
-        // receita do mês (parcelas pagas)
-        supabase.from('parcelas').select('valor, data_pgto')
+        // receita do mês (parcelas pagas). taxa_cartao vem junto porque o
+        // card mostra o LÍQUIDO — sem a coluna no select, liquidoParcela
+        // receberia undefined e a receita do mês viraria o bruto de novo.
+        supabase.from('parcelas').select('valor, taxa_cartao, data_pgto')
           .eq('nutri_id', user.id).eq('status', 'pago')
           .gte('data_pgto', inicioMes).lte('data_pgto', fimMes),
         // consultas já realizadas (para medir o avanço do pacote de cada paciente)
@@ -118,7 +120,7 @@ export default function Visao() {
       setParcelasSemana(parcRes.data ?? []);
       setCheckinsPendentes(checkRes.data ?? []);
 
-      const receita = (parcelasMesRes.data ?? []).reduce((a, p) => a + Number(p.valor ?? 0), 0);
+      const receita = (parcelasMesRes.data ?? []).reduce((a, p) => a + liquidoParcela(p), 0);
       setReceitaMes(receita);
 
       const meta = nutriRes.data?.meta_mensal ?? null;
@@ -253,7 +255,9 @@ export default function Visao() {
   }, [user]);
 
   // Cálculos derivados
-  const totalParcelas = parcelasSemana.reduce((a, p) => a + Number(p.valor ?? 0), 0);
+  // Líquido: é dinheiro entrando, e o que a nutri quer saber é quanto cai na
+  // conta até domingo, não quanto foi cobrado.
+  const totalParcelas = parcelasSemana.reduce((a, p) => a + liquidoParcela(p), 0);
   const atrasadas = parcelasSemana.filter(p => statusParcela(p) === 'atrasado').length;
   const semNome = profile?.nome?.split(' ')[0] ?? '';
 
@@ -410,7 +414,7 @@ export default function Visao() {
             : `${brl(totalParcelas)} a receber${atrasadas > 0 ? ` · ${atrasadas} em atraso` : ''}`}
           itens={parcelasSemana.slice(0, 3).map(p => ({
             label: p.venda?.paciente?.nome ?? 'Avulso',
-            sub: `${brl(p.valor)} · venc. ${dataBR(p.vencimento)}${statusParcela(p) === 'atrasado' ? ' ⚠️' : ''}`,
+            sub: `${brl(liquidoParcela(p))} · venc. ${dataBR(p.vencimento)}${statusParcela(p) === 'atrasado' ? ' ⚠️' : ''}`,
           }))}
           onClick={() => navigate('/nutri/financeiro')}
         />
