@@ -190,8 +190,7 @@ export function contarItensLista(dados) {
    O contrato Essentia (Cláusula Terceira) promete "parcelamento via cartão
    de crédito em até 10x". Uma paciente Essentia, portanto, não pode ser
    parcelada em 11 ou 12 no cartão. Vale SÓ para a forma 'parcelado': pix e
-   dinheiro parcelados não são o cartão de que o contrato fala, e o Asaas tem
-   campo próprio ("número de meses").
+   dinheiro parcelados não são o cartão de que o contrato fala.
 
    Aqui a caixa É normalizada, ao contrário do gate do chat em
    PacientePerfil.jsx — lá a comparação estrita casa com um .eq() no banco;
@@ -225,11 +224,11 @@ export function clampParcelas(n, forma, tipoPlano) {
  * Gera as parcelas a partir de uma venda. Retorna array de
  * { numero, valor, vencimento (YYYY-MM-DD) }.
  *
- *  pix/credito1x/dinheiro → 1 parcela única (vencimento = data_venda)
+ *  pix/dinheiro           → N parcelas mensais (a 1ª já entra como paga)
+ *  credito1x              → 1 parcela única (vencimento = data_venda)
  *  parcelado              → N parcelas mensais (1ª na data, demais +1 mês cada)
- *  asaas (recorrente)     → N meses, vencimento no dia escolhido
  */
-export function gerarParcelas({ forma_pgto, valor_total, data_venda, n_parcelas, dia_venc }) {
+export function gerarParcelas({ forma_pgto, valor_total, data_venda, n_parcelas }) {
   const valor = Number(valor_total);
   const dv = new Date(data_venda + 'T00:00:00');
 
@@ -268,20 +267,6 @@ export function gerarParcelas({ forma_pgto, valor_total, data_venda, n_parcelas,
     for (let i = 0; i < n; i++) {
       const v = i === n - 1 ? Number((valor - base * (n - 1)).toFixed(2)) : base;
       out.push({ numero: i + 1, valor: v, vencimento: fmtDate(addMonths(dv, i)) });
-    }
-    return out;
-  }
-
-  if (forma_pgto === 'asaas') {
-    const n = Math.max(1, Math.min(12, Number(n_parcelas) || 3));
-    const dia = Number(dia_venc) || 15;
-    const base = Math.floor((valor * 100) / n) / 100;
-    const out = [];
-    for (let i = 0; i < n; i++) {
-      const venc = addMonths(dv, i);
-      venc.setDate(Math.min(dia, 28));
-      const v = i === n - 1 ? Number((valor - base * (n - 1)).toFixed(2)) : base;
-      out.push({ numero: i + 1, valor: v, vencimento: fmtDate(venc) });
     }
     return out;
   }
@@ -370,9 +355,6 @@ export function taxaSugerida(perfil, forma, valorTotal, nParcelas) {
   let pct;
   if (forma === 'credito1x') {
     pct = num(perfil.taxa_pct_credito1x);
-  } else if (forma === 'asaas') {
-    // Recorrência cobra por cobrança, não por parcelamento: percentual chapado.
-    pct = num(perfil.taxa_pct_asaas);
   } else {
     const n = Math.max(1, Math.floor(Number(nParcelas) || 1));
     pct = num(perfil.taxa_pct_parcelado_base)
@@ -422,7 +404,6 @@ const FORMAS_PGTO = {
   pix:       { label: 'Pix',                 icon: 'qrcode' },
   credito1x: { label: 'Crédito 1x',          icon: 'credit-card' },
   parcelado: { label: 'Parcelado cartão',    icon: 'credit-card' },
-  asaas:     { label: 'Recorrente Asaas',    icon: 'refresh' },
   dinheiro:  { label: 'Dinheiro',            icon: 'cash' },
 };
 export function labelFormaPgto(f) { return FORMAS_PGTO[f]?.label ?? f; }
@@ -439,7 +420,7 @@ export const FORMAS_PGTO_LIST = Object.entries(FORMAS_PGTO).map(([k, v]) => ({ i
  * divergir em silêncio — e foi exatamente assim que o campo deixou de
  * aparecer no cadastro de paciente depois de existir no modal.
  */
-export const FORMAS_COM_TAXA = ['credito1x', 'parcelado', 'asaas'];
+export const FORMAS_COM_TAXA = ['credito1x', 'parcelado'];
 
 // ─── Formas de pagamento para SAÍDAS (gastos) ───
 const FORMAS_PGTO_GASTO = {

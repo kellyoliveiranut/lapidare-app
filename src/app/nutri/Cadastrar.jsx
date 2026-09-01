@@ -46,8 +46,6 @@ export default function Cadastrar() {
   const [pgData, setPgData] = useState(hoje);
   const [pgForma, setPgForma] = useState('pix');
   const [pgNParcelas, setPgNParcelas] = useState(3);
-  const [pgNMeses, setPgNMeses] = useState(3);
-  const [pgDiaVenc, setPgDiaVenc] = useState(15);
   const [pgObs, setPgObs] = useState('');
   const [pgTaxa, setPgTaxa] = useState('');
   // false = o campo segue a sugestão dos percentuais; true = a nutri digitou,
@@ -63,9 +61,7 @@ export default function Cadastrar() {
   // Número de parcelas EFETIVO, extraído porque dois cálculos dependem dele:
   // gerarParcelas e a sugestão de taxa. Duplicá-lo faria a taxa sugerida ser
   // de um parcelamento e as parcelas de outro.
-  const pgNEfetivo = pgForma === 'asaas' ? pgNMeses
-                   : ['pix', 'dinheiro', 'parcelado'].includes(pgForma) ? pgNParcelas
-                   : 1;
+  const pgNEfetivo = ['pix', 'dinheiro', 'parcelado'].includes(pgForma) ? pgNParcelas : 1;
 
   // Mesma mecânica do NovaVendaModal: automático até ela digitar. Os
   // percentuais vêm de profile, que já traz a linha inteira de `nutris`
@@ -127,9 +123,8 @@ export default function Cadastrar() {
       valor_total: pgValorNum,
       data_venda: pgData,
       n_parcelas: pgNEfetivo,
-      dia_venc: pgDiaVenc,
     });
-  }, [pgForma, pgValorNum, pgData, pgNEfetivo, pgDiaVenc]);
+  }, [pgForma, pgValorNum, pgData, pgNEfetivo]);
 
   // Mesma função que criarVendaComParcelas usa para gravar — o que a nutri
   // confere aqui é, centavo a centavo, o que vai para o banco.
@@ -181,7 +176,7 @@ export default function Cadastrar() {
     // pagamento
     setPagOpen(false);
     setPgServicoId(''); setPgServico(''); setPgValor(''); setPgData(hoje);
-    setPgForma('pix'); setPgNParcelas(3); setPgNMeses(3); setPgDiaVenc(15); setPgObs('');
+    setPgForma('pix'); setPgNParcelas(3); setPgObs('');
   }
 
   async function salvar(e) {
@@ -245,8 +240,6 @@ export default function Cadastrar() {
         forma: pgForma,
         dataVenda: pgData,
         nParcelas: pgNParcelas,
-        nMeses: pgNMeses,
-        diaVenc: pgDiaVenc,
         obs: pgObs,
         taxaTotal: pgComTaxa ? pgTaxaNum : 0,
       });
@@ -559,23 +552,6 @@ export default function Cadastrar() {
                       </div>
                     )}
                   </>
-                )}
-
-                {pgForma === 'asaas' && (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                    <div>
-                      <label style={lblStyle}>Número de meses</label>
-                      <select value={pgNMeses} onChange={e => setPgNMeses(Number(e.target.value))} style={campoStyle}>
-                        {[1, 2, 3, 4, 5, 6, 12].map(n => <option key={n} value={n}>{n} {n === 1 ? 'mês' : 'meses'}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label style={lblStyle}>Dia do vencimento</label>
-                      <select value={pgDiaVenc} onChange={e => setPgDiaVenc(Number(e.target.value))} style={campoStyle}>
-                        {[5, 10, 15, 20, 25, 28].map(d => <option key={d} value={d}>dia {d}</option>)}
-                      </select>
-                    </div>
-                  </div>
                 )}
 
                 {pgComTaxa && (

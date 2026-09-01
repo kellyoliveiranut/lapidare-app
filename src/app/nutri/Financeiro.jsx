@@ -303,7 +303,6 @@ function TaxasCartao({ perfil, nutriId, onSalvo }) {
   const [aberto, setAberto] = useState(false);
   const [form, setForm] = useState(() => ({
     credito1x: String(perfil.taxa_pct_credito1x ?? 0).replace('.', ','),
-    asaas: String(perfil.taxa_pct_asaas ?? 0).replace('.', ','),
     base: String(perfil.taxa_pct_parcelado_base ?? 0).replace('.', ','),
     porParcela: String(perfil.taxa_pct_parcelado_por_parcela ?? 0).replace('.', ','),
   }));
@@ -334,7 +333,6 @@ function TaxasCartao({ perfil, nutriId, onSalvo }) {
     setErro(null); setFeedback(null);
     const valores = {
       taxa_pct_credito1x: num(form.credito1x),
-      taxa_pct_asaas: num(form.asaas),
       taxa_pct_parcelado_base: num(form.base),
       taxa_pct_parcelado_por_parcela: num(form.porParcela),
     };
@@ -379,18 +377,15 @@ function TaxasCartao({ perfil, nutriId, onSalvo }) {
                 placeholder="Ex: 3,5" />
             </div>
             <div>
-              <label className="form-lbl" style={{ marginTop: 0 }}>Recorrente Asaas (%)</label>
-              <input inputMode="decimal" value={form.asaas}
-                onChange={e => setForm(f => ({ ...f, asaas: e.target.value }))}
-                placeholder="Ex: 4" />
-            </div>
-            <div>
               <label className="form-lbl" style={{ marginTop: 0 }}>Parcelado — base (%)</label>
               <input inputMode="decimal" value={form.base}
                 onChange={e => setForm(f => ({ ...f, base: e.target.value }))}
                 placeholder="Ex: 3,5" />
             </div>
-            <div>
+            {/* Linha inteira: com o Asaas fora, sobraram TRÊS campos num grid de
+                duas colunas, e sem isto o último ficava sozinho deixando um
+                buraco à direita. */}
+            <div style={{ gridColumn: '1 / -1' }}>
               <label className="form-lbl" style={{ marginTop: 0 }}>Parcelado — por parcela a mais (%)</label>
               <input inputMode="decimal" value={form.porParcela}
                 onChange={e => setForm(f => ({ ...f, porParcela: e.target.value }))}

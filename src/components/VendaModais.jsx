@@ -29,8 +29,6 @@ export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo
   const [data, setData] = useState(hoje);
   const [forma, setForma] = useState('pix');
   const [nParcelas, setNParcelas] = useState(3);
-  const [nMeses, setNMeses] = useState(3);
-  const [diaVenc, setDiaVenc] = useState(15);
   const [obs, setObs] = useState('');
   const [taxa, setTaxa] = useState('');
   // false = o campo segue a sugestao dos percentuais; true = a nutri
@@ -70,9 +68,7 @@ export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo
   // dele: gerarParcelas e a sugestão de taxa. Antes vivia embutido no memo,
   // e duplicá-lo faria a taxa sugerida ser de um parcelamento e as parcelas
   // de outro.
-  const nEfetivo = forma === 'asaas' ? nMeses
-                 : ['pix', 'dinheiro', 'parcelado'].includes(forma) ? nParcelas
-                 : 1;
+  const nEfetivo = ['pix', 'dinheiro', 'parcelado'].includes(forma) ? nParcelas : 1;
 
   // A taxa vem SUGERIDA dos percentuais que a nutri configurou no Financeiro,
   // e vira manual assim que ela digita. Enquanto for automática, acompanha
@@ -119,9 +115,8 @@ export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo
       valor_total: valorNum,
       data_venda: data,
       n_parcelas: nEfetivo,
-      dia_venc: diaVenc,
     });
-  }, [forma, valorNum, data, nEfetivo, diaVenc]);
+  }, [forma, valorNum, data, nEfetivo]);
 
   // Mesma função que criarVendaComParcelas usa para gravar. O que a nutri
   // confere aqui é, centavo a centavo, o que vai para o banco.
@@ -151,8 +146,6 @@ export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo
       forma,
       dataVenda: data,
       nParcelas,
-      nMeses,
-      diaVenc,
       obs,
       taxaTotal: comTaxa ? taxaNum : 0,
     });
@@ -255,25 +248,6 @@ export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo
               Essentia: o contrato prevê até {MAX_PARCELAS_ESSENTIA}x no cartão
             </div>
           )}
-        </>
-      )}
-
-      {forma === 'asaas' && (
-        <>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            <div>
-              <label className="form-lbl">Número de meses</label>
-              <select value={nMeses} onChange={e => setNMeses(Number(e.target.value))}>
-                {[1, 2, 3, 4, 5, 6, 12].map(n => <option key={n} value={n}>{n} {n === 1 ? 'mês' : 'meses'}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="form-lbl">Dia do vencimento</label>
-              <select value={diaVenc} onChange={e => setDiaVenc(Number(e.target.value))}>
-                {[5, 10, 15, 20, 25, 28].map(d => <option key={d} value={d}>dia {d}</option>)}
-              </select>
-            </div>
-          </div>
         </>
       )}
 
