@@ -342,6 +342,18 @@ export function labelFormaPgto(f) { return FORMAS_PGTO[f]?.label ?? f; }
 export function iconFormaPgto(f) { return FORMAS_PGTO[f]?.icon ?? 'cash'; }
 export const FORMAS_PGTO_LIST = Object.entries(FORMAS_PGTO).map(([k, v]) => ({ id: k, ...v }));
 
+/**
+ * Formas em que a maquininha cobra. Pix e dinheiro entram inteiros, então o
+ * campo de taxa nem aparece neles — mostrar convida a digitar um valor que
+ * não existe.
+ *
+ * Mora aqui, e não em cada tela, porque são DOIS caminhos que criam venda: o
+ * NovaVendaModal e o formulário próprio do Cadastrar.jsx. Duas listas podiam
+ * divergir em silêncio — e foi exatamente assim que o campo deixou de
+ * aparecer no cadastro de paciente depois de existir no modal.
+ */
+export const FORMAS_COM_TAXA = ['credito1x', 'parcelado', 'asaas'];
+
 // ─── Formas de pagamento para SAÍDAS (gastos) ───
 const FORMAS_PGTO_GASTO = {
   pix:               { label: 'Pix',                icon: 'qrcode' },

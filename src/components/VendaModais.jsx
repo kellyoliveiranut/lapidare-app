@@ -4,14 +4,9 @@ import DateInput from './DateInput.jsx';
 import ModalShell from './ModalShell.jsx';
 import {
   brl, dataBR, dataLocalISO,
-  gerarParcelas, distribuirTaxa, FORMAS_PGTO_LIST, STATUS_PARCELA_INFO,
+  gerarParcelas, distribuirTaxa, FORMAS_PGTO_LIST, FORMAS_COM_TAXA, STATUS_PARCELA_INFO,
 } from '../lib/utils.js';
 import { criarVendaComParcelas } from '../lib/vendas.js';
-
-// Formas em que a maquininha cobra. Pix e dinheiro entram inteiros, então o
-// campo de taxa nem aparece neles — mostrar convida a digitar um valor que
-// não existe.
-const FORMAS_COM_TAXA = ['credito1x', 'parcelado', 'asaas'];
 
 /* ============================================================
    NOVA VENDA — modal

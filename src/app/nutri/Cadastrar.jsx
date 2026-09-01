@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
-import { dataBR, brl, gerarParcelas, FORMAS_PGTO_LIST, normalizarTelefone, telefoneValido, dataLocalISO } from '../../lib/utils.js';
+import { dataBR, brl, gerarParcelas, distribuirTaxa, FORMAS_PGTO_LIST, FORMAS_COM_TAXA, normalizarTelefone, telefoneValido, dataLocalISO } from '../../lib/utils.js';
 import { criarVendaComParcelas } from '../../lib/vendas.js';
 import { linkConvite, mensagemConviteEncoded } from '../../lib/convite.js';
 import { OBJETIVOS } from '../../lib/objetivos.js';
@@ -49,8 +49,11 @@ export default function Cadastrar() {
   const [pgNMeses, setPgNMeses] = useState(3);
   const [pgDiaVenc, setPgDiaVenc] = useState(15);
   const [pgObs, setPgObs] = useState('');
+  const [pgTaxa, setPgTaxa] = useState('');
 
   const pgValorNum = Number(String(pgValor).replace(',', '.')) || 0;
+  const pgTaxaNum = Number(String(pgTaxa).replace(',', '.')) || 0;
+  const pgComTaxa = FORMAS_COM_TAXA.includes(pgForma);
 
   // Tira o separador de milhar antes de trocar a vírgula: aceita "2700,00" e
   // "2.700,00". Difere do pgValorNum acima de propósito — o valor do contrato
@@ -74,6 +77,9 @@ export default function Cadastrar() {
     setPgForma(f);
     if (f === 'pix' || f === 'dinheiro') setPgNParcelas(1);
     else if (f === 'parcelado' && pgNParcelas < 2) setPgNParcelas(2);
+    // Sem isto, uma taxa digitada para cartão sobreviveria à troca para Pix e
+    // seria gravada numa venda que não tem taxa nenhuma.
+    if (!FORMAS_COM_TAXA.includes(f)) setPgTaxa('');
   }
 
   const parcelasPreview = useMemo(() => {
@@ -88,6 +94,13 @@ export default function Cadastrar() {
       dia_venc: pgDiaVenc,
     });
   }, [pgForma, pgValorNum, pgData, pgNParcelas, pgNMeses, pgDiaVenc]);
+
+  // Mesma função que criarVendaComParcelas usa para gravar — o que a nutri
+  // confere aqui é, centavo a centavo, o que vai para o banco.
+  const taxasPreview = useMemo(
+    () => distribuirTaxa(pgTaxaNum, parcelasPreview),
+    [pgTaxaNum, parcelasPreview],
+  );
 
   async function carregarPendentes() {
     if (!user) return;
@@ -153,6 +166,11 @@ export default function Cadastrar() {
     if (querPagamento && !pagamentoCompleto) {
       return setErro('Para lançar o pagamento, informe o serviço e um valor válido — ou deixe ambos em branco.');
     }
+    // O banco recusa taxa > valor da parcela (parcelas_taxa_menor_que_valor).
+    // Barrar aqui dá uma frase em português em vez de erro de constraint.
+    if (pagamentoCompleto && pgComTaxa && pgTaxaNum >= pgValorNum) {
+      return setErro('A taxa da maquininha não pode ser maior ou igual ao valor da venda.');
+    }
 
     setBusy(true);
     const emailVal = email.trim().toLowerCase() || null;
@@ -194,6 +212,7 @@ export default function Cadastrar() {
         nMeses: pgNMeses,
         diaVenc: pgDiaVenc,
         obs: pgObs,
+        taxaTotal: pgComTaxa ? pgTaxaNum : 0,
       });
       if (vendaErro) {
         avisoVenda = 'Paciente cadastrada, mas o pagamento não foi lançado — registre pelo Financeiro. (' + vendaErro + ')';
@@ -518,6 +537,14 @@ export default function Cadastrar() {
                   </div>
                 )}
 
+                {pgComTaxa && (
+                  <>
+                    <label style={{ ...lblStyle, marginTop: 12 }}>Taxa da maquininha (R$, total da venda)</label>
+                    <input inputMode="decimal" value={pgTaxa} onChange={e => setPgTaxa(e.target.value)}
+                      placeholder="Ex: 500,00 — o que a maquininha desconta no total" style={campoStyle} />
+                  </>
+                )}
+
                 {parcelasPreview.length > 0 && (
                   <div style={{
                     background: 'var(--bg2)', borderRadius: 6, padding: '8px 10px',
@@ -528,6 +555,37 @@ export default function Cadastrar() {
                       ? `1 parcela única de ${brl(parcelasPreview[0].valor)} no dia ${dataBR(parcelasPreview[0].vencimento)}`
                       : `${parcelasPreview.length}x de ${brl(parcelasPreview[0].valor)}${parcelasPreview[0].valor !== parcelasPreview[parcelasPreview.length-1].valor ? ` (última ${brl(parcelasPreview[parcelasPreview.length-1].valor)})` : ''} — primeira ${dataBR(parcelasPreview[0].vencimento)} / última ${dataBR(parcelasPreview[parcelasPreview.length-1].vencimento)}`
                     }
+
+                    {/* Três colunas só quando há taxa. Sem taxa, o resumo de
+                        uma linha acima já diz tudo e a tabela seria ruído. */}
+                    {pgTaxaNum > 0 && (
+                      <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 8, fontSize: 12.5 }}>
+                        <thead>
+                          <tr style={{ color: 'var(--text3)', textAlign: 'right' }}>
+                            <th style={{ textAlign: 'left', fontWeight: 500, padding: '3px 0' }}>#</th>
+                            <th style={{ fontWeight: 500, padding: '3px 0' }}>Bruto</th>
+                            <th style={{ fontWeight: 500, padding: '3px 0' }}>Taxa</th>
+                            <th style={{ fontWeight: 500, padding: '3px 0' }}>Líquido</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {parcelasPreview.map((p, i) => (
+                            <tr key={p.numero} style={{ textAlign: 'right' }}>
+                              <td style={{ textAlign: 'left', padding: '2px 0' }}>{p.numero}</td>
+                              <td style={{ padding: '2px 0' }}>{brl(p.valor)}</td>
+                              <td style={{ padding: '2px 0', color: 'var(--red)' }}>−{brl(taxasPreview[i] ?? 0)}</td>
+                              <td style={{ padding: '2px 0', fontWeight: 600 }}>{brl(p.valor - (taxasPreview[i] ?? 0))}</td>
+                            </tr>
+                          ))}
+                          <tr style={{ textAlign: 'right', borderTop: '0.5px solid var(--border)' }}>
+                            <td style={{ textAlign: 'left', padding: '4px 0', fontWeight: 600 }}>Total</td>
+                            <td style={{ padding: '4px 0' }}>{brl(pgValorNum)}</td>
+                            <td style={{ padding: '4px 0', color: 'var(--red)' }}>−{brl(pgTaxaNum)}</td>
+                            <td style={{ padding: '4px 0', fontWeight: 700 }}>{brl(pgValorNum - pgTaxaNum)}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    )}
                   </div>
                 )}
 
