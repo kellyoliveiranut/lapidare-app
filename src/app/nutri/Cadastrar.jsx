@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
-import { dataBR, brl, gerarParcelas, distribuirTaxa, FORMAS_PGTO_LIST, FORMAS_COM_TAXA, normalizarTelefone, telefoneValido, dataLocalISO } from '../../lib/utils.js';
+import { dataBR, brl, gerarParcelas, distribuirTaxa, taxaSugerida, FORMAS_PGTO_LIST, FORMAS_COM_TAXA, normalizarTelefone, telefoneValido, dataLocalISO } from '../../lib/utils.js';
 import { criarVendaComParcelas } from '../../lib/vendas.js';
 import { linkConvite, mensagemConviteEncoded } from '../../lib/convite.js';
 import { OBJETIVOS } from '../../lib/objetivos.js';
@@ -15,7 +15,7 @@ import DateInput from '../../components/DateInput.jsx';
 const SEXOS_COM_VAZIO = [{ v: '', l: '— não informado —' }, ...SEXOS];
 
 export default function Cadastrar() {
-  const { user } = useSession();
+  const { user, profile } = useSession();
   const navigate = useNavigate();
 
   const [nome, setNome] = useState('');
@@ -50,10 +50,33 @@ export default function Cadastrar() {
   const [pgDiaVenc, setPgDiaVenc] = useState(15);
   const [pgObs, setPgObs] = useState('');
   const [pgTaxa, setPgTaxa] = useState('');
+  // false = o campo segue a sugestão dos percentuais; true = a nutri digitou,
+  // e o que ela digitou manda.
+  const [pgTaxaEditada, setPgTaxaEditada] = useState(false);
 
   const pgValorNum = Number(String(pgValor).replace(',', '.')) || 0;
-  const pgTaxaNum = Number(String(pgTaxa).replace(',', '.')) || 0;
   const pgComTaxa = FORMAS_COM_TAXA.includes(pgForma);
+
+  // Número de parcelas EFETIVO, extraído porque dois cálculos dependem dele:
+  // gerarParcelas e a sugestão de taxa. Duplicá-lo faria a taxa sugerida ser
+  // de um parcelamento e as parcelas de outro.
+  const pgNEfetivo = pgForma === 'asaas' ? pgNMeses
+                   : ['pix', 'dinheiro', 'parcelado'].includes(pgForma) ? pgNParcelas
+                   : 1;
+
+  // Mesma mecânica do NovaVendaModal: automático até ela digitar. Os
+  // percentuais vêm de profile, que já traz a linha inteira de `nutris`
+  // porque session.jsx faz select(*).
+  const pgSugestao = useMemo(
+    () => taxaSugerida(profile, pgForma, pgValorNum, pgNEfetivo),
+    [profile, pgForma, pgValorNum, pgNEfetivo],
+  );
+  const pgTaxaMostrada = pgTaxaEditada
+    ? pgTaxa
+    : (pgSugestao.valor ? String(pgSugestao.valor).replace('.', ',') : '');
+  const pgTaxaNum = pgTaxaEditada
+    ? (Number(String(pgTaxa).replace(',', '.')) || 0)
+    : pgSugestao.valor;
 
   // Tira o separador de milhar antes de trocar a vírgula: aceita "2700,00" e
   // "2.700,00". Difere do pgValorNum acima de propósito — o valor do contrato
@@ -80,6 +103,9 @@ export default function Cadastrar() {
     // Sem isto, uma taxa digitada para cartão sobreviveria à troca para Pix e
     // seria gravada numa venda que não tem taxa nenhuma.
     if (!FORMAS_COM_TAXA.includes(f)) setPgTaxa('');
+    // Trocar de forma devolve o campo ao automático: a taxa de um crédito à
+    // vista não tem por que sobreviver a uma venda que virou parcelada.
+    setPgTaxaEditada(false);
   }
 
   const parcelasPreview = useMemo(() => {
@@ -88,12 +114,10 @@ export default function Cadastrar() {
       forma_pgto: pgForma,
       valor_total: pgValorNum,
       data_venda: pgData,
-      n_parcelas: pgForma === 'asaas' ? pgNMeses
-                : ['pix', 'dinheiro', 'parcelado'].includes(pgForma) ? pgNParcelas
-                : 1,
+      n_parcelas: pgNEfetivo,
       dia_venc: pgDiaVenc,
     });
-  }, [pgForma, pgValorNum, pgData, pgNParcelas, pgNMeses, pgDiaVenc]);
+  }, [pgForma, pgValorNum, pgData, pgNEfetivo, pgDiaVenc]);
 
   // Mesma função que criarVendaComParcelas usa para gravar — o que a nutri
   // confere aqui é, centavo a centavo, o que vai para o banco.
@@ -540,8 +564,22 @@ export default function Cadastrar() {
                 {pgComTaxa && (
                   <>
                     <label style={{ ...lblStyle, marginTop: 12 }}>Taxa da maquininha (R$, total da venda)</label>
-                    <input inputMode="decimal" value={pgTaxa} onChange={e => setPgTaxa(e.target.value)}
+                    <input inputMode="decimal" value={pgTaxaMostrada}
+                      onChange={e => { setPgTaxa(e.target.value); setPgTaxaEditada(true); }}
                       placeholder="Ex: 500,00 — o que a maquininha desconta no total" style={campoStyle} />
+                    {pgSugestao.valor > 0 && (
+                      <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 4 }}>
+                        sugerido: {brl(pgSugestao.valor)} ({pgSugestao.pct.toFixed(2).replace('.', ',')}%)
+                        {pgTaxaEditada && (
+                          <button type="button" onClick={() => { setPgTaxaEditada(false); setPgTaxa(''); }}
+                            style={{ marginLeft: 8, background: 'none', border: 'none', padding: 0,
+                                     color: 'var(--gold-deep, #a08456)', fontSize: 12, cursor: 'pointer',
+                                     textDecoration: 'underline', fontFamily: 'var(--font-sans)' }}>
+                            recalcular
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </>
                 )}
 

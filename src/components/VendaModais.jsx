@@ -4,9 +4,10 @@ import DateInput from './DateInput.jsx';
 import ModalShell from './ModalShell.jsx';
 import {
   brl, dataBR, dataLocalISO,
-  gerarParcelas, distribuirTaxa, FORMAS_PGTO_LIST, FORMAS_COM_TAXA, STATUS_PARCELA_INFO,
+  gerarParcelas, distribuirTaxa, taxaSugerida, FORMAS_PGTO_LIST, FORMAS_COM_TAXA, STATUS_PARCELA_INFO,
 } from '../lib/utils.js';
 import { criarVendaComParcelas } from '../lib/vendas.js';
+import { useSession } from '../lib/session.jsx';
 
 /* ============================================================
    NOVA VENDA — modal
@@ -28,6 +29,9 @@ export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo
   const [diaVenc, setDiaVenc] = useState(15);
   const [obs, setObs] = useState('');
   const [taxa, setTaxa] = useState('');
+  // false = o campo segue a sugestao dos percentuais; true = a nutri
+  // digitou, e o que ela digitou manda.
+  const [taxaEditada, setTaxaEditada] = useState(false);
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState(null);
 
@@ -48,8 +52,31 @@ export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo
   }
 
   const valorNum = Number(String(valor).replace(',', '.')) || 0;
-  const taxaNum = Number(String(taxa).replace(',', '.')) || 0;
   const comTaxa = FORMAS_COM_TAXA.includes(forma);
+
+  // Número de parcelas EFETIVO, extraído porque agora dois cálculos dependem
+  // dele: gerarParcelas e a sugestão de taxa. Antes vivia embutido no memo,
+  // e duplicá-lo faria a taxa sugerida ser de um parcelamento e as parcelas
+  // de outro.
+  const nEfetivo = forma === 'asaas' ? nMeses
+                 : ['pix', 'dinheiro', 'parcelado'].includes(forma) ? nParcelas
+                 : 1;
+
+  // A taxa vem SUGERIDA dos percentuais que a nutri configurou no Financeiro,
+  // e vira manual assim que ela digita. Enquanto for automática, acompanha
+  // valor, forma e número de parcelas; depois de editada, para de se mexer —
+  // senão trocar de 3x para 6x apagaria o número copiado do extrato.
+  const { profile } = useSession();
+  const sugestao = useMemo(
+    () => taxaSugerida(profile, forma, valorNum, nEfetivo),
+    [profile, forma, valorNum, nEfetivo],
+  );
+  const taxaMostrada = taxaEditada
+    ? taxa
+    : (sugestao.valor ? String(sugestao.valor).replace('.', ',') : '');
+  const taxaNum = taxaEditada
+    ? (Number(String(taxa).replace(',', '.')) || 0)
+    : sugestao.valor;
 
   function escolherForma(f) {
     setForma(f);
@@ -58,6 +85,9 @@ export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo
     // Sem isto, uma taxa digitada para cartão sobreviveria à troca para Pix e
     // seria gravada numa venda que não tem taxa nenhuma.
     if (!FORMAS_COM_TAXA.includes(f)) setTaxa('');
+    // Trocar de forma devolve o campo ao automático: a taxa de um crédito à
+    // vista não tem por que sobreviver a uma venda que virou parcelada.
+    setTaxaEditada(false);
   }
 
   const parcelasPreview = useMemo(() => {
@@ -66,12 +96,10 @@ export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo
       forma_pgto: forma,
       valor_total: valorNum,
       data_venda: data,
-      n_parcelas: forma === 'asaas' ? nMeses
-                : ['pix', 'dinheiro', 'parcelado'].includes(forma) ? nParcelas
-                : 1,
+      n_parcelas: nEfetivo,
       dia_venc: diaVenc,
     });
-  }, [forma, valorNum, data, nParcelas, nMeses, diaVenc]);
+  }, [forma, valorNum, data, nEfetivo, diaVenc]);
 
   // Mesma função que criarVendaComParcelas usa para gravar. O que a nutri
   // confere aqui é, centavo a centavo, o que vai para o banco.
@@ -225,8 +253,22 @@ export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo
       {comTaxa && (
         <>
           <label className="form-lbl">Taxa da maquininha (R$, total da venda)</label>
-          <input inputMode="decimal" value={taxa} onChange={e => setTaxa(e.target.value)}
+          <input inputMode="decimal" value={taxaMostrada}
+            onChange={e => { setTaxa(e.target.value); setTaxaEditada(true); }}
             placeholder="Ex: 500,00 — o que a maquininha desconta no total" />
+          {sugestao.valor > 0 && (
+            <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: -4, marginBottom: 8 }}>
+              sugerido: {brl(sugestao.valor)} ({sugestao.pct.toFixed(2).replace('.', ',')}%)
+              {taxaEditada && (
+                <button type="button" onClick={() => { setTaxaEditada(false); setTaxa(''); }}
+                  style={{ marginLeft: 8, background: 'none', border: 'none', padding: 0,
+                           color: 'var(--gold-deep, #a08456)', fontSize: 12, cursor: 'pointer',
+                           textDecoration: 'underline', fontFamily: 'var(--font-sans)' }}>
+                  recalcular
+                </button>
+              )}
+            </div>
+          )}
         </>
       )}
 
