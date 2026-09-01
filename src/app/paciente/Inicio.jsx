@@ -105,6 +105,7 @@ export default function Inicio() {
   const [confirmando, setConfirmando] = useState(false);
   const [erroConfirmar, setErroConfirmar] = useState(null);
   const [checkinPendente, setCheckinPendente] = useState(null);
+  const [avaliacaoPendente, setAvaliacaoPendente] = useState(null);
   const [habitos, setHabitos] = useState([]);
   const [habitosLogs, setHabitosLogs] = useState({});  // { habito_id: valor } — hoje
   const [todosLogs, setTodosLogs] = useState([]);      // 30 dias — pra streak
@@ -117,7 +118,7 @@ export default function Inicio() {
       if (!pacienteId) return;
       const agora = new Date().toISOString();
       const hoje  = new Date().toISOString().slice(0, 10);
-      const [planoRes, dietaPdfRes, comprasRes, consultaRes, checkinRes, habitosRes, logsHojeRes, monRes] = await Promise.all([
+      const [planoRes, dietaPdfRes, comprasRes, consultaRes, checkinRes, avaliacaoRes, habitosRes, logsHojeRes, monRes] = await Promise.all([
         supabase.from('planos').select('dados, publicado_em')
           .eq('paciente_id', pacienteId).order('publicado_em', { ascending: false }).limit(1).maybeSingle(),
         supabase.from('dietas_pdf').select('id, titulo, created_at')
@@ -137,6 +138,12 @@ export default function Inicio() {
         supabase.from('checkin_envios').select('id, enviado_em, lembrete_enviado_em, nome, tipo')
           .eq('paciente_id', pacienteId).is('respondido_em', null)
           .order('enviado_em', { ascending: false }).limit(1).maybeSingle(),
+        // Link da avaliação física (Shaped) ainda em aberto. Mesmo molde do
+        // check-in: o pendente é a linha sem carimbo de preenchimento, e o
+        // índice parcial do banco garante no máximo uma por paciente.
+        supabase.from('avaliacao_envios').select('id, url, enviado_em')
+          .eq('paciente_id', pacienteId).is('preenchido_em', null)
+          .order('enviado_em', { ascending: false }).limit(1).maybeSingle(),
         supabase.from('habitos').select('id, nome, emoji, tipo, meta, unidade, ordem')
           .eq('paciente_id', pacienteId).eq('ativo', true).order('ordem'),
         supabase.from('habitos_logs').select('habito_id, valor, data')
@@ -154,6 +161,7 @@ export default function Inicio() {
       setCompras(comprasRes.data?.dados ?? null);
       setProximaConsulta(consultaRes.data ?? null);
       setCheckinPendente(checkinRes.data ?? null);
+      setAvaliacaoPendente(avaliacaoRes.data ?? null);
       setMonHoje(monRes.data ?? null);
 
       const habitosLista = habitosRes.data ?? [];
@@ -965,6 +973,58 @@ export default function Inicio() {
             </span>
           </div>
           <i className="ti ti-chevron-right" style={{ fontSize: 18, color: ckUrgente ? 'var(--ink)' : 'var(--muted)', flexShrink: 0 }} aria-hidden="true"></i>
+        </div>
+      )}
+
+      {/* 11 — Avaliação física pendente
+          Clone do bloco de check-in acima, sem o ramo de urgência: não existe
+          lembrete de avaliação, então o estado "urgente" não teria o que ligar.
+          Este banner é o que torna o push dispensável — enquanto a linha
+          estiver sem preenchido_em, o link está aqui. */}
+      {avaliacaoPendente && (
+        <div
+          onClick={() => navigate('/paciente/avaliacao')}
+          style={{
+            margin: '0 0 12px',
+            background: 'var(--paper)',
+            border: '1.5px dashed var(--gold)',
+            borderRadius: 14, padding: '14px 16px',
+            display: 'flex', alignItems: 'center', gap: 12,
+            cursor: 'pointer',
+          }}>
+          <div style={{
+            width: 42, height: 42, borderRadius: 11,
+            background: 'var(--gold-soft)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+          }}>
+            <i className="ti ti-ruler-measure" style={{
+              fontSize: 20, color: 'var(--gold-deep)',
+            }} aria-hidden="true"></i>
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{
+              fontSize: 9, letterSpacing: '.22em', textTransform: 'uppercase',
+              color: 'var(--gold-deep)', fontWeight: 500, marginBottom: 2,
+            }}>
+              Avaliação física
+            </div>
+            <div className="serif" style={{ fontSize: 18, lineHeight: 1.1, marginBottom: 2 }}>
+              Sua avaliação física está esperando
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 8 }}>
+              Enviada em {dataBR(avaliacaoPendente.enviado_em)} · abre no site do Shaped
+            </div>
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              fontSize: 12, fontWeight: 600,
+              background: 'var(--gold-soft)', color: 'var(--gold-deep)',
+              padding: '5px 12px', borderRadius: 20,
+            }}>
+              Abrir avaliação
+              <i className="ti ti-arrow-right" style={{ fontSize: 12 }} aria-hidden="true" />
+            </span>
+          </div>
+          <i className="ti ti-chevron-right" style={{ fontSize: 18, color: 'var(--muted)', flexShrink: 0 }} aria-hidden="true"></i>
         </div>
       )}
     </>

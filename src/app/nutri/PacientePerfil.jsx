@@ -2140,10 +2140,15 @@ function RegistrarAvaliacao({ pacienteId, nutriId, paciente }) {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? `Erro ${res.status}`);
 
-      // enviarParaUsuario devolve 200 com enviados:0 quando não há nenhuma
-      // subscription. Sem esta checagem a tela diria "enviado" para ninguém.
+      // enviados:0 significa que a paciente não tem assinatura de push — o que
+      // vale para 60 das 93. Deixou de ser fracasso: `registrado` diz que a
+      // linha entrou em avaliacao_envios, e o link aparece na tela inicial dela
+      // do mesmo jeito. Vira aviso, não erro.
       if (json.enviados === 0) {
-        setFeedbackTopo({ tipo: 'erro', msg: 'Ninguém recebeu — a paciente ainda não ativou as notificações no app dela.' });
+        setFeedbackTopo(json.registrado
+          ? { tipo: 'aviso', msg: 'Link salvo — vai aparecer na tela inicial dela. (Sem notificação: ela ainda não ativou os avisos no app.)' }
+          : { tipo: 'erro', msg: 'Ninguém recebeu — a paciente ainda não ativou as notificações no app dela.' });
+        setLinkShaped('');
         return;
       }
       setFeedbackTopo({ tipo: 'ok', msg: `Link enviado! (${json.enviados} aparelho${json.enviados !== 1 ? 's' : ''})` });
@@ -2331,6 +2336,21 @@ function RegistrarAvaliacao({ pacienteId, nutriId, paciente }) {
       }));
       const { error } = await supabase.from('peso_registros').insert(payloads);
       if (error) throw error;
+
+      // O resultado do Shaped virou linha em peso_registros — o pendente da
+      // avaliação não tem mais por que ficar de pé na tela dela.
+      // preenchido_por='nutri' e não 'paciente': aqui existe resultado de
+      // verdade, ao contrário do "Já preenchi", que é autodeclarado.
+      //
+      // Fora do throw de propósito: as avaliações JÁ foram salvas: derrubar o
+      // salvamento inteiro por causa do banner seria pior que o banner sobrar.
+      // O `is('preenchido_em', null)` evita sobrescrever um fechamento anterior.
+      const { error: avaliacaoErro } = await supabase.from('avaliacao_envios')
+        .update({ preenchido_em: new Date().toISOString(), preenchido_por: 'nutri' })
+        .eq('paciente_id', pacienteId)
+        .is('preenchido_em', null);
+      if (avaliacaoErro) console.error('[salvarLote] avaliacao_envios:', avaliacaoErro);
+
       if (comErro.length > 0) {
         // Mantém só os que falharam na tela, para reprocessar ou remover.
         setRascunhos(comErro);

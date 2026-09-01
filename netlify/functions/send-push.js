@@ -135,19 +135,58 @@ exports.handler = async (event) => {
         return { statusCode: 403, body: JSON.stringify({ error: 'Paciente não encontrada ou sem vínculo.' }) };
       }
 
+      // GRAVA ANTES DO PUSH. O push é aviso; a LINHA é o dado. Nesta ordem, um
+      // push que não sai (60 das 93 pacientes não têm assinatura), uma
+      // notificação dispensada ou deslizada não perdem mais o link: ele fica de
+      // pé na tela inicial dela até ser preenchido.
+      //
+      // Por que não `upsert`: o alvo do conflito é o ÍNDICE PARCIAL
+      // avaliacao_envios_pendente_unq, e inferir índice parcial no Postgres
+      // exige repetir o `where preenchido_em is null` no ON CONFLICT — que o
+      // on_conflict do PostgREST não emite (erro 42P10, "no unique or exclusion
+      // constraint matching"). Então: insert e, se bater no índice, update do
+      // pendente. Reenvio atualiza a linha, nunca cria uma segunda.
+      const agora = new Date().toISOString();
+      const { error: insErro } = await supabase
+        .from('avaliacao_envios')
+        .insert({ paciente_id, nutri_id: caller.id, url: urlOk, enviado_em: agora });
+
+      if (insErro && insErro.code === '23505') {
+        const { error: updErro } = await supabase
+          .from('avaliacao_envios')
+          .update({ url: urlOk, enviado_em: agora, nutri_id: caller.id })
+          .eq('paciente_id', paciente_id)
+          .is('preenchido_em', null);
+        if (updErro) {
+          return { statusCode: 500, body: JSON.stringify({ error: 'Erro ao registrar o link: ' + updErro.message }) };
+        }
+      } else if (insErro) {
+        return { statusCode: 500, body: JSON.stringify({ error: 'Erro ao registrar o link: ' + insErro.message }) };
+      }
+
       // Corpo sem nome nem dado da paciente — notificação aparece na tela de bloqueio.
       //
       // A url do push é uma rota INTERNA, não o link do Shaped: no iOS o
       // clients.openWindow() do service worker falha em silêncio para outra
       // origem, e o clique não abria nada. /paciente/avaliacao é same-origin,
       // que o WindowClient.navigate() abre, e lá a paciente toca no link.
-      // urlOk (já normalizado pela allowlist) vai como parâmetro e é validado
-      // de novo no cliente, em src/lib/shaped.js.
-      return await enviarParaUsuario(supabase, paciente.user_id, {
+      //
+      // SEM ?link= agora: a tela lê o pendente da tabela. A querystring era o
+      // portador do dado e virava um link eterno e compartilhável na barra de
+      // endereço; o push só precisa dizer "tem coisa lá".
+      const resPush = await enviarParaUsuario(supabase, paciente.user_id, {
         title: 'Essentia',
         body: 'Sua nutricionista te enviou o link para realizar a avaliação física.',
-        url: `/paciente/avaliacao?link=${encodeURIComponent(urlOk)}`,
+        url: '/paciente/avaliacao',
       });
+
+      // `registrado: true` é o que deixa a tela da nutri parar de tratar
+      // enviados:0 como fracasso — sem push o link continua entregue.
+      try {
+        return { ...resPush, body: JSON.stringify({ ...JSON.parse(resPush.body), registrado: true }) };
+      } catch {
+        return resPush;
+      }
     }
 
     // === Modo: self (teste/nutri envia pra si mesma) ===
