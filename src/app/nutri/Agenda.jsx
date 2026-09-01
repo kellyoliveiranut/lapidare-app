@@ -67,12 +67,54 @@ function modalidadeDaPaciente(modalidade) {
   return (modalidade ?? '').trim().toLowerCase() === 'presencial' ? 'presencial' : 'online';
 }
 
+// Onde a Kelly atende em cada dia da semana. A chave é Date.getDay()
+// (0 = domingo). Sábado e domingo ficam de fora porque agendar em fim de
+// semana já é barrado antes de chegar aqui — e um dia ausente do mapa cai no
+// comportamento antigo em vez de escolher errado.
+const LOCAL_POR_DIA = {
+  1: 'CTO',          // segunda
+  2: 'Wanderloock',  // terça
+  3: 'Wanderloock',  // quarta
+  4: 'Wanderloock',  // quinta
+  5: 'CTO',          // sexta
+};
+
+// Nome do local é digitado no cadastro; comparar cru faria "cto" não casar
+// com "CTO" e a regra falharia calada.
+function nomeIgual(a, b) {
+  return String(a ?? '').trim().toLowerCase() === String(b ?? '').trim().toLowerCase();
+}
+
 // Local só existe no presencial (check consultas_local_modalidade_check). Um
 // único local ativo é escolha óbvia e já vem marcado; com dois ou mais a nutri
 // escolhe, e o salvar() trava enquanto ela não escolher.
-function localPadrao(locais) {
+//
+// Com uma data, a regra de dia da semana decide antes: segunda e sexta no CTO,
+// terça a quinta no Wanderloock. É só o valor INICIAL — a nutri troca no
+// select quando quiser, e a flag localEditado impede que a data volte a
+// atropelar a escolha dela.
+//
+// Toda saída que não for uma decisão segura cai no comportamento antigo: sem
+// data, data inválida, fim de semana, ou nome que não bate com nenhum local
+// ativo (caso ela renomeie "CTO" no cadastro).
+function localPadrao(locais, dataISO) {
   const ativos = (locais ?? []).filter(l => l.ativo);
-  return ativos.length === 1 ? ativos[0].id : '';
+  const unico = ativos.length === 1 ? ativos[0].id : '';
+
+  if (!dataISO) return unico;
+
+  // O T12:00:00 é obrigatório: new Date('2026-09-07') é lido como UTC e, no
+  // fuso de Belém (−3), volta para o dia 6 — segunda viraria domingo e a regra
+  // erraria calada, sem nada na tela para desmentir. Mesmo cuidado que
+  // addDaysISO e dataBR já tomam neste projeto.
+  const d = new Date(dataISO + 'T12:00:00');
+  if (Number.isNaN(d.getTime())) return unico;
+
+  const nome = LOCAL_POR_DIA[d.getDay()];
+  if (!nome) return unico;
+
+  const achado = ativos.find(l => nomeIgual(l.nome, nome));
+  return achado ? achado.id : unico;
 }
 
 // Confirmação de presença só faz sentido para consulta futura, agendada e com
@@ -97,11 +139,9 @@ function normalizarTelefone(raw) {
 function templateLembretePresencial({ nome, diaSemana, data, hora, endereco }) {
   return `Oi ${nome}! Aqui é a Thais, assistente da Dra. Kelly. Você tem consulta marcada para ${diaSemana}, ${data}, às ${hora}.
 
-Gostaria de saber se você prefere café ou chá, para deixarmos tudo pronto para te receber
-
 Só lembrando: como faremos avaliação física, pedimos que venha com roupas leves ou de exercício — assim a Dra. consegue fazer a avaliação com mais precisão.
 ${endereco ? `\nEndereço: ${endereco}\n` : ''}
-Aguardo seu retorno. Até breve!`;
+Pode confirmar sua presença? Até breve!`;
 }
 
 function templateLembreteOnline({ nome, diaSemana, data, hora }) {
@@ -998,8 +1038,15 @@ function PainelLembretes({ lembretes, confirmadas = 0, semConfirmacao = 0, locai
           // local apagado, endereço vazio e `locais` ainda não carregada dão
           // todos endereco = ''. O nome do local serve de endereço quando o
           // cadastro dele está incompleto.
+          //
+          // O nome vem JUNTO do endereço na mensagem, porque "R. dos
+          // Mundurucus, 4402" sozinho não diz à paciente que é o CTO. A junção
+          // é por partes, e não `${nome} — ${endereco}`: quando só o nome
+          // existe, a concatenação ingênua escreveria "CTO — CTO".
           const local = l.local_id ? (locais ?? []).find(x => x.id === l.local_id) : null;
-          const endereco = local?.endereco?.trim() || local?.nome?.trim() || '';
+          const nomeLocal = local?.nome?.trim() || '';
+          const enderecoLocal = local?.endereco?.trim() || '';
+          const endereco = [nomeLocal, enderecoLocal].filter(Boolean).join(' — ');
           const enderecoOk = l.modalidade !== 'presencial' || !!endereco;
 
           const msgTexto = templateLembrete({
@@ -1539,6 +1586,11 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
   const [tipo, setTipo] = useState(initial.tipo);
   const [modalidade, setModalidade] = useState(initial.modalidade);
   const [localId, setLocalId] = useState(initial.localId);
+  // Nasce TRUE ao editar consulta que já tem local salvo: aquele local foi uma
+  // decisão, e mudar a data de uma consulta existente não pode atropelá-la.
+  // Numa consulta nova nasce false, para a regra de dia da semana poder
+  // preencher assim que a nutri escolher a data.
+  const [localEditado, setLocalEditado] = useState(!!consulta && !!consulta.local_id);
   const [status, setStatus] = useState(initial.status);
   const [obs, setObs] = useState(initial.obs);
   const [lembreteAtivo, setLembreteAtivo] = useState(consulta?.lembrete_ativo ?? true);
@@ -1601,7 +1653,23 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
   // já estava escolhido; se nada estava, tenta o local único.
   function trocarModalidade(nova) {
     setModalidade(nova);
-    setLocalId(nova === 'presencial' ? (localId || localPadrao(locais)) : '');
+    // Agora com a data: voltando para presencial, a regra de dia decide, a não
+    // ser que já exista escolha (a dela, ou a que a data já tinha aplicado).
+    setLocalId(nova === 'presencial' ? (localId || localPadrao(locais, data)) : '');
+  }
+
+  // Terceiro ponto de integração da regra de dia da semana, e o único que
+  // funciona numa consulta NOVA: quando o modal abre, `data` é string vazia e
+  // localPadrao não tem dia nenhum para consultar. É aqui, quando a nutri
+  // escolhe a data, que o local pode ser pré-selecionado.
+  //
+  // Só mexe no local enquanto ela não tiver escolhido um: depois disso, trocar
+  // a data mantém a escolha dela.
+  function trocarData(nova) {
+    setData(nova);
+    if (modalidade === 'presencial' && !localEditado) {
+      setLocalId(localPadrao(locais, nova));
+    }
   }
 
   // Ativos, mais o local já salvo nesta consulta mesmo se aposentado — sem ele
@@ -1732,7 +1800,7 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
         )}
 
         <label className="form-lbl">Data</label>
-        <DateInput ref={campoDataRef} value={data} onChange={e => setData(e.target.value)}
+        <DateInput ref={campoDataRef} value={data} onChange={e => trocarData(e.target.value)}
           style={remarcando ? destaqueRemarcacao : undefined} />
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
@@ -1788,7 +1856,8 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
               </div>
             ) : (
               <>
-                <select value={localId} onChange={e => setLocalId(e.target.value)}>
+                <select value={localId}
+                  onChange={e => { setLocalId(e.target.value); setLocalEditado(true); }}>
                   <option value="">Selecione…</option>
                   {locaisDisponiveis.map(l => (
                     <option key={l.id} value={l.id}>{l.ativo ? l.nome : `${l.nome} (inativo)`}</option>
