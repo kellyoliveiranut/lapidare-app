@@ -1570,14 +1570,14 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
         pacienteId: consulta.paciente?.id ?? '',
         data: consulta.data_hora?.slice(0, 10) ?? '',
         hora: consulta.data_hora ? new Date(consulta.data_hora).toTimeString().slice(0, 5) : HORARIO_CONSULTA_PADRAO,
-        duracao: consulta.duracao_min ?? 45,
+        duracao: consulta.duracao_min ?? 30,
         tipo: consulta.tipo ?? 'primeira',
         modalidade: consulta.modalidade ?? 'online',
         localId: consulta.local_id ?? '',
         status: consulta.status ?? 'agendada',
         obs: consulta.obs ?? '',
       }
-    : { pacienteId: pacienteInicial?.id ?? '', data: '', hora: HORARIO_CONSULTA_PADRAO, duracao: 45, tipo: 'primeira', modalidade: modalidadeInicial, localId: modalidadeInicial === 'presencial' ? localPadrao(locais) : '', status: 'agendada', obs: '' };
+    : { pacienteId: pacienteInicial?.id ?? '', data: '', hora: HORARIO_CONSULTA_PADRAO, duracao: 30, tipo: 'primeira', modalidade: modalidadeInicial, localId: modalidadeInicial === 'presencial' ? localPadrao(locais) : '', status: 'agendada', obs: '' };
 
   const [pacienteId, setPacienteId] = useState(initial.pacienteId);
   const [data, setData] = useState(initial.data);

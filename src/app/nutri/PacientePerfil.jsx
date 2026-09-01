@@ -5932,7 +5932,7 @@ function ModalAgendarAcompanhamento({ pacienteId, nutriId, consultaAtiva, onClos
   const [primeiraData, setPrimeiraData] = useState(defaultData);
   const [hora, setHora] = useState(defaultHora);
   const [intervalo, setIntervalo] = useState(15);
-  const [duracao, setDuracao] = useState(50);
+  const [duracao, setDuracao] = useState(30);
   const [datas, setDatas] = useState(() => gerarDatas(defaultData, defaultHora, 15, 6, true));
   const [semData, setSemData] = useState(false);
   const [permitirFds, setPermitirFds] = useState(false);
@@ -6104,7 +6104,7 @@ function ModalAgendarAcompanhamento({ pacienteId, nutriId, consultaAtiva, onClos
 function ModalAgendarAvulsa({ pacienteId, nutriId, onClose, onSalvo }) {
   const [data, setData] = useState(() => dataLocalISO(7));
   const [hora, setHora] = useState(HORARIO_CONSULTA_PADRAO);
-  const [duracao, setDuracao] = useState(50);
+  const [duracao, setDuracao] = useState(30);
   const [semData, setSemData] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState(null);

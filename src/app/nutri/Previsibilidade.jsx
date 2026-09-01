@@ -10,7 +10,7 @@ const DEFAULTS = {
   horas_semanais:  30,
 };
 
-const DURACAO_CONSULTA_MIN = 60; // referência para calcular capacidade
+const DURACAO_CONSULTA_MIN = 30; // referência para calcular capacidade
 
 export default function Previsibilidade() {
   const { user } = useSession();

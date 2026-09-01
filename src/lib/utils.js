@@ -476,7 +476,7 @@ export function infoCategoria(id) {
 /**
  * URL do Google Calendar para adicionar evento pré-preenchido.
  */
-export function gerarGoogleCalendarUrl({ titulo, dataHoraInicio, duracaoMin = 45, descricao = '', local = 'Online' }) {
+export function gerarGoogleCalendarUrl({ titulo, dataHoraInicio, duracaoMin = 30, descricao = '', local = 'Online' }) {
   if (!dataHoraInicio) return '#';
   const ini = new Date(dataHoraInicio);
   const fim = new Date(ini.getTime() + duracaoMin * 60_000);
