@@ -67,42 +67,23 @@ function modalidadeDaPaciente(modalidade) {
   return (modalidade ?? '').trim().toLowerCase() === 'presencial' ? 'presencial' : 'online';
 }
 
-// Onde a Kelly atende em cada dia da semana. A chave é Date.getDay()
-// (0 = domingo). Sábado e domingo ficam de fora porque agendar em fim de
-// semana já é barrado antes de chegar aqui — e um dia ausente do mapa cai no
-// comportamento antigo em vez de escolher errado.
-// O nome tem que ser IGUAL ao de locais_atendimento.nome no banco: nomeIgual()
-// compara por igualdade, sem inclusão nem normalização de acento. Um nome que
-// não bate não escolhe errado — cai no fallback e não pré-seleciona nada, em
-// silêncio. Foi o que aconteceu com 'Wanderloock' (nome que veio do seed em
-// 2026-08-08_locais_atendimento.sql e não corresponde ao do banco).
-// Renomear o local no cadastro exige atualizar este mapa junto.
-const LOCAL_POR_DIA = {
-  1: 'CTO',                    // segunda
-  2: 'Ed Village Millenium',   // terça
-  3: 'Ed Village Millenium',   // quarta
-  4: 'Ed Village Millenium',   // quinta
-  5: 'CTO',                    // sexta
-};
-
-// Nome do local é digitado no cadastro; comparar cru faria "cto" não casar
-// com "CTO" e a regra falharia calada.
-function nomeIgual(a, b) {
-  return String(a ?? '').trim().toLowerCase() === String(b ?? '').trim().toLowerCase();
-}
-
 // Local só existe no presencial (check consultas_local_modalidade_check). Um
 // único local ativo é escolha óbvia e já vem marcado; com dois ou mais a nutri
 // escolhe, e o salvar() trava enquanto ela não escolher.
 //
-// Com uma data, a regra de dia da semana decide antes: segunda e sexta no CTO,
-// terça a quinta no Ed Village Millenium. É só o valor INICIAL — a nutri troca no
-// select quando quiser, e a flag localEditado impede que a data volte a
-// atropelar a escolha dela.
+// Com uma data, a regra de dia da semana decide antes. A regra mora no banco,
+// em locais_atendimento.dias_semana (1 = segunda ... 5 = sexta), e não mais num
+// mapa aqui casado por NOME: renomear o local no cadastro fazia a regra parar
+// de casar e não pré-selecionar nada, em silêncio — foi o que aconteceu com
+// 'Wanderloock'. Agora o vínculo é a própria linha do local.
+//
+// É só o valor INICIAL — a nutri troca no select quando quiser, e a flag
+// localEditado impede que a data volte a atropelar a escolha dela.
 //
 // Toda saída que não for uma decisão segura cai no comportamento antigo: sem
-// data, data inválida, fim de semana, ou nome que não bate com nenhum local
-// ativo (caso ela renomeie "CTO" no cadastro).
+// data, data inválida, nenhum local ativo para o dia, ou mais de um. Fim de
+// semana se resolve sozinho: getDay() dá 0 ou 6, e o check da coluna só aceita
+// 1..5, então nenhum array pode conter esses dias.
 function localPadrao(locais, dataISO) {
   const ativos = (locais ?? []).filter(l => l.ativo);
   const unico = ativos.length === 1 ? ativos[0].id : '';
@@ -116,11 +97,12 @@ function localPadrao(locais, dataISO) {
   const d = new Date(dataISO + 'T12:00:00');
   if (Number.isNaN(d.getTime())) return unico;
 
-  const nome = LOCAL_POR_DIA[d.getDay()];
-  if (!nome) return unico;
-
-  const achado = ativos.find(l => nomeIgual(l.nome, nome));
-  return achado ? achado.id : unico;
+  // Exatamente um, ou nada: com o mapa antigo era impossível dois locais
+  // reivindicarem o mesmo dia, mas com array no banco é. Escolher o primeiro
+  // da lista seria decidir por ordem alfabética, calado — cair no fallback e
+  // deixar a nutri escolher é a mesma regra do resto desta função.
+  const doDia = ativos.filter(l => (l.dias_semana ?? []).includes(d.getDay()));
+  return doDia.length === 1 ? doDia[0].id : unico;
 }
 
 // Confirmação de presença só faz sentido para consulta futura, agendada e com
@@ -284,7 +266,7 @@ export default function Agenda() {
   async function carregarLocais() {
     if (!user) return;
     const { data } = await supabase
-      .from('locais_atendimento').select('id, nome, endereco, ativo')
+      .from('locais_atendimento').select('id, nome, endereco, ativo, dias_semana')
       .eq('nutri_id', user.id).order('nome');
     setLocais(data ?? []);
   }
