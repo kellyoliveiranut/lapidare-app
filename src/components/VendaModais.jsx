@@ -34,6 +34,11 @@ export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo
   // false = o campo segue a sugestao dos percentuais; true = a nutri
   // digitou, e o que ela digitou manda.
   const [taxaEditada, setTaxaEditada] = useState(false);
+  // null = segue o perfil (nutris.maquininha_antecipa); true/false = a nutri
+  // discordou nesta venda. Estado de três valores, e não um boolean com
+  // useEffect, porque `profile` chega assíncrono: um boolean inicializado no
+  // primeiro render nasceria com o default e nunca veria o valor real.
+  const [antecipadoManual, setAntecipadoManual] = useState(null);
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState(null);
 
@@ -86,6 +91,15 @@ export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo
     ? (Number(String(taxa).replace(',', '.')) || 0)
     : sugestao.valor;
 
+  // O `?? true` cobre os dois buracos de uma vez: o perfil ainda não chegou,
+  // ou a coluna ainda não foi criada no banco. Nos dois casos cai no mesmo
+  // valor do default da migration, então a janela entre migration e deploy
+  // não muda comportamento.
+  const antecipadoPerfil = profile?.maquininha_antecipa ?? true;
+  // `comTaxa` no E porque só cartão passa por maquininha: em pix/dinheiro o
+  // conceito não existe e a flag não pode vazar para o que é gravado.
+  const antecipado = comTaxa && (antecipadoManual ?? antecipadoPerfil);
+
   // Trocar de paciente pode trocar o teto: sair de uma Avulsa em 12x para uma
   // Essentia tem que puxar o número de parcelas de volta para 10.
   function escolherPaciente(id) {
@@ -106,6 +120,9 @@ export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo
     // Trocar de forma devolve o campo ao automático: a taxa de um crédito à
     // vista não tem por que sobreviver a uma venda que virou parcelada.
     setTaxaEditada(false);
+    // Idem para o antecipado: desmarcar no crédito à vista não pode continuar
+    // valendo depois de a venda virar parcelada — volta a seguir o perfil.
+    setAntecipadoManual(null);
   }
 
   const parcelasPreview = useMemo(() => {
@@ -115,8 +132,9 @@ export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo
       valor_total: valorNum,
       data_venda: data,
       n_parcelas: nEfetivo,
+      antecipado,
     });
-  }, [forma, valorNum, data, nEfetivo]);
+  }, [forma, valorNum, data, nEfetivo, antecipado]);
 
   // Mesma função que criarVendaComParcelas usa para gravar. O que a nutri
   // confere aqui é, centavo a centavo, o que vai para o banco.
@@ -148,6 +166,7 @@ export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo
       nParcelas,
       obs,
       taxaTotal: comTaxa ? taxaNum : 0,
+      antecipado,
     });
     setBusy(false);
     if (error) return setErro(error);
@@ -270,6 +289,24 @@ export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo
               )}
             </div>
           )}
+
+          {/* O padrão vem do perfil (Financeiro › Taxas da maquininha) e a
+              venda pode discordar — uma máquina emprestada, um cartão que a
+              paciente passou em outro lugar. */}
+          <label style={{
+            display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer',
+            fontSize: 13, color: 'var(--text2)', marginTop: 4, marginBottom: 8,
+          }}>
+            <input type="checkbox" checked={antecipado}
+              onChange={e => setAntecipadoManual(e.target.checked)}
+              style={{ marginTop: 2 }} />
+            <span>
+              Recebimento antecipado pela maquininha
+              <span style={{ display: 'block', fontSize: 11.5, color: 'var(--text3)' }}>
+                A maquininha deposita o total agora, mesmo parcelado para a paciente
+              </span>
+            </span>
+          </label>
         </>
       )}
 
@@ -283,6 +320,19 @@ export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo
             ? `1 parcela única de ${brl(parcelasPreview[0].valor)} no dia ${dataBR(parcelasPreview[0].vencimento)}`
             : `${parcelasPreview.length}x de ${brl(parcelasPreview[0].valor)}${parcelasPreview[0].valor !== parcelasPreview[parcelasPreview.length-1].valor ? ` (última ${brl(parcelasPreview[parcelasPreview.length-1].valor)})` : ''} — primeira ${dataBR(parcelasPreview[0].vencimento)} / última ${dataBR(parcelasPreview[parcelasPreview.length-1].vencimento)}`
           }
+
+          {/* A consequência do checkbox, dita antes de salvar: as datas acima
+              seguem sendo o que a paciente paga ao cartão, mas o dinheiro
+              entra de uma vez. Sem esta linha, o preview mostraria vencimentos
+              escalonados e nada denunciaria que tudo já nasce recebido. */}
+          {antecipado && (
+            <div style={{ marginTop: 5, color: 'var(--green)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 5 }}>
+              <i className="ti ti-check" style={{ fontSize: 14 }} aria-hidden="true"></i>
+              {parcelasPreview.length === 1
+                ? `A parcela já entra como recebida ${data === hoje ? 'hoje' : `em ${dataBR(data)}`}`
+                : `As ${parcelasPreview.length} já entram como recebidas ${data === hoje ? 'hoje' : `em ${dataBR(data)}`}`}
+            </div>
+          )}
 
           {/* Três colunas só quando há taxa. Sem taxa, o resumo de uma linha
               acima já diz tudo e a tabela seria ruído. */}

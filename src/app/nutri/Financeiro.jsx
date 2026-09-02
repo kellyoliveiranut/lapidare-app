@@ -305,6 +305,10 @@ function TaxasCartao({ perfil, nutriId, onSalvo }) {
     credito1x: String(perfil.taxa_pct_credito1x ?? 0).replace('.', ','),
     base: String(perfil.taxa_pct_parcelado_base ?? 0).replace('.', ','),
     porParcela: String(perfil.taxa_pct_parcelado_por_parcela ?? 0).replace('.', ','),
+    // `?? true` é o mesmo default da coluna: perfil de antes da migration não
+    // pode fazer o checkbox nascer desmarcado e mudar o padrão sem ninguém
+    // pedir. Boolean puro, sem replace — não é percentual.
+    antecipa: perfil.maquininha_antecipa ?? true,
   }));
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState(null);
@@ -341,7 +345,12 @@ function TaxasCartao({ perfil, nutriId, onSalvo }) {
       return setErro('Cada percentual precisa ficar entre 0 e 100.');
     }
     setBusy(true);
-    const { error } = await supabase.from('nutris').update(valores).eq('id', nutriId);
+    // O boolean entra só aqui, e não em `valores`, porque a validação acima
+    // varre Object.values() esperando percentuais — `true > 100` passaria em
+    // silêncio hoje e viraria bug no dia de apertar essa regra.
+    const { error } = await supabase.from('nutris')
+      .update({ ...valores, maquininha_antecipa: form.antecipa })
+      .eq('id', nutriId);
     setBusy(false);
     if (error) return setErro('Erro ao salvar: ' + error.message);
     setFeedback('Taxas salvas.');
@@ -397,6 +406,27 @@ function TaxasCartao({ perfil, nutriId, onSalvo }) {
             No parcelado isso dá{' '}
             {previa.map(p => `${p.n}x = ${p.pct.toFixed(2).replace('.', ',')}%`).join(' · ')}
           </div>
+
+          {/* Fica no mesmo painel que os percentuais porque é a mesma pergunta
+              — "como a minha maquininha funciona" —, e é aqui que o valor de
+              nutris mora. Isto define só o PADRÃO: cada venda ainda pode
+              discordar no checkbox dela. */}
+          <label style={{
+            display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer',
+            fontSize: 13, color: 'var(--text2)',
+            marginTop: 12, paddingTop: 12, borderTop: '0.5px solid var(--border)',
+          }}>
+            <input type="checkbox" checked={form.antecipa}
+              onChange={e => setForm(f => ({ ...f, antecipa: e.target.checked }))}
+              style={{ marginTop: 2 }} />
+            <span>
+              Minha maquininha antecipa o recebimento
+              <span style={{ display: 'block', fontSize: 11.5, color: 'var(--text3)' }}>
+                Deposita o total logo após a venda, mesmo parcelado para a paciente.
+                Vendas no cartão já nascem como recebidas.
+              </span>
+            </span>
+          </label>
 
           {erro && (
             <div style={{ background: 'var(--red-bg)', color: 'var(--red)', padding: '6px 10px', borderRadius: 6, fontSize: 13, marginTop: 10 }}>{erro}</div>

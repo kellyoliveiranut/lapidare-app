@@ -51,6 +51,10 @@ export default function Cadastrar() {
   // false = o campo segue a sugestão dos percentuais; true = a nutri digitou,
   // e o que ela digitou manda.
   const [pgTaxaEditada, setPgTaxaEditada] = useState(false);
+  // null = segue o perfil (nutris.maquininha_antecipa); true/false = a nutri
+  // discordou nesta venda. Três valores, e não um boolean com useEffect, pelo
+  // mesmo motivo do NovaVendaModal: `profile` chega assíncrono.
+  const [pgAntecipadoManual, setPgAntecipadoManual] = useState(null);
 
   const pgValorNum = Number(String(pgValor).replace(',', '.')) || 0;
   const pgComTaxa = FORMAS_COM_TAXA.includes(pgForma);
@@ -76,6 +80,11 @@ export default function Cadastrar() {
   const pgTaxaNum = pgTaxaEditada
     ? (Number(String(pgTaxa).replace(',', '.')) || 0)
     : pgSugestao.valor;
+
+  // `?? true` cobre perfil ainda não carregado e coluna ainda não criada — os
+  // dois caem no mesmo valor do default da migration. `pgComTaxa` no E porque
+  // só cartão passa por maquininha.
+  const pgAntecipado = pgComTaxa && (pgAntecipadoManual ?? (profile?.maquininha_antecipa ?? true));
 
   // Tira o separador de milhar antes de trocar a vírgula: aceita "2700,00" e
   // "2.700,00". Difere do pgValorNum acima de propósito — o valor do contrato
@@ -114,6 +123,9 @@ export default function Cadastrar() {
     // Trocar de forma devolve o campo ao automático: a taxa de um crédito à
     // vista não tem por que sobreviver a uma venda que virou parcelada.
     setPgTaxaEditada(false);
+    // Idem para o antecipado: desmarcar no crédito à vista não pode continuar
+    // valendo depois de a venda virar parcelada — volta a seguir o perfil.
+    setPgAntecipadoManual(null);
   }
 
   const parcelasPreview = useMemo(() => {
@@ -123,8 +135,9 @@ export default function Cadastrar() {
       valor_total: pgValorNum,
       data_venda: pgData,
       n_parcelas: pgNEfetivo,
+      antecipado: pgAntecipado,
     });
-  }, [pgForma, pgValorNum, pgData, pgNEfetivo]);
+  }, [pgForma, pgValorNum, pgData, pgNEfetivo, pgAntecipado]);
 
   // Mesma função que criarVendaComParcelas usa para gravar — o que a nutri
   // confere aqui é, centavo a centavo, o que vai para o banco.
@@ -242,6 +255,7 @@ export default function Cadastrar() {
         nParcelas: pgNParcelas,
         obs: pgObs,
         taxaTotal: pgComTaxa ? pgTaxaNum : 0,
+        antecipado: pgAntecipado,
       });
       if (vendaErro) {
         avisoVenda = 'Paciente cadastrada, mas o pagamento não foi lançado — registre pelo Financeiro. (' + vendaErro + ')';
@@ -573,6 +587,23 @@ export default function Cadastrar() {
                         )}
                       </div>
                     )}
+
+                    {/* O padrão vem do perfil (Financeiro › Taxas da
+                        maquininha) e esta venda pode discordar. */}
+                    <label style={{
+                      display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer',
+                      fontSize: 13, color: 'var(--text2)', marginTop: 10,
+                    }}>
+                      <input type="checkbox" checked={pgAntecipado}
+                        onChange={e => setPgAntecipadoManual(e.target.checked)}
+                        style={{ marginTop: 2 }} />
+                      <span>
+                        Recebimento antecipado pela maquininha
+                        <span style={{ display: 'block', fontSize: 11.5, color: 'var(--text3)' }}>
+                          A maquininha deposita o total agora, mesmo parcelado para a paciente
+                        </span>
+                      </span>
+                    </label>
                   </>
                 )}
 
@@ -586,6 +617,18 @@ export default function Cadastrar() {
                       ? `1 parcela única de ${brl(parcelasPreview[0].valor)} no dia ${dataBR(parcelasPreview[0].vencimento)}`
                       : `${parcelasPreview.length}x de ${brl(parcelasPreview[0].valor)}${parcelasPreview[0].valor !== parcelasPreview[parcelasPreview.length-1].valor ? ` (última ${brl(parcelasPreview[parcelasPreview.length-1].valor)})` : ''} — primeira ${dataBR(parcelasPreview[0].vencimento)} / última ${dataBR(parcelasPreview[parcelasPreview.length-1].vencimento)}`
                     }
+
+                    {/* A consequência do checkbox, dita antes de salvar: as
+                        datas acima seguem sendo o que a paciente paga ao
+                        cartão, mas o dinheiro entra de uma vez. */}
+                    {pgAntecipado && (
+                      <div style={{ marginTop: 5, color: 'var(--green)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <i className="ti ti-check" style={{ fontSize: 14 }} aria-hidden="true"></i>
+                        {parcelasPreview.length === 1
+                          ? `A parcela já entra como recebida ${pgData === hoje ? 'hoje' : `em ${dataBR(pgData)}`}`
+                          : `As ${parcelasPreview.length} já entram como recebidas ${pgData === hoje ? 'hoje' : `em ${dataBR(pgData)}`}`}
+                      </div>
+                    )}
 
                     {/* Três colunas só quando há taxa. Sem taxa, o resumo de
                         uma linha acima já diz tudo e a tabela seria ruído. */}

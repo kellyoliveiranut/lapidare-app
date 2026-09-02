@@ -227,8 +227,21 @@ export function clampParcelas(n, forma, tipoPlano) {
  *  pix/dinheiro           → N parcelas mensais (a 1ª já entra como paga)
  *  credito1x              → 1 parcela única (vencimento = data_venda)
  *  parcelado              → N parcelas mensais (1ª na data, demais +1 mês cada)
+ *
+ * `antecipado` é a maquininha que deposita o total logo depois da venda, mesmo
+ * quando a paciente parcelou. Vale só para os dois ramos de cartão — pix e
+ * dinheiro não passam por maquininha e já têm a própria regra de 1ª paga.
+ *
+ * Ele mexe em status/data_pgto e NÃO no vencimento: o vencimento descreve o
+ * que a PACIENTE paga ao cartão dela, mês a mês, e continua sendo isso. O que
+ * muda é quando a nutri recebe. Sem esta separação, statusParcela() compara
+ * vencimento com hoje e vai marcando de 'atrasado' dinheiro que já está na
+ * conta.
+ *
+ * Default false — de propósito. Quem não sabe da coluna nova continua gerando
+ * o que gerava antes; quem sabe passa o valor do perfil.
  */
-export function gerarParcelas({ forma_pgto, valor_total, data_venda, n_parcelas }) {
+export function gerarParcelas({ forma_pgto, valor_total, data_venda, n_parcelas, antecipado = false }) {
   const valor = Number(valor_total);
   const dv = new Date(data_venda + 'T00:00:00');
 
@@ -256,8 +269,15 @@ export function gerarParcelas({ forma_pgto, valor_total, data_venda, n_parcelas 
     }));
   }
 
+  // Recebimento antecipado: o depósito é um só, na data da venda, para as duas
+  // formas de cartão. Espalhado como spread condicional porque vendas.js lê
+  // `p.status ?? 'pendente'` e `p.data_pgto ?? null` — ausente é o caso antigo.
+  const recebidoNaVenda = antecipado
+    ? { status: 'pago', data_pgto: fmtDate(dv) }
+    : null;
+
   if (forma_pgto === 'credito1x') {
-    return [{ numero: 1, valor, vencimento: fmtDate(dv) }];
+    return [{ numero: 1, valor, vencimento: fmtDate(dv), ...recebidoNaVenda }];
   }
 
   if (forma_pgto === 'parcelado') {
@@ -266,7 +286,7 @@ export function gerarParcelas({ forma_pgto, valor_total, data_venda, n_parcelas 
     const out = [];
     for (let i = 0; i < n; i++) {
       const v = i === n - 1 ? Number((valor - base * (n - 1)).toFixed(2)) : base;
-      out.push({ numero: i + 1, valor: v, vencimento: fmtDate(addMonths(dv, i)) });
+      out.push({ numero: i + 1, valor: v, vencimento: fmtDate(addMonths(dv, i)), ...recebidoNaVenda });
     }
     return out;
   }

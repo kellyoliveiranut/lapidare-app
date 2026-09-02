@@ -10,13 +10,14 @@ import { gerarParcelas, distribuirTaxa } from './utils.js';
  * @param supabase  cliente supabase
  * @param dados     {
  *   nutriId, pacienteId, servicoId, servico, valorTotal (number),
- *   forma, dataVenda, nParcelas, obs, taxaTotal (number)
+ *   forma, dataVenda, nParcelas, obs, taxaTotal (number),
+ *   antecipado (bool — maquininha depositou o total na data da venda)
  * }
  * @returns {{ venda: {id}|null, parcelas: number, error: string|null }}
  */
 export async function criarVendaComParcelas(supabase, {
   nutriId, pacienteId, servicoId, servico, valorTotal,
-  forma, dataVenda, nParcelas, obs, taxaTotal,
+  forma, dataVenda, nParcelas, obs, taxaTotal, antecipado = false,
 }) {
   // Regra de nº de parcelas por forma — idêntica ao preview do modal.
   const n_parcelas = ['pix', 'dinheiro', 'parcelado'].includes(forma) ? nParcelas : 1;
@@ -26,6 +27,7 @@ export async function criarVendaComParcelas(supabase, {
     valor_total: valorTotal,
     data_venda: dataVenda,
     n_parcelas,
+    antecipado,
   });
 
   const { data: venda, error: vErr } = await supabase
