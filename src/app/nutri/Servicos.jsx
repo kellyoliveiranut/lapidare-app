@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
-import { brl } from '../../lib/utils.js';
+import { brl, valorBR } from '../../lib/utils.js';
 
 const NIVEIS = [
   { value: 'entrada',        label: 'Entrada',         desc: 'Baixo ticket — porta de entrada' },
@@ -220,7 +220,7 @@ function EditorServico({ servico, nutriId, onClose, onSaved }) {
   async function salvar() {
     setErro(null);
     if (!nome.trim()) return setErro('Informe o nome do serviço.');
-    const t = parseFloat(String(ticket).replace(',', '.'));
+    const t = valorBR(ticket);
     if (!t || t <= 0) return setErro('Informe um ticket válido.');
 
     setBusy(true);

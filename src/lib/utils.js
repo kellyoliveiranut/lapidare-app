@@ -36,6 +36,37 @@ export function brl(value) {
 }
 
 /**
+ * Caminho inverso do brl(): lê um valor em reais digitado à mão e devolve
+ * número. Sempre 0 para o que não dá para ler — os campos que usam isto já
+ * barram 0 com uma frase em português.
+ *
+ * A regra do separador de milhar tem duas metades porque o ponto é ambíguo
+ * em PT-BR:
+ *
+ *   com vírgula na string, TODO ponto é milhar   "2.700,00" → 2700
+ *   sem vírgula, só é milhar o ponto seguido de
+ *   exatamente 3 dígitos                         "1.500"    → 1500
+ *                                                "2700.50"  → 2700,5
+ *
+ * A segunda metade é o que separa isto da normalização do valor do contrato,
+ * que apaga todo ponto. O teclado numérico do celular oferece o ponto, e
+ * "2700.50" virando 270050 seria um erro de 100x gravado em silêncio — a
+ * mesma classe de falha que esta função existe para fechar.
+ *
+ * Fica em utils porque três telas leem valor digitado (venda no Financeiro,
+ * venda no Cadastrar, gasto em Gastos) e uma delas divergindo das outras é
+ * exatamente o que aconteceu até 2026-09-02: duas aceitavam "2.700,00" como
+ * 0 e uma terceira, a do contrato, já fazia certo.
+ */
+export function valorBR(v) {
+  const s = String(v ?? '').trim();
+  const semMilhar = s.includes(',')
+    ? s.replace(/\./g, '')
+    : s.replace(/\.(?=\d{3}\b)/g, '');
+  return Number(semMilhar.replace(',', '.')) || 0;
+}
+
+/**
  * Normaliza telefone BR pra formato E.164 sem "+": só dígitos, com DDI 55.
  * Ex.: "(11) 99999-9999" → "5511999999999". Usado nos links wa.me.
  */

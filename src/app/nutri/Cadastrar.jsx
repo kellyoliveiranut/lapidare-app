@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
-import { dataBR, brl, gerarParcelas, distribuirTaxa, taxaSugerida, maxParcelas, clampParcelas, MAX_PARCELAS_ESSENTIA, FORMAS_PGTO_LIST, FORMAS_COM_TAXA, normalizarTelefone, telefoneValido, dataLocalISO } from '../../lib/utils.js';
+import { dataBR, brl, valorBR, gerarParcelas, distribuirTaxa, taxaSugerida, maxParcelas, clampParcelas, MAX_PARCELAS_ESSENTIA, FORMAS_PGTO_LIST, FORMAS_COM_TAXA, normalizarTelefone, telefoneValido, dataLocalISO } from '../../lib/utils.js';
 import { criarVendaComParcelas } from '../../lib/vendas.js';
 import { linkConvite, mensagemConviteEncoded } from '../../lib/convite.js';
 import { OBJETIVOS } from '../../lib/objetivos.js';
@@ -56,7 +56,7 @@ export default function Cadastrar() {
   // mesmo motivo do NovaVendaModal: `profile` chega assíncrono.
   const [pgAntecipadoManual, setPgAntecipadoManual] = useState(null);
 
-  const pgValorNum = Number(String(pgValor).replace(',', '.')) || 0;
+  const pgValorNum = valorBR(pgValor);
   const pgComTaxa = FORMAS_COM_TAXA.includes(pgForma);
 
   // Aqui o plano é o do próprio formulário — a paciente está nascendo agora.
@@ -78,7 +78,7 @@ export default function Cadastrar() {
     ? pgTaxa
     : (pgSugestao.valor ? String(pgSugestao.valor).replace('.', ',') : '');
   const pgTaxaNum = pgTaxaEditada
-    ? (Number(String(pgTaxa).replace(',', '.')) || 0)
+    ? valorBR(pgTaxa)
     : pgSugestao.valor;
 
   // `?? true` cobre perfil ainda não carregado e coluna ainda não criada — os
@@ -87,9 +87,14 @@ export default function Cadastrar() {
   const pgAntecipado = pgComTaxa && (pgAntecipadoManual ?? (profile?.maquininha_antecipa ?? true));
 
   // Tira o separador de milhar antes de trocar a vírgula: aceita "2700,00" e
-  // "2.700,00". Difere do pgValorNum acima de propósito — o valor do contrato
-  // entra num documento com força probatória, e o ponto digitado por hábito
-  // não pode virar NaN silencioso.
+  // "2.700,00".
+  //
+  // Continua com regra PRÓPRIA, e não com valorBR() como o pgValorNum acima:
+  // aqui todo ponto vira milhar, então "2700.50" daria 270050. É deliberado
+  // enquanto o campo for este — o valor do contrato entra num documento com
+  // força probatória e é conferido antes de assinar, ao contrário do valor da
+  // venda, digitado correndo. Se um dia isso for unificado, é valorBR() que
+  // vale, e não o contrário.
   const valorContratoNum = Number(String(valorContrato).replace(/\./g, '').replace(',', '.')) || 0;
 
   const [busy, setBusy] = useState(false);

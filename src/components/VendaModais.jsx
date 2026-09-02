@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase.js';
 import DateInput from './DateInput.jsx';
 import ModalShell from './ModalShell.jsx';
 import {
-  brl, dataBR, dataLocalISO,
+  brl, valorBR, dataBR, dataLocalISO,
   gerarParcelas, distribuirTaxa, taxaSugerida, maxParcelas, clampParcelas,
   MAX_PARCELAS_ESSENTIA, FORMAS_PGTO_LIST, FORMAS_COM_TAXA, STATUS_PARCELA_INFO,
 } from '../lib/utils.js';
@@ -58,7 +58,7 @@ export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo
     }
   }
 
-  const valorNum = Number(String(valor).replace(',', '.')) || 0;
+  const valorNum = valorBR(valor);
   const comTaxa = FORMAS_COM_TAXA.includes(forma);
 
   // Um valor só para o plano, venha o modal do perfil (pacienteFixo) ou do
@@ -88,7 +88,7 @@ export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo
     ? taxa
     : (sugestao.valor ? String(sugestao.valor).replace('.', ',') : '');
   const taxaNum = taxaEditada
-    ? (Number(String(taxa).replace(',', '.')) || 0)
+    ? valorBR(taxa)
     : sugestao.valor;
 
   // O `?? true` cobre os dois buracos de uma vez: o perfil ainda não chegou,
@@ -405,8 +405,8 @@ export function EditarParcelaModal({ parcela, venda, pacienteNome, onClose, onSa
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState(null);
 
-  const valorEditNum = Number(String(valor).replace(',', '.')) || Number(parcela.valor);
-  const taxaNum = Number(String(taxaCartao).replace(',', '.')) || 0;
+  const valorEditNum = valorBR(valor) || Number(parcela.valor);
+  const taxaNum = valorBR(taxaCartao);
 
   async function salvar() {
     setErro(null);
@@ -421,7 +421,7 @@ export function EditarParcelaModal({ parcela, venda, pacienteNome, onClose, onSa
       .update({
         status,
         data_pgto: status === 'pago' ? dataPgto : null,
-        valor: Number(String(valor).replace(',', '.')) || parcela.valor,
+        valor: valorBR(valor) || parcela.valor,
         taxa_cartao: taxaNum,
         obs: obs.trim() || null,
       })

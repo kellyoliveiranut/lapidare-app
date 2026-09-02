@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import DateInput from '../../components/DateInput.jsx';
 import {
-  brl, dataBR,
+  brl, valorBR, dataBR,
   CATEGORIAS_GASTO, infoCategoria,
   FORMAS_PGTO_GASTO_LIST, labelFormaPgtoGasto, iconFormaPgtoGasto,
 } from '../../lib/utils.js';
@@ -467,7 +467,7 @@ function EditorGasto({ gasto, nutriId, onClose, onSaved }) {
   async function salvar() {
     setErro(null);
     if (!descricao.trim()) return setErro('Informe a descrição.');
-    const valorNum = Number(String(valor).replace(',', '.'));
+    const valorNum = valorBR(valor);
     if (!valorNum || valorNum <= 0) return setErro('Informe um valor válido.');
     if (tipo === 'esporadico' && !dataGasto) return setErro('Informe a data do gasto.');
     if (tipo === 'recorrente' && (!diaRec || diaRec < 1 || diaRec > 31)) return setErro('Dia do mês inválido (1-31).');
