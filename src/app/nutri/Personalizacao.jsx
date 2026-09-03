@@ -561,33 +561,85 @@ function NotificacoesCard() {
     'serviceWorker' in navigator &&
     'PushManager' in window;
 
-  const [ativo, setAtivo] = useState(false);
+  const [ativo, setAtivo] = useState(false);   // o navegador tem inscrição
+  const [banco, setBanco] = useState(null);    // null = ainda não sabemos
   const [permissao, setPermissao] = useState(suporte ? Notification.permission : 'unsupported');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState(null);
   const [busyTeste, setBusyTeste] = useState(false);
   const [msgTeste, setMsgTeste] = useState(null);
 
-  useEffect(() => {
+  /**
+   * Estado do card = navegador CRUZADO com banco, nunca só o navegador.
+   *
+   * Sozinho, o getSubscription() pinta "Ativas neste dispositivo" em verde
+   * mesmo quando não existe linha em push_subscriptions — e nesse estado
+   * nenhum push pode chegar. É justamente a divergência que precisa aparecer.
+   *
+   * Os awaits ficam em sequência dentro de uma função só, sem fire-and-forget:
+   * é o padrão que não disputa o lock de auth (ver iniciarTokenPush em push.js).
+   */
+  async function revalidar() {
     if (!suporte) return;
-    navigator.serviceWorker.ready
-      .then((reg) => reg.pushManager.getSubscription())
-      .then((sub) => setAtivo(!!sub))
-      .catch(() => {});
+
+    let sub;
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      sub = await reg.pushManager.getSubscription();
+    } catch (err) {
+      setMsg({ tipo: 'erro', texto: 'Não foi possível ler o service worker: ' + err.message });
+      return;
+    }
+    setAtivo(!!sub);
+    setPermissao(Notification.permission);
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setBanco(null); return; }
+
+    const { count: naConta } = await supabase
+      .from('push_subscriptions')
+      .select('endpoint', { count: 'exact', head: true })
+      .eq('user_id', user.id);
+
+    let esteAparelho = 0;
+    if (sub) {
+      const { count } = await supabase
+        .from('push_subscriptions')
+        .select('endpoint', { count: 'exact', head: true })
+        .eq('endpoint', sub.endpoint);
+      esteAparelho = count ?? 0;
+    }
+    setBanco({ naConta: naConta ?? 0, esteAparelho });
+  }
+
+  useEffect(() => {
+    // A regra mira setState síncrono no corpo do efeito; aqui todo setState
+    // acontece depois de um await, então a cascata que ela previne não existe.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    revalidar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [suporte]);
+
+  // Navegador inscrito, banco sem este endpoint: o card mostrava verde e nada
+  // chegava. Este é o estado que o cruzamento existe para revelar.
+  const divergente = ativo && banco != null && banco.esteAparelho === 0;
 
   async function handleAtivar() {
     setMsg(null);
     setBusy(true);
     try {
-      await ativarNotificacoes();
-      setAtivo(true);
-      setPermissao('granted');
-      setMsg({ tipo: 'ok', texto: 'Notificações ativadas neste dispositivo!' });
+      const r = await ativarNotificacoes();
+      setMsg({
+        tipo: 'ok',
+        texto: r.reaproveitada
+          ? 'Notificações ativadas. Este aparelho já tinha inscrição — o registro no banco foi atualizado, não recriado.'
+          : 'Notificações ativadas — inscrição nova neste dispositivo.',
+      });
     } catch (err) {
       setMsg({ tipo: 'erro', texto: err.message });
     } finally {
       setBusy(false);
+      await revalidar();
     }
   }
 
@@ -595,13 +647,25 @@ function NotificacoesCard() {
     setMsg(null);
     setBusy(true);
     try {
-      await desativarNotificacoes();
-      setAtivo(false);
-      setMsg({ tipo: 'ok', texto: 'Notificações desativadas.' });
+      const r = await desativarNotificacoes();
+      if (r.removidas === 0) {
+        setMsg({
+          tipo: 'aviso',
+          texto: 'O navegador parou de receber, mas nenhuma linha foi removida do banco — ou já não havia nenhuma, ou a exclusão foi bloqueada.',
+        });
+      } else if (r.via === 'user_id') {
+        setMsg({
+          tipo: 'ok',
+          texto: `Notificações desativadas. Este aparelho não tinha inscrição ativa, então foram removidas ${r.removidas ?? '?'} assinatura(s) da conta — inclusive de outros aparelhos.`,
+        });
+      } else {
+        setMsg({ tipo: 'ok', texto: 'Notificações desativadas neste dispositivo.' });
+      }
     } catch (err) {
       setMsg({ tipo: 'erro', texto: err.message });
     } finally {
       setBusy(false);
+      await revalidar();
     }
   }
 
@@ -640,8 +704,25 @@ function NotificacoesCard() {
     }
   }
 
-  const corBorda = ativo ? 'var(--green, #3a7a46)' : 'var(--border)';
-  const bgTopo   = ativo ? '#f0fdf4' : 'var(--bg2)';
+  // Verde só quando navegador E banco concordam. Divergência é âmbar, nunca
+  // verde: dizer "Ativas" com o banco vazio é o erro que estava na tela.
+  const saudavel = ativo && !divergente;
+  const corBorda = divergente
+    ? 'var(--gold-deep, #a08456)'
+    : saudavel
+    ? 'var(--green, #3a7a46)'
+    : 'var(--border)';
+  const bgTopo = divergente ? 'var(--amber-bg, #fdf8ee)' : saudavel ? '#f0fdf4' : 'var(--bg2)';
+
+  const subtitulo = !suporte
+    ? 'Não suportado neste navegador'
+    : divergente
+    ? 'Inscrito neste navegador, mas ausente do banco — nada chega'
+    : saudavel
+    ? 'Ativas neste dispositivo'
+    : banco && banco.naConta > 0
+    ? `Desativadas aqui — a conta tem ${banco.naConta} assinatura(s) em outros aparelhos`
+    : 'Desativadas neste dispositivo';
 
   return (
     <div style={{
@@ -660,13 +741,13 @@ function NotificacoesCard() {
       }}>
         <div style={{
           width: 36, height: 36, borderRadius: 9, flexShrink: 0,
-          background: ativo ? 'var(--green, #3a7a46)' : 'var(--bg)',
+          background: divergente ? 'var(--gold-deep, #a08456)' : saudavel ? 'var(--green, #3a7a46)' : 'var(--bg)',
           border: `1px solid ${corBorda}`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
           <i
-            className={`ti ti-${ativo ? 'bell-ringing' : 'bell-off'}`}
-            style={{ fontSize: 17, color: ativo ? '#fff' : 'var(--text3)' }}
+            className={`ti ti-${divergente ? 'bell-exclamation' : saudavel ? 'bell-ringing' : 'bell-off'}`}
+            style={{ fontSize: 17, color: divergente || saudavel ? '#fff' : 'var(--text3)' }}
             aria-hidden="true"
           />
         </div>
@@ -674,22 +755,27 @@ function NotificacoesCard() {
           <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--dark)', lineHeight: 1.2 }}>
             Notificações push
           </div>
-          <div style={{ fontSize: 11, color: ativo ? 'var(--green, #3a7a46)' : 'var(--text3)', marginTop: 2 }}>
-            {!suporte
-              ? 'Não suportado neste navegador'
-              : ativo
-              ? 'Ativas neste dispositivo'
-              : 'Desativadas neste dispositivo'}
+          <div style={{
+            fontSize: 11, marginTop: 2,
+            color: divergente
+              ? 'var(--gold-deep, #a08456)'
+              : saudavel
+              ? 'var(--green, #3a7a46)'
+              : 'var(--text3)',
+          }}>
+            {subtitulo}
           </div>
         </div>
-        {ativo && (
+        {(saudavel || divergente) && (
           <span style={{
             marginLeft: 'auto', fontSize: 10, fontWeight: 700,
             letterSpacing: '.06em', textTransform: 'uppercase',
-            color: 'var(--green, #3a7a46)',
-            background: '#dcfce7', borderRadius: 6, padding: '3px 8px',
+            color: divergente ? 'var(--gold-deep, #a08456)' : 'var(--green, #3a7a46)',
+            background: divergente ? 'var(--amber-bg, #fdf8ee)' : '#dcfce7',
+            border: divergente ? '0.5px solid var(--gold-deep, #a08456)' : 'none',
+            borderRadius: 6, padding: '3px 8px',
           }}>
-            Ativo
+            {divergente ? 'Divergente' : 'Ativo'}
           </span>
         )}
       </div>
@@ -722,6 +808,27 @@ function NotificacoesCard() {
           </div>
         ) : ativo ? (
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {/* Na divergência, re-registrar é o conserto direto: o upsert
+                recria a linha sem passar pelo desativar-e-ativar, que é
+                justamente o fluxo sob suspeita. */}
+            {divergente && (
+              <button
+                onClick={handleAtivar}
+                disabled={busy || busyTeste}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  padding: '8px 16px', borderRadius: 8, cursor: busy ? 'default' : 'pointer',
+                  border: 'none',
+                  background: 'var(--gold-deep, #a08456)', color: '#fff',
+                  fontSize: 13, fontWeight: 500,
+                  fontFamily: 'var(--font-sans)',
+                  opacity: busy ? 0.6 : 1,
+                }}
+              >
+                <i className="ti ti-refresh" style={{ fontSize: 15 }} aria-hidden="true" />
+                {busy ? 'Aguarde…' : 'Re-registrar neste dispositivo'}
+              </button>
+            )}
             <button
               onClick={handleDesativar}
               disabled={busy || busyTeste}
@@ -775,15 +882,37 @@ function NotificacoesCard() {
           </button>
         )}
 
+        {/* Três tons, não dois: 'aviso' âmbar existe para o caso legítimo de
+            não haver nada a remover. Pintar isso de vermelho ensinaria a
+            ignorar o vermelho, que é onde mora a falha de verdade. */}
         {msg && (
           <div style={{
             marginTop: 10, padding: '8px 12px', borderRadius: 7, fontSize: 13,
-            background: msg.tipo === 'ok' ? '#f0fdf4' : 'var(--red-bg, #fef2f2)',
-            color: msg.tipo === 'ok' ? 'var(--green, #166534)' : 'var(--red, #dc2626)',
-            border: `0.5px solid ${msg.tipo === 'ok' ? '#bbf7d0' : 'var(--red, #dc2626)'}`,
+            background: msg.tipo === 'ok'
+              ? '#f0fdf4'
+              : msg.tipo === 'aviso'
+              ? 'var(--amber-bg, #fdf8ee)'
+              : 'var(--red-bg, #fef2f2)',
+            color: msg.tipo === 'ok'
+              ? 'var(--green, #166534)'
+              : msg.tipo === 'aviso'
+              ? 'var(--gold-deep, #a08456)'
+              : 'var(--red, #dc2626)',
+            border: `0.5px solid ${
+              msg.tipo === 'ok'
+                ? '#bbf7d0'
+                : msg.tipo === 'aviso'
+                ? 'var(--gold-deep, #a08456)'
+                : 'var(--red, #dc2626)'
+            }`,
             display: 'flex', alignItems: 'center', gap: 6,
           }}>
-            <i className={`ti ti-${msg.tipo === 'ok' ? 'check' : 'alert-circle'}`} aria-hidden="true" />
+            <i
+              className={`ti ti-${
+                msg.tipo === 'ok' ? 'check' : msg.tipo === 'aviso' ? 'alert-triangle' : 'alert-circle'
+              }`}
+              aria-hidden="true"
+            />
             {msg.texto}
           </div>
         )}

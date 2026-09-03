@@ -24,7 +24,12 @@ export async function ativarNotificacoes() {
 
   const registration = await navigator.serviceWorker.ready;
 
+  // Guardado antes do subscribe(): distingue "o navegador devolveu a inscrição
+  // que já existia" de "criei uma agora". Sem isso, uma reativação que apenas
+  // atualiza a linha antiga é indistinguível de uma que cria linha nova — e foi
+  // exatamente essa dúvida que travou o diagnóstico do created_at parado.
   let subscription = await registration.pushManager.getSubscription();
+  const reaproveitada = !!subscription;
   if (!subscription) {
     subscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,
@@ -38,30 +43,75 @@ export async function ativarNotificacoes() {
   } = await supabase.auth.getUser();
   if (userError || !user) throw new Error('Usuário não autenticado.');
 
-  const { error } = await supabase.from('push_subscriptions').upsert(
+  const { error, count } = await supabase.from('push_subscriptions').upsert(
     {
       user_id: user.id,
       endpoint: subscription.endpoint,
       subscription: subscription.toJSON(),
       user_agent: navigator.userAgent,
     },
-    { onConflict: 'endpoint' }
+    { onConflict: 'endpoint', count: 'exact' }
   );
   if (error) throw new Error('Erro ao salvar assinatura: ' + error.message);
+  // count === 0 é gravação bloqueada sem erro. count === null é só o header de
+  // contagem ausente: não prova nada, e tratar como falha daria alarme falso.
+  if (count === 0) {
+    throw new Error(
+      'A assinatura não foi gravada (0 linhas). Verifique as permissões da tabela push_subscriptions.'
+    );
+  }
 
-  return subscription;
+  return { subscription, reaproveitada };
 }
 
+/**
+ * Desativa o push neste aparelho e devolve o que REALMENTE aconteceu no banco:
+ * { via: 'endpoint' | 'user_id', removidas: number | null }.
+ *
+ * O silêncio aqui era o bug: um DELETE barrado por RLS volta 200, sem erro e
+ * sem linhas, idêntico a um sucesso. Por isso a contagem é exata e o resultado
+ * sobe para a tela em vez de virar um "Notificações desativadas." presumido.
+ *
+ * removidas === 0 significa "não apagou nada" (já não havia linha, ou a
+ * exclusão foi bloqueada); null significa que o header de contagem não veio.
+ */
 export async function desativarNotificacoes() {
-  if (!('serviceWorker' in navigator)) return;
+  if (!('serviceWorker' in navigator)) {
+    throw new Error('Este navegador não gerencia notificações push.');
+  }
 
   const registration = await navigator.serviceWorker.ready;
   const subscription = await registration.pushManager.getSubscription();
-  if (!subscription) return;
 
-  const endpoint = subscription.endpoint;
-  await subscription.unsubscribe();
-  await supabase.from('push_subscriptions').delete().eq('endpoint', endpoint);
+  // A identidade vem antes do ramo: é ela que permite limpar o banco mesmo
+  // quando o navegador já não tem inscrição para nos dar o endpoint.
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+  if (userError || !user) throw new Error('Usuário não autenticado.');
+
+  if (subscription) {
+    const endpoint = subscription.endpoint;
+    await subscription.unsubscribe();
+    const { error, count } = await supabase
+      .from('push_subscriptions')
+      .delete({ count: 'exact' })
+      .eq('endpoint', endpoint);
+    if (error) throw new Error('Erro ao remover assinatura: ' + error.message);
+    return { via: 'endpoint', removidas: count ?? null };
+  }
+
+  // Sem inscrição local — é o caso do iOS, que derruba a inscrição por fora do
+  // app. Sem endpoint para casar, a identidade é a única chave que sobra, e ela
+  // não distingue aparelhos: isto apaga as assinaturas de TODOS os aparelhos
+  // desta conta. Quem chama precisa dizer isso na tela.
+  const { error, count } = await supabase
+    .from('push_subscriptions')
+    .delete({ count: 'exact' })
+    .eq('user_id', user.id);
+  if (error) throw new Error('Erro ao remover assinaturas: ' + error.message);
+  return { via: 'user_id', removidas: count ?? null };
 }
 
 /**
