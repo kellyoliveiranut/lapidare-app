@@ -240,10 +240,22 @@ export default function Suplementos() {
                       textDecoration: tomado ? 'line-through' : 'none',
                       opacity: tomado ? 0.7 : 1,
                     }}>{s.nome}</div>
-                    <div style={{ fontSize: 11, color: 'var(--muted)', display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 2 }}>
-                      {s.dose && <span>{s.dose}</span>}
-                      {s.horario && <span>· {s.horario}</span>}
-                    </div>
+                    {/* A posologia é o que ela precisa FAZER: linha própria, no
+                        tom forte do texto. Sem line-through quando tomado — a
+                        dose do dia foi cumprida, a instrução continua valendo. */}
+                    {s.dose && (
+                      <div style={{
+                        fontSize: 13, color: 'var(--ink)', lineHeight: 1.35,
+                        marginTop: 3, opacity: tomado ? 0.7 : 1,
+                      }}>
+                        {s.dose}
+                      </div>
+                    )}
+                    {s.horario && (
+                      <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
+                        {s.horario}
+                      </div>
+                    )}
                     {s.obs && (
                       <div style={{ fontSize: 11, color: 'var(--muted)', fontStyle: 'italic', marginTop: 3 }}>
                         {s.obs}

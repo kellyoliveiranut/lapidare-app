@@ -343,8 +343,14 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
                       {s.nome}
                       {!s.ativo && <span style={{ fontSize: 10, color: 'var(--text3)', marginLeft: 6 }}>(pausado)</span>}
                     </div>
+                    {/* Mesma hierarquia da tela da paciente: você confere de
+                        relance o que ela está lendo do outro lado. */}
+                    {s.dose && (
+                      <div style={{ fontSize: 13, color: 'var(--dark)', lineHeight: 1.35, marginTop: 2 }}>
+                        {s.dose}
+                      </div>
+                    )}
                     <div style={{ fontSize: 11, color: 'var(--text3)', display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 2 }}>
-                      {s.dose && <span><i className="ti ti-droplet" aria-hidden="true"></i> {s.dose}</span>}
                       {s.horario && <span><i className="ti ti-clock" aria-hidden="true"></i> {s.horario}</span>}
                       {s.data_inicio && (
                         <span><i className="ti ti-calendar" aria-hidden="true"></i> desde {dataBR(s.data_inicio)}</span>
@@ -644,15 +650,21 @@ function ModalAdicionarSuplemento({ favoritos, onClose, onSalvarBiblioteca, onSa
                         background: 'var(--white)',
                         display: 'flex', flexDirection: 'column', gap: 8,
                       }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                          <div>
-                            <label className="form-lbl">Posologia</label>
-                            <input
-                              value={sel.dose}
-                              onChange={e => updateSel(favId, 'dose', e.target.value)}
-                              placeholder="1 cápsula, 5g…"
-                            />
+                        {/* Posologia em linha inteira: é o campo que a paciente
+                            lê em destaque no card, e a instrução completa não
+                            cabe em meia largura. */}
+                        <div>
+                          <label className="form-lbl">Posologia</label>
+                          <input
+                            value={sel.dose}
+                            onChange={e => updateSel(favId, 'dose', e.target.value)}
+                            placeholder="1 cápsula durante as principais refeições 3x/dia"
+                          />
+                          <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 3 }}>
+                            Escreva a instrução completa — é isso que aparece em destaque no app dela.
                           </div>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                           <div>
                             <label className="form-lbl">Horário</label>
                             <input
@@ -661,8 +673,6 @@ function ModalAdicionarSuplemento({ favoritos, onClose, onSalvarBiblioteca, onSa
                               placeholder="Café da manhã…"
                             />
                           </div>
-                        </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                           <div>
                             <label className="form-lbl">Data de início</label>
                             <input
@@ -671,14 +681,14 @@ function ModalAdicionarSuplemento({ favoritos, onClose, onSalvarBiblioteca, onSa
                               onChange={e => updateSel(favId, 'data_inicio', e.target.value)}
                             />
                           </div>
-                          <div>
-                            <label className="form-lbl">Observação</label>
-                            <input
-                              value={sel.obs}
-                              onChange={e => updateSel(favId, 'obs', e.target.value)}
-                              placeholder="Tomar em jejum…"
-                            />
-                          </div>
+                        </div>
+                        <div>
+                          <label className="form-lbl">Observação</label>
+                          <input
+                            value={sel.obs}
+                            onChange={e => updateSel(favId, 'obs', e.target.value)}
+                            placeholder="Tomar em jejum…"
+                          />
                         </div>
                         <label style={{
                           display: 'flex', alignItems: 'center', gap: 8,
@@ -758,15 +768,20 @@ function ModalAdicionarSuplemento({ favoritos, onClose, onSalvarBiblioteca, onSa
                 autoFocus
               />
 
+              {/* Posologia em linha inteira: é o campo que a paciente lê em
+                  destaque no card, e a instrução completa não cabe em meia
+                  largura. */}
+              <label className="form-lbl" style={{ marginTop: 10 }}>Posologia</label>
+              <input
+                value={form.dose}
+                onChange={e => setForm({ ...form, dose: e.target.value })}
+                placeholder="1 cápsula durante as principais refeições 3x/dia"
+              />
+              <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 3 }}>
+                Escreva a instrução completa — é isso que aparece em destaque no app dela.
+              </div>
+
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 10 }}>
-                <div>
-                  <label className="form-lbl">Posologia</label>
-                  <input
-                    value={form.dose}
-                    onChange={e => setForm({ ...form, dose: e.target.value })}
-                    placeholder="1 cápsula, 5g…"
-                  />
-                </div>
                 <div>
                   <label className="form-lbl">Horário</label>
                   <input
@@ -775,9 +790,6 @@ function ModalAdicionarSuplemento({ favoritos, onClose, onSalvarBiblioteca, onSa
                     placeholder="Café da manhã, 08:00…"
                   />
                 </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 10 }}>
                 <div>
                   <label className="form-lbl">Data de início</label>
                   <input
@@ -786,15 +798,14 @@ function ModalAdicionarSuplemento({ favoritos, onClose, onSalvarBiblioteca, onSa
                     onChange={e => setForm({ ...form, data_inicio: e.target.value })}
                   />
                 </div>
-                <div>
-                  <label className="form-lbl">Observação (opcional)</label>
-                  <input
-                    value={form.obs}
-                    onChange={e => setForm({ ...form, obs: e.target.value })}
-                    placeholder="Tomar em jejum, com gordura…"
-                  />
-                </div>
               </div>
+
+              <label className="form-lbl" style={{ marginTop: 10 }}>Observação (opcional)</label>
+              <input
+                value={form.obs}
+                onChange={e => setForm({ ...form, obs: e.target.value })}
+                placeholder="Tomar em jejum, com gordura…"
+              />
 
               <label className="form-lbl" style={{ marginTop: 10 }}>Foto do suplemento (opcional)</label>
               <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 4 }}>
@@ -1083,30 +1094,30 @@ function ModalSuplemento({ s, onClose, onSave, busy }) {
         <input value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })}
           placeholder="Ex: Vitamina D3 2000UI" autoFocus />
 
+        {/* Posologia em linha inteira: é o campo que a paciente lê em destaque
+            no card, e a instrução completa não cabe em meia largura. */}
+        <label className="form-lbl" style={{ marginTop: 10 }}>Posologia</label>
+        <input value={form.dose ?? ''} onChange={e => setForm({ ...form, dose: e.target.value })}
+          placeholder="1 cápsula durante as principais refeições 3x/dia" />
+        <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 3 }}>
+          Escreva a instrução completa — é isso que aparece em destaque no app dela.
+        </div>
+
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 10 }}>
-          <div>
-            <label className="form-lbl">Posologia</label>
-            <input value={form.dose ?? ''} onChange={e => setForm({ ...form, dose: e.target.value })}
-              placeholder="1 cápsula, 5g…" />
-          </div>
           <div>
             <label className="form-lbl">Horário</label>
             <input value={form.horario ?? ''} onChange={e => setForm({ ...form, horario: e.target.value })}
               placeholder="Café da manhã, 08:00…" />
           </div>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 10 }}>
           <div>
             <label className="form-lbl">Data de início</label>
             <input type="date" value={form.data_inicio ?? ''} onChange={e => setForm({ ...form, data_inicio: e.target.value })} />
           </div>
-          <div>
-            <label className="form-lbl">Observação (opcional)</label>
-            <input value={form.obs ?? ''} onChange={e => setForm({ ...form, obs: e.target.value })}
-              placeholder="Tomar em jejum, com gordura…" />
-          </div>
         </div>
+
+        <label className="form-lbl" style={{ marginTop: 10 }}>Observação (opcional)</label>
+        <input value={form.obs ?? ''} onChange={e => setForm({ ...form, obs: e.target.value })}
+          placeholder="Tomar em jejum, com gordura…" />
 
         <label className="form-lbl" style={{ marginTop: 10 }}>Foto do suplemento (opcional)</label>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 4 }}>
@@ -1167,11 +1178,6 @@ function ModalSuplemento({ s, onClose, onSave, busy }) {
    Latin-1 (·, — e acentos estão cobertos).
    ============================================================ */
 
-// "Posologia" na tela é a coluna `dose`; `horario` completa a instrução.
-function posologiaDe(s) {
-  return [s.dose, s.horario].filter(Boolean).join(' · ');
-}
-
 // Lipeshot e Moroshot são fórmulas manipuladas: vão pra farmácia de
 // manipulação (ver 2026-07-23_suplementos_manipulado.sql), não pra
 // prescrição de loja parceira. Seguem ativos na lista da paciente —
@@ -1220,9 +1226,19 @@ const TINTA  = [40, 27, 6];      // #281b06  texto principal
 const OURO   = [196, 168, 130];  // #C4A882  selo e marca do rodapé
 const BRONZE = [160, 132, 86];   // #a08456  rótulos e registro
 const CINZA  = [141, 129, 117];  // #8d8175  data de emissão
-const SEPIA  = [107, 92, 62];    // #6b5c3e  posologia em itálico
+const SEPIA  = [107, 92, 62];    // #6b5c3e  horário e observação
 const LINHA  = [221, 213, 196];  // #DDD5C4  bordas do card e do rodapé
 const LINHA2 = [237, 230, 218];  // #EDE6DA  divisória entre suplementos
+
+// Métrica do item da lista. O cálculo de altura e o desenho consultam as MESMAS
+// constantes — se divergirem, o item invade o vizinho ou sobra espaço, e o erro
+// só aparece no papel.
+const FS_NOME = 10.5, LH_NOME = 12.6;
+const FS_POS  = 10,   LH_POS  = 13.5;
+const FS_MIN  = 8.25, LH_MIN  = 10.5;   // horário e observação
+const PAD_V   = 9.75;                   // respiro acima e abaixo do item
+const GAP_POS = 3;                      // nome → posologia
+const GAP_MIN = 2.25;                   // posologia → horário → observação
 
 // prescricao-suplementacao-maria-souza.pdf — sem acento e sem espaço, que é o
 // que atravessa Windows, Android e iOS sem o navegador reescrever o nome.
@@ -1339,31 +1355,73 @@ async function gerarPDFPrescricao({ pacienteNome, contato, suplementosAtivos }) 
 
   for (let i = 0; i < itens.length; i++) {
     const s = itens[i];
-    const pos = posologiaDe(s);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10.5);
-    const linhasNome = doc.splitTextToSize(String(s.nome ?? ''), W);
-    doc.setFont('helvetica', 'italic');
-    doc.setFontSize(9.4);
-    const linhasPos = pos ? doc.splitTextToSize(pos, W) : [];
 
-    const alturaItem = 9.75 + 10.5 + (linhasNome.length - 1) * 12.6
-      + (linhasPos.length ? 2.25 + linhasPos.length * 14.6 : 0) + 9.75;
+    // splitTextToSize mede com a fonte ATUAL do documento — por isso cada bloco
+    // tem seu setFont/setFontSize antes da medição, e não depois.
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(FS_NOME);
+    const linhasNome = doc.splitTextToSize(String(s.nome ?? ''), W);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(FS_POS);
+    const linhasPos = s.dose ? doc.splitTextToSize(String(s.dose), W) : [];
+
+    doc.setFontSize(FS_MIN);
+    const linhasHor = s.horario ? doc.splitTextToSize(String(s.horario), W) : [];
+
+    doc.setFont('helvetica', 'italic');
+    const linhasObs = s.obs ? doc.splitTextToSize(String(s.obs), W) : [];
+
+    // A fórmula reserva n * LH por bloco; o desenho consome FS + (n-1) * LH
+    // para chegar à última linha de base. A diferença é a folga do descendente
+    // da última linha — mesma regra que a versão anterior já usava.
+    const alturaItem =
+      PAD_V
+      + FS_NOME + (linhasNome.length - 1) * LH_NOME
+      + (linhasPos.length ? GAP_POS + linhasPos.length * LH_POS : 0)
+      + (linhasHor.length ? GAP_MIN + linhasHor.length * LH_MIN : 0)
+      + (linhasObs.length ? GAP_MIN + linhasObs.length * LH_MIN : 0)
+      + PAD_V;
 
     // page-break-inside: avoid POR ITEM, nunca na lista inteira — um bloco
     // grande com avoid é tudo-ou-nada e empurra meia página em branco (a
     // mesma armadilha que o CSS anterior comentava).
     caberOuQuebrar(alturaItem);
 
-    const base = y + 9.75 + 10.5;
+    // Linha de base corrente: cada bloco avança yb, em vez de cada um
+    // recalcular seu offset a partir do topo do item.
+    let yb = y + PAD_V + FS_NOME;
     linhasNome.forEach((linha, k) => {
-      escrever(linha, M, base + k * 12.6, { estilo: 'bold', tamanho: 10.5 });
+      escrever(linha, M, yb + k * LH_NOME, { estilo: 'bold', tamanho: FS_NOME });
     });
-    const basePos = base + (linhasNome.length - 1) * 12.6 + 2.25;
-    linhasPos.forEach((linha, k) => {
-      escrever(linha, M, basePos + 9.4 + k * 14.6,
-        { estilo: 'italic', tamanho: 9.4, cor: SEPIA });
-    });
+    yb += (linhasNome.length - 1) * LH_NOME;
+
+    // Posologia (a coluna `dose`): sem itálico e em TINTA cheia — é a instrução
+    // que a paciente vai seguir, não um comentário. Os defaults de escrever()
+    // já são normal/TINTA, então só o tamanho é passado.
+    if (linhasPos.length) {
+      yb += GAP_POS + FS_POS;
+      linhasPos.forEach((linha, k) => {
+        escrever(linha, M, yb + k * LH_POS, { tamanho: FS_POS });
+      });
+      yb += (linhasPos.length - 1) * LH_POS;
+    }
+
+    if (linhasHor.length) {
+      yb += GAP_MIN + FS_MIN;
+      linhasHor.forEach((linha, k) => {
+        escrever(linha, M, yb + k * LH_MIN, { tamanho: FS_MIN, cor: SEPIA });
+      });
+      yb += (linhasHor.length - 1) * LH_MIN;
+    }
+
+    // O itálico volta a ter dono: marca a observação, como nos dois cards.
+    if (linhasObs.length) {
+      yb += GAP_MIN + FS_MIN;
+      linhasObs.forEach((linha, k) => {
+        escrever(linha, M, yb + k * LH_MIN, { estilo: 'italic', tamanho: FS_MIN, cor: SEPIA });
+      });
+    }
 
     y += alturaItem;
     if (i < itens.length - 1) regua(y, LINHA2);   // .sup-item:last-child sem borda
