@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { dataBR, normalizarTelefone } from '../../lib/utils.js';
+import { iniciarTokenPush, avisarPaciente } from '../../lib/push.js';
 
 const HOJE_ISO = () => new Date().toISOString().slice(0, 10);
 
@@ -20,6 +21,9 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
   const [editar, setEditar] = useState(null);
   const [adicionarOpen, setAdicionarOpen] = useState(false);
   const [pdfFile, setPdfFile] = useState(null);
+  const [pdfTitulo, setPdfTitulo] = useState('');
+  const [pdfNota, setPdfNota] = useState('');            // posologia — vai para prescricoes.nota
+  const [pdfErro, setPdfErro] = useState(null);
   const [gerandoPdf, setGerandoPdf] = useState(false);   // chunk do jsPDF baixando
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState(null);
@@ -37,7 +41,7 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
         .eq('paciente_id', pacienteId)
         .gte('data', new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10))
         .order('data', { ascending: false }),
-      supabase.from('prescricoes').select('id, titulo, storage_path, created_at')
+      supabase.from('prescricoes').select('id, titulo, nota, storage_path, created_at')
         .eq('paciente_id', pacienteId).eq('tipo', 'suplementacao')
         .order('created_at', { ascending: false }),
       supabase.from('envios_farmacia').select('enviado_em')
@@ -191,22 +195,47 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
   }
 
   async function subirPdf() {
-    if (!pdfFile) return;
+    const titulo = pdfTitulo.trim();
+    if (!pdfFile || !titulo) return;
+    setPdfErro(null);
     setBusy(true);
-    const ext = (pdfFile.name.split('.').pop() || 'pdf').toLowerCase();
-    const titulo = pdfFile.name.replace(/\.[^.]+$/, '');
+
+    // Antes do primeiro await de Supabase, storage incluído: getSession disputa
+    // o mesmo lock de auth (ver iniciarTokenPush em push.js).
+    const tokenPush = iniciarTokenPush();
+
+    const ext  = (pdfFile.name.split('.').pop() || 'pdf').toLowerCase();
     const path = `${pacienteId}/${Date.now()}-suplementacao.${ext}`;
+
     const { error: upErr } = await supabase.storage.from('prescricoes')
       .upload(path, pdfFile, { contentType: pdfFile.type });
-    if (upErr) { setBusy(false); alert('Erro: ' + upErr.message); return; }
-    await supabase.from('prescricoes').insert({
+    if (upErr) { setBusy(false); setPdfErro('Upload falhou: ' + upErr.message); return; }
+
+    const { error: insErr } = await supabase.from('prescricoes').insert({
       paciente_id: pacienteId, nutri_id: nutriId,
-      tipo: 'suplementacao', titulo, storage_path: path,
+      tipo: 'suplementacao',
+      titulo,
+      nota: pdfNota.trim() || null,
+      storage_path: path,
     });
+    if (insErr) {
+      // Rollback: sem isto o PDF fica no bucket sem linha que o aponte —
+      // invisível nas duas telas e impossível de apagar pela interface.
+      await supabase.storage.from('prescricoes').remove([path]);
+      setBusy(false);
+      setPdfErro('Erro ao gravar: ' + insErr.message);
+      return;
+    }
+
+    avisarPaciente(tokenPush, pacienteId, 'prescricao');
+
     setBusy(false);
     setPdfFile(null);
+    setPdfTitulo('');
+    setPdfNota('');
     const inp = document.getElementById('sup-pdf-file');
     if (inp) inp.value = '';
+    setFeedback('Prescrição enviada para a paciente!');
     carregar();
   }
 
@@ -447,14 +476,30 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
           <div style={{
             border: '1.5px dashed var(--border)', borderRadius: 8,
             padding: 12, marginBottom: 10,
-            display: 'flex', gap: 8, alignItems: 'center',
           }}>
-            <input id="sup-pdf-file" type="file" accept="application/pdf"
-              onChange={e => setPdfFile(e.target.files?.[0] ?? null)}
-              style={{ flex: 1, padding: 4 }} />
-            <button className="btn" onClick={subirPdf} disabled={!pdfFile || busy}>
-              <i className="ti ti-upload" aria-hidden="true"></i> Subir
-            </button>
+            <input value={pdfTitulo} onChange={e => setPdfTitulo(e.target.value)}
+              placeholder="Título — ex: Fórmula manipulada · setembro"
+              style={{ width: '100%', boxSizing: 'border-box', marginBottom: 8 }} />
+
+            {/* A posologia é o que a paciente lê na tela dela sem precisar
+                abrir o PDF. Vai para prescricoes.nota. */}
+            <textarea value={pdfNota} onChange={e => setPdfNota(e.target.value)}
+              rows={3}
+              placeholder="Posologia e orientações — ex: 1 cápsula em jejum, 30 min antes do café"
+              style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical', marginBottom: 8 }} />
+
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <input id="sup-pdf-file" type="file" accept="application/pdf"
+                onChange={e => setPdfFile(e.target.files?.[0] ?? null)}
+                style={{ flex: 1, padding: 4 }} />
+              <button className="btn" onClick={subirPdf} disabled={!pdfFile || !pdfTitulo.trim() || busy}>
+                <i className="ti ti-upload" aria-hidden="true"></i> {busy ? 'Enviando…' : 'Enviar'}
+              </button>
+            </div>
+
+            {pdfErro && (
+              <div style={{ marginTop: 8, fontSize: 12, color: 'var(--red)' }}>{pdfErro}</div>
+            )}
           </div>
 
           {pdfs.length === 0 ? (
@@ -470,6 +515,13 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
                   <i className="ti ti-file-text" style={{ fontSize: 16, color: 'var(--text3)' }} aria-hidden="true"></i>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13, fontWeight: 500 }}>{pdf.titulo}</div>
+                    {/* A posologia aparece aqui para você conferir exatamente o
+                        que a paciente está lendo na tela dela. */}
+                    {pdf.nota && (
+                      <div style={{ fontSize: 11, color: 'var(--text2)', fontStyle: 'italic', marginTop: 2 }}>
+                        {pdf.nota}
+                      </div>
+                    )}
                     <div style={{ fontSize: 11, color: 'var(--text3)' }}>Enviado em {dataBR(pdf.created_at)}</div>
                   </div>
                   <button onClick={() => abrirPdf(pdf)} className="btn-outline" style={{ fontSize: 11, padding: '3px 8px' }}>

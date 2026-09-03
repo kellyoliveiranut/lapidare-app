@@ -28,6 +28,7 @@ export default function Suplementos() {
   const [suplementos, setSuplementos] = useState(null);
   const [logs, setLogs] = useState([]);
   const [biblioItems, setBiblioItems] = useState([]);
+  const [prescricoes, setPrescricoes] = useState([]);
   const [erro, setErro] = useState(null);
   // { url, nome } do suplemento com a foto aberta em tamanho grande
   const [fotoAberta, setFotoAberta] = useState(null);
@@ -64,6 +65,16 @@ export default function Suplementos() {
     } else {
       if (!signal.cancelled) setBiblioItems([]);
     }
+
+    // Prescrições de suplementação enviadas pela nutri. Bucket privado, então a
+    // linha traz só o caminho — a URL assinada é pedida na hora de abrir.
+    const { data: presc } = await supabase
+      .from('prescricoes')
+      .select('id, titulo, nota, storage_path, created_at')
+      .eq('paciente_id', pacienteId)
+      .eq('tipo', 'suplementacao')
+      .order('created_at', { ascending: false });
+    if (!signal.cancelled) setPrescricoes(presc ?? []);
   }
 
   useEffect(() => {
@@ -97,6 +108,17 @@ export default function Suplementos() {
       return;
     }
     carregar({ cancelled: false });
+  }
+
+  async function abrirPrescricao(p) {
+    const { data } = await supabase.storage.from('prescricoes')
+      .createSignedUrl(p.storage_path, 3600);
+    if (data?.signedUrl) {
+      window.open(data.signedUrl, '_blank', 'noopener');
+    } else {
+      setErro('Não consegui abrir a prescrição, tente novamente');
+      setTimeout(() => setErro(null), 4000);
+    }
   }
 
   async function abrirBiblio(item) {
@@ -140,7 +162,9 @@ export default function Suplementos() {
     return <div style={{ padding: 24, textAlign: 'center', color: 'var(--muted)' }}>Carregando…</div>;
   }
 
-  if (suplementos.length === 0 && biblioItems.length === 0) {
+  // prescricoes entra na conta: quem recebeu só o PDF, sem suplemento
+  // cadastrado nem material, cairia no vazio e nunca veria a prescrição.
+  if (suplementos.length === 0 && biblioItems.length === 0 && prescricoes.length === 0) {
     return (
       <div style={{ padding: '40px 16px', textAlign: 'center' }}>
         <i className="ti ti-pill" style={{ fontSize: 40, color: 'var(--muted-2)' }} aria-hidden="true"></i>
@@ -300,6 +324,48 @@ export default function Suplementos() {
                   })}
                 </div>
               </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Prescrição de suplementação enviada pela nutri. Vem antes dos
+          materiais: é o documento individual dela, não acervo da biblioteca.
+          A posologia fica no card, para ela ler sem abrir o PDF. */}
+      {prescricoes.length > 0 && (
+        <>
+          <div style={{ fontSize: 10, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--muted)', fontWeight: 500, margin: '4px 4px 8px' }}>
+            Prescrição da Dra.
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
+            {prescricoes.map(p => (
+              <button key={p.id} onClick={() => abrirPrescricao(p)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  padding: 14, borderRadius: 12,
+                  background: 'var(--paper)', border: '0.5px solid var(--hair)',
+                  cursor: 'pointer', textAlign: 'left',
+                  fontFamily: 'var(--font-sans)',
+                }}>
+                <div style={{
+                  width: 40, height: 40, borderRadius: 10, flexShrink: 0,
+                  background: 'var(--bg-soft)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <i className="ti ti-file-text" style={{ fontSize: 22, color: 'var(--gold-deep)' }} aria-hidden="true"></i>
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--ink)', marginBottom: 2 }}>
+                    {p.titulo}
+                  </div>
+                  {p.nota && (
+                    <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.4 }}>
+                      {p.nota}
+                    </div>
+                  )}
+                </div>
+                <i className="ti ti-download" style={{ fontSize: 16, color: 'var(--muted)' }} aria-hidden="true"></i>
+              </button>
             ))}
           </div>
         </>
