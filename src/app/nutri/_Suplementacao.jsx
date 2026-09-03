@@ -9,7 +9,6 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
   const { profile } = useSession();
   const [suplementos, setSuplementos] = useState(null);
   const [logs, setLogs] = useState([]);
-  const [pdfs, setPdfs] = useState([]);
   const [contato, setContato] = useState(null);          // telefone/email pra prévia
   const [ultimoEnvio, setUltimoEnvio] = useState(null);  // último envio à farmácia
   const [enviarFarmaciaOpen, setEnviarFarmaciaOpen] = useState(false);
@@ -19,7 +18,6 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
   const [favoritos, setFavoritos] = useState([]);
   const [editar, setEditar] = useState(null);
   const [adicionarOpen, setAdicionarOpen] = useState(false);
-  const [pdfFile, setPdfFile] = useState(null);
   const [gerandoPdf, setGerandoPdf] = useState(false);   // chunk do jsPDF baixando
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState(null);
@@ -31,15 +29,12 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
   }, [feedback]);
 
   async function carregar(signal = { cancelled: false }) {
-    const [supRes, logRes, pdfRes, envRes, pacRes] = await Promise.all([
+    const [supRes, logRes, envRes, pacRes] = await Promise.all([
       supabase.from('suplementos').select('id, nome, dose, horario, obs, foto_url, ativo, data_inicio, manipulado').eq('paciente_id', pacienteId).order('ordem'),
       supabase.from('suplementos_logs').select('tomado, data, suplemento_id')
         .eq('paciente_id', pacienteId)
         .gte('data', new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10))
         .order('data', { ascending: false }),
-      supabase.from('prescricoes').select('id, titulo, storage_path, created_at')
-        .eq('paciente_id', pacienteId).eq('tipo', 'suplementacao')
-        .order('created_at', { ascending: false }),
       supabase.from('envios_farmacia').select('enviado_em')
         .eq('paciente_id', pacienteId)
         .order('enviado_em', { ascending: false }).limit(1).maybeSingle(),
@@ -48,7 +43,6 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
     if (signal.cancelled) return;
     setSuplementos(supRes.data ?? []);
     setLogs(logRes.data ?? []);
-    setPdfs(pdfRes.data ?? []);
     setUltimoEnvio(envRes.data ?? null);
     setContato(pacRes.data ?? null);
   }
@@ -190,26 +184,6 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
     carregarFavoritos();
   }
 
-  async function subirPdf() {
-    if (!pdfFile) return;
-    setBusy(true);
-    const ext = (pdfFile.name.split('.').pop() || 'pdf').toLowerCase();
-    const titulo = pdfFile.name.replace(/\.[^.]+$/, '');
-    const path = `${pacienteId}/${Date.now()}-suplementacao.${ext}`;
-    const { error: upErr } = await supabase.storage.from('prescricoes')
-      .upload(path, pdfFile, { contentType: pdfFile.type });
-    if (upErr) { setBusy(false); alert('Erro: ' + upErr.message); return; }
-    await supabase.from('prescricoes').insert({
-      paciente_id: pacienteId, nutri_id: nutriId,
-      tipo: 'suplementacao', titulo, storage_path: path,
-    });
-    setBusy(false);
-    setPdfFile(null);
-    const inp = document.getElementById('sup-pdf-file');
-    if (inp) inp.value = '';
-    carregar();
-  }
-
   async function enviarParaFarmacia(formula) {
     setEnviandoFarmacia(true);
     try {
@@ -231,19 +205,6 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
     } finally {
       setEnviandoFarmacia(false);
     }
-  }
-
-  async function abrirPdf(pdf) {
-    const { data, error } = await supabase.storage.from('prescricoes').createSignedUrl(pdf.storage_path, 120);
-    if (error) return alert('Erro: ' + error.message);
-    window.open(data.signedUrl, '_blank', 'noopener');
-  }
-
-  async function excluirPdf(pdf) {
-    if (!window.confirm(`Excluir PDF "${pdf.titulo}"?`)) return;
-    await supabase.storage.from('prescricoes').remove([pdf.storage_path]);
-    await supabase.from('prescricoes').delete().eq('id', pdf.id);
-    carregar();
   }
 
   const aderencia = useMemo(() => {
@@ -439,53 +400,6 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
             )}
           </div>
 
-          <div style={{
-            marginTop: 18, fontSize: 10, letterSpacing: 1, textTransform: 'uppercase',
-            color: 'var(--text3)', fontWeight: 500, marginBottom: 8,
-          }}>Prescrição em PDF</div>
-
-          <div style={{
-            border: '1.5px dashed var(--border)', borderRadius: 8,
-            padding: 12, marginBottom: 10,
-            display: 'flex', gap: 8, alignItems: 'center',
-          }}>
-            <input id="sup-pdf-file" type="file" accept="application/pdf"
-              onChange={e => setPdfFile(e.target.files?.[0] ?? null)}
-              style={{ flex: 1, padding: 4 }} />
-            <button className="btn" onClick={subirPdf} disabled={!pdfFile || busy}>
-              <i className="ti ti-upload" aria-hidden="true"></i> Subir
-            </button>
-          </div>
-
-          {pdfs.length === 0 ? (
-            <div style={{ fontSize: 11, color: 'var(--text3)' }}>Nenhuma prescrição em PDF enviada.</div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {pdfs.map(pdf => (
-                <div key={pdf.id} style={{
-                  display: 'flex', gap: 10, alignItems: 'center',
-                  padding: 10, borderRadius: 8, background: 'var(--white)',
-                  border: '0.5px solid var(--border)',
-                }}>
-                  <i className="ti ti-file-text" style={{ fontSize: 16, color: 'var(--text3)' }} aria-hidden="true"></i>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 500 }}>{pdf.titulo}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text3)' }}>Enviado em {dataBR(pdf.created_at)}</div>
-                  </div>
-                  <button onClick={() => abrirPdf(pdf)} className="btn-outline" style={{ fontSize: 11, padding: '3px 8px' }}>
-                    <i className="ti ti-eye" aria-hidden="true"></i> Abrir
-                  </button>
-                  <button onClick={() => excluirPdf(pdf)}
-                    style={{
-                      background: 'none', border: '0.5px solid var(--red)',
-                      borderRadius: 6, padding: '3px 8px', color: 'var(--red)', cursor: 'pointer',
-                    }}>
-                    <i className="ti ti-trash" aria-hidden="true"></i>
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       </div>
 
