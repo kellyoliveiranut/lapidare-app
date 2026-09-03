@@ -103,7 +103,6 @@ exports.handler = async (event) => {
         material:         { title: 'Essentia', body: 'Sua nutri compartilhou um novo material', url: '/paciente/ebooks' },
         plano:            { title: 'Essentia', body: 'Seu plano alimentar foi atualizado', url: '/paciente/plano' },
         comentario_prato: { title: 'Essentia', body: 'Sua nutri comentou seu prato', url: '/paciente/feed' },
-        prescricao:       { title: 'Essentia', body: 'Sua nutri enviou uma nova prescrição de suplementos', url: '/paciente/suplementos' },
       };
 
       const payload = PAYLOADS[kind] ?? PAYLOADS.mensagem;
