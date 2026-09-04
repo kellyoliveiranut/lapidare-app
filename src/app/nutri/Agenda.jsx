@@ -555,6 +555,21 @@ export default function Agenda() {
   const abrirRemarcacao = (consulta) => setModalState({ open: true, consulta, pacienteInicialId: null, remarcando: true });
   const fechar = () => setModalState({ open: false, consulta: null, pacienteInicialId: null, remarcando: false });
 
+  // Busca ampla da barra de ações: escolher a paciente abre o modal de consulta
+  // NOVA já com ela dentro (`consulta: null` é o que faz o modal ser criação).
+  //
+  // Mesmo caminho que o cadastro rápido já usa em pacienteCriada() — o
+  // pacienteInicialId atravessa o render e chega no `pacienteInicial` do
+  // ConsultaModal, que dali herda a modalidade do perfil, sugere o local e
+  // dispara a contagem que sugere o número da consulta. Nada disso precisa ser
+  // repetido aqui.
+  //
+  // Sem `await carregarPacientes()`, ao contrário do cadastro rápido: lá a
+  // paciente tinha acabado de nascer e ainda não estava em `pacientes`; aqui
+  // ela veio da própria lista.
+  const agendarPara = (pacienteId) =>
+    setModalState({ open: true, consulta: null, pacienteInicialId: pacienteId, remarcando: false });
+
   // Depois de salvar/remarcar as DUAS listas precisam voltar do banco. Só
   // carregar() deixaria o painel de lembretes com o horário velho até o poll
   // de 5 minutos — e é dele que sai o texto do WhatsApp, então o lembrete iria
@@ -607,7 +622,31 @@ export default function Agenda() {
         />
       )}
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 14 }}>
+      {/* flexWrap + o flex:1 da busca: em tela estreita o campo desce para a
+          linha de cima inteiro, em vez de os dois botões o espremerem a nada.
+          O marginRight:auto é o que mantém os botões colados à direita quando
+          tudo cabe numa linha só. */}
+      <div style={{
+        display: 'flex', justifyContent: 'flex-end', alignItems: 'center',
+        gap: 8, marginBottom: 14, flexWrap: 'wrap',
+      }}>
+        {/* Busca ampla — qualquer paciente com perfil, não só as de "A definir".
+            É atalho para "Nova consulta", não filtro da tela: por isso mora na
+            barra de AÇÕES e não acima do título, que sugeriria filtrar o que
+            está abaixo. Escondida sem paciente nenhuma, pelo mesmo motivo do
+            disabled do botão ao lado — não haveria o que oferecer, e a tela já
+            mostra o aviso logo abaixo. */}
+        {pacientes.length > 0 && (
+          <div style={{ flex: '1 1 220px', minWidth: 200, maxWidth: 380, marginRight: 'auto' }}>
+            <SelectPacienteBusca
+              pacientes={pacientes}
+              value=""
+              onChange={agendarPara}
+              limparAoEscolher
+              placeholder="Agendar para uma paciente…"
+            />
+          </div>
+        )}
         <button className="btn-outline" onClick={() => setNovaPacienteOpen(true)}>
           <i className="ti ti-user-plus" style={{ fontSize: 15 }} aria-hidden="true"></i> Nova paciente
         </button>
@@ -1607,14 +1646,21 @@ const destaqueRemarcacao = {
  * O dropdown é absoluto dentro do corpo do modal, que tem overflowY:auto.
  * Funciona porque Paciente é o PRIMEIRO campo — os 220px abrem na área
  * visível. Se um dia este campo descer na ordem, isto precisa virar portal.
+ *
+ * `limparAoEscolher` inverte a regra 3, e existe para o segundo uso: a busca
+ * ampla da barra de ações, que é LANÇADOR e não campo. Lá não há seleção
+ * persistente — escolher dispara o modal e o campo volta a vazio. Sem isso ele
+ * ficaria marcado com o nome da última paciente agendada, sugerindo um estado
+ * que não existe. Default false, então o uso de dentro do modal não muda.
  */
-function SelectPacienteBusca({ pacientes, value, onChange, disabled }) {
+function SelectPacienteBusca({ pacientes, value, onChange, disabled, limparAoEscolher = false, placeholder }) {
   const [aberto, setAberto] = useState(false);
   const [termo, setTermo] = useState('');
   const [hoverId, setHoverId] = useState(null);
   const wrapRef = useRef(null);
 
-  const selecionada = pacientes.find(p => p.id === value) ?? null;
+  // No modo lançador não existe seleção: o campo fechado volta ao placeholder.
+  const selecionada = limparAoEscolher ? null : (pacientes.find(p => p.id === value) ?? null);
 
   const filtradas = useMemo(() => {
     const q = normalizarBusca(termo);
@@ -1660,7 +1706,7 @@ function SelectPacienteBusca({ pacientes, value, onChange, disabled }) {
         onChange={e => { setTermo(e.target.value); setAberto(true); }}
         onFocus={abrir}
         onClick={abrir}
-        placeholder={aberto ? 'Digite para buscar…' : 'Escolha a paciente'}
+        placeholder={aberto ? 'Digite para buscar…' : (placeholder ?? 'Escolha a paciente')}
         style={{ paddingRight: 32 }}
         role="combobox"
         aria-expanded={aberto}
