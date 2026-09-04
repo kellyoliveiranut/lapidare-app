@@ -157,6 +157,13 @@ const JANELA_LEMBRETE_DIAS = 7;
 // Quantos pendentes o painel mostra antes de cortar com "Mostrar mais".
 const LIMITE_PENDENTES = 8;
 
+// Acima de quantas linhas a seção "A definir" ganha campo de busca. Abaixo
+// disso a lista cabe num relance, e o campo seria só mais um ponto de tabulação
+// entre o cabeçalho e as linhas. Medido no banco em 2026-09-04: 42 linhas para
+// 24 pacientes. Menor que o limiar da Biblioteca de suplementos porque lá o
+// grid tem foto e o reconhecimento é visual; aqui é lista de texto.
+const LIMIAR_BUSCA_A_DEFINIR = 8;
+
 // O painel recolhido persiste por dispositivo, como o banner de novidades — a
 // alternativa era uma coluna em `nutris` e um update no banco a cada clique.
 // Sem regra automática: fica como a nutri deixou, inclusive numa semana em que
@@ -201,6 +208,7 @@ export default function Agenda() {
   const [pacientes, setPacientes] = useState([]);
   const [locais, setLocais] = useState([]);
   const [modalState, setModalState] = useState({ open: false, consulta: null, pacienteInicialId: null, remarcando: false });
+  const [buscaADefinir, setBuscaADefinir] = useState('');   // filtro da seção "A definir"
 
   // Dias recolhidos na lista "Todas as próximas". Todos nascem EXPANDIDOS:
   // recolher é escolha da nutri, e nascer com consulta escondida geraria
@@ -458,6 +466,15 @@ export default function Agenda() {
   const passadas = ativas.filter(c => c.data_hora && c.data_hora < agora);
   const aDefinir = ativas.filter(c => !c.data_hora);
   const canceladas = (consultas ?? []).filter(c => c.status === 'cancelada');
+
+  // Busca da seção "A definir", por nome da paciente. Sem useMemo pela mesma
+  // razão do `diasFuturos` logo abaixo: `aDefinir` nasce de um filter novo a
+  // cada render, então a memoização nunca acertaria o cache — pagaria a
+  // comparação de dependências sem jamais reusar. São dezenas de linhas.
+  const qADefinir = normalizarBusca(buscaADefinir);
+  const aDefinirFiltradas = qADefinir
+    ? aDefinir.filter(c => normalizarBusca(c.paciente?.nome).includes(qADefinir))
+    : aDefinir;
   // Pendente de verdade = os DOIS campos nulos. Quem a nutri marcou como "não
   // confirmou" já teve resposta; contá-la aqui pediria uma ação que ela já fez.
   const aConfirmar = futuras.filter(c =>
@@ -679,10 +696,34 @@ export default function Agenda() {
         <>
           {aDefinir.length > 0 && (
             <>
-              <div className="section-label" style={{ marginTop: 20 }}>A definir ({aDefinir.length})</div>
+              {/* Com filtro ativo o contador vira "3 de 42": sem isso ele diria
+                  42 com três linhas na tela. Sem busca, é o mesmo de antes. */}
+              <div className="section-label" style={{ marginTop: 20 }}>
+                A definir ({qADefinir ? `${aDefinirFiltradas.length} de ${aDefinir.length}` : aDefinir.length})
+              </div>
+
+              {aDefinir.length > LIMIAR_BUSCA_A_DEFINIR && (
+                <input
+                  value={buscaADefinir}
+                  onChange={e => setBuscaADefinir(e.target.value)}
+                  placeholder="Buscar paciente…"
+                  style={{ marginBottom: 8 }}
+                />
+              )}
+
               <div className="card" style={{ padding: 0 }}>
-                {aDefinir.map((c, i) => (
-                  <ConsultaRow key={c.id} c={c} isLast={i === aDefinir.length - 1} onClick={() => abrirEdit(c)} />
+                {/* A seção só existe com aDefinir.length > 0, mas o filtro pode
+                    zerar a lista mesmo assim — sem este ramo o cartão viraria
+                    uma caixa de altura zero e pareceria defeito. */}
+                {aDefinirFiltradas.length === 0 ? (
+                  <div style={{ padding: 16, textAlign: 'center', color: 'var(--text3)', fontSize: 14 }}>
+                    Nenhuma paciente encontrada.
+                  </div>
+                ) : aDefinirFiltradas.map((c, i) => (
+                  // isLast conta a lista FILTRADA: com o original, a última
+                  // linha visível ficaria com borda e o cartão terminaria num
+                  // risco solto.
+                  <ConsultaRow key={c.id} c={c} isLast={i === aDefinirFiltradas.length - 1} onClick={() => abrirEdit(c)} />
                 ))}
               </div>
             </>
