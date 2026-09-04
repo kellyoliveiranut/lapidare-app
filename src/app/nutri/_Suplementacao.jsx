@@ -5,6 +5,54 @@ import { dataBR, normalizarTelefone, normalizarBusca } from '../../lib/utils.js'
 
 const HOJE_ISO = () => new Date().toISOString().slice(0, 10);
 
+/**
+ * Os três recortes possíveis do PDF de prescrição, e a ÚNICA definição da
+ * regra no arquivo.
+ *
+ * A fonte de verdade é `suplementos.manipulado` — o booleano que a nutri marca
+ * na caixinha "É fórmula manipulada (vai pra farmácia)". Antes disso o PDF
+ * decidia por NOME, com uma lista fixa `['lipeshot', 'moroshot']`, enquanto o
+ * envio à farmácia já decidia pelo campo. As duas regras só coincidiam porque o
+ * backfill de 2026-07-23 marcou true exatamente para aqueles dois nomes: bastou
+ * a Kelly cadastrar um Lipeshot novo sem marcar a caixinha para as respostas
+ * divergirem (ia pro PDF, não ia pra farmácia). As 2 linhas divergentes foram
+ * corrigidas em 2026-09-04_suplementos_manipulado_backfill.sql, medido
+ * divergentes_ativos = 0, e a regra por nome morreu junto.
+ *
+ * A ordem importa: é ela que decide a pré-seleção do modal, que cai no primeiro
+ * modo não-vazio. Como só 22 dos 306 ativos são manipulados, a maioria das
+ * pacientes abre em 'suplementacao' e a nutri confirma com um clique.
+ */
+const MODOS_PDF = [
+  {
+    id: 'suplementacao',
+    label: 'Suplementação',
+    desc: 'Só os que não são fórmula manipulada',
+    filtro: s => !s.manipulado,
+    titulo: 'Prescrição de Suplementação',
+    secao: 'Suplementos prescritos',
+    slug: 'prescricao-suplementacao',
+  },
+  {
+    id: 'manipulados',
+    label: 'Manipulados',
+    desc: 'Só as fórmulas que vão pra farmácia',
+    filtro: s => s.manipulado,
+    titulo: 'Prescrição de Fórmulas Manipuladas',
+    secao: 'Fórmulas manipuladas',
+    slug: 'prescricao-manipulados',
+  },
+  {
+    id: 'ambos',
+    label: 'Ambos',
+    desc: 'A prescrição completa',
+    filtro: () => true,
+    titulo: 'Prescrição de Suplementação e Manipulados',
+    secao: 'Suplementos e fórmulas',
+    slug: 'prescricao-completa',
+  },
+];
+
 export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
   const { profile } = useSession();
   const [suplementos, setSuplementos] = useState(null);
@@ -19,6 +67,7 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
   const [editar, setEditar] = useState(null);
   const [adicionarOpen, setAdicionarOpen] = useState(false);
   const [gerandoPdf, setGerandoPdf] = useState(false);   // chunk do jsPDF baixando
+  const [modoPdfOpen, setModoPdfOpen] = useState(false); // escolha do recorte do PDF
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState(null);
 
@@ -222,7 +271,10 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
 
   const ativos = (suplementos ?? []).filter(s => s.ativo);
   const manipuladosAtivos = ativos.filter(s => s.manipulado);
-  const suplementosLoja = filtrarParaLoja(ativos);
+  // Prescrição de loja é o oposto de manipulado: o que a paciente compra pronta.
+  // Era `filtrarParaLoja(ativos)`, que excluía por nome; agora é o mesmo campo
+  // que manda no resto da tela.
+  const suplementosLoja = ativos.filter(s => !s.manipulado);
 
   function abrirEnviarFarmacia() {
     if (manipuladosAtivos.length === 0) {
@@ -242,10 +294,20 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
 
   // gerarPDFPrescricao virou async por causa do import dinâmico do jsPDF: sem o
   // try/catch aqui, uma falha viraria promise rejeitada silenciosa.
-  async function gerarPdf() {
+  //
+  // O recorte é decidido AQUI e o PDF recebe a lista pronta. Antes o
+  // gerarPDFPrescricao re-filtrava por conta própria e quem chamava não sabia
+  // disso — duas decisões em lugares diferentes para a mesma pergunta.
+  async function gerarPdf(modo) {
+    setModoPdfOpen(false);
     setGerandoPdf(true);
     try {
-      await gerarPDFPrescricao({ pacienteNome, contato, suplementosAtivos: ativos });
+      await gerarPDFPrescricao({
+        pacienteNome,
+        contato,
+        suplementosAtivos: ativos.filter(modo.filtro),
+        modo,
+      });
     } catch (e) {
       alert('Erro ao gerar o PDF: ' + (e?.message ?? 'tente novamente'));
     } finally {
@@ -388,7 +450,7 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
             <button className="btn-outline" onClick={abrirEnviarFarmacia}>
               <i className="ti ti-send" aria-hidden="true"></i> Enviar para farmácia
             </button>
-            <button className="btn-outline" onClick={gerarPdf} disabled={gerandoPdf}>
+            <button className="btn-outline" onClick={() => setModoPdfOpen(true)} disabled={gerandoPdf || ativos.length === 0}>
               <i className="ti ti-file-text" aria-hidden="true"></i>
               {gerandoPdf ? ' Gerando…' : ' Gerar PDF'}
             </button>
@@ -449,7 +511,120 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
           onClose={() => setEnviarLojaOpen(false)}
         />
       )}
+
+      {modoPdfOpen && (
+        <ModalModoPdf
+          ativos={ativos}
+          onClose={() => setModoPdfOpen(false)}
+          onGerar={gerarPdf}
+        />
+      )}
     </>
+  );
+}
+
+
+/* ============================================================
+   MODAL — RECORTE DO PDF DE PRESCRIÇÃO
+
+   Existe por causa de um número: só 22 dos 306 suplementos
+   ativos são manipulados, espalhados em 11 pacientes. Ou seja,
+   na maioria dos perfis o modo "Manipulados" sai VAZIO. Um
+   alert depois do clique diria isso tarde demais; aqui a
+   contagem aparece em cada opção e a vazia nasce desabilitada,
+   então a nutri vê o porquê antes de escolher.
+   ============================================================ */
+
+function ModalModoPdf({ ativos, onClose, onGerar }) {
+  // Contagem por modo, calculada uma vez. É ela que decide o que fica
+  // desabilitado e qual opção nasce marcada.
+  const opcoes = MODOS_PDF.map(m => ({ ...m, n: ativos.filter(m.filtro).length }));
+
+  // Pré-seleção no primeiro modo não-vazio, na ordem de MODOS_PDF. Sem
+  // paciente manipulado — o caso comum — isso cai em 'suplementacao' e a nutri
+  // só confirma. O `?? opcoes[0]` nunca deveria ser alcançado, porque o botão
+  // que abre este modal já exige ativos.length > 0; fica como rede.
+  const inicial = opcoes.find(o => o.n > 0) ?? opcoes[0];
+  const [escolhidoId, setEscolhidoId] = useState(inicial.id);
+
+  const escolhido = opcoes.find(o => o.id === escolhidoId) ?? inicial;
+
+  return (
+    <div onClick={onClose} style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      zIndex: 110, padding: 16,
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: 'var(--white)', borderRadius: 12,
+        maxWidth: 440, width: '100%', padding: 20,
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+          <div style={{ fontSize: 16, fontWeight: 500 }}>Gerar PDF de prescrição</div>
+          <button onClick={onClose} style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            fontSize: 18, color: 'var(--text3)', padding: 4,
+          }}>
+            <i className="ti ti-x" aria-hidden="true"></i>
+          </button>
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 14 }}>
+          O que entra no documento. Todos saem com a posologia.
+        </div>
+
+        <div role="radiogroup" aria-label="Recorte do PDF" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {opcoes.map(o => {
+            const vazio = o.n === 0;
+            const marcado = o.id === escolhidoId;
+            return (
+              <label
+                key={o.id}
+                style={{
+                  display: 'flex', alignItems: 'flex-start', gap: 10,
+                  padding: '12px 14px', borderRadius: 10,
+                  cursor: vazio ? 'default' : 'pointer',
+                  opacity: vazio ? 0.5 : 1,
+                  background: marcado ? 'var(--amber-bg, #fdf8ee)' : 'var(--bg2)',
+                  border: marcado ? '2px solid var(--amber, #c9a96e)' : '0.5px solid var(--border)',
+                  // Compensa a diferença de 1,5px entre as duas bordas, senão a
+                  // opção marcada empurra as outras ao trocar a seleção.
+                  margin: marcado ? 0 : '1.5px',
+                }}>
+                <input
+                  type="radio"
+                  name="modo-pdf"
+                  checked={marcado}
+                  disabled={vazio}
+                  onChange={() => setEscolhidoId(o.id)}
+                  style={{ marginTop: 2 }}
+                />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'baseline' }}>
+                    <span style={{ fontSize: 14, fontWeight: 500 }}>{o.label}</span>
+                    <span style={{ fontSize: 12, color: 'var(--text3)', whiteSpace: 'nowrap' }}>
+                      {vazio ? 'nenhum' : `${o.n} ${o.n === 1 ? 'item' : 'itens'}`}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>{o.desc}</div>
+                </div>
+              </label>
+            );
+          })}
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+          <button className="btn-outline" style={{ flex: 1, justifyContent: 'center' }} onClick={onClose}>
+            Cancelar
+          </button>
+          <button
+            className="btn" style={{ flex: 1, justifyContent: 'center' }}
+            onClick={() => onGerar(escolhido)}
+            disabled={escolhido.n === 0}>
+            <i className="ti ti-file-text" aria-hidden="true"></i> Gerar PDF
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -1218,24 +1393,6 @@ function ModalSuplemento({ s, onClose, onSave, busy }) {
    Latin-1 (·, — e acentos estão cobertos).
    ============================================================ */
 
-// Lipeshot e Moroshot são fórmulas manipuladas: vão pra farmácia de
-// manipulação (ver 2026-07-23_suplementos_manipulado.sql), não pra
-// prescrição de loja parceira. Seguem ativos na lista da paciente —
-// só não entram nas duas saídas de prescrição de loja (PDF e WhatsApp).
-// Casa por inclusão, igual ao ilike '%...%' do backfill: além dos dois
-// isolados existe o combinado "Moroshot + Lipeshot" cadastrado.
-const FORA_DA_PRESCRICAO_LOJA = ['lipeshot', 'moroshot'];
-
-// Uma definição só da regra, usada pelo PDF e pelo texto de WhatsApp — as duas
-// saídas partem da mesma lista. Idempotente: filtrar de novo dá o mesmo
-// resultado, então não importa se o chamador já filtrou antes.
-function filtrarParaLoja(lista) {
-  return (lista ?? []).filter(s => {
-    const n = String(s.nome ?? '').trim().toLowerCase();
-    return !FORA_DA_PRESCRICAO_LOJA.some(x => n.includes(x));
-  });
-}
-
 // Só os dados da paciente: a lista de suplementos vai completa no PDF anexado.
 // Texto puro, sem encode: quem monta a URL do wa.me aplica encodeURIComponent
 // (mesma divisão de mensagemAcesso.js).
@@ -1284,22 +1441,30 @@ const GAP_MIN = 2.25;                   // posologia → horário → observaç�
 // que atravessa Windows, Android e iOS sem o navegador reescrever o nome.
 // NFD separa a letra do acento e o filtro por código descarta o acento solto;
 // feito sem \u no regex de propósito, pra não depender de escape no fonte.
-function nomeArquivoPrescricao(pacienteNome) {
+//
+// O prefixo vem do modo (prescricao-suplementacao / -manipulados / -completa).
+// Não é detalhe: com um nome só, gerar dois recortes para a mesma paciente
+// deixaria "(1)" na pasta de Downloads, sem dizer qual é qual.
+function nomeArquivoPrescricao(pacienteNome, modo) {
   const semAcento = String(pacienteNome ?? '')
     .normalize('NFD')
     .split('')
     .filter(c => c.charCodeAt(0) < 128)
     .join('');
   const slug = semAcento.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-  return `prescricao-suplementacao-${slug || 'paciente'}.pdf`;
+  return `${modo.slug}-${slug || 'paciente'}.pdf`;
 }
 
-async function gerarPDFPrescricao({ pacienteNome, contato, suplementosAtivos }) {
-  const itens = filtrarParaLoja(suplementosAtivos);
-  if (itens.length === 0) {
-    alert('Nenhum suplemento para a prescrição de loja.');
-    return;
-  }
+async function gerarPDFPrescricao({ pacienteNome, contato, suplementosAtivos, modo }) {
+  // A lista chega PRONTA — quem recorta é o gerarPdf(), com o modo escolhido no
+  // modal. Esta função não filtra mais nada: filtrar aqui de novo é o que fazia
+  // o "Gerar PDF" ignorar a caixinha de manipulado e decidir por nome.
+  const itens = suplementosAtivos;
+
+  // Defensivo e silencioso: o modal já desabilita modo vazio e o botão exige
+  // pelo menos um ativo, então isto não deveria ser alcançável. Um alert aqui
+  // culparia a nutri por um estado que a tela não deixa ela alcançar.
+  if (itens.length === 0) return;
 
   // Import dinâmico: o jsPDF vira chunk próprio, baixado no primeiro clique.
   // Estático no topo do arquivo ele entraria no chunk da tela, que é baixado
@@ -1352,7 +1517,10 @@ async function gerarPDFPrescricao({ pacienteNome, contato, suplementosAtivos }) 
   // text-transform: uppercase não existe no jsPDF — a caixa alta vai no JS.
   escrever('Essentia · Prescrição'.toUpperCase(), M + 24, y + 32,
     { estilo: 'bold', tamanho: 7.1, cor: OURO, charSpace: 1.57 });
-  escrever('Prescrição de Suplementação', M + 24, y + 62,
+  // Título por modo. Em 22,5pt "Prescrição de Suplementação e Manipulados" é o
+  // mais longo dos três e cabe na largura do cabeçalho; se algum título novo
+  // entrar, medir antes — aqui não há quebra automática.
+  escrever(modo.titulo, M + 24, y + 62,
     { fonte: 'times', estilo: 'bold', tamanho: 22.5, cor: CREME });
   escrever(`Emitida em ${new Date().toLocaleDateString('pt-BR')}`, M + 24, y + 80,
     { tamanho: 7.9, cor: CINZA });
@@ -1387,7 +1555,7 @@ async function gerarPDFPrescricao({ pacienteNome, contato, suplementosAtivos }) 
   y += H_CARD + 22.5;
 
   // ── Lista de suplementos ──
-  escrever('Suplementos prescritos'.toUpperCase(), M, y,
+  escrever(modo.secao.toUpperCase(), M, y,
     { estilo: 'bold', tamanho: 7.9, cor: BRONZE, charSpace: 1.1 });
   y += 4.5;
   regua(y, LINHA);
@@ -1482,5 +1650,5 @@ async function gerarPDFPrescricao({ pacienteNome, contato, suplementosAtivos }) 
   escrever('Documento gerado pelo app Essentia', PAGE_W / 2, y,
     { tamanho: 7.1, cor: OURO, charSpace: 0.71, align: 'center' });
 
-  doc.save(nomeArquivoPrescricao(pacienteNome));
+  doc.save(nomeArquivoPrescricao(pacienteNome, modo));
 }
