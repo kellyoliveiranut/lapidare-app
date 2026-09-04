@@ -3173,6 +3173,280 @@
         "Manchas roxas, vermelhidão ou erupção na pele que aumenta de tamanho (pode exigir suspender o tratamento — avise a equipe médica, não espere)",
         "Formigamento, dormência ou ardor nas mãos ou nos pés"
       ]
+    },
+    {
+      "nome": "FLOT",
+      "indicacao": "Câncer gástrico e de junção esofagogástrica",
+      "aliases": [
+        "5-FU leucovorina oxaliplatina docetaxel",
+        "fluorouracil leucovorina oxaliplatina docetaxel",
+        "FLOT4",
+        "FLOT perioperatório"
+      ],
+      "duracaoCiclo": 14,
+      "marcosEfeito": [
+        {
+          "de": 0,
+          "ate": 3,
+          "desc": "Náuseas e sensibilidade ao frio",
+          "fase": "alerta"
+        },
+        {
+          "de": 1,
+          "ate": 4,
+          "desc": "Neuropatia aguda pela oxaliplatina e dores musculares pelo docetaxel",
+          "fase": "alerta"
+        },
+        {
+          "de": 5,
+          "ate": 9,
+          "desc": "Queda dos leucócitos, maior risco de infecção",
+          "fase": "risco"
+        }
+      ],
+      "conduta_base": "Esquema perioperatório de quatro drogas em ciclos quinzenais — normalmente 4 ciclos antes e 4 depois da cirurgia. É FLOT, não FLOX: o docetaxel acrescenta mucosite, mialgia e um nadir de leucócitos mais profundo ao que já vem da oxaliplatina e do 5-FU. O ponto que separa este protocolo de todos os outros do catálogo é o contexto cirúrgico gástrico: a paciente já chega com ingestão reduzida e, entre os ciclos neoadjuvantes e os adjuvantes, passa por gastrectomia — saciedade precoce, dumping e má absorção de B12 e ferro entram na conta. Prioridade é preservar peso e massa magra ao longo dos 8 ciclos, com refeições pequenas, frequentes e densas em energia e proteína, e vigilância de perda ponderal a cada ciclo.",
+      "efeitos": [
+        {
+          "efeito": "Sensibilidade ao frio / neuropatia periférica",
+          "relacionado_a": "Oxaliplatina",
+          "manejo": "Evitar bebidas e alimentos gelados nos primeiros 3-5 dias após a infusão, preferir temperatura ambiente ou morna. Orientar sobre a sensação de aperto na garganta ao engolir frio — é esperado e passageiro."
+        },
+        {
+          "efeito": "Saciedade precoce e baixa ingestão",
+          "relacionado_a": "Doença de base e gastrectomia",
+          "manejo": "Refeições pequenas e frequentes (6-8/dia), densas em energia e proteína. Separar líquidos das refeições para não ocupar volume gástrico. Após a cirurgia, atenção a sinais de dumping — mal-estar, sudorese e palpitação depois de comer."
+        },
+        {
+          "efeito": "Mucosite oral",
+          "relacionado_a": "5-fluorouracil e docetaxel",
+          "manejo": "Alimentos macios e pastosos, evitar ácidos, picantes e muito quentes. Priorizar temperatura fria ou morna."
+        },
+        {
+          "efeito": "Diarreia",
+          "relacionado_a": "5-fluorouracil e docetaxel",
+          "manejo": "Dieta pobre em fibras insolúveis e gordura durante episódios agudos, hidratação com reposição de eletrólitos, evitar laticínios se houver intolerância transitória."
+        },
+        {
+          "efeito": "Náuseas e vômitos",
+          "relacionado_a": "Oxaliplatina e 5-FU",
+          "manejo": "Refeições fracionadas, evitar cheiros fortes durante o preparo, priorizar alimentos secos e de fácil digestão nas primeiras 48h."
+        },
+        {
+          "efeito": "Alteração de paladar (disgeusia)",
+          "relacionado_a": "Docetaxel",
+          "manejo": "Realçar sabor com ervas, usar talheres plásticos se houver gosto metálico, servir frio quando houver aversão a quente."
+        },
+        {
+          "efeito": "Mialgia e artralgia (dor muscular e articular)",
+          "relacionado_a": "Docetaxel",
+          "manejo": "Boa hidratação e proteína distribuída ao longo do dia para suporte à recuperação muscular. Costuma aparecer 2 a 4 dias após a infusão e ceder sozinha."
+        },
+        {
+          "efeito": "Retenção de líquido e ganho de peso aparente",
+          "relacionado_a": "Docetaxel e dexametasona pré-infusão",
+          "manejo": "Atenção ao consumo de sódio e monitorar peso — o ganho por retenção pode mascarar perda real de massa magra. Pesar sempre no mesmo dia do ciclo, para comparar estados equivalentes."
+        },
+        {
+          "efeito": "Neutropenia (imunossupressão)",
+          "relacionado_a": "Conjunto do protocolo, aprofundada pelo docetaxel",
+          "manejo": "Reforçar higiene alimentar entre D6 e D10 — evitar crus ou mal cozidos, priorizar bem lavados e bem cozidos."
+        },
+        {
+          "efeito": "Fadiga",
+          "relacionado_a": "Conjunto do protocolo",
+          "manejo": "Refeições fracionadas e práticas, evitar jejum prolongado. No esquema quinzenal a janela de recuperação entre ciclos é curta."
+        }
+      ],
+      "sinais_alerta": [
+        "Febre acima de 38°C",
+        "Diarreia intensa ou persistente (mais de 4-6 episódios/dia)",
+        "Incapacidade de manter hidratação oral",
+        "Perda de peso acelerada — mais de 5% em um mês",
+        "Dificuldade para engolir persistente (não confundir com a sensibilidade ao frio esperada)",
+        "Inchaço nas pernas ou ganho de peso rápido por retenção",
+        "Sinais de infecção — dor, vermelhidão ou inchaço em qualquer região"
+      ]
+    },
+    {
+      "nome": "R-mini-CHOP",
+      "indicacao": "Linfoma difuso de grandes células B em pacientes acima de 80 anos",
+      "aliases": [
+        "mini-CHOP",
+        "R-CHOP dose reduzida",
+        "rituximabe CHOP dose reduzida"
+      ],
+      "duracaoCiclo": 21,
+      "marcosEfeito": [
+        {
+          "de": 0,
+          "ate": 4,
+          "desc": "Mais fome e alteração da glicemia pela prednisona",
+          "fase": "alerta"
+        },
+        {
+          "de": 1,
+          "ate": 3,
+          "desc": "Náuseas",
+          "fase": "alerta"
+        },
+        {
+          "de": 6,
+          "ate": 13,
+          "desc": "Neutropenia, maior risco de infecções",
+          "fase": "risco"
+        }
+      ],
+      "conduta_base": "Versão atenuada do R-CHOP: o rituximabe vai em dose plena, mas doxorrubicina, ciclofosfamida, vincristina e o corticoide vão em meia dose. Desenhado para pacientes acima de 80 anos. Dose menor NÃO significa risco menor de infecção — a neutropenia grave permanece frequente nesta faixa etária, e a janela de D7 a D14 exige o mesmo rigor de higiene alimentar do R-CHOP cheio. O que muda em relação ao R-CHOP é a prioridade nutricional: aqui o inimigo principal não é a intensidade dos efeitos, é a fragilidade de base — sarcopenia, ingestão habitualmente baixa, menos percepção de sede e risco alto de desidratação e perda de peso. Garantir proteína distribuída ao longo do dia, adaptar textura quando houver prótese dentária ou dificuldade de mastigação, e vigiar hidratação ativamente, sem esperar a paciente pedir água.",
+      "efeitos": [
+        {
+          "efeito": "Perda de massa muscular (sarcopenia)",
+          "relacionado_a": "Idade, corticoide e doença de base",
+          "manejo": "Proteína distribuída em todas as refeições, não concentrada numa só. Priorizar fontes de fácil mastigação e digestão. Estimular movimento leve dentro do que a equipe liberar — sem estímulo, a perda no ciclo não se recupera no intervalo."
+        },
+        {
+          "efeito": "Risco de desidratação",
+          "relacionado_a": "Idade e conjunto do protocolo",
+          "manejo": "Oferecer líquido em horários fixos, sem depender da sede — a percepção de sede cai com a idade. Gelatinas, sopas e frutas com alto teor de água contam. Atenção redobrada nos dias de náusea ou diarreia."
+        },
+        {
+          "efeito": "Náuseas e vômitos",
+          "relacionado_a": "Ciclofosfamida e doxorrubicina (meia dose)",
+          "manejo": "Fracionar refeições em porções menores, evitar cheiros fortes durante o preparo, priorizar alimentos gelados ou em temperatura ambiente."
+        },
+        {
+          "efeito": "Mucosite oral (feridas na boca)",
+          "relacionado_a": "Ciclofosfamida e doxorrubicina",
+          "manejo": "Alimentos macios e pastosos, evitar ácidos, picantes e muito quentes. Se usar prótese dentária, avaliar com a equipe se vale retirar durante as refeições na fase aguda."
+        },
+        {
+          "efeito": "Neutropenia (imunossupressão)",
+          "relacionado_a": "Conjunto do protocolo",
+          "manejo": "Reforçar higiene alimentar entre D7 e D14 — evitar crus ou mal cozidos, priorizar bem lavados e bem cozidos. A dose reduzida não dispensa este cuidado."
+        },
+        {
+          "efeito": "Constipação",
+          "relacionado_a": "Vincristina, somada a baixa ingestão de fibra e pouca mobilidade",
+          "manejo": "Aumentar fibras solúveis conforme tolerância e manter boa hidratação — sem líquido, mais fibra piora. Estimular caminhada leve se liberada pela equipe médica."
+        },
+        {
+          "efeito": "Aumento de apetite, glicemia e retenção de líquido",
+          "relacionado_a": "Prednisona (meia dose)",
+          "manejo": "Atenção ao consumo de sódio e de açúcar simples nos dias de corticoide, monitorar peso. O apetite aumentado é uma janela útil: aproveitar para ofertar alimentos densos em proteína."
+        },
+        {
+          "efeito": "Alteração de paladar",
+          "relacionado_a": "Conjunto do protocolo",
+          "manejo": "Temperos leves, variar textura e apresentação dos alimentos, testar novas combinações se o sabor habitual estiver desagradável."
+        },
+        {
+          "efeito": "Fadiga",
+          "relacionado_a": "Conjunto do protocolo",
+          "manejo": "Refeições fracionadas e de fácil preparo, evitar jejum prolongado. Considerar apoio de terceiros no preparo nos dias de maior cansaço."
+        }
+      ],
+      "sinais_alerta": [
+        "Febre acima de 38°C",
+        "Confusão mental, sonolência excessiva ou desorientação novas — no idoso costumam ser o primeiro sinal de infecção ou desidratação",
+        "Queda ou fraqueza súbita",
+        "Incapacidade de manter hidratação oral",
+        "Perda de peso ou de força progressiva entre os ciclos",
+        "Diarreia ou vômitos persistentes",
+        "Dor no peito ou falta de ar"
+      ]
+    },
+    {
+      "nome": "AC-T dose densa",
+      "indicacao": "Câncer de mama",
+      "aliases": [
+        "T-AC dose densa",
+        "T-AC DD",
+        "AC-T DD",
+        "ddAC-T",
+        "doxorrubicina ciclofosfamida paclitaxel dose densa"
+      ],
+      "duracaoCiclo": 14,
+      "marcosEfeito": [
+        {
+          "de": 1,
+          "ate": 4,
+          "desc": "Náuseas e dores musculares, início da fadiga",
+          "fase": "alerta"
+        },
+        {
+          "de": 2,
+          "ate": 6,
+          "desc": "Mucosite e alterações do paladar",
+          "fase": "alerta"
+        },
+        {
+          "de": 6,
+          "ate": 9,
+          "desc": "Queda dos leucócitos, maior risco de infecções",
+          "fase": "risco"
+        }
+      ],
+      "conduta_base": "As mesmas três drogas — doxorrubicina, ciclofosfamida e paclitaxel — em esquema quinzenal com suporte de fator de crescimento. A sequência pode variar: AC seguido do taxano (AC→T) é a ordem padrão, e o taxano primeiro (T→AC) aparece em neoadjuvância, sobretudo em tumor triplo-negativo. Os efeitos colaterais e a janela de risco nutricional são os mesmos nas duas ordens — muda quando cada bloco acontece, não o que ele causa. Na prática o acompanhamento tem duas metades diferentes: a fase AC é a das náuseas, mucosite e gosto metálico; a fase do taxano é a das dores musculares e da neuropatia. Vale antecipar essa virada com a paciente, para ela não achar que piorou quando na verdade os sintomas só trocaram. O intervalo de 14 dias deixa a recuperação nutricional apertada — não dá para esperar o apetite voltar sozinho entre os ciclos.",
+      "efeitos": [
+        {
+          "efeito": "Náuseas e vômitos",
+          "relacionado_a": "Doxorrubicina e ciclofosfamida (fase AC)",
+          "manejo": "Fracionar em 5-6 refeições pequenas, alimentos secos e em temperatura ambiente, evitar odores fortes no preparo. Gengibre conforme tolerância."
+        },
+        {
+          "efeito": "Mucosite / estomatite",
+          "relacionado_a": "Doxorrubicina e ciclofosfamida",
+          "manejo": "Texturas macias e úmidas, evitar ácidos, picantes e muito quentes. Bochechos conforme orientação médica."
+        },
+        {
+          "efeito": "Alteração de paladar (disgeusia)",
+          "relacionado_a": "Conjunto do protocolo — gosto metálico é típico da antraciclina",
+          "manejo": "Realçar sabor com ervas, usar talheres plásticos se houver gosto metálico, servir frio quando houver aversão a quente."
+        },
+        {
+          "efeito": "Neuropatia periférica",
+          "relacionado_a": "Paclitaxel (fase do taxano)",
+          "manejo": "Não há manejo nutricional específico. Atenção ao manuseio de alimentos quentes e cortantes, adaptando o preparo se necessário, e orientar a comunicar formigamento ou dormência à equipe médica para ajuste de dose."
+        },
+        {
+          "efeito": "Mialgia e artralgia (dor muscular e articular)",
+          "relacionado_a": "Paclitaxel",
+          "manejo": "Boa hidratação e proteína distribuída ao longo do dia para suporte à recuperação muscular. Costuma aparecer 2 a 4 dias após a infusão."
+        },
+        {
+          "efeito": "Neutropenia (imunossupressão)",
+          "relacionado_a": "Conjunto do protocolo",
+          "manejo": "Reforçar higiene alimentar entre D7 e D10 — evitar crus ou mal cozidos, priorizar bem lavados e bem cozidos."
+        },
+        {
+          "efeito": "Hiporexia / perda de apetite",
+          "relacionado_a": "Conjunto do protocolo",
+          "manejo": "Refeições pequenas e densas em energia e proteína, aproveitando as janelas de melhor apetite. No intervalo quinzenal essas janelas são curtas — vale planejar o que oferecer nelas."
+        },
+        {
+          "efeito": "Constipação",
+          "relacionado_a": "Antieméticos e redução de atividade",
+          "manejo": "Aumentar fibras conforme tolerância, manter boa hidratação, estimular atividade leve se liberada pela equipe médica."
+        },
+        {
+          "efeito": "Retenção de líquido e ganho de peso",
+          "relacionado_a": "Dexametasona pré-quimioterapia",
+          "manejo": "Atenção ao consumo de sódio e monitorar peso sempre no mesmo dia do ciclo — o ganho por retenção pode mascarar perda de massa magra."
+        },
+        {
+          "efeito": "Fadiga",
+          "relacionado_a": "Conjunto do protocolo",
+          "manejo": "Refeições fracionadas e de fácil preparo, evitar jejum prolongado — especialmente importante no esquema quinzenal, com menos tempo de recuperação entre ciclos."
+        }
+      ],
+      "sinais_alerta": [
+        "Febre acima de 38°C",
+        "Feridas na boca que impeçam comer ou beber",
+        "Vômitos persistentes ou incapacidade de manter hidratação oral",
+        "Formigamento ou dormência progressiva em mãos e pés",
+        "Falta de ar, inchaço nas pernas ou batimentos irregulares — a antraciclina exige atenção cardíaca",
+        "Reação durante ou logo após a infusão do paclitaxel",
+        "Sinais de infecção — dor, vermelhidão ou inchaço em qualquer região"
+      ]
     }
   ]
 }
