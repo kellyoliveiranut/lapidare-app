@@ -1036,10 +1036,6 @@ export default function PacientePerfil() {
             { id: 'plano',         label: 'Plano',         icon: 'salad' },
             { id: 'compras',       label: 'Compras',       icon: 'shopping-cart' },
             { id: 'suplementacao', label: 'Suplementação', icon: 'pill' },
-            // Vizinha da Suplementação porque é o outro documento de prescrição
-            // que a paciente recebe. NÃO é a aba de resultados de exame, que
-            // segue em Oncologia — solicitação é documento, resultado é dado.
-            { id: 'exames',        label: 'Exames',        icon: 'test-pipe' },
             { id: 'habitos',       label: 'Hábitos',       icon: 'checklist' },
             { id: 'ebooks',        label: 'E-books',       icon: 'book-2' },
             { id: 'avaliacao',     label: 'Avaliação',     icon: 'ruler-measure' },
@@ -1059,6 +1055,16 @@ export default function PacientePerfil() {
           // índice 1 e empurra Relatório para o 2.
           todas.splice(todas.findIndex(t => t.id === 'relatorio') + 1, 0,
             { id: 'financeiro', label: 'Financeiro', icon: 'cash' });
+          // Exames entra logo depois de Financeiro, pelo MESMO motivo dele.
+          // Nasceu ao lado de Suplementação por afinidade — os dois são
+          // documentos de prescrição que a paciente recebe — e ali caía na 12ª
+          // de 17 posições: ~1300px de rolagem num aparelho de ~360px, com a
+          // scrollbar escondida abaixo de 768px. A aba existia e ninguém achava.
+          // Afinidade conceitual não paga o preço de ser inencontrável.
+          // O índice sai do próprio Financeiro porque a posição dele muda entre
+          // os dois perfis, exatamente como a de Relatório.
+          todas.splice(todas.findIndex(t => t.id === 'financeiro') + 1, 0,
+            { id: 'exames', label: 'Exames', icon: 'test-pipe' });
           return todas;
         })().map(t => (
           <button
