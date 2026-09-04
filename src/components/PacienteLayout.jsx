@@ -25,6 +25,7 @@ const MAIS_ITEMS = [
   { path: '/paciente/ebooks',      icon: 'book-2',          label: 'E-books',            sub: 'Materiais da Dra.' },
   { path: '/paciente/chat',        icon: 'message-circle',  label: 'Chat com a Dra.',    sub: 'Conversa direta' },
   { path: '/paciente/treinos',     icon: 'run',             label: 'Treinos',            sub: 'Plano de exercícios' },
+  { path: '/paciente/exames',      icon: 'test-pipe',       label: 'Exames',             sub: 'Solicitações da Dra.' },
 ];
 
 // Paths acessíveis no plano Avulsa — todo o resto fica bloqueado
@@ -38,6 +39,10 @@ const AVULSA_ALLOWED = new Set([
   '/paciente/suplementos',
   '/paciente/ebooks',
   '/paciente/avaliacao',
+  // Solicitação de exames vale para TODA paciente, independente do plano — foi
+  // requisito explícito. Esta lista é ALLOWLIST: esquecer a linha não deixa a
+  // tela "meio acessível", deixa a avulsa levando redirect com toast.
+  '/paciente/exames',
 ]);
 
 const HEADERS = {
@@ -54,6 +59,7 @@ const HEADERS = {
   '/paciente/checkins':                  ()                => ({ eyebrow: 'Formulários',             title: 'Check-ins',                   subtitle: 'Enviados pela sua nutri' }),
   '/paciente/monitoramento-oncologico': ()                => ({ eyebrow: 'Check-in diário',      title: 'Como você está hoje?',        subtitle: 'Leva menos de 2 minutos' }),
   '/paciente/avaliacao':                ()                => ({ eyebrow: 'Avaliação física',    title: 'Sua avaliação' }),
+  '/paciente/exames':                   ()                => ({ eyebrow: 'Exames',              title: 'Solicitações',                subtitle: 'Documentos para levar ao laboratório' }),
 };
 
 export default function PacienteLayout() {

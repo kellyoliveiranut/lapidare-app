@@ -22,6 +22,7 @@ import CheckinForm from '../../components/CheckinForm.jsx';
 const Evolucao             = lazy(() => import('./_Evolucao.jsx'));
 const FollowUp             = lazy(() => import('./_FollowUp.jsx'));
 const Suplementacao        = lazy(() => import('./_Suplementacao.jsx'));
+const SolicitacaoExames    = lazy(() => import('./_SolicitacaoExames.jsx'));
 const Habitos              = lazy(() => import('./_Habitos.jsx'));
 const Anamnese             = lazy(() => import('./_Anamnese.jsx'));
 const TratamentoOncologico = lazy(() => import('./_TratamentoOncologico.jsx'));
@@ -1035,6 +1036,10 @@ export default function PacientePerfil() {
             { id: 'plano',         label: 'Plano',         icon: 'salad' },
             { id: 'compras',       label: 'Compras',       icon: 'shopping-cart' },
             { id: 'suplementacao', label: 'Suplementação', icon: 'pill' },
+            // Vizinha da Suplementação porque é o outro documento de prescrição
+            // que a paciente recebe. NÃO é a aba de resultados de exame, que
+            // segue em Oncologia — solicitação é documento, resultado é dado.
+            { id: 'exames',        label: 'Exames',        icon: 'test-pipe' },
             { id: 'habitos',       label: 'Hábitos',       icon: 'checklist' },
             { id: 'ebooks',        label: 'E-books',       icon: 'book-2' },
             { id: 'avaliacao',     label: 'Avaliação',     icon: 'ruler-measure' },
@@ -1084,6 +1089,7 @@ export default function PacientePerfil() {
         {tab === 'anamnese'      && <Anamnese pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
         {tab === 'followup'      && <FollowUp pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
         {tab === 'suplementacao' && <Suplementacao pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
+        {tab === 'exames'        && <SolicitacaoExames pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
         {tab === 'habitos'       && <Habitos pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
         {tab === 'plano'         && <PublicarPlano pacienteId={paciente.id} nutriId={user.id} calculosImportados={calculosImportados} onLimparImportados={() => setCalculosImportados(null)} />}
         {tab === 'compras'       && <PublicarLista pacienteId={paciente.id} nutriId={user.id} />}
