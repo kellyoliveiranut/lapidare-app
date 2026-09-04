@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
-import { dataBR, normalizarTelefone } from '../../lib/utils.js';
+import { dataBR, normalizarTelefone, normalizarBusca } from '../../lib/utils.js';
 
 const HOJE_ISO = () => new Date().toISOString().slice(0, 10);
 
@@ -462,6 +462,7 @@ function ModalAdicionarSuplemento({ favoritos, onClose, onSalvarBiblioteca, onSa
 
   // estado biblioteca: { [favId]: { nome, dose, horario, obs, foto_url, data_inicio, favorito_id } }
   const [selecionados, setSelecionados] = useState({});
+  const [busca, setBusca] = useState('');
 
   // estado manual
   const [form, setForm] = useState({
@@ -506,6 +507,23 @@ function ModalAdicionarSuplemento({ favoritos, onClose, onSalvarBiblioteca, onSa
   }
 
   const qtd = Object.keys(selecionados).length;
+
+  // A busca vale só para os NÃO escolhidos. Quem já foi selecionado tem
+  // posologia sendo preenchida ali em cima — filtrar um deles para fora da tela
+  // esconderia texto meio digitado, e a nutri salvaria sem perceber.
+  //
+  // Casa em título E descrição: a descrição é onde mora a composição da
+  // fórmula, e é por ela que se acha "vitamina D" dentro de um item chamado
+  // "Fórmula Imuno".
+  const naoEscolhidos = useMemo(() => {
+    const restantes = favoritos.filter(fav => !selecionados[String(fav.id)]);
+    const q = normalizarBusca(busca);
+    if (!q) return restantes;
+    return restantes.filter(fav =>
+      normalizarBusca(fav.titulo).includes(q) ||
+      normalizarBusca(fav.descricao).includes(q)
+    );
+  }, [favoritos, selecionados, busca]);
 
   const titulo = modo === null
     ? 'Adicionar suplemento'
@@ -608,7 +626,18 @@ function ModalAdicionarSuplemento({ favoritos, onClose, onSalvarBiblioteca, onSa
                 </span>
               </div>
             ) : (
-              <div style={{ overflowY: 'auto', flex: 1 }}>
+              <>
+                {/* Fora da área rolável de propósito: com 35 itens na
+                    Biblioteca, o campo tem que continuar à vista enquanto a
+                    nutri rola o grid. */}
+                <input
+                  value={busca}
+                  onChange={e => setBusca(e.target.value)}
+                  placeholder="Buscar por nome ou composição…"
+                  style={{ marginBottom: 10 }}
+                />
+
+                <div style={{ overflowY: 'auto', flex: 1 }}>
                 {/* Itens selecionados — fora do grid, evita reflow */}
                 {Object.entries(selecionados).map(([favId, sel]) => {
                   const fav = favoritos.find(f => String(f.id) === favId);
@@ -710,7 +739,7 @@ function ModalAdicionarSuplemento({ favoritos, onClose, onSalvarBiblioteca, onSa
                   gap: 10,
                   alignContent: 'start',
                 }}>
-                  {favoritos.filter(fav => !selecionados[String(fav.id)]).map(fav => (
+                  {naoEscolhidos.map(fav => (
                     <div key={fav.id}
                       className="suplemento-card"
                       onClick={() => toggleFav(fav)}
@@ -736,7 +765,18 @@ function ModalAdicionarSuplemento({ favoritos, onClose, onSalvarBiblioteca, onSa
                     </div>
                   ))}
                 </div>
-              </div>
+
+                {/* Busca sem resultado. Só aparece quando não sobrou nada no
+                    grid E existe termo digitado — sem a segunda condição, o
+                    aviso apareceria quando a nutri simplesmente já escolheu
+                    todos os itens da Biblioteca. */}
+                {naoEscolhidos.length === 0 && busca.trim() !== '' && (
+                  <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>
+                    Nenhum item encontrado para “{busca.trim()}”.
+                  </div>
+                )}
+                </div>
+              </>
             )}
 
             <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>

@@ -10,7 +10,7 @@ import {
   dataConsultaBR, horaConsultaBR, TZ_CLINICA, textoDias, iniciais,
   gerarDiasCalendario, ehMesmoDia, mesAnoExtenso, DIAS_SEMANA_CURTOS,
   HORARIOS_CONSULTA, HORARIO_CONSULTA_PADRAO, horaConsultaValida,
-  telefoneValido,
+  telefoneValido, normalizarBusca,
 } from '../../lib/utils.js';
 
 // Opções do dropdown: 1ª, Consulta 02..12, Avaliação, Retorno
@@ -1544,6 +1544,151 @@ const destaqueRemarcacao = {
   boxShadow: '0 0 0 2px var(--orange-bg)',
 };
 
+/**
+ * Campo de paciente com busca. Substituiu o <select> nativo, que despejava as
+ * ~93 pacientes numa lista só, sem filtro nenhum.
+ *
+ * Três regras que este componente NÃO pode quebrar, porque o modal inteiro
+ * depende delas:
+ *
+ * 1. `onChange` é o ÚNICO ponto de escrita, e recebe só o id. Quem herda a
+ *    modalidade do perfil e quem sugere o número da consulta continua sendo o
+ *    ConsultaModal — este componente não sabe que isso existe, e é o que
+ *    garante que trocar de paciente pela busca faça exatamente o mesmo que
+ *    trocar pelo select antigo fazia.
+ * 2. A lista NÃO filtra por status_paciente. As arquivadas aparecem hoje e
+ *    continuam aparecendo: sumir com elas em silêncio quebraria o agendamento
+ *    de quem voltou depois de um tempo.
+ * 3. Fechado, o campo mostra o NOME escolhido, nunca o termo digitado. Sem
+ *    isso, a paciente que o cadastro rápido já deixou escolhida pareceria
+ *    vazia, e a nutri escolheria outra por cima.
+ *
+ * O dropdown é absoluto dentro do corpo do modal, que tem overflowY:auto.
+ * Funciona porque Paciente é o PRIMEIRO campo — os 220px abrem na área
+ * visível. Se um dia este campo descer na ordem, isto precisa virar portal.
+ */
+function SelectPacienteBusca({ pacientes, value, onChange, disabled }) {
+  const [aberto, setAberto] = useState(false);
+  const [termo, setTermo] = useState('');
+  const [hoverId, setHoverId] = useState(null);
+  const wrapRef = useRef(null);
+
+  const selecionada = pacientes.find(p => p.id === value) ?? null;
+
+  const filtradas = useMemo(() => {
+    const q = normalizarBusca(termo);
+    if (!q) return pacientes;
+    return pacientes.filter(p => normalizarBusca(p.nome).includes(q));
+  }, [pacientes, termo]);
+
+  // Fecha ao clicar fora. 'mousedown' e não 'click': o clique num item da lista
+  // dispara depois, e com 'click' o fechamento chegaria antes da escolha.
+  useEffect(() => {
+    if (!aberto) return;
+    function fora(e) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setAberto(false);
+    }
+    document.addEventListener('mousedown', fora);
+    return () => document.removeEventListener('mousedown', fora);
+  }, [aberto]);
+
+  // O guarda do `aberto` importa: sem ele, um segundo clique no campo já aberto
+  // apagaria o que a nutri acabou de digitar.
+  function abrir() {
+    if (disabled || aberto) return;
+    setTermo('');
+    setAberto(true);
+  }
+
+  function escolher(id) {
+    onChange(id);
+    setTermo('');
+    setAberto(false);
+  }
+
+  // Em edição a paciente não muda — mesmo comportamento do <select disabled>
+  // que estava aqui antes.
+  if (disabled) {
+    return <input value={selecionada?.nome ?? ''} readOnly disabled />;
+  }
+
+  return (
+    <div ref={wrapRef} style={{ position: 'relative' }}>
+      <input
+        value={aberto ? termo : (selecionada?.nome ?? '')}
+        onChange={e => { setTermo(e.target.value); setAberto(true); }}
+        onFocus={abrir}
+        onClick={abrir}
+        placeholder={aberto ? 'Digite para buscar…' : 'Escolha a paciente'}
+        style={{ paddingRight: 32 }}
+        role="combobox"
+        aria-expanded={aberto}
+        aria-autocomplete="list"
+        onKeyDown={e => {
+          if (e.key === 'Escape') setAberto(false);
+          else if (e.key === 'ArrowDown') setAberto(true);
+          else if (e.key === 'Enter' && aberto) {
+            // Sem isto o Enter submeteria o modal com a busca pela metade.
+            e.preventDefault();
+            if (filtradas.length > 0) escolher(filtradas[0].id);
+          }
+        }}
+      />
+      <i
+        className={aberto ? 'ti ti-search' : 'ti ti-chevron-down'}
+        aria-hidden="true"
+        style={{
+          position: 'absolute', right: 10, top: 11,
+          fontSize: 14, color: 'var(--text3)', pointerEvents: 'none',
+        }}
+      />
+
+      {aberto && (
+        <div
+          role="listbox"
+          style={{
+            position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 5,
+            marginTop: 4, maxHeight: 220, overflowY: 'auto',
+            background: 'var(--white)', borderRadius: 8,
+            border: '0.5px solid var(--border)',
+            boxShadow: '0 4px 16px rgba(28,23,18,.12)',
+          }}>
+          {filtradas.length === 0 ? (
+            <div style={{ padding: '14px 12px', textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>
+              Nenhuma paciente encontrada.
+            </div>
+          ) : filtradas.map(p => {
+            const escolhida = p.id === value;
+            return (
+              <div
+                key={p.id}
+                role="option"
+                aria-selected={escolhida}
+                onClick={() => escolher(p.id)}
+                onMouseEnter={() => setHoverId(p.id)}
+                onMouseLeave={() => setHoverId(null)}
+                style={{
+                  padding: '9px 12px', cursor: 'pointer', fontSize: 13,
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  background: hoverId === p.id ? 'var(--bg2)' : 'transparent',
+                  color: escolhida ? 'var(--dark)' : 'var(--text2, var(--dark))',
+                  fontWeight: escolhida ? 500 : 400,
+                }}>
+                <i
+                  className="ti ti-check"
+                  aria-hidden="true"
+                  style={{ fontSize: 13, color: 'var(--gold-deep, #a08456)', visibility: escolhida ? 'visible' : 'hidden' }}
+                />
+                <span style={{ flex: 1, minWidth: 0 }}>{p.nome}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId, remarcarAoAbrir, onClose, onSaved, onToggleConfirmada }) {
   const isEdit = !!consulta;
   const navigate = useNavigate();
@@ -1766,9 +1911,12 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
         </div>
 
         <label className="form-lbl">Paciente</label>
-        <select value={pacienteId} onChange={e => trocarPaciente(e.target.value)} disabled={isEdit}>
-          {pacientes.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
-        </select>
+        <SelectPacienteBusca
+          pacientes={pacientes}
+          value={pacienteId}
+          onChange={trocarPaciente}
+          disabled={isEdit}
+        />
 
         <label className="form-lbl">Tipo</label>
         <select value={tipo} onChange={e => setTipo(e.target.value)}>

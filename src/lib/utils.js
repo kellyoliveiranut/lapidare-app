@@ -7,6 +7,29 @@ export function iniciais(nome) {
   return (first + last).toUpperCase() || '··';
 }
 
+/**
+ * Chave de comparação para campo de busca digitado: sem acento, sem caixa, sem
+ * nada que não seja letra ou dígito. "Ômega-3", "omega 3" e "OMEGA3" viram a
+ * mesma coisa, e quem digita "jose" acha "José".
+ *
+ * Mesma regra do `chaveProtocolo()` de protocoloCiclo.js — e é cópia de
+ * propósito, não descuido: importar de lá arrastaria o JSON de 126 kB do
+ * catálogo de protocolos para dentro do bundle de quem só quer buscar por nome.
+ * Se a regra mudar aqui, vale conferir lá.
+ *
+ * Usar SEMPRE com `includes`, nunca com igualdade: aqui a pessoa está digitando
+ * e escolhe na lista, então casar demais é barato. É o oposto do getProtocolo(),
+ * onde casar o item errado passa despercebido.
+ */
+export function normalizarBusca(s) {
+  return String(s ?? '')
+    // NFD separa o acento da letra base; o strip abaixo leva a marca embora
+    // junto com o resto. Sem o NFD, 'José' viraria 'jos' em vez de 'jose'.
+    .normalize('NFD')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '');
+}
+
 const MESES = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
