@@ -2,7 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
-import { brl, dataBR, iniciais, statusParcela, liquidoParcela, TZ_CLINICA } from '../../lib/utils.js';
+import {
+  brl, dataBR, iniciais, statusParcela, liquidoParcela, TZ_CLINICA,
+  dataLocalISO, horaConsultaBR, partesLocaisISO,
+} from '../../lib/utils.js';
 
 // Nº esperado de consultas por tipo de plano (para alertar planos chegando ao fim).
 // Só entra aqui plano com pacote fechado: 'avulsa' fica de fora de propósito —
@@ -22,6 +25,21 @@ function ehConsultaDoPacote(tipo) {
 
 const STORAGE_OCULTAR_META = 'lapidare:ocultarMeta';
 
+// Ordem da lista de lembretes, a mesma em toda parte: pendente antes de
+// concluído, com prazo antes de sem prazo, mais antigo antes. Ordenar aqui e
+// não no `.order()` da query porque a linha recém-criada e a recém-concluída
+// precisam achar o lugar delas sem recarregar a tela.
+function ordenarLembretes(lista) {
+  return [...lista].sort((a, b) => {
+    const ca = a.concluido_em ? 1 : 0, cb = b.concluido_em ? 1 : 0;
+    if (ca !== cb) return ca - cb;
+    const da = a.data ? 0 : 1, db = b.data ? 0 : 1;
+    if (da !== db) return da - db;
+    if (a.data && b.data && a.data !== b.data) return a.data < b.data ? -1 : 1;
+    return (a.created_at ?? '') < (b.created_at ?? '') ? -1 : 1;
+  });
+}
+
 export default function Visao() {
   const navigate = useNavigate();
   const { user, profile } = useSession();
@@ -32,6 +50,7 @@ export default function Visao() {
   const [checkinsPendentes, setCheckinsPendentes] = useState([]);
   const [planosTerminando, setPlanosTerminando] = useState([]);
   const [alertasRelacionais, setAlertasRelacionais] = useState([]);
+  const [lembretes, setLembretes] = useState([]);
   const [receitaMes, setReceitaMes] = useState(0);
   const [metaMensal, setMetaMensal] = useState(null);
   const [ocultarMeta, setOcultarMeta] = useState(() => {
@@ -42,6 +61,38 @@ export default function Visao() {
     const novo = !ocultarMeta;
     setOcultarMeta(novo);
     localStorage.setItem(STORAGE_OCULTAR_META, novo ? '1' : '0');
+  }
+
+  // ─── LEMBRETES DA NUTRI ───
+  // Os dois handlers devolvem `null` quando deu certo e a mensagem do banco
+  // quando não deu — quem mostra o erro é o card, do lado do campo em que ela
+  // digitou. Escrever lembrete é o gesto mais barato da tela e não abre modal.
+  async function criarLembrete(texto, data) {
+    const { data: nova, error } = await supabase.from('lembretes_nutri')
+      .insert({ nutri_id: user.id, texto, data })
+      .select('id, texto, data, concluido_em, created_at')
+      .single();
+    if (error) return error.message;
+    setLembretes(prev => ordenarLembretes([...prev, nova]));
+    return null;
+  }
+
+  // Concluir NÃO tira a linha da tela: ela fica riscada até a próxima carga,
+  // e é isso que dá o "desfazer" sem timer nenhum. A query só traz pendentes,
+  // então no próximo acesso ela some sozinha.
+  async function alternarLembrete(id, concluir) {
+    const valor = concluir ? new Date().toISOString() : null;
+    const antes = lembretes;
+    setLembretes(prev => ordenarLembretes(
+      prev.map(l => (l.id === id ? { ...l, concluido_em: valor } : l)),
+    ));
+    const { error } = await supabase.from('lembretes_nutri')
+      .update({ concluido_em: valor }).eq('id', id);
+    if (error) {
+      setLembretes(antes);   // desfaz o otimismo: a linha volta como estava
+      return error.message;
+    }
+    return null;
   }
 
   useEffect(() => {
@@ -59,6 +110,9 @@ export default function Visao() {
       const isoDomingo = domingo.toISOString();
       const dataSegunda = segunda.toISOString().slice(0, 10);
       const dataDomingo = domingo.toISOString().slice(0, 10);
+      // Dia de hoje para a coluna `data` dos lembretes: dataLocalISO, nunca
+      // toISOString — a coluna é `date` e o corte tem que ser o do calendário.
+      const hojeISO = dataLocalISO();
 
       // Limites pra queries dos alertas relacionais
       const dias30atras = new Date(Date.now() - 30 * 86_400_000).toISOString();
@@ -67,12 +121,16 @@ export default function Visao() {
       const [
         pacRes, agSemanaRes, parcRes, checkRes,
         parcelasMesRes, realizadasRes, nutriRes,
-        msgRes, feedRes, supRes, supLogRes,
+        msgRes, feedRes, supRes, supLogRes, lembRes,
       ] = await Promise.all([
         // pacientes ativas (com nascimento pra aniversário)
         supabase.from('pacientes').select('id, nome, tipo_plano, nascimento').eq('nutri_id', user.id).eq('status_paciente', 'ativo'),
-        // consultas da semana
-        supabase.from('consultas').select('id, data_hora, tipo, duracao_min, paciente:pacientes(id, nome)')
+        // consultas da semana. status, modalidade e o embed de local entram por
+        // causa do card de hoje: ele precisa dizer ONDE é cada consulta e
+        // riscar as que já foram. Continua sendo uma query só — as de hoje
+        // saem por filtro do que já veio, não de uma segunda ida ao banco.
+        supabase.from('consultas')
+          .select('id, data_hora, tipo, duracao_min, status, modalidade, paciente:pacientes(id, nome), local:locais_atendimento(nome)')
           .eq('nutri_id', user.id).neq('status', 'cancelada')
           .gte('data_hora', isoSegunda).lte('data_hora', isoDomingo)
           .order('data_hora'),
@@ -111,6 +169,15 @@ export default function Visao() {
         // logs de suplemento últimos 7 dias
         supabase.from('suplementos_logs').select('suplemento_id, paciente_id, data, tomado')
           .gte('data', dias7atras),
+        // lembretes da nutri — os pendentes com prazo até hoje e os sem prazo.
+        // `data <= hoje` e não `data = hoje`: o lembrete de ontem que ela não
+        // marcou continua aparecendo, com marca de atrasado. Some só quando
+        // concluído — sumir na virada do dia perderia tarefa em silêncio.
+        // Sem paciente_id nenhum aqui: é a única tabela do app que é dela.
+        supabase.from('lembretes_nutri').select('id, texto, data, concluido_em, created_at')
+          .eq('nutri_id', user.id).is('concluido_em', null)
+          .or(`data.is.null,data.lte.${hojeISO}`)
+          .order('created_at'),
       ]);
 
       if (!active) return;
@@ -119,6 +186,7 @@ export default function Visao() {
       setConsultasSemana(agSemanaRes.data ?? []);
       setParcelasSemana(parcRes.data ?? []);
       setCheckinsPendentes(checkRes.data ?? []);
+      setLembretes(ordenarLembretes(lembRes.data ?? []));
 
       const receita = (parcelasMesRes.data ?? []).reduce((a, p) => a + liquidoParcela(p), 0);
       setReceitaMes(receita);
@@ -268,10 +336,41 @@ export default function Visao() {
   const hora = new Date().getHours();
   const saudacao = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';
 
+  // Duas noções de "hoje", de propósito:
+  //   hojeISO        — dia do APARELHO. É o que a coluna `data` do lembrete
+  //                    guarda (dataLocalISO na escrita), então é com ele que o
+  //                    atrasado é medido.
+  //   hojeClinicaISO — dia da CLÍNICA. A consulta é um timestamptz marcado no
+  //                    fuso de Belém; comparar pelo aparelho jogaria a das 21h
+  //                    para "amanhã" se o painel fosse aberto de outro fuso.
+  // Na máquina da clínica os dois são a mesma string — a distinção existe para
+  // que continuem certos quando não forem.
+  const hojeISO = dataLocalISO();
+  const hojeClinicaISO = partesLocaisISO(new Date().toISOString()).data;
+
+  // Consultas de hoje: recorte do que já veio na semana, sem query nova.
+  const consultasHoje = useMemo(
+    () => consultasSemana.filter(c => partesLocaisISO(c.data_hora).data === hojeClinicaISO),
+    [consultasSemana, hojeClinicaISO],
+  );
+
   return (
     <>
       <div className="page-title">{semNome ? `${saudacao}, ${semNome}` : 'Visão geral'}</div>
       <div className="page-sub">O que está acontecendo no seu consultório hoje</div>
+
+      {/* ─── O DIA DE HOJE ─── */}
+      {/* Vem ANTES das estatísticas de propósito: quantas pacientes ativas ela
+          tem não muda nada do que ela faz agora — a consulta das 14h e o
+          "ligar pro contador" mudam. O topo da tela é o que precisa de ação. */}
+      <CardDoDia
+        consultas={consultasHoje}
+        lembretes={lembretes}
+        hoje={hojeISO}
+        onCriar={criarLembrete}
+        onAlternar={alternarLembrete}
+        onAbrirAgenda={() => navigate('/nutri/agenda')}
+      />
 
       {/* ─── STATS RÁPIDAS ─── */}
       <div className="g3">
@@ -553,5 +652,205 @@ function NotifCard({ icon, color, titulo, count, descricao, itens, onClick }) {
         </div>
       )}
     </button>
+  );
+}
+
+/* ============================================================
+   O DIA DE HOJE
+   Consultas de hoje (recorte da semana, não query nova) + lembretes da nutri.
+   ============================================================ */
+
+// Os três prazos do campo rápido. `dias: null` grava data null — é a AUSÊNCIA
+// de data que diz "sem prazo"; não existe coluna `tipo` inventada pra isso.
+const PRAZOS_LEMBRETE = [
+  { id: 'hoje',   label: 'Hoje',     dias: 0 },
+  { id: 'amanha', label: 'Amanhã',   dias: 1 },
+  { id: 'sem',    label: 'Sem data', dias: null },
+];
+
+function CardDoDia({ consultas, lembretes, hoje, onCriar, onAlternar, onAbrirAgenda }) {
+  const [texto, setTexto] = useState('');
+  const [prazo, setPrazo] = useState('hoje');
+  const [salvando, setSalvando] = useState(false);
+  const [erro, setErro] = useState(null);
+
+  const diaLongo = new Date().toLocaleDateString('pt-BR', {
+    timeZone: TZ_CLINICA, weekday: 'long', day: '2-digit', month: 'long',
+  });
+
+  async function enviar(e) {
+    e.preventDefault();
+    const limpo = texto.trim();
+    if (!limpo || salvando) return;
+    setSalvando(true);
+    setErro(null);
+    const dias = PRAZOS_LEMBRETE.find(p => p.id === prazo)?.dias ?? null;
+    const msg = await onCriar(limpo, dias === null ? null : dataLocalISO(dias));
+    setSalvando(false);
+    if (msg) { setErro(msg); return; }
+    // Limpa o texto e MANTÉM o prazo escolhido: quem anota três recados de
+    // hoje em seguida não deveria clicar em "Hoje" três vezes.
+    setTexto('');
+  }
+
+  async function alternar(l) {
+    setErro(null);
+    const msg = await onAlternar(l.id, !l.concluido_em);
+    if (msg) setErro(msg);
+  }
+
+  const vazio = consultas.length === 0 && lembretes.length === 0;
+
+  return (
+    <div className="card" style={{ padding: '16px 18px', marginBottom: 14 }}>
+      <div style={{
+        display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
+        gap: 8, marginBottom: 12,
+      }}>
+        <span style={{
+          fontSize: 12, letterSpacing: 1.5, textTransform: 'uppercase',
+          color: 'var(--text3)', fontWeight: 500,
+        }}>
+          Hoje
+        </span>
+        <span style={{ fontSize: 12, color: 'var(--text3)' }}>{diaLongo}</span>
+      </div>
+
+      {/* ── CONSULTAS DE HOJE ── */}
+      {consultas.length > 0 && (
+        <div style={{ marginBottom: 12 }}>
+          {consultas.map(c => {
+            const feita = c.status === 'realizada';
+            // O embed de local é o que permite dizer ONDE sem uma segunda
+            // query; sem ele sobraria "Presencial" seco, que ela já sabe.
+            const onde = c.modalidade === 'presencial'
+              ? (c.local?.nome ?? 'Presencial')
+              : 'Online';
+            return (
+              <button key={c.id} onClick={onAbrirAgenda}
+                style={{
+                  width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '6px 0', background: 'none', border: 'none',
+                  borderBottom: '0.5px solid #f5f0e8',
+                  cursor: 'pointer', textAlign: 'left',
+                  fontFamily: 'var(--font-sans)',
+                }}>
+                <span style={{
+                  fontSize: 13, fontWeight: 500, flexShrink: 0,
+                  color: feita ? 'var(--text3)' : 'var(--dark)',
+                }}>
+                  {horaConsultaBR(c.data_hora)}
+                </span>
+                <span style={{
+                  flex: 1, minWidth: 0, fontSize: 13,
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  color: feita ? 'var(--text3)' : 'var(--text2)',
+                  textDecoration: feita ? 'line-through' : 'none',
+                }}>
+                  {c.paciente?.nome ?? '—'}
+                </span>
+                <span style={{ fontSize: 11, color: 'var(--text3)', flexShrink: 0 }}>
+                  {onde}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── LEMBRETES ── */}
+      {lembretes.length > 0 && (
+        <div style={{ marginBottom: 12 }}>
+          {lembretes.map(l => {
+            const concluido = !!l.concluido_em;
+            // Atrasado é o que ficou de um dia anterior. Sem data nunca atrasa:
+            // é recado sem prazo, e cobrar prazo dele seria inventar um.
+            const atrasado = !concluido && !!l.data && l.data < hoje;
+            return (
+              <div key={l.id} style={{
+                display: 'flex', alignItems: 'flex-start', gap: 8,
+                padding: '6px 0', borderBottom: '0.5px solid #f5f0e8',
+              }}>
+                <input type="checkbox" checked={concluido}
+                  onChange={() => alternar(l)}
+                  aria-label={concluido ? `Reabrir: ${l.texto}` : `Concluir: ${l.texto}`}
+                  style={{ marginTop: 3, flexShrink: 0, cursor: 'pointer' }} />
+                <span style={{
+                  flex: 1, minWidth: 0, fontSize: 13,
+                  color: concluido ? 'var(--text3)' : 'var(--text2)',
+                  textDecoration: concluido ? 'line-through' : 'none',
+                }}>
+                  {l.texto}
+                  {!l.data && !concluido && (
+                    <span style={{ fontSize: 11, color: 'var(--text3)', marginLeft: 6 }}>
+                      · sem prazo
+                    </span>
+                  )}
+                  {atrasado && (
+                    <span style={{ fontSize: 11, color: 'var(--orange)', marginLeft: 6 }}>
+                      · de {dataBR(l.data)}
+                    </span>
+                  )}
+                </span>
+                {/* O desfazer é explícito, e não só desmarcar a caixinha: a
+                    linha concluída fica na tela até a próxima carga justamente
+                    pra ela poder voltar atrás sem procurar onde. */}
+                {concluido && (
+                  <button onClick={() => alternar(l)}
+                    style={{
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      fontSize: 11, color: 'var(--gold-deep, #a08456)',
+                      fontFamily: 'var(--font-sans)', padding: 0, flexShrink: 0,
+                    }}>
+                    desfazer
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {vazio && (
+        <div style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 12 }}>
+          Sem consulta e sem lembrete para hoje. Anote aqui o que não pode escapar.
+        </div>
+      )}
+
+      {/* ── CAMPO RÁPIDO ── */}
+      <form onSubmit={enviar} style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        <input value={texto} onChange={e => setTexto(e.target.value)}
+          placeholder="Ligar pro contador, comprar tinta…"
+          maxLength={200}
+          style={{ flex: 1, minWidth: 160 }} />
+        <div style={{ display: 'flex', gap: 4 }}>
+          {PRAZOS_LEMBRETE.map(p => {
+            const ativo = prazo === p.id;
+            return (
+              <button key={p.id} type="button" onClick={() => setPrazo(p.id)}
+                style={{
+                  background: ativo ? 'var(--dark)' : 'none',
+                  color: ativo ? '#f5f2ec' : 'var(--text3)',
+                  border: '0.5px solid ' + (ativo ? 'var(--dark)' : 'var(--border)'),
+                  borderRadius: 20, padding: '5px 10px', fontSize: 12,
+                  cursor: 'pointer', fontFamily: 'var(--font-sans)',
+                }}>
+                {p.label}
+              </button>
+            );
+          })}
+          <button type="submit" className="btn" disabled={salvando || !texto.trim()}
+            style={{ opacity: salvando || !texto.trim() ? .5 : 1 }}>
+            <i className="ti ti-plus" aria-hidden="true"></i> {salvando ? '...' : 'Anotar'}
+          </button>
+        </div>
+      </form>
+
+      {erro && (
+        <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 8 }}>
+          Não consegui salvar: {erro}
+        </div>
+      )}
+    </div>
   );
 }
