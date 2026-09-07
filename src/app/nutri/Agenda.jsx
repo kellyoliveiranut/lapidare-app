@@ -6,6 +6,9 @@ import DateInput from '../../components/DateInput.jsx';
 import NovaPacienteRapida from './_NovaPacienteRapida.jsx';
 import { linkConvite, mensagemConviteEncoded } from '../../lib/convite.js';
 import { validarDiaConsulta } from '../../lib/feriados.js';
+import { tipoColor, MODALIDADES_CONSULTA, modalidadeInfo } from '../../lib/consultaVisual.js';
+import ReguaDoDia from './_ReguaDoDia.jsx';
+import { HORARIOS_TAREFA, hhmm } from '../../lib/reguaDoDia.js';
 import {
   dataConsultaBR, horaConsultaBR, TZ_CLINICA, textoDias, iniciais,
   gerarDiasCalendario, ehMesmoDia, mesAnoExtenso, DIAS_SEMANA_CURTOS, isoLocalDeData,
@@ -42,23 +45,9 @@ function tipoLabel(tipo) {
   return tipo;
 }
 
-function tipoColor(tipo) {
-  if (tipo === 'primeira') return 'var(--blue)';
-  if (tipo === 'avaliacao') return 'var(--orange)';
-  return 'var(--green)';
-}
-
-// Modalidade da consulta. O banco só aceita 'online' | 'presencial'
-// (check consultas_modalidade_check). Híbrido não existe aqui — segue só em
-// pacientes.modalidade, no perfil da paciente.
-const MODALIDADES_CONSULTA = [
-  { value: 'online',     label: 'Online',     icone: 'ti-video'   },
-  { value: 'presencial', label: 'Presencial', icone: 'ti-map-pin' },
-];
-
-function modalidadeInfo(modalidade) {
-  return MODALIDADES_CONSULTA.find(m => m.value === modalidade) ?? MODALIDADES_CONSULTA[0];
-}
+// tipoColor, MODALIDADES_CONSULTA e modalidadeInfo saíram deste arquivo para
+// src/lib/consultaVisual.js quando a régua do dia passou a precisar das
+// mesmas cores. Import no topo — não redeclare aqui.
 
 // pacientes.modalidade é capitalizada ('Online'/'Presencial'/'Híbrido') e a
 // coluna da consulta é minúscula. Só 'presencial' é herdado: Híbrido, vazio e
@@ -178,6 +167,22 @@ function lerRecolhido() {
   try { return localStorage.getItem(CHAVE_RECOLHIDO) === '1'; } catch { return false; }
 }
 
+// Visão do dia selecionado: a lista de sempre ou a régua por horário. Mesmo
+// contrato do CHAVE_RECOLHIDO acima, inclusive o try/catch — o modo privado
+// do Safari lança ao ler e ao gravar.
+const CHAVE_VISAO = 'agenda_visao_dia';
+
+const VISOES = [
+  { id: 'lista', label: 'Lista',          icone: 'ti-list' },
+  { id: 'regua', label: 'Linha do tempo', icone: 'ti-clock-hour-4' },
+];
+
+/** Falha para LISTA: chave ausente, valor estranho ou modo privado. */
+function lerVisao() {
+  try { return localStorage.getItem(CHAVE_VISAO) === 'regua' ? 'regua' : 'lista'; }
+  catch { return 'lista'; }
+}
+
 /**
  * Chave do dia no fuso da CLÍNICA, não no do navegador: "26/08/2026". Assim
  * "Hoje" nunca discorda da data impressa dentro do próprio cartão.
@@ -283,15 +288,20 @@ export default function Agenda() {
       // caixinha, e o quadradinho sumiria do calendário como se a tarefa nunca
       // tivesse existido.
       supabase.from('lembretes_nutri')
-        .select('id, texto, data, concluido_em, created_at')
+        .select('id, texto, data, hora, concluido_em, created_at')
         .eq('nutri_id', user.id)
         .gte('data', faixaTarefas.de).lte('data', faixaTarefas.ate)
-        .order('data').order('created_at'),
+        // nullsFirst na hora: tarefa sem hora é do dia inteiro e vem antes
+        // das marcadas, na lista e na faixa do topo da régua. O default do
+        // Postgres em ASC é NULLS LAST, que jogaria o dia inteiro para o fim.
+        .order('data').order('hora', { nullsFirst: true }).order('created_at'),
 
       // Sem prazo: aqui SÓ as pendentes. Uma tarefa sem data nunca "passa",
       // então as concluídas se acumulariam para sempre no bloco fixo.
+      // `hora` vem junto só por simetria de formato — o check do banco
+      // garante que ela é sempre nula quando não há data.
       supabase.from('lembretes_nutri')
-        .select('id, texto, data, concluido_em, created_at')
+        .select('id, texto, data, hora, concluido_em, created_at')
         .eq('nutri_id', user.id)
         .is('data', null).is('concluido_em', null)
         .order('created_at'),
@@ -318,6 +328,24 @@ export default function Agenda() {
       setErroTarefa('Não consegui salvar, tente novamente');
       setTimeout(() => setErroTarefa(null), 4000);
     }
+  }
+
+  // Criar/editar tarefa. Até aqui a Agenda só sabia LER e concluir: quem
+  // criava era o card da Visão, que só oferece "Hoje / Amanhã / Sem data" e
+  // nenhuma hora. É este modal que dá data arbitrária e horário.
+  const [tarefaModal, setTarefaModal] = useState({ open: false, tarefa: null });
+  // A tarefa nova nasce no dia que ela está olhando no calendário — criar
+  // tarefa é quase sempre "neste dia aqui".
+  const abrirTarefaNova = () => setTarefaModal({ open: true, tarefa: null });
+  const abrirTarefaEdit = (tarefa) => setTarefaModal({ open: true, tarefa });
+  const fecharTarefa    = () => setTarefaModal({ open: false, tarefa: null });
+
+  // A função por referência, não chamada: o localStorage é lido uma vez na
+  // montagem, não a cada render. Mesmo cuidado do painel de lembretes.
+  const [visaoDia, setVisaoDia] = useState(lerVisao);
+  function trocarVisao(id) {
+    setVisaoDia(id);
+    try { localStorage.setItem(CHAVE_VISAO, id); } catch { /* modo privado */ }
   }
 
   async function carregar() {
@@ -740,6 +768,11 @@ export default function Agenda() {
         <button className="btn-outline" onClick={() => setNovaPacienteOpen(true)}>
           <i className="ti ti-user-plus" style={{ fontSize: 15 }} aria-hidden="true"></i> Nova paciente
         </button>
+        {/* Sem `disabled`, ao contrário de "Nova consulta": tarefa é da nutri
+            e não depende de haver paciente cadastrada. */}
+        <button className="btn-outline" onClick={abrirTarefaNova}>
+          <i className="ti ti-plus" style={{ fontSize: 15 }} aria-hidden="true"></i> Tarefa
+        </button>
         <button className="btn" onClick={abrirNova} disabled={pacientes.length === 0}>
           <i className="ti ti-plus" style={{ fontSize: 15 }} aria-hidden="true"></i> Nova consulta
         </button>
@@ -802,10 +835,51 @@ export default function Agenda() {
         onSelecionarDia={setDiaSelecionado}
       />
 
-      {/* Consultas do dia selecionado */}
-      <div className="section-label">
-        Consultas em {diaSelecionado.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
+      {/* Alternador lista ↔ régua. Fica na linha do rótulo do dia, e não no
+          topo da tela, porque troca só ESTA região — o calendário, "A
+          definir" e "Todas as próximas" são os mesmos nas duas visões. */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        gap: 10, flexWrap: 'wrap',
+      }}>
+        <div className="section-label" style={{ marginBottom: 0 }}>
+          {visaoDia === 'regua' ? 'Dia ' : 'Consultas em '}
+          {diaSelecionado.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
+        </div>
+        <div style={{
+          display: 'inline-flex', gap: 2, padding: 2, borderRadius: 8,
+          background: 'var(--bg2)',
+        }}>
+          {VISOES.map(v => (
+            <button key={v.id} onClick={() => trocarVisao(v.id)}
+              title={v.id === 'regua' ? 'Ver o dia por horário' : 'Ver o dia em lista'}
+              style={{
+                padding: '5px 10px', fontSize: 12, fontWeight: 500,
+                borderRadius: 6, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
+                background: visaoDia === v.id ? 'var(--white)' : 'transparent',
+                color: visaoDia === v.id ? 'var(--dark)' : 'var(--text3)',
+                boxShadow: visaoDia === v.id ? '0 1px 3px rgba(0,0,0,.08)' : 'none',
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+                fontFamily: 'var(--font-sans)',
+              }}>
+              <i className={`ti ${v.icone}`} style={{ fontSize: 13 }} aria-hidden="true" />
+              {v.label}
+            </button>
+          ))}
+        </div>
       </div>
+
+      {visaoDia === 'regua' ? (
+        <ReguaDoDia
+          consultas={consultasDoDia}
+          tarefas={tarefasDoDia}
+          diaSelecionado={diaSelecionado}
+          onAbrirConsulta={abrirEdit}
+          onAbrirTarefa={abrirTarefaEdit}
+          onAlternarTarefa={alternarTarefa}
+        />
+      ) : (
+      <>
       {consultasDoDia.length === 0 ? (
         <div className="card" style={{ padding: '16px', textAlign: 'center', color: 'var(--text3)', fontSize: 14 }}>
           Nenhuma consulta neste dia.
@@ -833,10 +907,12 @@ export default function Agenda() {
           </div>
           <div className="card" style={{ padding: '4px 14px' }}>
             {tarefasDoDia.map(t => (
-              <LinhaTarefa key={t.id} t={t} onAlternar={alternarTarefa} />
+              <LinhaTarefa key={t.id} t={t} onAlternar={alternarTarefa} onAbrir={abrirTarefaEdit} />
             ))}
           </div>
         </>
+      )}
+      </>
       )}
 
       {/* Tarefas sem prazo: fora da grade de propósito. Sem data elas não têm
@@ -844,10 +920,13 @@ export default function Agenda() {
           deu. Mesmo tratamento do card da Visão: ficam à vista até concluir. */}
       {tarefasSemPrazo.length > 0 && (
         <>
+          {/* Fica FORA do alternador: aparece nas duas visões. Uma tarefa sem
+              data não pertence ao dia selecionado, então trocar de visão não
+              deveria fazê-la sumir. */}
           <div className="section-label" style={{ marginTop: 16 }}>Tarefas sem prazo</div>
           <div className="card" style={{ padding: '4px 14px' }}>
             {tarefasSemPrazo.map(t => (
-              <LinhaTarefa key={t.id} t={t} onAlternar={alternarTarefa} />
+              <LinhaTarefa key={t.id} t={t} onAlternar={alternarTarefa} onAbrir={abrirTarefaEdit} />
             ))}
           </div>
         </>
@@ -986,6 +1065,18 @@ export default function Agenda() {
           onClose={fechar}
           onSaved={() => consultaSalva(modalState.consulta?.id ?? null)}
           onToggleConfirmada={toggleConfirmada}
+        />
+      )}
+
+      {tarefaModal.open && (
+        <TarefaModal
+          tarefa={tarefaModal.tarefa}
+          nutriId={user.id}
+          // Só na criação: a tarefa nova nasce no dia que ela está olhando.
+          // Ao editar, quem manda é a data já gravada.
+          dataInicial={isoLocalDeData(diaSelecionado)}
+          onClose={fecharTarefa}
+          onSaved={() => { fecharTarefa(); carregarTarefas(); }}
         />
       )}
 
@@ -1584,15 +1675,31 @@ function Legenda({ cor, label, quadrado }) {
    quando concluída e um "desfazer" explícito. Sem o sufixo "· de {data}"
    que existe lá — aqui o dia já é o título da seção.
    ============================================================ */
-function LinhaTarefa({ t, onAlternar }) {
+function LinhaTarefa({ t, onAlternar, onAbrir }) {
   const concluida = !!t.concluido_em;
+
+  // A linha inteira abre a edição, MENOS a caixinha e o "desfazer". Sem os
+  // stopPropagation abaixo, marcar como concluída abriria o modal por cima —
+  // exatamente a armadilha que o ConsultaRow já documenta em alternarConfirmada.
+  function alternar(e) {
+    e.stopPropagation();
+    onAlternar(t.id, !concluida);
+  }
+  function desfazer(e) {
+    e.stopPropagation();
+    onAlternar(t.id, false);
+  }
+
   return (
-    <div style={{
-      display: 'flex', alignItems: 'flex-start', gap: 8,
-      padding: '7px 0', borderBottom: '0.5px solid var(--hair-soft)',
-    }}>
+    <div onClick={() => onAbrir?.(t)}
+      style={{
+        display: 'flex', alignItems: 'flex-start', gap: 8,
+        padding: '7px 0', borderBottom: '0.5px solid var(--hair-soft)',
+        cursor: onAbrir ? 'pointer' : 'default',
+      }}>
       <input type="checkbox" checked={concluida}
-        onChange={() => onAlternar(t.id, !concluida)}
+        onClick={e => e.stopPropagation()}
+        onChange={alternar}
         aria-label={concluida ? `Reabrir: ${t.texto}` : `Concluir: ${t.texto}`}
         style={{ marginTop: 3, flexShrink: 0, cursor: 'pointer' }} />
       <span style={{
@@ -1601,12 +1708,19 @@ function LinhaTarefa({ t, onAlternar }) {
         textDecoration: concluida ? 'line-through' : 'none',
       }}>
         {t.texto}
+        {/* A hora aparece na lista também: sem isso, a tarefa das 15:00 e a
+            do dia inteiro ficariam idênticas fora da régua. */}
+        {t.hora && (
+          <span style={{ fontSize: 11, color: 'var(--text3)', marginLeft: 6, fontVariantNumeric: 'tabular-nums' }}>
+            · {hhmm(t.hora)}
+          </span>
+        )}
       </span>
       {/* O desfazer é explícito, e não só desmarcar a caixinha: a linha
           concluída fica na tela até a próxima carga justamente para ela poder
           voltar atrás sem procurar onde. */}
       {concluida && (
-        <button onClick={() => onAlternar(t.id, false)}
+        <button onClick={desfazer}
           style={{
             background: 'none', border: 'none', cursor: 'pointer',
             fontSize: 11, color: 'var(--gold-deep)',
@@ -1979,6 +2093,145 @@ function SelectPacienteBusca({ pacientes, value, onChange, disabled, limparAoEsc
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+/* ============================================================
+   MODAL DE TAREFA — criar, editar e excluir
+
+   Casca copiada do ConsultaModal logo abaixo, e não do ModalShell: a
+   Agenda nunca usou o ModalShell, e dois modais irmãos com bordas
+   diferentes na mesma tela ficariam estranhos.
+
+   Os dois campos opcionais têm significado, não são "em branco":
+     data vazia  → tarefa SEM PRAZO, vai para o bloco fixo
+     hora vazia  → tarefa do DIA INTEIRO, faixa do topo da régua
+   ============================================================ */
+function TarefaModal({ tarefa, nutriId, dataInicial, onClose, onSaved }) {
+  const isEdit = !!tarefa;
+  const [texto, setTexto] = useState(tarefa?.texto ?? '');
+  const [data, setData]   = useState(tarefa?.data ?? dataInicial ?? '');
+  // hhmm() porque o PostgREST devolve `time` como 'HH:MM:SS' e o <select>
+  // tem opções 'HH:MM' — sem o corte, nenhuma opção casaria e o campo
+  // apareceria vazio numa tarefa que TEM hora.
+  const [hora, setHora]   = useState(hhmm(tarefa?.hora ?? ''));
+  const [busy, setBusy]   = useState(false);
+  const [erro, setErro]   = useState(null);
+
+  // Limpar a data limpa a hora junto: o banco recusaria hora sem data
+  // (check lembretes_nutri_hora_exige_data), e deixar o horário na tela
+  // depois de apagar o dia prometeria algo que não seria salvo.
+  function trocarData(novaData) {
+    setData(novaData);
+    if (!novaData) setHora('');
+  }
+
+  async function salvar() {
+    const limpo = texto.trim();
+    if (!limpo) { setErro('Escreva o texto da tarefa.'); return; }
+    setBusy(true);
+    setErro(null);
+    const payload = {
+      texto: limpo,
+      data: data || null,
+      hora: data ? (hora || null) : null,
+    };
+    const { error } = isEdit
+      ? await supabase.from('lembretes_nutri').update(payload).eq('id', tarefa.id)
+      : await supabase.from('lembretes_nutri').insert({ ...payload, nutri_id: nutriId });
+    setBusy(false);
+    if (error) { setErro(error.message); return; }
+    onSaved();
+  }
+
+  async function excluir() {
+    if (!window.confirm(`Excluir a tarefa "${tarefa.texto}"? Esta ação não pode ser desfeita.`)) return;
+    setBusy(true);
+    setErro(null);
+    const { error } = await supabase.from('lembretes_nutri').delete().eq('id', tarefa.id);
+    setBusy(false);
+    if (error) { setErro(error.message); return; }
+    onSaved();
+  }
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0,
+      background: 'rgba(28,23,18,.55)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100,
+    }} onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: 'var(--white)', borderRadius: 12, padding: 22,
+        width: 420, maxWidth: '92vw', maxHeight: '92vh', overflowY: 'auto',
+        border: '0.5px solid var(--border)',
+      }}>
+        <div style={{ fontFamily: 'var(--font-serif)', fontSize: 17, marginBottom: 4 }}>
+          {isEdit ? 'Editar tarefa' : 'Nova tarefa'}
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 14 }}>
+          Sua, não da paciente. Sem data ela fica sempre à vista; sem hora, aparece como dia inteiro.
+        </div>
+
+        <label className="form-lbl">Tarefa</label>
+        <input value={texto} onChange={e => setTexto(e.target.value)}
+          placeholder="Ex: ligar pro contador" autoFocus />
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 10 }}>
+          <div>
+            <label className="form-lbl">Data</label>
+            <DateInput value={data} onChange={e => trocarData(e.target.value)} />
+            {!data && (
+              <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 3 }}>
+                Sem prazo
+              </div>
+            )}
+          </div>
+          <div>
+            <label className="form-lbl">Hora</label>
+            {/* Lista própria, derivada dos limites da RÉGUA — não
+                HORARIOS_CONSULTA, que para às 18:00 porque é o último
+                horário em que ela começa a atender. Assim não dá para criar
+                tarefa num horário que a régua não saberia desenhar. */}
+            <select value={hora} onChange={e => setHora(e.target.value)} disabled={!data}>
+              <option value="">Dia inteiro</option>
+              {HORARIOS_TAREFA.map(h => <option key={h} value={h}>{h}</option>)}
+            </select>
+            {!data && (
+              <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 3 }}>
+                Escolha uma data primeiro
+              </div>
+            )}
+          </div>
+        </div>
+
+        {erro && (
+          <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 10 }}>{erro}</div>
+        )}
+
+        <div style={{ display: 'flex', gap: 8, marginTop: 18 }}>
+          <button className="btn-outline" style={{ flex: 1, justifyContent: 'center' }}
+            onClick={onClose} disabled={busy}>
+            Fechar
+          </button>
+          <button className="btn" style={{ flex: 1, justifyContent: 'center' }}
+            onClick={salvar} disabled={busy || !texto.trim()}>
+            {busy ? 'Salvando…' : 'Salvar'}
+          </button>
+        </div>
+
+        {isEdit && (
+          <button onClick={excluir} disabled={busy}
+            style={{
+              marginTop: 12, width: '100%', padding: '8px 0',
+              background: 'none', border: '0.5px solid var(--red)', borderRadius: 8,
+              color: 'var(--red)', cursor: 'pointer', fontSize: 13,
+              fontFamily: 'var(--font-sans)',
+            }}>
+            <i className="ti ti-trash" aria-hidden="true" /> Excluir tarefa
+          </button>
+        )}
+      </div>
     </div>
   );
 }
