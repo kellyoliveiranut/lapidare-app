@@ -218,7 +218,7 @@ export default function MonitoramentoOncologico() {
   if (step === null) {
     return (
       <Wrap>
-        <LinhaDoTempoCiclo ciclos={ciclos} intervalo={intervalo} protocoloNome={protocoloNome} pacienteId={pacienteId} />
+        <LinhaDoTempoCiclo ciclos={ciclos} intervalo={intervalo} protocoloNome={protocoloNome} pacienteId={pacienteId} sexo={profile?.sexo} />
         <div style={{ textAlign: 'center', color: 'var(--muted)', padding: 40 }}>Carregando…</div>
       </Wrap>
     );
@@ -227,7 +227,7 @@ export default function MonitoramentoOncologico() {
   if (salvo) {
     return (
       <>
-        <LinhaDoTempoCiclo ciclos={ciclos} intervalo={intervalo} protocoloNome={protocoloNome} pacienteId={pacienteId} standalone />
+        <LinhaDoTempoCiclo ciclos={ciclos} intervalo={intervalo} protocoloNome={protocoloNome} pacienteId={pacienteId} sexo={profile?.sexo} standalone />
         <Concluido />
       </>
     );
@@ -236,7 +236,7 @@ export default function MonitoramentoOncologico() {
   if (step === 0 && registroHoje) {
     return (
       <>
-        <LinhaDoTempoCiclo ciclos={ciclos} intervalo={intervalo} protocoloNome={protocoloNome} pacienteId={pacienteId} standalone />
+        <LinhaDoTempoCiclo ciclos={ciclos} intervalo={intervalo} protocoloNome={protocoloNome} pacienteId={pacienteId} sexo={profile?.sexo} standalone />
         <JaPreenchidoHoje
           registro={registroHoje}
           onEditar={() => { preencherForm(registroHoje); setStep(1); }}
@@ -250,7 +250,7 @@ export default function MonitoramentoOncologico() {
 
   return (
     <Wrap>
-      <LinhaDoTempoCiclo ciclos={ciclos} intervalo={intervalo} protocoloNome={protocoloNome} pacienteId={pacienteId} />
+      <LinhaDoTempoCiclo ciclos={ciclos} intervalo={intervalo} protocoloNome={protocoloNome} pacienteId={pacienteId} sexo={profile?.sexo} />
 
       {/* Barra de progresso */}
       <div style={{ marginBottom: 28 }}>
@@ -636,7 +636,7 @@ export default function MonitoramentoOncologico() {
 }
 
 // ── Linha do tempo de ciclo (somente leitura) ─────────────────────
-function LinhaDoTempoCiclo({ ciclos, intervalo, protocoloNome, standalone, pacienteId }) {
+function LinhaDoTempoCiclo({ ciclos, intervalo, protocoloNome, standalone, pacienteId, sexo }) {
   const hoje = dataLocalISO();
 
   // standalone = usado fora do <Wrap>, precisa do próprio centramento
@@ -657,7 +657,7 @@ function LinhaDoTempoCiclo({ ciclos, intervalo, protocoloNome, standalone, pacie
           Seu primeiro ciclo ainda não aconteceu — sua linha do tempo aparece aqui quando ele começar.
         </div>
         {/* Exames aparecem mesmo sem ciclo cadastrado */}
-        <ExamesLaboratoriais pacienteId={pacienteId} />
+        <ExamesLaboratoriais pacienteId={pacienteId} sexo={sexo} />
       </div>
     );
   }
@@ -751,7 +751,7 @@ function LinhaDoTempoCiclo({ ciclos, intervalo, protocoloNome, standalone, pacie
         </div>
       </div>
 
-      <ExamesLaboratoriais pacienteId={pacienteId} />
+      <ExamesLaboratoriais pacienteId={pacienteId} sexo={sexo} />
     </div>
   );
 }

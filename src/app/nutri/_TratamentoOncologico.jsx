@@ -5,6 +5,9 @@ import { callAnthropic } from '../../lib/anthropic.js';
 import DateInput from '../../components/DateInput.jsx';
 import CardProtocoloEfeitos from '../../components/CardProtocoloEfeitos.jsx';
 import protocolosEfeitosData from '../../data/protocolos_efeitos.json';
+import { CAMPOS_EXAME, CHAVES_EXAME, textoRef } from '../../data/exames_referencia.js';
+import ValorExame, { LegendaExames } from '../../components/ValorExame.jsx';
+import GraficosExames from '../../components/GraficosExames.jsx';
 import { getProtocolo, chaveProtocolo, temEstruturaCiclo, janelaRisco, rotuloJanelaRisco, marcosDoProtocolo, marcosEfeitoAplicacao, datasAplicacoesCiclo, datasSerieCiclos, intervaloMinimoSerie, linhasDoCiclo } from '../../lib/protocoloCiclo.js';
 
 const GRUPOS_EFEITOS = (() => {
@@ -79,11 +82,14 @@ function addDays(dateStr, n) {
   return d.toISOString().slice(0, 10);
 }
 
+// Os 8 campos saem do catálogo (src/data/exames_referencia.js): incluir um
+// exame novo lá basta, sem lembrar de repetir a chave aqui e no insert.
 function exameDefault() {
-  return { data_exame: dataLocalISO(), hemoglobina: '', leucocitos: '', neutrofilos: '', linfocitos: '', plaquetas: '', pcr: '', albumina: '', glicemia: '', obs: '' };
+  const vazios = Object.fromEntries(CHAVES_EXAME.map(k => [k, '']));
+  return { data_exame: dataLocalISO(), ...vazios, obs: '' };
 }
 
-export default function TratamentoOncologico({ pacienteId, nutriId, pacienteNome }) {
+export default function TratamentoOncologico({ pacienteId, nutriId, pacienteNome, pacienteSexo }) {
   const [secao, setSecao] = useState('diagnostico');
   const [dados, setDados] = useState(dadosDefault());
   const [tratamentoId, setTratamentoId] = useState(null);
@@ -234,10 +240,9 @@ export default function TratamentoOncologico({ pacienteId, nutriId, pacienteNome
     const { error } = await supabase.from('exames_laboratoriais').insert({
       paciente_id: pacienteId, nutri_id: nutriId,
       data_exame: novoExame.data_exame,
-      hemoglobina: numf(novoExame.hemoglobina), leucocitos: numf(novoExame.leucocitos),
-      neutrofilos: numf(novoExame.neutrofilos), linfocitos: numf(novoExame.linfocitos),
-      plaquetas: numf(novoExame.plaquetas), pcr: numf(novoExame.pcr),
-      albumina: numf(novoExame.albumina), glicemia: numf(novoExame.glicemia),
+      // Mesmo numf() de antes, campo a campo — só que a lista das 8 chaves
+      // vem do catálogo em vez de estar redigitada aqui.
+      ...Object.fromEntries(CHAVES_EXAME.map(k => [k, numf(novoExame[k])])),
       obs: novoExame.obs.trim() || null,
     });
     setBusy(false);
@@ -940,21 +945,25 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
                 <DateInput value={novoExame.data_exame} onChange={e => setNovoExame(p => ({ ...p, data_exame: e.target.value }))} style={{ maxWidth: 200 }} />
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 10 }}>
-                {[
-                  { k: 'hemoglobina', l: 'Hemoglobina (g/dL)', ph: '12,5' },
-                  { k: 'leucocitos',  l: 'Leucócitos (/mm³)',  ph: '6500' },
-                  { k: 'neutrofilos', l: 'Neutrófilos (/mm³)', ph: '3200' },
-                  { k: 'linfocitos',  l: 'Linfócitos (/mm³)',  ph: '1800' },
-                  { k: 'plaquetas',   l: 'Plaquetas (/mm³)',   ph: '220000' },
-                  { k: 'pcr',         l: 'PCR (mg/L)',         ph: '5,0' },
-                  { k: 'albumina',    l: 'Albumina (g/dL)',    ph: '3,8' },
-                  { k: 'glicemia',    l: 'Glicemia (mg/dL)',   ph: '95' },
-                ].map(({ k, l, ph }) => (
-                  <div key={k}>
-                    <label className="field-label">{l}</label>
-                    <input inputMode="decimal" placeholder={ph} value={novoExame[k]} onChange={e => setNovoExame(p => ({ ...p, [k]: e.target.value }))} />
-                  </div>
-                ))}
+                {CAMPOS_EXAME.map(campo => {
+                  const { key: k, label, unidade, ph } = campo;
+                  const ref = textoRef(campo, pacienteSexo);
+                  return (
+                    <div key={k}>
+                      <label className="field-label">
+                        {label}{unidade ? ` (${unidade})` : ''}
+                      </label>
+                      <input inputMode="decimal" placeholder={ph} value={novoExame[k]} onChange={e => setNovoExame(p => ({ ...p, [k]: e.target.value }))} />
+                      {/* A faixa fica à vista já na digitação: é onde ela
+                          percebe o valor estranho antes de gravar. */}
+                      {ref && (
+                        <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }}>
+                          ref. {ref}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
               <div style={{ marginBottom: 10 }}>
                 <label className="field-label">Observações</label>
@@ -976,14 +985,21 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
                   <thead>
                     <tr>
                       <th>Data</th>
-                      <th>Hb</th>
-                      <th>Leuco</th>
-                      <th>Neutro</th>
-                      <th>Linfo</th>
-                      <th>Plaq</th>
-                      <th>PCR</th>
-                      <th>Alb</th>
-                      <th>Gli</th>
+                      {/* A faixa vai UMA vez, no cabeçalho: por célula ela se
+                          repetiria em toda linha do histórico. */}
+                      {CAMPOS_EXAME.map(campo => {
+                        const ref = textoRef(campo, pacienteSexo);
+                        return (
+                          <th key={campo.key} style={{ whiteSpace: 'nowrap' }}>
+                            {campo.curto}
+                            {ref && (
+                              <div style={{ fontSize: 10, fontWeight: 400, color: 'var(--text3)', textTransform: 'none', letterSpacing: 0 }}>
+                                {ref}
+                              </div>
+                            )}
+                          </th>
+                        );
+                      })}
                       <th></th>
                     </tr>
                   </thead>
@@ -991,14 +1007,11 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
                     {exames.map(e => (
                       <tr key={e.id}>
                         <td style={{ whiteSpace: 'nowrap' }}>{dataBR(e.data_exame)}</td>
-                        <td><ExamVal v={e.hemoglobina} low={11} crit={8} /></td>
-                        <td><ExamVal v={e.leucocitos}  low={3500} crit={1000} /></td>
-                        <td><ExamVal v={e.neutrofilos} low={1500} crit={500} /></td>
-                        <td><ExamVal v={e.linfocitos}  low={800}  crit={300} /></td>
-                        <td><ExamVal v={e.plaquetas}   low={100000} crit={50000} /></td>
-                        <td><ExamVal v={e.pcr}         low={10} crit={50} reverse /></td>
-                        <td><ExamVal v={e.albumina}    low={3.5} crit={3} /></td>
-                        <td>{e.glicemia ?? '—'}</td>
+                        {CAMPOS_EXAME.map(campo => (
+                          <td key={campo.key}>
+                            <ValorExame campo={campo} valor={e[campo.key]} sexo={pacienteSexo} />
+                          </td>
+                        ))}
                         <td>
                           <button onClick={() => removerExame(e.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--red)' }}>
                             <i className="ti ti-trash" />
@@ -1009,8 +1022,14 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
                   </tbody>
                 </table>
               </div>
+              <div style={{ padding: '8px 14px 10px' }}>
+                <LegendaExames />
+              </div>
             </div>
           )}
+
+          {/* Evolução: mesma grade da paciente, mesmos limiares. */}
+          <GraficosExames exames={exames} sexo={pacienteSexo} />
         </>
       )}
     </div>
@@ -1018,14 +1037,6 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
 }
 
 // Exibe valor de exame com cor por faixa de referência
-function ExamVal({ v, low, crit, reverse }) {
-  if (v == null) return <span style={{ color: 'var(--text3)' }}>—</span>;
-  const ruim  = reverse ? v >= crit : v <= crit;
-  const atenc = reverse ? v >= low  : v <= low;
-  const cor   = ruim ? '#dc2626' : atenc ? '#d97706' : '#16a34a';
-  return <span style={{ color: cor, fontWeight: ruim || atenc ? 600 : 400 }}>{v}</span>;
-}
-
 // Campo de input simples
 function F({ label, value, onChange, type = 'text', placeholder }) {
   return (

@@ -1,30 +1,22 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { dataBR } from '../../lib/utils.js';
-
-const CAMPOS = [
-  { key: 'hemoglobina', label: 'Hemoglobina', unidade: 'g/dL',  dec: 1 },
-  { key: 'leucocitos',  label: 'Leucócitos',  unidade: '/mm³',  dec: 0 },
-  { key: 'neutrofilos', label: 'Neutrófilos', unidade: '',      dec: 0 },
-  { key: 'linfocitos',  label: 'Linfócitos',  unidade: '',      dec: 0 },
-  { key: 'plaquetas',   label: 'Plaquetas',   unidade: '/mm³',  dec: 0 },
-  { key: 'pcr',         label: 'PCR',         unidade: 'mg/L',  dec: 1 },
-  { key: 'albumina',    label: 'Albumina',    unidade: 'g/dL',  dec: 1 },
-  { key: 'glicemia',    label: 'Glicemia',    unidade: 'mg/dL', dec: 0 },
-];
-
-function fmtNum(v, dec) {
-  if (v == null) return null;
-  return Number(v).toLocaleString('pt-BR', {
-    minimumFractionDigits: dec,
-    maximumFractionDigits: dec,
-  });
-}
+import { CAMPOS_EXAME } from '../../data/exames_referencia.js';
+import ValorExame, { LegendaExames } from '../../components/ValorExame.jsx';
+import GraficosExames from '../../components/GraficosExames.jsx';
 
 // Resultados de exames laboratoriais (somente leitura). A RLS já restringe as
 // linhas à própria paciente; o filtro por paciente_id abaixo é defesa em
 // profundidade, não a única barreira.
-export default function ExamesLaboratoriais({ pacienteId }) {
+//
+// A lista dos 8 campos não vive mais aqui: veio para src/data/exames_referencia.js,
+// que a tela da nutri também usa. Era a terceira cópia da mesma lista.
+//
+// A COR AQUI NUNCA APARECE SOZINHA. Toda linha colorida traz a faixa de
+// referência ao lado, e o bloco tem legenda: em oncologia, um número vermelho
+// sem explicação, lido no celular sem a nutri por perto, assusta sem informar.
+// Vermelho aqui quer dizer "fora de 12–16", e a paciente consegue ler isso.
+export default function ExamesLaboratoriais({ pacienteId, sexo }) {
   const [exames, setExames] = useState(undefined);
 
   useEffect(() => {
@@ -58,7 +50,7 @@ export default function ExamesLaboratoriais({ pacienteId }) {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {exames.map(ex => {
-          const valores = CAMPOS.filter(c => ex[c.key] != null);
+          const valores = CAMPOS_EXAME.filter(c => ex[c.key] != null);
           return (
             <div key={ex.id} className="card" style={{
               padding: 0, overflow: 'hidden',
@@ -82,12 +74,11 @@ export default function ExamesLaboratoriais({ pacienteId }) {
                   {valores.map(c => (
                     <div key={c.key} style={{
                       display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
-                      fontSize: 13,
+                      gap: 10, fontSize: 13,
                     }}>
                       <span style={{ color: 'var(--ink-soft)' }}>{c.label}</span>
-                      <span style={{ fontWeight: 500, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>
-                        {fmtNum(ex[c.key], c.dec)}{' '}
-                        <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 400 }}>{c.unidade}</span>
+                      <span style={{ textAlign: 'right', color: 'var(--ink)' }}>
+                        <ValorExame campo={c} valor={ex[c.key]} sexo={sexo} mostrarRef mostrarUnidade />
                       </span>
                     </div>
                   ))}
@@ -110,6 +101,10 @@ export default function ExamesLaboratoriais({ pacienteId }) {
           );
         })}
       </div>
+
+      <LegendaExames style={{ marginTop: 10, color: 'var(--muted)' }} />
+
+      <GraficosExames exames={exames} sexo={sexo} />
     </div>
   );
 }
