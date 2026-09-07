@@ -14,6 +14,11 @@ import { OBJETIVOS } from '../../lib/objetivos.js';
 import { SEXOS, PLANOS } from '../../lib/opcoesPaciente.js';
 import { perguntasParaPaciente } from '../../lib/checkinVariacao.js';
 import { ehFeriado, validarDiaConsulta } from '../../lib/feriados.js';
+// O gráfico de área saiu daqui para ser usado também pelos exames. O
+// comportamento do gráfico de peso não mudou: o corte de "menos de 2 pontos"
+// continua sendo do chamador, logo abaixo, e não do componente.
+import SvgAreaChart from '../../components/SvgAreaChart.jsx';
+import { fmtVal, xLabel } from '../../lib/graficoFormato.js';
 import { iniciarTokenPush, avisarPaciente } from '../../lib/push.js';
 import { callAnthropicComRetry, lerPdfBase64 } from '../../lib/anthropic.js';
 import { buscarAlimento, medidaCaseira, kcalDoAlimento, kcalEquivalente, parseGramas } from '../../lib/taco.js';
@@ -1090,7 +1095,7 @@ export default function PacientePerfil() {
       <Suspense fallback={<div className="card empty-card"><div className="empty-sub">Carregando…</div></div>}>
         {tab === 'evolucao'      && <Evolucao pacienteId={paciente.id} paciente={paciente} nutriId={user.id} />}
         {tab === 'relatorio'     && <RelatorioEvolucao pacienteId={paciente.id} paciente={paciente} nutriId={user.id} />}
-        {tab === 'oncologia'     && <TratamentoOncologico pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
+        {tab === 'oncologia'     && <TratamentoOncologico pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} pacienteSexo={paciente.sexo} />}
         {tab === 'emagrecimento' && <Emagrecimento pacienteId={paciente.id} nutriId={user.id} />}
         {tab === 'anamnese'      && <Anamnese pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
         {tab === 'followup'      && <FollowUp pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
@@ -5696,60 +5701,6 @@ function ModalUploadEbookPaciente({ nutriId, pacienteId, onClose, onSaved }) {
    ============================================================ */
 const SHAPED_VERDE = '#2D6A4F';
 
-function fmtVal(v) {
-  if (v == null) return '—';
-  return Number(v).toFixed(1).replace(/\.0$/, '');
-}
-
-function SvgAreaChart({ pontos, color, gradId, unidade, label }) {
-  const W = 400, H = 100;
-  const pad = { t: 24, r: 8, b: 22, l: 8 };
-  const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
-  const n = pontos.length;
-  if (n === 0) return null;
-  const vals = pontos.map(p => p.v);
-  const span = Math.max(...vals) - Math.min(...vals) || 1;
-  const lo = Math.min(...vals) - span * 0.15;
-  const hi = Math.max(...vals) + span * 0.15;
-  const tx = i => pad.l + (n < 2 ? pw / 2 : (i / (n - 1)) * pw);
-  const ty = v => pad.t + ph - ((v - lo) / (hi - lo)) * ph;
-  const pts = pontos.map((p, i) => ({ x: tx(i), y: ty(p.v), v: p.v, lbl: p.x }));
-  const linePath = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-  const baseY = pad.t + ph;
-  const areaPath = `${linePath} L ${pts[pts.length - 1].x} ${baseY} L ${pts[0].x} ${baseY} Z`;
-  const xStep = Math.max(1, Math.ceil(n / 5));
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: H, display: 'block' }}>
-      <defs>
-        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity={0.2} />
-          <stop offset="100%" stopColor={color} stopOpacity={0} />
-        </linearGradient>
-      </defs>
-      {[0.25, 0.5, 0.75].map((f, i) => (
-        <line key={i} x1={pad.l} y1={pad.t + ph * f} x2={W - pad.r} y2={pad.t + ph * f} stroke="#f2ede6" strokeWidth={1} />
-      ))}
-      <path d={areaPath} fill={`url(#${gradId})`} />
-      <path d={linePath} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-      {pts.map((p, i) => (
-        <g key={i}>
-          <circle cx={p.x} cy={p.y} r={4} fill={color} stroke="#fff" strokeWidth={2}>
-            <title>{`${label}: ${p.v.toFixed(1)} ${unidade}`}</title>
-          </circle>
-          <text x={p.x} y={p.y - 8} textAnchor="middle" fontSize={10} fill={color} fontWeight={600}>
-            {fmtVal(p.v)}
-          </text>
-          {i % xStep === 0 && (
-            <text x={p.x} y={H - 4} textAnchor="middle" fontSize={9} fill="#9b9087">
-              {p.lbl}
-            </text>
-          )}
-        </g>
-      ))}
-    </svg>
-  );
-}
-
 const METRICAS_EV = [
   { key: 'kg',             label: 'Peso',        unidade: 'kg', melhoraDiminuindo: true  },
   { key: 'pgc',            label: '% Gordura',   unidade: '%',  melhoraDiminuindo: true  },
@@ -5762,16 +5713,6 @@ const METRICAS_EV = [
   { key: 'braco_dir_cm',   label: 'Braço',       unidade: 'cm', melhoraDiminuindo: false, alt: 'braco_cm' },
   { key: 'coxa_dir_cm',    label: 'Coxa',        unidade: 'cm', melhoraDiminuindo: false, alt: 'coxa_cm'  },
 ];
-
-const MESES_ABR = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
-
-function xLabel(iso) {
-  if (!iso) return '';
-  const d = new Date(iso + 'T12:00');
-  const m = MESES_ABR[d.getMonth()];
-  const anoAtual = new Date().getFullYear();
-  return d.getFullYear() === anoAtual ? m : `${m}/${String(d.getFullYear()).slice(2)}`;
-}
 
 function getVal(a, m) {
   const v = a[m.key];
