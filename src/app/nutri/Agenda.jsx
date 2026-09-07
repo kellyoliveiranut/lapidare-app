@@ -8,7 +8,7 @@ import { linkConvite, mensagemConviteEncoded } from '../../lib/convite.js';
 import { validarDiaConsulta } from '../../lib/feriados.js';
 import {
   dataConsultaBR, horaConsultaBR, TZ_CLINICA, textoDias, iniciais,
-  gerarDiasCalendario, ehMesmoDia, mesAnoExtenso, DIAS_SEMANA_CURTOS,
+  gerarDiasCalendario, ehMesmoDia, mesAnoExtenso, DIAS_SEMANA_CURTOS, isoLocalDeData,
   HORARIOS_CONSULTA, HORARIO_CONSULTA_PADRAO, horaConsultaValida,
   telefoneValido, normalizarBusca,
 } from '../../lib/utils.js';
@@ -246,6 +246,80 @@ export default function Agenda() {
   // este é falha de leitura e some só quando a próxima leitura der certo.
   const [erroLembretesFetch, setErroLembretesFetch] = useState(null);
 
+  /* ──────────────────────────────────────────────────────────────
+     TAREFAS DA NUTRI (tabela lembretes_nutri)
+
+     ATENÇÃO AO VOCABULÁRIO: nesta tela existem DUAS coisas diferentes.
+       • `lembretes`  (acima) = aviso de WhatsApp que a nutri manda para a
+         PACIENTE antes da consulta. Vive em colunas da tabela `consultas`
+         (lembrete_ativo, lembrete_enviado) e alimenta o PainelLembretes.
+       • `tarefas`    (aqui)  = recado pessoal da NUTRI, tabela
+         `lembretes_nutri`. A paciente nunca lê estas linhas.
+     São vizinhas e não têm nada a ver uma com a outra. Na tela elas se
+     chamam "lembretes" e "Tarefas"; no código, nada aqui usa a palavra
+     "lembrete". Não unifique as duas.
+     ────────────────────────────────────────────────────────────── */
+  const [tarefas, setTarefas] = useState([]);              // com data, da grade visível
+  const [tarefasSemPrazo, setTarefasSemPrazo] = useState([]); // data = null, pendentes
+  const [erroTarefa, setErroTarefa] = useState(null);
+
+  // A faixa NÃO é o mês: gerarDiasCalendario devolve também os dias vizinhos
+  // que aparecem esmaecidos na grade. Buscar só o mês deixaria uma tarefa do
+  // dia 31 de agosto sem marca na célula visível de setembro. Mesma função que
+  // o CalendarioMensal usa, para as duas coisas nunca discordarem.
+  const faixaTarefas = useMemo(() => {
+    const dias = gerarDiasCalendario(mesVisivel);
+    return {
+      de:  isoLocalDeData(dias[0].data),
+      ate: isoLocalDeData(dias[dias.length - 1].data),
+    };
+  }, [mesVisivel]);
+
+  async function carregarTarefas() {
+    if (!user) return;
+    const [comData, semData] = await Promise.all([
+      // Da grade visível inteira, passado E futuro, INCLUINDO as concluídas:
+      // sem elas o dia se esvaziaria no instante em que ela marcasse a
+      // caixinha, e o quadradinho sumiria do calendário como se a tarefa nunca
+      // tivesse existido.
+      supabase.from('lembretes_nutri')
+        .select('id, texto, data, concluido_em, created_at')
+        .eq('nutri_id', user.id)
+        .gte('data', faixaTarefas.de).lte('data', faixaTarefas.ate)
+        .order('data').order('created_at'),
+
+      // Sem prazo: aqui SÓ as pendentes. Uma tarefa sem data nunca "passa",
+      // então as concluídas se acumulariam para sempre no bloco fixo.
+      supabase.from('lembretes_nutri')
+        .select('id, texto, data, concluido_em, created_at')
+        .eq('nutri_id', user.id)
+        .is('data', null).is('concluido_em', null)
+        .order('created_at'),
+    ]);
+    setTarefas(comData.data ?? []);
+    setTarefasSemPrazo(semData.data ?? []);
+  }
+
+  // Otimista com rollback, igual ao card da Visão: marcar é o gesto mais
+  // barato da tela e não deve esperar ida ao banco. O id pode estar em
+  // qualquer uma das duas listas, então as duas recebem o mesmo map.
+  async function alternarTarefa(id, concluir) {
+    const valor = concluir ? new Date().toISOString() : null;   // concluido_em é timestamptz
+    const antes = { comData: tarefas, semPrazo: tarefasSemPrazo };
+    const aplicar = (lista) => lista.map(t => (t.id === id ? { ...t, concluido_em: valor } : t));
+    setTarefas(aplicar);
+    setTarefasSemPrazo(aplicar);
+    setErroTarefa(null);
+    const { error } = await supabase.from('lembretes_nutri')
+      .update({ concluido_em: valor }).eq('id', id);
+    if (error) {
+      setTarefas(antes.comData);
+      setTarefasSemPrazo(antes.semPrazo);
+      setErroTarefa('Não consegui salvar, tente novamente');
+      setTimeout(() => setErroTarefa(null), 4000);
+    }
+  }
+
   async function carregar() {
     if (!user) return;
     const { data } = await supabase
@@ -409,6 +483,13 @@ export default function Agenda() {
     return () => clearInterval(intervalo);
   }, [user]);
 
+  // Separado do efeito acima porque também dispara ao trocar de mês. Sem
+  // setInterval: ao contrário do painel de WhatsApp, tarefa não tem janela de
+  // tempo para vigiar.
+  useEffect(() => {
+    carregarTarefas();
+  }, [user, faixaTarefas.de, faixaTarefas.ate]);
+
   // Realtime: a paciente confirma pelo app e o chip vira verde sem F5; a nutri
   // remarca em outra aba/celular e o horário acompanha.
   // Copia uma LISTA FECHADA de colunas escalares, em vez de chamar carregar()
@@ -546,6 +627,15 @@ export default function Agenda() {
       .filter(c => ehMesmoDia(new Date(c.data_hora), diaSelecionado))
       .sort((a, b) => a.data_hora.localeCompare(b.data_hora));
   }, [consultas, diaSelecionado]);
+
+  // Tarefas do dia selecionado. A comparação é entre STRINGS 'YYYY-MM-DD':
+  // `data` é coluna `date`, e construir Date a partir dela só para comparar
+  // reintroduziria o fuso que a coluna existe para evitar.
+  const tarefasDoDia = useMemo(() => {
+    if (!diaSelecionado) return [];
+    const alvo = isoLocalDeData(diaSelecionado);
+    return tarefas.filter(t => t.data === alvo);
+  }, [tarefas, diaSelecionado]);
 
   const abrirNova = () => setModalState({ open: true, consulta: null, pacienteInicialId: null, remarcando: false });
   const abrirEdit = (consulta) => setModalState({ open: true, consulta, pacienteInicialId: null, remarcando: false });
@@ -707,6 +797,7 @@ export default function Agenda() {
         mesVisivel={mesVisivel}
         diaSelecionado={diaSelecionado}
         consultas={consultas ?? []}
+        tarefas={tarefas}
         onMudarMes={setMesVisivel}
         onSelecionarDia={setDiaSelecionado}
       />
@@ -728,6 +819,42 @@ export default function Agenda() {
               onRemarcar={() => abrirRemarcacao(c)} />
           ))}
         </div>
+      )}
+
+      {/* Tarefas do dia selecionado.
+          Some quando não há nenhuma, ao contrário de "Consultas em", que
+          sempre mostra o card vazio: a maioria dos dias não tem tarefa, e um
+          segundo card vazio permanente empurraria as listas de baixo para
+          fora da tela em quase todo dia clicado. */}
+      {tarefasDoDia.length > 0 && (
+        <>
+          <div className="section-label" style={{ marginTop: 16 }}>
+            Tarefas de {diaSelecionado.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
+          </div>
+          <div className="card" style={{ padding: '4px 14px' }}>
+            {tarefasDoDia.map(t => (
+              <LinhaTarefa key={t.id} t={t} onAlternar={alternarTarefa} />
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Tarefas sem prazo: fora da grade de propósito. Sem data elas não têm
+          dia, e marcá-las no dia de hoje inventaria um prazo que a nutri não
+          deu. Mesmo tratamento do card da Visão: ficam à vista até concluir. */}
+      {tarefasSemPrazo.length > 0 && (
+        <>
+          <div className="section-label" style={{ marginTop: 16 }}>Tarefas sem prazo</div>
+          <div className="card" style={{ padding: '4px 14px' }}>
+            {tarefasSemPrazo.map(t => (
+              <LinhaTarefa key={t.id} t={t} onAlternar={alternarTarefa} />
+            ))}
+          </div>
+        </>
+      )}
+
+      {erroTarefa && (
+        <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 6 }}>{erroTarefa}</div>
       )}
 
       {/* Listas tradicionais */}
@@ -1269,7 +1396,7 @@ function PainelLembretes({ lembretes, confirmadas = 0, semConfirmacao = 0, locai
 /* ============================================================
    CALENDÁRIO MENSAL
    ============================================================ */
-function CalendarioMensal({ mesVisivel, diaSelecionado, consultas, onMudarMes, onSelecionarDia }) {
+function CalendarioMensal({ mesVisivel, diaSelecionado, consultas, tarefas, onMudarMes, onSelecionarDia }) {
   const dias = useMemo(() => gerarDiasCalendario(mesVisivel), [mesVisivel]);
   const hoje = new Date();
 
@@ -1285,6 +1412,22 @@ function CalendarioMensal({ mesVisivel, diaSelecionado, consultas, onMudarMes, o
     }
     return m;
   }, [consultas]);
+
+  // Mapa data → tarefas da nutri (lembretes_nutri). A chave sai do TEXTO
+  // 'YYYY-MM-DD', sem construir Date nenhuma: é o único caminho que não tem
+  // como errar fuso. Formato igual ao de consultasPorDia.
+  // Tarefa sem data não entra: ela não tem dia, e vive no bloco fixo lá embaixo.
+  const tarefasPorDia = useMemo(() => {
+    const m = new Map();
+    for (const t of tarefas ?? []) {
+      if (!t.data) continue;
+      const [y, mes, dia] = t.data.split('-').map(Number);
+      const key = `${y}-${mes - 1}-${dia}`;
+      if (!m.has(key)) m.set(key, []);
+      m.get(key).push(t);
+    }
+    return m;
+  }, [tarefas]);
 
   const mudarMes = (delta) => {
     const novo = new Date(mesVisivel);
@@ -1348,6 +1491,11 @@ function CalendarioMensal({ mesVisivel, diaSelecionado, consultas, onMudarMes, o
         {dias.map((d, i) => {
           const key = `${d.data.getFullYear()}-${d.data.getMonth()}-${d.data.getDate()}`;
           const cs = consultasPorDia.get(key) ?? [];
+          const ts = tarefasPorDia.get(key) ?? [];
+          // Um quadradinho por DIA, não por tarefa: a célula responde "tem
+          // tarefa?", a lista abaixo responde "quais". Um por tarefa também
+          // estouraria a linha, que já pode ter 4 bolinhas e o "+N".
+          const tarefasFeitas = ts.length > 0 && ts.every(t => t.concluido_em);
           const isToday = ehMesmoDia(d.data, hoje);
           const isSelected = ehMesmoDia(d.data, diaSelecionado);
           return (
@@ -1388,6 +1536,23 @@ function CalendarioMensal({ mesVisivel, diaSelecionado, consultas, onMudarMes, o
                     marginLeft: 2,
                   }}>+{cs.length - 4}</span>
                 )}
+                {/* Tarefa da nutri: QUADRADO e cor --gold-deep, de propósito.
+                    A forma distingue mesmo em 6px, no fundo escuro do dia
+                    selecionado e para quem não separa bem as cores; e --orange
+                    já está triplamente ocupado (tipo "Avaliação", fundo do dia
+                    de hoje, marca de atraso na Visão).
+                    Oco quando tudo está concluído, em vez de sumir: o dia
+                    continua marcado e ainda diz que está feito. */}
+                {ts.length > 0 && (
+                  <span style={{
+                    width: 6, height: 6, borderRadius: 2,
+                    background: tarefasFeitas ? 'transparent' : 'var(--gold-deep)',
+                    border: tarefasFeitas ? '1px solid var(--gold-deep)' : 'none',
+                    boxSizing: 'border-box',
+                    boxShadow: isSelected ? '0 0 0 0.5px var(--white)' : 'none',
+                    marginLeft: cs.length > 0 ? 3 : 0,
+                  }} title={ts.length === 1 ? '1 tarefa' : `${ts.length} tarefas`} />
+                )}
               </div>
             </button>
           );
@@ -1398,17 +1563,59 @@ function CalendarioMensal({ mesVisivel, diaSelecionado, consultas, onMudarMes, o
         <Legenda cor="var(--blue)" label="1ª consulta" />
         <Legenda cor="var(--green)" label="Retorno" />
         <Legenda cor="var(--orange)" label="Avaliação" />
+        <Legenda cor="var(--gold-deep)" label="Tarefa" quadrado />
       </div>
     </div>
   );
 }
 
-function Legenda({ cor, label }) {
+function Legenda({ cor, label, quadrado }) {
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--text3)' }}>
-      <span style={{ width: 7, height: 7, borderRadius: '50%', background: cor }} />
+      <span style={{ width: 7, height: 7, borderRadius: quadrado ? 2 : '50%', background: cor }} />
       {label}
     </span>
+  );
+}
+
+/* ============================================================
+   LINHA DE TAREFA DA NUTRI (lembretes_nutri)
+   Vocabulário visual copiado do card da Visão: caixinha, texto riscado
+   quando concluída e um "desfazer" explícito. Sem o sufixo "· de {data}"
+   que existe lá — aqui o dia já é o título da seção.
+   ============================================================ */
+function LinhaTarefa({ t, onAlternar }) {
+  const concluida = !!t.concluido_em;
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'flex-start', gap: 8,
+      padding: '7px 0', borderBottom: '0.5px solid var(--hair-soft)',
+    }}>
+      <input type="checkbox" checked={concluida}
+        onChange={() => onAlternar(t.id, !concluida)}
+        aria-label={concluida ? `Reabrir: ${t.texto}` : `Concluir: ${t.texto}`}
+        style={{ marginTop: 3, flexShrink: 0, cursor: 'pointer' }} />
+      <span style={{
+        flex: 1, minWidth: 0, fontSize: 13,
+        color: concluida ? 'var(--text3)' : 'var(--text2)',
+        textDecoration: concluida ? 'line-through' : 'none',
+      }}>
+        {t.texto}
+      </span>
+      {/* O desfazer é explícito, e não só desmarcar a caixinha: a linha
+          concluída fica na tela até a próxima carga justamente para ela poder
+          voltar atrás sem procurar onde. */}
+      {concluida && (
+        <button onClick={() => onAlternar(t.id, false)}
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            fontSize: 11, color: 'var(--gold-deep)',
+            fontFamily: 'var(--font-sans)', padding: 0, flexShrink: 0,
+          }}>
+          desfazer
+        </button>
+      )}
+    </div>
   );
 }
 

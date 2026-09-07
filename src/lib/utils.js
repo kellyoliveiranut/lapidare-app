@@ -566,12 +566,21 @@ export function horaConsultaValida(hora) {
   return HORARIOS_CONSULTA.includes(hora);
 }
 
+/**
+ * Uma Date qualquer → "YYYY-MM-DD" no fuso LOCAL. Nunca toISOString(): aquele
+ * converte para UTC e devolve o dia anterior à noite no Brasil.
+ * Use para colunas `date` (lembretes_nutri.data, exames.data_exame, ...).
+ */
+export function isoLocalDeData(d) {
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
 /** Data LOCAL "YYYY-MM-DD" para hoje + daysAhead. Nunca usa toISOString → sem bug de fuso. */
 export function dataLocalISO(daysAhead = 0) {
   const d = new Date();
   d.setDate(d.getDate() + daysAhead);
-  const p = (n) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  return isoLocalDeData(d);
 }
 
 /**
