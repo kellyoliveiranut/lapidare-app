@@ -817,17 +817,30 @@ function CardDoDia({ consultas, lembretes, hoje, onCriar, onAlternar, onAbrirAge
         </div>
       )}
 
-      {/* ── CAMPO RÁPIDO ── */}
-      <form onSubmit={enviar} style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-        <input value={texto} onChange={e => setTexto(e.target.value)}
-          placeholder="Ligar pro contador, comprar tinta…"
-          maxLength={200}
-          style={{ flex: 1, minWidth: 160 }} />
-        <div style={{ display: 'flex', gap: 4 }}>
+      {/* ── CAMPO RÁPIDO ──
+          Campo e "Anotar" numa linha, prazos em outra. Os dois grupos ficam
+          separados por LINHA e não por espaço: no celular estreito, um
+          espaçamento lateral colapsa e a pílula escura de "selecionado"
+          volta a encostar no botão escuro de "ação", que é o que confundia. */}
+      <form onSubmit={enviar}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+          <input value={texto} onChange={e => setTexto(e.target.value)}
+            placeholder="Ligar pro contador, comprar tinta…"
+            maxLength={200}
+            style={{ flex: 1, minWidth: 160 }} />
+          <button type="submit" className="btn" disabled={salvando || !texto.trim()}
+            style={{ opacity: salvando || !texto.trim() ? .5 : 1 }}>
+            <i className="ti ti-plus" aria-hidden="true"></i> {salvando ? '...' : 'Anotar'}
+          </button>
+        </div>
+        <div role="group" aria-label="Prazo do lembrete"
+          style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 4 }}>
+          <span style={{ fontSize: 11, color: 'var(--text3)', marginRight: 2 }}>Prazo</span>
           {PRAZOS_LEMBRETE.map(p => {
             const ativo = prazo === p.id;
             return (
               <button key={p.id} type="button" onClick={() => setPrazo(p.id)}
+                aria-pressed={ativo}
                 style={{
                   background: ativo ? 'var(--dark)' : 'none',
                   color: ativo ? '#f5f2ec' : 'var(--text3)',
@@ -839,10 +852,6 @@ function CardDoDia({ consultas, lembretes, hoje, onCriar, onAlternar, onAbrirAge
               </button>
             );
           })}
-          <button type="submit" className="btn" disabled={salvando || !texto.trim()}
-            style={{ opacity: salvando || !texto.trim() ? .5 : 1 }}>
-            <i className="ti ti-plus" aria-hidden="true"></i> {salvando ? '...' : 'Anotar'}
-          </button>
         </div>
       </form>
 
