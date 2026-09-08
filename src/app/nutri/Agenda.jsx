@@ -2127,6 +2127,18 @@ function TarefaModal({ tarefa, nutriId, dataInicial, onClose, onSaved }) {
     if (!novaData) setHora('');
   }
 
+  // Fechar clicando fora é conveniente numa visualização, mas este modal
+  // guarda texto digitado. Foi assim que "tarefa sumiu": o clique caía no
+  // backdrop, o modal fechava com cara de salvo, e nada tinha sido gravado.
+  // Com texto na tela o clique fora é recusado, e a saída vira explícita.
+  function fecharPeloBackdrop() {
+    if (texto.trim()) {
+      setErro('Tem texto não salvo aqui. Use "Salvar" para gravar, ou "Fechar" para descartar.');
+      return;
+    }
+    onClose();
+  }
+
   async function salvar() {
     const limpo = texto.trim();
     if (!limpo) { setErro('Escreva o texto da tarefa.'); return; }
@@ -2160,7 +2172,7 @@ function TarefaModal({ tarefa, nutriId, dataInicial, onClose, onSaved }) {
       position: 'fixed', inset: 0,
       background: 'rgba(28,23,18,.55)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100,
-    }} onClick={onClose}>
+    }} onClick={fecharPeloBackdrop}>
       <div onClick={e => e.stopPropagation()} style={{
         background: 'var(--white)', borderRadius: 12, padding: 22,
         width: 420, maxWidth: '92vw', maxHeight: '92vh', overflowY: 'auto',
