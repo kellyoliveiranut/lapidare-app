@@ -71,38 +71,35 @@ exports.handler = async (event) => {
     }
 
     // 5) Monta o e-mail
+    // Enfeite mínimo de propósito: a fórmula é a carga útil e o assunto já diz
+    // do que se trata. O telefone fica na mesma linha do nome — é o dado de
+    // entrega, não cabe cortar junto com o cabeçalho antigo.
     const nutriNome = (nutri?.nome ?? '').trim() || 'Nutricionista';
-    const contato = [
-      `Nome: ${paciente.nome}`,
-      paciente.telefone ? `Telefone: ${paciente.telefone}` : null,
-    ].filter(Boolean).join('\n');
+    const tel = (paciente.telefone ?? '').trim();
+    // farmacia_nome é opcional em Personalização ("deixe vazio se preferir") e
+    // a trava do botão cobre só farmacia_email — vazio aqui é rotina, não
+    // exceção. Sem este fallback a saudação sairia "Olá!" seco.
+    const saudacao = (nutri?.farmacia_nome ?? '').trim() || 'equipe da farmácia';
 
     const textContent =
-`Olá${nutri?.farmacia_nome ? ', ' + nutri.farmacia_nome.trim() : ''}!
+`Olá, ${saudacao}!
 
-Segue uma prescrição de fórmula para manipulação.
+${paciente.nome}${tel ? ' — ' + tel : ''}
+Uso Oral
 
-── FÓRMULA ──
 ${formula}
 
-── PACIENTE (para entrega) ──
-${contato}
-
-Atenciosamente,
-${nutriNome}
-(enviado pelo app Essentia)`;
+${nutriNome} · pelo app Essentia`;
 
     const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const htmlContent =
 `<div style="font-family:Arial,sans-serif;font-size:14px;color:#3A3A3A;line-height:1.5">
-  <p>Olá${nutri?.farmacia_nome ? ', ' + esc(nutri.farmacia_nome.trim()) : ''}!</p>
-  <p>Segue uma prescrição de fórmula para manipulação.</p>
-  <h3 style="margin:18px 0 6px">Fórmula</h3>
+  <p>Olá, ${esc(saudacao)}!</p>
+  <p style="margin:18px 0 2px"><strong style="font-size:18px">${esc(paciente.nome)}</strong>${tel ? ` <span style="color:#6B6B6B">— ${esc(tel)}</span>` : ''}</p>
+  <p style="margin:0 0 10px;font-weight:bold">Uso Oral</p>
   <pre style="white-space:pre-wrap;font-family:inherit;background:#FDFBF8;padding:12px;border-radius:8px;margin:0">${esc(formula)}</pre>
-  <h3 style="margin:18px 0 6px">Paciente (para entrega)</h3>
-  <pre style="white-space:pre-wrap;font-family:inherit;margin:0">${esc(contato)}</pre>
-  <p style="margin-top:18px">Atenciosamente,<br>${esc(nutriNome)}<br>
-    <span style="color:#9A7B3F">enviado pelo app Essentia</span></p>
+  <p style="margin-top:18px">${esc(nutriNome)}<br>
+    <span style="color:#9A7B3F">pelo app Essentia</span></p>
 </div>`;
 
     // 6) Envia via SMTP do Gmail (nodemailer — dependência na raiz, como web-push)
