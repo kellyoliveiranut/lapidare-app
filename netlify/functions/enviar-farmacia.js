@@ -1,4 +1,5 @@
 const { createClient } = require('@supabase/supabase-js');
+const nodemailer = require('nodemailer');
 
 const json = (statusCode, obj) => ({
   statusCode,
@@ -104,27 +105,37 @@ ${nutriNome}
     <span style="color:#9A7B3F">enviado pelo app Essentia</span></p>
 </div>`;
 
-    // 6) Envia via Brevo (REST — sem dependência nova; fetch global do Node 18+)
-    const resp = await fetch('https://api.brevo.com/v3/smtp/email', {
-      method: 'POST',
-      headers: {
-        'api-key': process.env.BREVO_API_KEY,
-        'Content-Type': 'application/json',
-        'accept': 'application/json',
-      },
-      body: JSON.stringify({
-        sender: { email: process.env.EMAIL_FROM, name: process.env.EMAIL_FROM_NOME || 'Essentia' },
-        to: [{ email: farmaciaEmail, name: nutri?.farmacia_nome?.trim() || undefined }],
-        replyTo: { email: process.env.EMAIL_FROM, name: nutriNome },
-        subject: `Fórmula de manipulação — ${paciente.nome}`,
-        textContent,
-        htmlContent,
-      }),
+    // 6) Envia via SMTP do Gmail (nodemailer — dependência na raiz, como web-push)
+    // O transporter nasce DENTRO do handler: um Lambda reciclado guardaria a
+    // conexão SMTP aberta entre invocações e ela morre sem aviso do outro lado.
+    const gmailUser = (process.env.GMAIL_USER ?? '').trim();
+    // O Google entrega a senha de app em 4 blocos de 4 separados por espaço, que
+    // são decorativos. Colada com os espaços, a autenticação falha com uma
+    // mensagem que não explica nada — então tira aqui e o problema não existe.
+    const gmailPass = (process.env.GMAIL_APP_PASSWORD ?? '').replace(/\s/g, '');
+
+    const transporter = nodemailer.createTransport({
+      host: 'smtp.gmail.com',
+      port: 465,
+      secure: true,
+      auth: { user: gmailUser, pass: gmailPass },
     });
 
-    if (!resp.ok) {
-      const detail = await resp.text().catch(() => '');
-      console.error('brevo error:', resp.status, detail);
+    try {
+      await transporter.sendMail({
+        // O Gmail sobrescreve o remetente com a conta autenticada: pôr outro
+        // endereço aqui não dá erro, é só ignorado. O nome de exibição vale.
+        // Sem replyTo — ele seria igual ao from, que já é a caixa da nutri.
+        from: `"${process.env.EMAIL_FROM_NOME || 'Essentia'}" <${gmailUser}>`,
+        to: farmaciaEmail,
+        subject: `Fórmula de manipulação — ${paciente.nome}`,
+        text: textContent,
+        html: htmlContent,
+      });
+    } catch (mailErr) {
+      // nodemailer LANÇA em vez de devolver !resp.ok. A resposta para a tela é
+      // a mesma de antes, de propósito: o 502 e o texto não mudam.
+      console.error('gmail smtp error:', mailErr?.code ?? '', mailErr?.message);
       return json(502, { error: 'Falha ao enviar o e-mail. Tente novamente.' });
     }
 
