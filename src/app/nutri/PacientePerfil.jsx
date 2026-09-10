@@ -1216,6 +1216,7 @@ export default function PacientePerfil() {
  */
 function BarraDeAbas({ children, style }) {
   const scrollRef = useRef(null);
+  const thumbRef = useRef(null);
   const [rola, setRola] = useState({ esq: false, dir: false });
 
   useEffect(() => {
@@ -1231,6 +1232,17 @@ function BarraDeAbas({ children, style }) {
       // Devolver o objeto anterior quando nada mudou faz o React desistir do
       // re-render — sem isso, cada evento de scroll repintaria as 17 abas.
       setRola(prev => (prev.esq === esq && prev.dir === dir ? prev : { esq, dir }));
+
+      // O trilho é escrito DIRETO no DOM, fora do estado: ele muda a cada pixel
+      // de rolagem, e um setState por evento repintaria as 17 abas o tempo todo.
+      // O piso de 12% impede que uma barra muito longa vire um ponto invisível.
+      const thumb = thumbRef.current;
+      if (thumb && el.scrollWidth > 0) {
+        const largura = Math.max((el.clientWidth / el.scrollWidth) * 100, 12);
+        const andado = sobra > 0 ? el.scrollLeft / sobra : 0;
+        thumb.style.width = `${largura}%`;
+        thumb.style.left = `${andado * (100 - largura)}%`;
+      }
     };
 
     el.addEventListener('scroll', medir, { passive: true });
@@ -1260,6 +1272,10 @@ function BarraDeAbas({ children, style }) {
         gap: 2, background: 'var(--bg2)', borderRadius: 10, padding: 3,
       }}>
         {children}
+      </div>
+      {/* Fica fora do scroller de propósito: dentro dele, rolaria junto. */}
+      <div className="tabs-trilho" aria-hidden="true">
+        <span ref={thumbRef} className="tabs-trilho-thumb" />
       </div>
     </div>
   );

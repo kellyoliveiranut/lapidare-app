@@ -55,7 +55,7 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 34px;
+  width: 48px;
   z-index: 1;
   opacity: 0;
   transition: opacity .18s ease;
@@ -65,9 +65,13 @@
   display: flex;
   align-items: center;
   font-family: var(--font-sans);
-  font-size: 17px;
+  /* Tamanho e cor são deliberadamente fortes. A primeira versão usava 17px em
+     --text3 e passou despercebida no celular: sobre a barra bege, um cinza
+     claro de 17px na borda não é aviso, é decoração. */
+  font-size: 20px;
+  font-weight: 600;
   line-height: 1;
-  color: var(--text3, #8c7b6b);
+  color: var(--dark);
 }
 .tabs-scroll-wrap::before {
   content: '‹';
@@ -76,7 +80,7 @@
   padding-left: 5px;
   border-radius: 10px 0 0 10px;
   background: linear-gradient(to right,
-    var(--bg2, #f2ede6) 35%, transparent 100%);
+    var(--bg2, #f2ede6) 55%, transparent 100%);
 }
 .tabs-scroll-wrap::after {
   content: '›';
@@ -85,11 +89,53 @@
   padding-right: 5px;
   border-radius: 0 10px 10px 0;
   background: linear-gradient(to left,
-    var(--bg2, #f2ede6) 35%, transparent 100%);
+    var(--bg2, #f2ede6) 55%, transparent 100%);
 }
 .tabs-scroll-wrap.rola-esq::before,
 .tabs-scroll-wrap.rola-dir::after {
   opacity: 1;
+}
+
+/* Trilho de proporção — a segunda dica, independente da primeira.
+   Existe porque as setas dependem de ::before/::after pintarem no aparelho, e
+   isso não foi possível confirmar num iPhone de verdade. O trilho é um <div>
+   comum: se as setas falharem, ele ainda avisa.
+   NÃO é a scrollbar nativa de propósito: no iOS Safari o ::-webkit-scrollbar
+   não é renderizado, e a barra overlay só aparece durante o gesto — bem no
+   momento em que ela já não serve de aviso.
+   Só abaixo de 768px: no desktop quem faz este papel é a scrollbar de verdade,
+   estilizada acima. Fica posicionado dentro da calha de 3px do padding da
+   barra, então não empurra nada e não muda a altura do wrapper. */
+.tabs-trilho { display: none; }
+
+@media (max-width: 767px) {
+  .tabs-trilho {
+    display: block;
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    bottom: 3px;
+    height: 3px;
+    border-radius: 2px;
+    background: rgba(0, 0, 0, .07);
+    opacity: 0;
+    transition: opacity .18s ease;
+    pointer-events: none;
+    z-index: 2;  /* acima do degradê, que é z-index 1 */
+  }
+  /* Some quando tudo cabe: sem conteúdo escondido, não há o que indicar. */
+  .tabs-scroll-wrap.rola-esq .tabs-trilho,
+  .tabs-scroll-wrap.rola-dir .tabs-trilho { opacity: 1; }
+
+  /* Largura e posição vêm do JS, em %, escritas direto no style — passar por
+     estado do React repintaria as 17 abas a cada pixel de rolagem. */
+  .tabs-trilho-thumb {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    border-radius: 2px;
+    background: var(--brown, #8c7b6b);
+  }
 }
 
 /* Quem prefere menos movimento na tela ainda recebe a dica — só sem o fade. */
