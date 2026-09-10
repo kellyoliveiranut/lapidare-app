@@ -4,11 +4,37 @@
 // Sem isto, um sw.js novo fica parado em "waiting" até TODAS as janelas do app
 // fecharem — e um PWA no iPhone em segundo plano não fecha. Na prática qualquer
 // correção aqui só entrava depois de matar o app pelo app switcher.
-// Seguro enquanto este worker não tiver handler de 'fetch': ele não serve nem
-// cacheia asset nenhum, então não há risco de servir cache novo pra página
-// antiga. Se um dia entrar cache offline, esta linha precisa ser reavaliada
-// junto com um clients.claim().
+// Seguro enquanto este worker não RESPONDER a requisição nenhuma. Ele tem um
+// handler de 'fetch' (logo abaixo, é o que torna o app instalável), mas aquele
+// handler nunca chama respondWith: nada é servido nem cacheado daqui, então não
+// há como uma página antiga receber asset novo. Se um dia entrar cache offline
+// de verdade, esta linha precisa ser reavaliada junto com um clients.claim().
 self.addEventListener('install', () => self.skipWaiting());
+
+// --- Handler de 'fetch' — presença deliberada, ação deliberadamente nenhuma --
+//
+// Existe por UM motivo: o algoritmo que PROMOVE a instalação do PWA (o "+" na
+// barra do Samsung Internet, o prompt do Chrome) ainda exige que o service
+// worker tenha um handler de 'fetch'. Sem ele a paciente não recebe opção
+// nenhuma de instalar — foi o relato de 2026-09-10 no Samsung Internet.
+// Instalar PELO MENU não exige isto desde o Chrome 108; a promoção automática,
+// que é o caminho que a paciente enxerga, exige.
+//
+// A REGRA que mantém isto seguro: NUNCA chamar event.respondWith().
+// Sem respondWith, a requisição segue o caminho padrão do navegador. Nenhuma
+// resposta passa por aqui e nada é cacheado — por isso o skipWaiting() acima
+// continua sem risco.
+//
+// Se algum dia este handler passar a responder, o skipWaiting() PRECISA ser
+// revisto no mesmo commit: o risco mora em responder, não em existir.
+self.addEventListener('fetch', (event) => {
+  // O corpo não pode ser vazio. Desde o Chromium 112, um worker cujos listeners
+  // de 'fetch' são todos no-op é detectado como tal, avisado no console e
+  // pulado no caminho da navegação — justamente porque sites escreviam handlers
+  // vazios só para parecerem instaláveis. A leitura abaixo não faz trabalho
+  // útil, e isso é deliberado: este worker não promete offline.
+  if (event.request.method !== 'GET') return;
+});
 
 // --- URL pendente -----------------------------------------------------------
 // No iPhone o matchAll() não enxerga a janela do app em segundo plano, então o
@@ -18,8 +44,9 @@ self.addEventListener('install', () => self.skipWaiting());
 //
 // Cache API e não IndexedDB porque 'caches' existe nos dois contextos — SW e
 // window — e resolve em três linhas o que no IndexedDB seria schema, transação
-// e callbacks. A Request abaixo é sintética: nunca vai à rede, e este worker
-// nem tem handler de 'fetch' para interceptá-la.
+// e callbacks. A Request abaixo é sintética: nunca vai à rede. A Cache API não
+// dispara evento de 'fetch', e mesmo que disparasse o handler daqui não
+// responde nada.
 //
 // As duas constantes estão duplicadas em src/components/PushNavigator.jsx —
 // sw.js não é importável pelo bundle. Mudou aqui, muda lá.
