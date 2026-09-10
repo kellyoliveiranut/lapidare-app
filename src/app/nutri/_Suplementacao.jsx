@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { dataBR, normalizarTelefone, normalizarBusca } from '../../lib/utils.js';
+import { criarDocumento, cabecalho, cardPaciente, rodape,
+  M, W, TOPO, BRONZE, SEPIA, LINHA, LINHA2 } from '../../lib/pdfBase.js';
 
 const HOJE_ISO = () => new Date().toISOString().slice(0, 10);
 
@@ -1407,36 +1409,6 @@ function textoPrescricaoLoja({ pacienteNome, contato }) {
   ].join('\n');
 }
 
-// A4 em pontos. Todo o layout anterior estava em px; a conversão é exata em
-// impressão: pt = px * 0.75 (1px = 1/96 pol, 1pt = 1/72 pol).
-const PAGE_W = 595.28, PAGE_H = 841.89;
-const M = 72;                    // margem lateral (~os 73pt que o CSS somava)
-const W = PAGE_W - M * 2;        // 451,28pt de largura útil
-const TOPO = 64;
-const FUNDO = PAGE_H - 56;       // limite vertical antes de quebrar a página
-
-// Mesma paleta do HTML anterior, em RGB: setFillColor(r,g,b) é a assinatura
-// que não depende do parser de cor CSS do jsPDF.
-const CREME  = [253, 251, 248];  // #FDFBF8  fundo da página
-const ESCURO = [26, 22, 18];     // #1a1612  faixa do cabeçalho
-const TINTA  = [40, 27, 6];      // #281b06  texto principal
-const OURO   = [196, 168, 130];  // #C4A882  selo e marca do rodapé
-const BRONZE = [160, 132, 86];   // #a08456  rótulos e registro
-const CINZA  = [141, 129, 117];  // #8d8175  data de emissão
-const SEPIA  = [107, 92, 62];    // #6b5c3e  horário e observação
-const LINHA  = [221, 213, 196];  // #DDD5C4  bordas do card e do rodapé
-const LINHA2 = [237, 230, 218];  // #EDE6DA  divisória entre suplementos
-
-// Métrica do item da lista. O cálculo de altura e o desenho consultam as MESMAS
-// constantes — se divergirem, o item invade o vizinho ou sobra espaço, e o erro
-// só aparece no papel.
-const FS_NOME = 10.5, LH_NOME = 12.6;
-const FS_POS  = 10,   LH_POS  = 13.5;
-const FS_MIN  = 8.25, LH_MIN  = 10.5;   // horário e observação
-const PAD_V   = 9.75;                   // respiro acima e abaixo do item
-const GAP_POS = 3;                      // nome → posologia
-const GAP_MIN = 2.25;                   // posologia → horário → observação
-
 // prescricao-suplementacao-maria-souza.pdf — sem acento e sem espaço, que é o
 // que atravessa Windows, Android e iOS sem o navegador reescrever o nome.
 // NFD separa a letra do acento e o filtro por código descarta o acento solto;
@@ -1455,6 +1427,13 @@ function nomeArquivoPrescricao(pacienteNome, modo) {
   return `${modo.slug}-${slug || 'paciente'}.pdf`;
 }
 
+const FS_NOME = 10.5, LH_NOME = 12.6;
+const FS_POS  = 10,   LH_POS  = 13.5;
+const FS_MIN  = 8.25, LH_MIN  = 10.5;   // horário e observação
+const PAD_V   = 9.75;                   // respiro acima e abaixo do item
+const GAP_POS = 3;                      // nome → posologia
+const GAP_MIN = 2.25;                   // posologia → horário → observação
+
 async function gerarPDFPrescricao({ pacienteNome, contato, suplementosAtivos, modo }) {
   // A lista chega PRONTA — quem recorta é o gerarPdf(), com o modo escolhido no
   // modal. Esta função não filtra mais nada: filtrar aqui de novo é o que fazia
@@ -1466,93 +1445,18 @@ async function gerarPDFPrescricao({ pacienteNome, contato, suplementosAtivos, mo
   // culparia a nutri por um estado que a tela não deixa ela alcançar.
   if (itens.length === 0) return;
 
-  // Import dinâmico: o jsPDF vira chunk próprio, baixado no primeiro clique.
-  // Estático no topo do arquivo ele entraria no chunk da tela, que é baixado
-  // ao abrir a aba mesmo de quem nunca gera PDF.
-  const { jsPDF } = await import('jspdf');
-  const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-
-  // Texto no PDF é posicionado pela LINHA DE BASE, não pelo topo da caixa —
-  // por isso y é acumulador explícito, em vez do fluxo que o CSS dava de graça.
+  const p = await criarDocumento();
+  const { doc, escrever, regua, caberOuQuebrar } = p;
   let y = TOPO;
 
-  // O fundo creme era `body { background }`. Em PDF não existe fundo herdado:
-  // é retângulo pintado, e em toda página nova.
-  function pintarFundo() {
-    doc.setFillColor(...CREME);
-    doc.rect(0, 0, PAGE_W, PAGE_H, 'F');
-  }
+  y = cabecalho(p, y, {
+    sobrancelha: 'Essentia · Prescrição',
+    titulo: modo.titulo,
+    tamanhoTitulo: 22.5,
+    dataEmissao: new Date().toLocaleDateString('pt-BR'),
+  });
 
-  // Um lugar só pro quarteto setFont/setFontSize/setTextColor/text.
-  // charSpace é o letter-spacing do CSS convertido pra pt absolutos.
-  function escrever(txt, x, base, opc = {}) {
-    const { fonte = 'helvetica', estilo = 'normal', tamanho = 10.5,
-            cor = TINTA, charSpace = 0, align } = opc;
-    doc.setFont(fonte, estilo);
-    doc.setFontSize(tamanho);
-    doc.setTextColor(...cor);
-    doc.text(txt, x, base, { charSpace, ...(align ? { align } : null) });
-  }
-
-  function regua(yLinha, cor, largura = W, x = M) {
-    doc.setDrawColor(...cor);
-    doc.setLineWidth(0.375);       // as bordas de .5px
-    doc.line(x, yLinha, x + largura, yLinha);
-  }
-
-  function caberOuQuebrar(altura) {
-    if (y + altura <= FUNDO) return;
-    doc.addPage();
-    pintarFundo();
-    y = TOPO;
-  }
-
-  pintarFundo();
-
-  // ── Cabeçalho escuro ──
-  // .doc-header: fundo #1a1612, border-radius 10px, padding 28/32/26px.
-  const H_CAB = 95;
-  doc.setFillColor(...ESCURO);
-  doc.roundedRect(M, y, W, H_CAB, 7.5, 7.5, 'F');
-  // text-transform: uppercase não existe no jsPDF — a caixa alta vai no JS.
-  escrever('Essentia · Prescrição'.toUpperCase(), M + 24, y + 32,
-    { estilo: 'bold', tamanho: 7.1, cor: OURO, charSpace: 1.57 });
-  // Título por modo. Em 22,5pt "Prescrição de Suplementação e Manipulados" é o
-  // mais longo dos três e cabe na largura do cabeçalho; se algum título novo
-  // entrar, medir antes — aqui não há quebra automática.
-  escrever(modo.titulo, M + 24, y + 62,
-    { fonte: 'times', estilo: 'bold', tamanho: 22.5, cor: CREME });
-  escrever(`Emitida em ${new Date().toLocaleDateString('pt-BR')}`, M + 24, y + 80,
-    { tamanho: 7.9, cor: CINZA });
-  y += H_CAB + 19.5;
-
-  // ── Emissor ──
-  escrever('Kelly Oliveira', M, y, { fonte: 'times', estilo: 'bold', tamanho: 12.75 });
-  y += 13;
-  escrever('Nutricionista · CRN 3801', M, y,
-    { tamanho: 8.25, cor: BRONZE, charSpace: 0.33 });
-  y += 16.5;
-
-  // ── Card da paciente ──
-  // Colunas fixas: o CSS usava flex com gap, então a coluna do contato começava
-  // onde o nome terminasse. Fixo fica igual entre pacientes; em compensação um
-  // nome muito longo é cortado na largura da coluna em vez de invadir o vizinho.
-  const H_CARD = 52;
-  const COL1_W = 215;
-  const COL2 = M + 15 + 230;
-  doc.setFillColor(255, 255, 255);
-  doc.setDrawColor(...LINHA);
-  doc.setLineWidth(0.375);
-  doc.roundedRect(M, y, W, H_CARD, 6, 6, 'FD');
-  escrever('Paciente'.toUpperCase(), M + 15, y + 20,
-    { estilo: 'bold', tamanho: 6.4, cor: BRONZE, charSpace: 1.02 });
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(10.5);
-  escrever(doc.splitTextToSize(String(pacienteNome ?? '—'), COL1_W)[0], M + 15, y + 36);
-  escrever('Contato'.toUpperCase(), COL2, y + 20,
-    { estilo: 'bold', tamanho: 6.4, cor: BRONZE, charSpace: 1.02 });
-  escrever(contato?.telefone || '—', COL2, y + 36);
-  y += H_CARD + 22.5;
+  y = cardPaciente(p, y, { pacienteNome, contato });
 
   // ── Lista de suplementos ──
   escrever(modo.secao.toUpperCase(), M, y,
@@ -1594,7 +1498,7 @@ async function gerarPDFPrescricao({ pacienteNome, contato, suplementosAtivos, mo
     // page-break-inside: avoid POR ITEM, nunca na lista inteira — um bloco
     // grande com avoid é tudo-ou-nada e empurra meia página em branco (a
     // mesma armadilha que o CSS anterior comentava).
-    caberOuQuebrar(alturaItem);
+    y = caberOuQuebrar(y, alturaItem);
 
     // Linha de base corrente: cada bloco avança yb, em vez de cada um
     // recalcular seu offset a partir do topo do item.
@@ -1635,20 +1539,7 @@ async function gerarPDFPrescricao({ pacienteNome, contato, suplementosAtivos, mo
     if (i < itens.length - 1) regua(y, LINHA2);   // .sup-item:last-child sem borda
   }
 
-  // ── Rodapé ──
-  // .rodape tinha page-break-inside: avoid — aqui é a checagem do bloco inteiro.
-  caberOuQuebrar(30 + 90);
-  y += 30;
-  regua(y, TINTA, 195);                          // .assinatura-linha, 260px
-  y += 4.5 + 9.4;
-  escrever('Kelly Oliveira', M, y, { fonte: 'times', estilo: 'bold', tamanho: 9.4 });
-  y += 11;
-  escrever('Nutricionista · CRN 3801', M, y, { tamanho: 8.25, cor: SEPIA });
-  y += 19.5 + 7.5;
-  regua(y, LINHA);
-  y += 12;
-  escrever('Documento gerado pelo app Essentia', PAGE_W / 2, y,
-    { tamanho: 7.1, cor: OURO, charSpace: 0.71, align: 'center' });
+  rodape(p, y);
 
   doc.save(nomeArquivoPrescricao(pacienteNome, modo));
 }
