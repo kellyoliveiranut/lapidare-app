@@ -12,6 +12,9 @@ import { TEMPLATE_PADRAO } from '../../lib/checkinDefault.js';
 import { mensagemAcesso } from '../../lib/mensagemAcesso.js';
 import { OBJETIVOS } from '../../lib/objetivos.js';
 import { SEXOS, PLANOS } from '../../lib/opcoesPaciente.js';
+// Estatico de proposito: pdfPlano + pdfBase somam poucos kB. O peso real e o
+// jsPDF, que continua atras do import dinamico dentro do criarDocumento().
+import { gerarPDFPlano } from '../../lib/pdfPlano.js';
 import { perguntasParaPaciente } from '../../lib/checkinVariacao.js';
 import { ehFeriado, validarDiaConsulta } from '../../lib/feriados.js';
 // O gráfico de área saiu daqui para ser usado também pelos exames. O
@@ -3039,6 +3042,12 @@ function PublicarPlano({ pacienteId, nutriId, calculosImportados, onLimparImport
   const [dadosPreview, setDadosPreview]       = useState(null);
   const [previewSubsOpen, setPreviewSubsOpen] = useState({});
   const [verPlano, setVerPlano]           = useState(null); // plano publicado sendo visualizado
+  // Nome e contato da paciente para o card do PDF.
+  const [contato, setContato]             = useState(null);
+  const [pacienteNome, setPacienteNome]   = useState('');
+  // Flag propria: gerar PDF e publicar sao acoes independentes, e uma nao deve
+  // desabilitar o botao da outra.
+  const [busyPdf, setBusyPdf]             = useState(false);
   const editorPreenchido = useRef(false);
   // Import pendente dos Cálculos — vence o plano salvo na primeira carga (evita a race com carregar())
   const importPendente = useRef(null);
@@ -3061,10 +3070,18 @@ function PublicarPlano({ pacienteId, nutriId, calculosImportados, onLimparImport
   }, [calculosImportados]);
 
   async function carregar() {
-    const { data } = await supabase
-      .from('planos').select('id, dados, validade, publicado_em')
-      .eq('paciente_id', pacienteId)
-      .order('publicado_em', { ascending: false });
+    const [planosRes, pacRes] = await Promise.all([
+      supabase
+        .from('planos').select('id, dados, validade, publicado_em')
+        .eq('paciente_id', pacienteId)
+        .order('publicado_em', { ascending: false }),
+      // nome e telefone para o card da paciente no PDF — mesmo select que o
+      // _SolicitacaoExames.jsx faz, mais o nome (que la chega por prop).
+      supabase.from('pacientes').select('nome, telefone').eq('id', pacienteId).maybeSingle(),
+    ]);
+    const { data } = planosRes;
+    setPacienteNome(pacRes.data?.nome ?? '');
+    setContato(pacRes.data ?? null);
     setHistorico(data ?? []);
     if (!editorPreenchido.current) {
       editorPreenchido.current = true;
@@ -3562,6 +3579,59 @@ Estrutura JSON obrigatória:
       setFeedback({ tipo: 'erro', msg: err?.message || 'Erro ao publicar plano' });
     } finally {
       setBusy(false);
+    }
+  }
+
+  // Espelha o fluxo do _SolicitacaoExames.jsx: ARQUIVO PRIMEIRO, LINHA DEPOIS,
+  // com rollback do arquivo se o insert falhar.
+  async function gerarPdf() {
+    if (busyPdf) return;
+    setFeedback(null);
+    if (!refeicoes.length)
+      return setFeedback({ tipo: 'erro', msg: 'Adicione pelo menos uma refeição.' });
+    if (refeicoes.some(r => !r.nome.trim()))
+      return setFeedback({ tipo: 'erro', msg: 'Todas as refeições precisam de um nome.' });
+
+    // O PDF sai do EDITOR, e não do último plano publicado: é o mesmo `dados`
+    // que o publicar() gravaria, validado pela mesma regra.
+    const dados = buildDados();
+    const v = validarPlano(dados);
+    if (!v.ok) return setFeedback({ tipo: 'erro', msg: v.erro });
+
+    setBusyPdf(true);
+    let path = null;
+    try {
+      const blob = await gerarPDFPlano({ pacienteNome, contato, dados, publicadoEm: null });
+
+      // Primeiro segmento = paciente_id: é o que a policy
+      // prescricoes_storage_insert_nutri exige (split_part(name,'/',1)).
+      path = `${pacienteId}/plano-${Date.now()}.pdf`;
+      const { error: upErr } = await supabase.storage
+        .from('prescricoes').upload(path, blob, { contentType: 'application/pdf' });
+      if (upErr) throw upErr;
+
+      // ARQUIVO PRIMEIRO, LINHA DEPOIS. Linha sem arquivo é um card quebrado
+      // permanente na tela da paciente; arquivo sem linha é um órfão invisível
+      // no bucket. Dos dois estados ruins, o órfão é o menos pior — e o
+      // rollback abaixo evita até ele.
+      const { error: insErr } = await supabase.from('dietas_pdf').insert({
+        paciente_id: pacienteId,
+        nutri_id: nutriId,
+        tipo: 'dieta',
+        titulo: `Plano alimentar — ${dataBR(new Date())}`,
+        storage_path: path,
+      });
+      if (insErr) throw insErr;
+
+      path = null;                    // gravou: não há mais o que desfazer
+      setFeedback({ tipo: 'ok', msg: 'PDF do plano gerado. A paciente já vê o arquivo na tela do plano.' });
+    } catch (e) {
+      // Só remove o que ESTA execução subiu. Se foi o upload que falhou, path
+      // já tem valor mas não há objeto — o remove não erra por isso.
+      if (path) await supabase.storage.from('prescricoes').remove([path]).catch(() => {});
+      setFeedback({ tipo: 'erro', msg: 'Erro ao gerar PDF: ' + (e?.message ?? 'tente novamente') });
+    } finally {
+      setBusyPdf(false);
     }
   }
 
@@ -4328,6 +4398,15 @@ Estrutura JSON obrigatória:
             >
               <i className="ti ti-eye" aria-hidden="true" />
               Pré-visualizar
+            </button>
+            <button
+              className="btn-outline"
+              style={{ gap: 6 }}
+              onClick={gerarPdf}
+              disabled={busyPdf || refeicoes.length === 0}
+            >
+              <i className="ti ti-file-type-pdf" aria-hidden="true" />
+              {busyPdf ? 'Gerando...' : 'Gerar PDF'}
             </button>
             <button
               className="btn"
