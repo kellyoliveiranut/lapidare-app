@@ -1024,10 +1024,7 @@ export default function PacientePerfil() {
       )}
 
       {/* Tabs */}
-      <div className="tabs-scroll" style={{
-        gap: 2, background: 'var(--bg2)',
-        borderRadius: 10, padding: 3, marginBottom: 16,
-      }}>
+      <BarraDeAbas>
         {(() => {
           const isOnco = paciente.objetivo === 'Oncologia';
           const todas = [
@@ -1090,7 +1087,7 @@ export default function PacientePerfil() {
             {t.label}
           </button>
         ))}
-      </div>
+      </BarraDeAbas>
 
       <Suspense fallback={<div className="card empty-card"><div className="empty-sub">Carregando…</div></div>}>
         {tab === 'evolucao'      && <Evolucao pacienteId={paciente.id} paciente={paciente} nutriId={user.id} />}
@@ -1202,6 +1199,72 @@ export default function PacientePerfil() {
 /* ============================================================
    MODAL EXCLUIR PACIENTE
    ============================================================ */
+/**
+ * A barra de abas do perfil, com pista visual do que está fora da tela.
+ *
+ * São 17 abas hoje e a barra rola na horizontal — sem nenhuma dica, a aba que
+ * não coube simplesmente não existe para quem olha. Foi o que manteve "Exames"
+ * invisível: ela estava lá, ninguém achava.
+ *
+ * A dica sai de MEDIDA, não de contagem: enquanto sobrar conteúdo escondido de
+ * um lado, aquele lado ganha degradê e seta; ao chegar na ponta, a borda fica
+ * limpa. Não há lista de abas para manter em dia — abas novas, rótulos maiores
+ * e telas mais estreitas entram sozinhos na conta.
+ *
+ * O degradê e as setas vivem em ::before/::after do wrapper (nutri.css), com
+ * pointer-events:none — a barra continua clicável e arrastável por baixo deles.
+ */
+function BarraDeAbas({ children, style }) {
+  const scrollRef = useRef(null);
+  const [rola, setRola] = useState({ esq: false, dir: false });
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return undefined;
+
+    const medir = () => {
+      const sobra = el.scrollWidth - el.clientWidth;
+      // A folga de 1px absorve o arredondamento de zoom e de tela retina, que
+      // deixa scrollLeft fracionário e nunca bate exatamente na ponta.
+      const esq = el.scrollLeft > 1;
+      const dir = sobra > 1 && el.scrollLeft < sobra - 1;
+      // Devolver o objeto anterior quando nada mudou faz o React desistir do
+      // re-render — sem isso, cada evento de scroll repintaria as 17 abas.
+      setRola(prev => (prev.esq === esq && prev.dir === dir ? prev : { esq, dir }));
+    };
+
+    el.addEventListener('scroll', medir, { passive: true });
+    // Girar o aparelho ou abrir o painel lateral muda o clientWidth.
+    const ro = new ResizeObserver(medir);
+    ro.observe(el);
+    // Trocar as abas (rótulo diferente entre onco e não-onco, aba nova amanhã)
+    // muda o scrollWidth sem mexer no box do elemento — o que o ResizeObserver
+    // sozinho não veria.
+    const mo = new MutationObserver(medir);
+    mo.observe(el, { childList: true, subtree: true, characterData: true });
+
+    // A primeira medida vem do próprio ResizeObserver, que dispara uma vez ao
+    // começar a observar. Chamar medir() aqui no corpo do efeito seria setState
+    // síncrono dentro de efeito — o que o lint do projeto recusa.
+    return () => {
+      el.removeEventListener('scroll', medir);
+      ro.disconnect();
+      mo.disconnect();
+    };
+  }, []);
+
+  const classes = `tabs-scroll-wrap${rola.esq ? ' rola-esq' : ''}${rola.dir ? ' rola-dir' : ''}`;
+  return (
+    <div className={classes} style={{ marginBottom: 16, ...style }}>
+      <div ref={scrollRef} className="tabs-scroll" style={{
+        gap: 2, background: 'var(--bg2)', borderRadius: 10, padding: 3,
+      }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 function ModalExcluir({ paciente, onClose, onExcluido }) {
   const [busy, setBusy] = useState(false);
 

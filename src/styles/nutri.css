@@ -39,6 +39,66 @@
   }
 }
 
+/* Pista visual de que a barra rola — a aba que está fora da tela não existe
+   para quem olha, e foi assim que "Exames" ficou meses invisível. A dica é por
+   MEDIDA (scrollWidth vs clientWidth), não por contagem de abas: vale para
+   qualquer aba futura, em qualquer largura de aparelho, sem lista para manter.
+   O degradê aparece só do lado que tem conteúdo escondido, e some ao chegar na
+   ponta — quem vê a borda limpa sabe que acabou.
+   As classes .rola-esq / .rola-dir são ligadas pelo JS (BarraDeAbas). */
+.tabs-scroll-wrap {
+  position: relative;
+}
+.tabs-scroll-wrap::before,
+.tabs-scroll-wrap::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 34px;
+  z-index: 1;
+  opacity: 0;
+  transition: opacity .18s ease;
+  /* A barra inteira continua clicável e arrastável por baixo do degradê. */
+  pointer-events: none;
+  /* A seta indica o lado; o degradê some por baixo dela. */
+  display: flex;
+  align-items: center;
+  font-family: var(--font-sans);
+  font-size: 17px;
+  line-height: 1;
+  color: var(--text3, #8c7b6b);
+}
+.tabs-scroll-wrap::before {
+  content: '‹';
+  left: 0;
+  justify-content: flex-start;
+  padding-left: 5px;
+  border-radius: 10px 0 0 10px;
+  background: linear-gradient(to right,
+    var(--bg2, #f2ede6) 35%, transparent 100%);
+}
+.tabs-scroll-wrap::after {
+  content: '›';
+  right: 0;
+  justify-content: flex-end;
+  padding-right: 5px;
+  border-radius: 0 10px 10px 0;
+  background: linear-gradient(to left,
+    var(--bg2, #f2ede6) 35%, transparent 100%);
+}
+.tabs-scroll-wrap.rola-esq::before,
+.tabs-scroll-wrap.rola-dir::after {
+  opacity: 1;
+}
+
+/* Quem prefere menos movimento na tela ainda recebe a dica — só sem o fade. */
+@media (prefers-reduced-motion: reduce) {
+  .tabs-scroll-wrap::before,
+  .tabs-scroll-wrap::after { transition: none; }
+  .tabs-scroll { scroll-behavior: auto; }
+}
+
 .nutri-panel {
   --bg: #faf8f5;
   --bg2: #f2ede6;
