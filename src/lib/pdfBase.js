@@ -163,3 +163,46 @@ export function rodape(p, y) {
   escrever('Documento gerado pelo app Essentia', PAGE_W / 2, y,
     { tamanho: 7.1, cor: OURO, charSpace: 0.71, align: 'center' });
 }
+
+/**
+ * plano-alimentar-maria-souza.pdf — sem acento e sem espaço, que é o que
+ * atravessa Windows, Android e iOS sem o navegador reescrever o nome. NFD
+ * separa a letra do acento e o filtro por código descarta o acento solto.
+ *
+ * Gêmeo do nomeArquivoPrescricao() de _Suplementacao.jsx, que fica onde está
+ * por ora: aquele gerador tem o desenho provado por hash, e mexer nele junto
+ * desta mudança misturaria duas verificações diferentes. Unificar é o passo
+ * seguinte, sozinho.
+ */
+export function nomeArquivoPdf(prefixo, pacienteNome) {
+  const semAcento = String(pacienteNome ?? '')
+    .normalize('NFD')
+    .split('')
+    .filter(c => c.charCodeAt(0) < 128)
+    .join('');
+  const slug = semAcento.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  return `${prefixo}-${slug || 'paciente'}.pdf`;
+}
+
+/**
+ * Baixa um blob no navegador de quem clicou.
+ *
+ * O doc.save() do jsPDF faz exatamente isto por dentro. Aqui é explícito
+ * porque o blob já saiu do gerador para subir no storage — gerar de novo só
+ * para salvar seria desenhar o documento duas vezes.
+ *
+ * O revokeObjectURL vai num setTimeout, e não na mesma volta do event loop:
+ * revogar imediatamente cancela o download em alguns navegadores, porque a
+ * URL morre antes de o download realmente começar.
+ */
+export function baixarBlob(blob, nomeArquivo) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = nomeArquivo;
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}

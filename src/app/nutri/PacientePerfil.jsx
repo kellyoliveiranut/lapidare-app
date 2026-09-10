@@ -15,6 +15,7 @@ import { SEXOS, PLANOS } from '../../lib/opcoesPaciente.js';
 // Estatico de proposito: pdfPlano + pdfBase somam poucos kB. O peso real e o
 // jsPDF, que continua atras do import dinamico dentro do criarDocumento().
 import { gerarPDFPlano } from '../../lib/pdfPlano.js';
+import { baixarBlob, nomeArquivoPdf } from '../../lib/pdfBase.js';
 import { perguntasParaPaciente } from '../../lib/checkinVariacao.js';
 import { ehFeriado, validarDiaConsulta } from '../../lib/feriados.js';
 // O gráfico de área saiu daqui para ser usado também pelos exames. O
@@ -3600,8 +3601,15 @@ Estrutura JSON obrigatória:
 
     setBusyPdf(true);
     let path = null;
+    let baixado = false;
     try {
       const blob = await gerarPDFPlano({ pacienteNome, contato, dados, publicadoEm: null });
+
+      // Baixa ANTES de subir: a cópia local não depende de rede, de storage
+      // nem de policy. Se o upload falhar depois, a nutri fica com o PDF na
+      // mão e a mensagem de erro diz que quem não recebeu foi a paciente.
+      baixarBlob(blob, nomeArquivoPdf('plano-alimentar', pacienteNome));
+      baixado = true;
 
       // Primeiro segmento = paciente_id: é o que a policy
       // prescricoes_storage_insert_nutri exige (split_part(name,'/',1)).
@@ -3624,12 +3632,15 @@ Estrutura JSON obrigatória:
       if (insErr) throw insErr;
 
       path = null;                    // gravou: não há mais o que desfazer
-      setFeedback({ tipo: 'ok', msg: 'PDF do plano gerado. A paciente já vê o arquivo na tela do plano.' });
+      setFeedback({ tipo: 'ok', msg: 'PDF do plano baixado e publicado. A paciente já vê o arquivo na tela do plano.' });
     } catch (e) {
       // Só remove o que ESTA execução subiu. Se foi o upload que falhou, path
       // já tem valor mas não há objeto — o remove não erra por isso.
       if (path) await supabase.storage.from('prescricoes').remove([path]).catch(() => {});
-      setFeedback({ tipo: 'erro', msg: 'Erro ao gerar PDF: ' + (e?.message ?? 'tente novamente') });
+      // Distinguir os dois fracassos importa: num deles a nutri TEM o arquivo.
+      setFeedback({ tipo: 'erro', msg: baixado
+        ? 'PDF baixado, mas não publicado para a paciente: ' + (e?.message ?? 'tente novamente')
+        : 'Erro ao gerar PDF: ' + (e?.message ?? 'tente novamente') });
     } finally {
       setBusyPdf(false);
     }
