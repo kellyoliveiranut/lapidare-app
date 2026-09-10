@@ -12,6 +12,7 @@ import { HORARIOS_TAREFA, hhmm } from '../../lib/reguaDoDia.js';
 import {
   dataConsultaBR, horaConsultaBR, TZ_CLINICA, textoDias, iniciais,
   gerarDiasCalendario, ehMesmoDia, mesAnoExtenso, DIAS_SEMANA_CURTOS, isoLocalDeData,
+  montarDataHoraISO, partesLocaisISO,
   HORARIOS_CONSULTA, HORARIO_CONSULTA_PADRAO, horaConsultaValida,
   telefoneValido, normalizarBusca,
 } from '../../lib/utils.js';
@@ -646,13 +647,19 @@ export default function Agenda() {
     [lembretes],
   );
 
-  // Consultas do dia selecionado
+  // Consultas do dia selecionado. O dia é o de BELÉM, não o do aparelho: uma
+  // consulta das 18:00 é 21:00Z, e ler esse instante no fuso de quem olha
+  // jogaria ela para o dia seguinte fora de UTC-3. partesLocaisISO já devolve
+  // a data no fuso da clínica — mesma fonte que a régua do dia usa para a hora.
+  // O `.filter(c => c.data_hora)` acima é obrigatório antes dela: com null,
+  // partesLocaisISO cai na epoch em vez de devolver vazio.
   const consultasDoDia = useMemo(() => {
     if (!diaSelecionado) return [];
+    const alvo = isoLocalDeData(diaSelecionado);
     return (consultas ?? [])
       .filter(c => c.status !== 'cancelada')
       .filter(c => c.data_hora)
-      .filter(c => ehMesmoDia(new Date(c.data_hora), diaSelecionado))
+      .filter(c => partesLocaisISO(c.data_hora).data === alvo)
       .sort((a, b) => a.data_hora.localeCompare(b.data_hora));
   }, [consultas, diaSelecionado]);
 
@@ -2257,11 +2264,18 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
   const pacienteInicial = pacientes.find(p => p.id === pacienteInicialId) ?? pacientes[0];
   const modalidadeInicial = modalidadeDaPaciente(pacienteInicial?.modalidade);
 
+  // Data e hora de partida ao EDITAR, lidas no fuso da CLÍNICA — o mesmo em que
+  // salvar() grava. Ler no fuso do aparelho e gravar em Belém deslocaria a
+  // consulta a cada save fora de UTC-3; é o outro lado do mesmo par.
+  // Guard obrigatório: com data_hora null ("A definir"), partesLocaisISO cai na
+  // epoch em vez de devolver vazio.
+  const partesIniciais = consulta?.data_hora ? partesLocaisISO(consulta.data_hora) : null;
+
   const initial = consulta
     ? {
         pacienteId: consulta.paciente?.id ?? '',
-        data: consulta.data_hora?.slice(0, 10) ?? '',
-        hora: consulta.data_hora ? new Date(consulta.data_hora).toTimeString().slice(0, 5) : HORARIO_CONSULTA_PADRAO,
+        data: partesIniciais?.data ?? '',
+        hora: partesIniciais?.hora ?? HORARIO_CONSULTA_PADRAO,
         duracao: consulta.duracao_min ?? 30,
         tipo: consulta.tipo ?? 'primeira',
         modalidade: consulta.modalidade ?? 'online',
@@ -2398,7 +2412,9 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
     }
     setBusy(true);
     try {
-      const dataHora = new Date(`${data}T${hora}:00`).toISOString();
+      // "14:00" é 14:00 em BELÉM, não no fuso do aparelho de quem agenda —
+      // mesmo helper que o PacientePerfil já usa para gravar consulta.
+      const dataHora = montarDataHoraISO(data, hora);
       const payload = {
         paciente_id: pacienteId,
         nutri_id: nutriId,
