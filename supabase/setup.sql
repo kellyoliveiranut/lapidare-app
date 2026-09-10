@@ -233,20 +233,10 @@ create table if not exists public.parcelas (
 create index if not exists parcelas_nutri_id_idx on public.parcelas(nutri_id, vencimento);
 create index if not exists parcelas_venda_id_idx on public.parcelas(venda_id);
 
--- 2.11.8 Fotos de evolução da paciente (antes/depois) ------------
--- Nutri tira foto no consultório OU paciente envia do app dela.
--- Usadas no Dashboard de Evolução (timeline + comparativo).
-create table if not exists public.fotos_evolucao (
-  id            uuid primary key default gen_random_uuid(),
-  paciente_id   uuid not null references public.pacientes(id) on delete cascade,
-  nutri_id      uuid references public.nutris(id) on delete set null,  -- null = upload pela paciente
-  storage_path  text not null,
-  tipo          text not null default 'frente' check (tipo in ('frente', 'perfil_direito', 'perfil_esquerdo', 'costas', 'livre')),
-  data_foto     date not null default current_date,
-  obs           text,
-  created_at    timestamptz not null default now()
-);
-create index if not exists fotos_evolucao_paciente_idx on public.fotos_evolucao(paciente_id, data_foto desc);
+-- 2.11.8 (vago) — era fotos_evolucao, removida em 2026-09-02.
+-- Tabela, índice, policies e bucket saíram do banco pela migration
+-- 2026-09-02_remove_fotos_evolucao.sql. O número fica vago em vez de renumerar
+-- as seções seguintes, para não invalidar quem já anotou o número antigo.
 
 -- 2.11.9 Pacientes pendentes (importação CSV antes de signup) -----
 -- Cadastros importados de outras plataformas. Quando paciente
@@ -365,7 +355,6 @@ alter table public.gastos          enable row level security;
 alter table public.vendas          enable row level security;
 alter table public.parcelas        enable row level security;
 alter table public.consultas             enable row level security;
-alter table public.fotos_evolucao        enable row level security;
 alter table public.pacientes_pendentes   enable row level security;
 alter table public.checkin_templates     enable row level security;
 alter table public.checkin_envios        enable row level security;
@@ -561,30 +550,8 @@ drop policy if exists servicos_all_nutri on public.servicos;
 create policy servicos_all_nutri on public.servicos
   for all using (nutri_id = auth.uid()) with check (nutri_id = auth.uid());
 
--- 4.10b fotos_evolucao (paciente vê próprias; nutri vê das pacientes)
-drop policy if exists fotos_evolucao_select on public.fotos_evolucao;
-create policy fotos_evolucao_select on public.fotos_evolucao
-  for select using (
-    paciente_id = auth.uid()
-    or exists (select 1 from public.pacientes p where p.id = paciente_id and p.nutri_id = auth.uid())
-  );
-
-drop policy if exists fotos_evolucao_insert_nutri on public.fotos_evolucao;
-create policy fotos_evolucao_insert_nutri on public.fotos_evolucao
-  for insert with check (
-    exists (select 1 from public.pacientes p where p.id = paciente_id and p.nutri_id = auth.uid())
-  );
-
-drop policy if exists fotos_evolucao_insert_paciente on public.fotos_evolucao;
-create policy fotos_evolucao_insert_paciente on public.fotos_evolucao
-  for insert with check (paciente_id = auth.uid());
-
-drop policy if exists fotos_evolucao_delete on public.fotos_evolucao;
-create policy fotos_evolucao_delete on public.fotos_evolucao
-  for delete using (
-    paciente_id = auth.uid()
-    or exists (select 1 from public.pacientes p where p.id = paciente_id and p.nutri_id = auth.uid())
-  );
+-- 4.10b (vago) — eram as 4 policies de fotos_evolucao. Caíram junto com a
+-- tabela (drop ... cascade) na migration 2026-09-02_remove_fotos_evolucao.sql.
 
 -- 4.10c pacientes_pendentes (só a nutri dona) ----------------------
 drop policy if exists pacientes_pendentes_all_nutri on public.pacientes_pendentes;
@@ -711,9 +678,9 @@ insert into storage.buckets (id, name, public)
 values ('fotos_pratos', 'fotos_pratos', false)
 on conflict (id) do nothing;
 
-insert into storage.buckets (id, name, public)
-values ('fotos_evolucao', 'fotos_evolucao', false)
-on conflict (id) do nothing;
+-- O bucket fotos_evolucao existia aqui e foi apagado à mão pelo painel em
+-- 2026-09-02 (ver passo 4 da migration 2026-09-02_remove_fotos_evolucao.sql:
+-- apagar bucket por SQL deixa o arquivo órfão no backend de storage).
 
 
 -- =============================================================
@@ -780,53 +747,9 @@ create policy fotos_pratos_storage_delete_paciente on storage.objects
     and split_part(name, '/', 1) = auth.uid()::text
   );
 
--- 7.3 fotos_evolucao (nutri OU paciente sobem; ambos leem) ---------
-
-drop policy if exists fotos_evolucao_storage_select on storage.objects;
-create policy fotos_evolucao_storage_select on storage.objects
-  for select using (
-    bucket_id = 'fotos_evolucao'
-    and (
-      split_part(name, '/', 1) = auth.uid()::text
-      or split_part(name, '/', 1) in (
-        select id::text from public.pacientes where user_id = auth.uid()
-      )
-      or split_part(name, '/', 1) in (
-        select id::text from public.pacientes where nutri_id = auth.uid()
-      )
-    )
-  );
-
-drop policy if exists fotos_evolucao_storage_insert_paciente on storage.objects;
-create policy fotos_evolucao_storage_insert_paciente on storage.objects
-  for insert with check (
-    bucket_id = 'fotos_evolucao'
-    and split_part(name, '/', 1) = auth.uid()::text
-  );
-
-drop policy if exists fotos_evolucao_storage_insert_nutri on storage.objects;
-create policy fotos_evolucao_storage_insert_nutri on storage.objects
-  for insert with check (
-    bucket_id = 'fotos_evolucao'
-    and split_part(name, '/', 1) in (
-      select id::text from public.pacientes where nutri_id = auth.uid()
-    )
-  );
-
-drop policy if exists fotos_evolucao_storage_delete on storage.objects;
-create policy fotos_evolucao_storage_delete on storage.objects
-  for delete using (
-    bucket_id = 'fotos_evolucao'
-    and (
-      split_part(name, '/', 1) = auth.uid()::text
-      or split_part(name, '/', 1) in (
-        select id::text from public.pacientes where user_id = auth.uid()
-      )
-      or split_part(name, '/', 1) in (
-        select id::text from public.pacientes where nutri_id = auth.uid()
-      )
-    )
-  );
+-- 7.3 (vago) — eram as 4 policies de storage do bucket fotos_evolucao. Não
+-- caem com a tabela (vivem em storage.objects), então foram removidas por
+-- varredura no passo 2 da migration 2026-09-02_remove_fotos_evolucao.sql.
 
 
 -- =============================================================
@@ -2027,22 +1950,8 @@ create policy checkin_envios_update on public.checkin_envios
   for update using (paciente_id = public.minha_paciente_id() or nutri_id = auth.uid())
   with check (paciente_id = public.minha_paciente_id() or nutri_id = auth.uid());
 
-drop policy if exists fotos_evolucao_select on public.fotos_evolucao;
-create policy fotos_evolucao_select on public.fotos_evolucao for select using (
-  paciente_id = public.minha_paciente_id()
-  or exists (select 1 from public.pacientes p where p.id = paciente_id and p.nutri_id = auth.uid())
-);
-
-drop policy if exists fotos_evolucao_insert_paciente on public.fotos_evolucao;
-create policy fotos_evolucao_insert_paciente on public.fotos_evolucao for insert with check (
-  paciente_id = public.minha_paciente_id()
-);
-
-drop policy if exists fotos_evolucao_delete on public.fotos_evolucao;
-create policy fotos_evolucao_delete on public.fotos_evolucao for delete using (
-  paciente_id = public.minha_paciente_id()
-  or exists (select 1 from public.pacientes p where p.id = paciente_id and p.nutri_id = auth.uid())
-);
+-- (fotos_evolucao tinha três policies reescritas aqui — saíram com a tabela em
+--  2026-09-02, ver 2.11.8.)
 
 drop policy if exists suplementos_select on public.suplementos;
 create policy suplementos_select on public.suplementos for select using (
@@ -2125,12 +2034,8 @@ create policy exames_paciente_select on public.exames_laboratoriais for select u
 );
 
 -- 16.9 Storage policies atualizadas
-drop policy if exists fotos_evolucao_storage_insert_paciente on storage.objects;
-create policy fotos_evolucao_storage_insert_paciente on storage.objects for insert with check (
-  bucket_id = 'fotos_evolucao'
-  and split_part(name, '/', 1) in (select id::text from public.pacientes where user_id = auth.uid())
-);
-
+-- (a de fotos_evolucao vinha primeiro aqui — saiu com o bucket em 2026-09-02,
+--  ver 7.3.)
 drop policy if exists fotos_pratos_storage_insert_paciente on storage.objects;
 create policy fotos_pratos_storage_insert_paciente on storage.objects for insert with check (
   bucket_id = 'fotos_pratos'
@@ -2393,9 +2298,12 @@ grant update on public.feed_pratos_comentarios to authenticated, service_role;
 -- 21. CHAT: ENVIO DE FOTO (bucket chat_anexos)
 -- =============================================================
 -- Imagem opcional nas mensagens + bucket privado. Policies de storage
--- com os 3 ramos (auth.uid / user_id da paciente / nutri responsável),
--- mesmo padrão do fix de fotos_evolucao — paciente de cadastro manual
--- sobe E vê a própria imagem.
+-- com os 3 ramos (auth.uid / user_id da paciente / nutri responsável) —
+-- paciente de cadastro manual sobe E vê a própria imagem.
+-- O padrão dos 3 ramos nasceu na migration
+-- 2026-07-23_fix_fotos_evolucao_storage_select.sql. Aquele bucket não existe
+-- mais (removido em 2026-09-02), mas a migration continua no repositório e é
+-- onde o raciocínio dos 3 ramos está escrito por extenso.
 
 alter table public.mensagens add column if not exists imagem_path text;
 alter table public.mensagens alter column texto drop not null;

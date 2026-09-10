@@ -96,10 +96,21 @@ select to_regclass('public.fotos_evolucao') is null as tabela_removida,
 
 
 -- =============================================================
--- PENDÊNCIA CONHECIDA, DE PROPÓSITO
--- supabase/setup.sql ainda descreve a tabela, o bucket e as 8 policies em 7
--- blocos (239-249, 368, 564-586, 713-715, 783-822, 2030-2045, 2128-2131).
--- Limpeza adiada para sessão própria, bloco a bloco.
+-- PENDÊNCIA RESOLVIDA EM 2026-09-10
+-- Os 7 blocos do supabase/setup.sql (239-249, 368, 564-586, 713-715, 783-822,
+-- 2030-2045, 2128-2131) foram limpos, mais uma oitava referência que esta lista
+-- não previa: o comentário do bloco 21 do setup.sql (chat_anexos — não confundir
+-- com a migration de mesmo assunto, que segue intocada), que apontava para o fix
+-- de storage de fotos_evolucao — reescrito, não apagado, porque o raciocínio
+-- dos 3 ramos continua valendo para o chat.
+--
+-- Saíram de lá: a tabela, o índice, o insert do bucket, o enable RLS e 12
+-- declarações de policy — 12, e não as 8 que existiam no banco, porque o
+-- setup.sql redeclarava algumas nos blocos 16.8 e 16.9.
+--
+-- Nas três seções numeradas (2.11.8, 4.10b, 7.3) ficou uma lápide de duas
+-- linhas apontando para cá, em vez do vazio: sem ela o arquivo teria buracos
+-- de numeração sem explicação, e ele ainda é documentação de referência.
 --
 -- As migrations antigas (2026-05-22_evolucao_csv_links.sql,
 -- 2026-07-23_fix_fotos_evolucao_storage_select.sql e o comentário em
