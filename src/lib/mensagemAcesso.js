@@ -72,3 +72,36 @@ export function mensagemAcesso({ primeiroNome, objetivo, link, temConta = false 
 
   return `${abertura}\n\n${orientacaoDeUso(objetivo)}\n\n---\n\n${RODAPE_INSTALACAO}`;
 }
+
+/**
+ * Mensagem de senha definida PELA NUTRI — caminho de EXCEÇÃO, para quando o
+ * e-mail de redefinição não chega: e-mail do cadastro divergente do e-mail de
+ * auth.users, ou conta de cadastro manual, cujo endereço é sintético.
+ *
+ * Função própria e não um `temConta` a mais em mensagemAcesso(): as duas frases
+ * daquele ramo ficariam mentindo aqui. Lá se diz "a senha que você criou" — e
+ * esta ela não criou — e se manda usar "Esqueci minha senha", que cai
+ * exatamente no e-mail que não chega. Errado nos dois pontos.
+ *
+ * Sem RODAPE_INSTALACAO e sem orientacaoDeUso DE PROPÓSITO: quem recebe isto já
+ * usa o app, e a senha não pode se perder no meio de um texto longo de duas
+ * telas. É a única mensagem deste arquivo que carrega uma credencial.
+ *
+ * @param primeiroNome  primeiro nome da paciente
+ * @param link          URL do app (origin) — ela já tem conta, então é login
+ * @param senha         a senha em texto puro, recém-gerada pelo servidor
+ * @param emailLogin    o e-mail de auth.users, que é o que de fato entra
+ * @param sintetico     true = endereço @essentia.local, só telefone serve
+ * @returns {string}    texto pronto, sem encode
+ */
+export function mensagemSenhaDefinida({ primeiroNome, link, senha, emailLogin, sintetico = false }) {
+  const comoEntrar = sintetico
+    ? 'Entre com o seu número de telefone e esta senha:'
+    : `Entre com o e-mail ${emailLogin} (ou o seu telefone) e esta senha:`;
+
+  return `Olá, ${primeiroNome}! Criei uma senha nova para o seu acesso ao app do Essentia.\n\n`
+    + `${link ?? ''}\n\n`
+    + `${comoEntrar}\n\n`
+    + `${senha}\n\n`
+    + `Guarde essa senha. Qualquer dúvida, é só me chamar por aqui.`;
+}

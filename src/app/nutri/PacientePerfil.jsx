@@ -9,7 +9,7 @@ import {
   dataLocalISO, montarDataHoraISO, partesLocaisISO,
 } from '../../lib/utils.js';
 import { TEMPLATE_PADRAO } from '../../lib/checkinDefault.js';
-import { mensagemAcesso } from '../../lib/mensagemAcesso.js';
+import { mensagemAcesso, mensagemSenhaDefinida } from '../../lib/mensagemAcesso.js';
 import { OBJETIVOS } from '../../lib/objetivos.js';
 import { SEXOS, PLANOS } from '../../lib/opcoesPaciente.js';
 // Estatico de proposito: pdfPlano + pdfBase somam poucos kB. O peso real e o
@@ -550,18 +550,7 @@ export default function PacientePerfil() {
           </div>
           <div className="page-sub" style={{ marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <span>{paciente.email} · cadastrada em {dataBR(paciente.created_at)}</span>
-            <button onClick={enviarRedefinicaoSenha}
-              title="Envia um email pra paciente com link de redefinição de senha"
-              style={{
-                background: 'transparent', border: '0.5px solid var(--border)',
-                borderRadius: 6, padding: '3px 9px', fontSize: 11,
-                color: 'var(--gold-deep)', cursor: 'pointer',
-                fontFamily: 'var(--font-sans)',
-                display: 'inline-flex', alignItems: 'center', gap: 4,
-              }}>
-              <i className="ti ti-key" aria-hidden="true" style={{ fontSize: 13 }}></i>
-              Enviar redefinição de senha
-            </button>
+            <MenuSenha paciente={paciente} onEnviarEmail={enviarRedefinicaoSenha} />
             <button onClick={enviarAcessoWhatsApp}
               disabled={!paciente.telefone?.trim() || !paciente.email?.trim()}
               title={
@@ -1280,6 +1269,304 @@ function BarraDeAbas({ children, style }) {
       {/* Fica fora do scroller de propósito: dentro dele, rolaria junto. */}
       <div className="tabs-trilho" aria-hidden="true">
         <span ref={thumbRef} className="tabs-trilho-thumb" />
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────
+   SENHA DA PACIENTE — os dois caminhos, num menu só
+
+   Antes havia um botão solto de "Enviar redefinição de senha". Ele não está
+   errado: quando o e-mail do cadastro é o mesmo de auth.users, é o MELHOR
+   caminho, porque a paciente escolhe a própria senha e a nutri nunca fica
+   sabendo dela. O problema é que ele falha CALADO quando os dois e-mails
+   divergem — o Supabase responde sucesso mesmo para endereço inexistente, por
+   política anti-enumeração, e a tela dizia "✅ Email enviado" sem nada chegar.
+
+   Um menu em vez de dois botões porque o front NÃO enxerga auth.users: sem
+   perguntar ao servidor, a escolha entre os dois caminhos seria no escuro. O
+   diagnóstico é buscado ao abrir e vira o subtítulo de cada linha.
+
+   Deliberadamente NÃO tento consertar a linha 1 mandando o e-mail para o
+   endereço do auth, mesmo agora que a tela o conhece: se a nutri trocou o
+   e-mail no cadastro, é porque o antigo não serve mais para a paciente.
+   Mandar recuperação para a caixa abandonada é outro "enviado com sucesso"
+   inútil, só que mais difícil de explicar.
+
+   Estrutura do dropdown copiada de SelecionarEnviarTemplate (Checkins.jsx):
+   backdrop fixo no z-index 90 para o clique fora, painel absoluto no 100.
+   ───────────────────────────────────────────────────────── */
+function MenuSenha({ paciente, onEnviarEmail }) {
+  const [aberto, setAberto] = useState(false);
+  const [diag, setDiag] = useState(null);
+  const [carregando, setCarregando] = useState(false);
+  const [erro, setErro] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [senhaDados, setSenhaDados] = useState(null);
+
+  async function chamar(acao) {
+    const { data: sess } = await supabase.auth.getSession();
+    const accessToken = sess.session?.access_token;
+    if (!accessToken) throw new Error('Sessão expirada. Recarregue a página.');
+    const resp = await fetch('/.netlify/functions/acesso-senha', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+      body: JSON.stringify({ paciente_id: paciente.id, acao }),
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) throw new Error(data.error || 'Falha na chamada.');
+    return data;
+  }
+
+  async function abrir() {
+    setAberto(a => !a);
+    // Buscado AO ABRIR, e não no carregamento do perfil: seria uma chamada de
+    // function por visita a cada paciente, para um menu que quase nunca abre.
+    if (diag || carregando) return;
+    setCarregando(true); setErro(null);
+    try { setDiag(await chamar('diagnostico')); }
+    catch (e) { setErro(e?.message ?? 'Não consegui conferir o e-mail de login.'); }
+    finally { setCarregando(false); }
+  }
+
+  async function definir() {
+    const ok = window.confirm(
+      `Definir uma senha nova para ${paciente.nome}?\n\n`
+      + `A senha atual dela para de funcionar na hora. Nenhum e-mail é enviado — `
+      + `a senha aparece na tela e você entrega a ela.`
+    );
+    if (!ok) return;
+    setBusy(true);
+    try {
+      const d = await chamar('definir');
+      setAberto(false);
+      setSenhaDados(d);
+    } catch (e) {
+      alert('Erro ao definir a senha: ' + (e?.message ?? 'tente de novo'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Alinha o e-mail de LOGIN ao do cadastro. O endereço não é digitado aqui nem
+  // mandado no body: quem o lê é o servidor, na linha do cadastro. Ver o
+  // comentário da ação atualizar_email em acesso-senha.js.
+  async function alinharEmail() {
+    const ok = window.confirm(
+      `Trocar o e-mail de LOGIN de ${paciente.nome}?\n\n`
+      + `De:   ${diag.email_login}\n`
+      + `Para: ${diag.email_cadastro}\n\n`
+      + `A senha continua a mesma, mas ela vai precisar entrar com o endereço `
+      + `novo. Nenhum e-mail é enviado — quem avisa é você.`
+    );
+    if (!ok) return;
+    setBusy(true);
+    try {
+      const r = await chamar('atualizar_email');
+      setDiag(d => ({ ...d, email_login: r.email_login, divergente: false }));
+      alert(r.inalterado
+        ? 'O e-mail de login já era esse.'
+        : `Pronto. O login de ${paciente.nome} agora é ${r.email_login}.`);
+    } catch (e) {
+      alert('Erro ao trocar o e-mail: ' + (e?.message ?? 'tente de novo'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const linhaEmail = carregando ? 'conferindo o e-mail de login…'
+    : erro                      ? erro
+    : diag?.sintetico           ? '⚠ esta conta não tem e-mail de verdade — só telefone'
+    : diag?.divergente          ? `⚠ o login dela é ${diag.email_login}, não o e-mail do cadastro`
+    : diag?.email_login         ? `vai para ${diag.email_login}`
+    : 'envia o link de criar senha nova';
+
+  const estiloLinha = {
+    width: '100%', padding: '10px 12px', textAlign: 'left',
+    border: 'none', background: 'transparent', cursor: 'pointer',
+    fontFamily: 'var(--font-sans)', borderBottom: '0.5px solid #f5f0e8',
+  };
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <button
+        onClick={abrir}
+        title="Redefinir a senha desta paciente"
+        style={{
+          background: 'transparent', border: '0.5px solid var(--border)',
+          borderRadius: 6, padding: '3px 9px', fontSize: 11,
+          color: 'var(--gold-deep)', cursor: 'pointer',
+          fontFamily: 'var(--font-sans)',
+          display: 'inline-flex', alignItems: 'center', gap: 4,
+        }}>
+        <i className="ti ti-key" aria-hidden="true" style={{ fontSize: 13 }}></i>
+        Senha da paciente
+        <i className="ti ti-chevron-down" aria-hidden="true" style={{ fontSize: 12 }}></i>
+      </button>
+
+      {aberto && (
+        <>
+          <div onClick={() => setAberto(false)} style={{ position: 'fixed', inset: 0, zIndex: 90 }} />
+          <div style={{
+            position: 'absolute', left: 0, top: '100%', marginTop: 4,
+            minWidth: 300, zIndex: 100, background: 'var(--white)',
+            border: '0.5px solid var(--border)', borderRadius: 8,
+            boxShadow: '0 4px 12px rgba(28,23,18,.1)', overflow: 'hidden',
+          }}>
+            {/* Caminho preferido: ela mesma escolhe a senha, a nutri não vê. */}
+            <button
+              onClick={() => { setAberto(false); onEnviarEmail(); }}
+              disabled={carregando || diag?.sintetico}
+              title={diag?.sintetico
+                ? 'A conta desta paciente não tem e-mail real — o link não chegaria a lugar nenhum'
+                : 'Envia um email pra paciente com link de redefinição de senha'}
+              style={{ ...estiloLinha, opacity: (carregando || diag?.sintetico) ? 0.5 : 1 }}>
+              <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--dark)' }}>
+                Enviar e-mail de redefinição
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{linhaEmail}</div>
+            </button>
+
+            {/* Só aparece quando há divergência: sem ela não há o que alinhar.
+                Fica antes do "Definir senha", que segue sendo o último e por
+                isso mantém o borderBottom: 'none'. */}
+            {diag?.divergente && (
+              <button
+                onClick={alinharEmail}
+                disabled={busy}
+                style={{ ...estiloLinha, opacity: busy ? 0.5 : 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--dark)' }}>
+                  {busy ? 'Alinhando…' : 'Alinhar e-mail de login ao cadastro'}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
+                  login passa a ser {diag.email_cadastro}
+                </div>
+              </button>
+            )}
+
+            {/* Exceção: usar quando o e-mail não chega. */}
+            <button
+              onClick={definir}
+              disabled={busy}
+              style={{ ...estiloLinha, borderBottom: 'none', opacity: busy ? 0.5 : 1 }}>
+              <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--dark)' }}>
+                {busy ? 'Definindo…' : 'Definir senha manualmente'}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
+                sem e-mail — a senha aparece na tela e você entrega a ela
+              </div>
+            </button>
+          </div>
+        </>
+      )}
+
+      {senhaDados && (
+        <ModalSenhaDefinida
+          dados={senhaDados}
+          paciente={paciente}
+          onClose={() => setSenhaDados(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+/* A senha aparece UMA vez. Não é gravada em lugar nenhum — nem no servidor, nem
+   aqui — então este modal é a única chance de copiá-la. */
+function ModalSenhaDefinida({ dados, paciente, onClose }) {
+  const [copiada, setCopiada] = useState(false);
+  const primeiroNome = paciente.nome?.split(' ')[0] ?? '';
+  const temTelefone = !!paciente.telefone?.trim();
+
+  async function copiar() {
+    try {
+      await navigator.clipboard.writeText(dados.senha);
+      setCopiada(true);
+      setTimeout(() => setCopiada(false), 2000);
+    } catch {
+      alert('Não consegui copiar. A senha é:\n\n' + dados.senha);
+    }
+  }
+
+  function enviarWhatsApp() {
+    const msg = mensagemSenhaDefinida({
+      primeiroNome,
+      link: window.location.origin,
+      senha: dados.senha,
+      emailLogin: dados.email_login,
+      sintetico: dados.sintetico,
+    });
+    // Sem o truque de abrir a janela ANTES do await que o enviarAcessoWhatsApp
+    // usa: lá o link só existe depois de um await, e o Safari mata o popup
+    // quando a ativação do clique já se consumiu. Aqui a senha já está em mãos.
+    window.open(`https://wa.me/${normalizarTelefone(paciente.telefone)}?text=${encodeURIComponent(msg)}`,
+      '_blank', 'noopener');
+  }
+
+  return (
+    // O overlay NÃO fecha no clique, ao contrário do ModalEditarDados. É
+    // deliberado: um clique fora perderia a senha para sempre. Mesmo raciocínio
+    // do backdrop protegido do TarefaModal. Só o botão de baixo fecha.
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(28,23,18,.55)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      zIndex: 200, padding: 16,
+    }}>
+      <div style={{
+        background: 'var(--white)', borderRadius: 12, padding: 24,
+        width: 460, maxWidth: '92vw', border: '0.5px solid var(--border)',
+      }}>
+        <div style={{ fontFamily: 'var(--font-serif)', fontSize: 18, marginBottom: 4 }}>
+          Senha nova de {dados.nome}
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 18 }}>
+          Nenhum e-mail foi enviado. A entrega é com você.
+        </div>
+
+        <div style={{
+          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+          fontSize: 26, letterSpacing: 1, textAlign: 'center',
+          padding: '14px 16px', background: 'var(--bg2)', borderRadius: 10,
+          userSelect: 'all', marginBottom: 14, color: 'var(--dark)',
+        }}>
+          {dados.senha}
+        </div>
+
+        <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 14, lineHeight: 1.5 }}>
+          Para entrar, ela usa{' '}
+          {dados.sintetico
+            ? <b>o número de telefone dela</b>
+            : <>o e-mail <b>{dados.email_login}</b> ou o telefone</>}
+          {' '}com esta senha.
+        </div>
+
+        <div style={{
+          fontSize: 12, color: 'var(--orange)', background: 'var(--orange-bg)',
+          borderRadius: 8, padding: '10px 12px', marginBottom: 18, lineHeight: 1.5,
+        }}>
+          Esta senha aparece uma única vez. Copie ou envie agora — depois de
+          fechar não há como recuperá-la, só gerar outra.
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button onClick={copiar} className="btn" style={{ fontSize: 13 }}>
+            <i className="ti ti-copy" aria-hidden="true" /> {copiada ? 'Copiada!' : 'Copiar senha'}
+          </button>
+          <button
+            onClick={enviarWhatsApp}
+            disabled={!temTelefone}
+            title={temTelefone ? 'Abre o WhatsApp com a senha na mensagem' : 'Cadastre o telefone da paciente'}
+            className="btn"
+            style={{ fontSize: 13, opacity: temTelefone ? 1 : 0.45 }}>
+            <i className="ti ti-brand-whatsapp" aria-hidden="true" /> Enviar no WhatsApp
+          </button>
+          {/* Secundário de propósito: os dois de cima é que entregam a senha.
+              Este é o único jeito de fechar — o fundo não fecha. */}
+          <button onClick={onClose} className="btn-outline" style={{ fontSize: 13, marginLeft: 'auto' }}>
+            Já anotei — fechar
+          </button>
+        </div>
       </div>
     </div>
   );

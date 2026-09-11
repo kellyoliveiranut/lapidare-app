@@ -36,3 +36,6 @@ insert_pacientes_essentia.sql
 
 # Documentos de passagem — trazem nome e dado clínico de paciente
 essentia-passagem-*.md
+
+# Local Netlify folder
+.netlify
