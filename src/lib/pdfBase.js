@@ -167,12 +167,13 @@ export function rodape(p, y) {
 /**
  * plano-alimentar-maria-souza.pdf — sem acento e sem espaço, que é o que
  * atravessa Windows, Android e iOS sem o navegador reescrever o nome. NFD
- * separa a letra do acento e o filtro por código descarta o acento solto.
+ * separa a letra do acento e o filtro por código descarta o acento solto;
+ * o regex é feito sem \u de propósito, pra não depender de escape no fonte.
  *
- * Gêmeo do nomeArquivoPrescricao() de _Suplementacao.jsx, que fica onde está
- * por ora: aquele gerador tem o desenho provado por hash, e mexer nele junto
- * desta mudança misturaria duas verificações diferentes. Unificar é o passo
- * seguinte, sozinho.
+ * Os dois geradores de PDF chamam esta função: o plano alimentar passa um
+ * prefixo fixo, a prescrição de suplementação passa o modo.slug escolhido no
+ * modal. O prefixo é parâmetro justamente porque os dois precisam de prefixos
+ * diferentes — até a unificação, cada gerador carregava sua própria cópia.
  */
 export function nomeArquivoPdf(prefixo, pacienteNome) {
   const semAcento = String(pacienteNome ?? '')

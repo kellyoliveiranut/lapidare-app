@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { dataBR, normalizarTelefone, normalizarBusca } from '../../lib/utils.js';
-import { criarDocumento, cabecalho, cardPaciente, rodape,
+import { criarDocumento, cabecalho, cardPaciente, rodape, nomeArquivoPdf,
   M, W, TOPO, BRONZE, SEPIA, LINHA, LINHA2 } from '../../lib/pdfBase.js';
 
 const HOJE_ISO = () => new Date().toISOString().slice(0, 10);
@@ -1409,24 +1409,6 @@ function textoPrescricaoLoja({ pacienteNome, contato }) {
   ].join('\n');
 }
 
-// prescricao-suplementacao-maria-souza.pdf — sem acento e sem espaço, que é o
-// que atravessa Windows, Android e iOS sem o navegador reescrever o nome.
-// NFD separa a letra do acento e o filtro por código descarta o acento solto;
-// feito sem \u no regex de propósito, pra não depender de escape no fonte.
-//
-// O prefixo vem do modo (prescricao-suplementacao / -manipulados / -completa).
-// Não é detalhe: com um nome só, gerar dois recortes para a mesma paciente
-// deixaria "(1)" na pasta de Downloads, sem dizer qual é qual.
-function nomeArquivoPrescricao(pacienteNome, modo) {
-  const semAcento = String(pacienteNome ?? '')
-    .normalize('NFD')
-    .split('')
-    .filter(c => c.charCodeAt(0) < 128)
-    .join('');
-  const slug = semAcento.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-  return `${modo.slug}-${slug || 'paciente'}.pdf`;
-}
-
 const FS_NOME = 10.5, LH_NOME = 12.6;
 const FS_POS  = 10,   LH_POS  = 13.5;
 const FS_MIN  = 8.25, LH_MIN  = 10.5;   // horário e observação
@@ -1541,5 +1523,9 @@ async function gerarPDFPrescricao({ pacienteNome, contato, suplementosAtivos, mo
 
   rodape(p, y);
 
-  doc.save(nomeArquivoPrescricao(pacienteNome, modo));
+  // O prefixo vem do modo (prescricao-suplementacao / -manipulados / -completa),
+  // e é aqui que o objeto se abre: o nomeArquivoPdf() recebe a string pronta.
+  // Não é detalhe: com um nome só, gerar dois recortes para a mesma paciente
+  // deixaria "(1)" na pasta de Downloads, sem dizer qual é qual.
+  doc.save(nomeArquivoPdf(modo.slug, pacienteNome));
 }
