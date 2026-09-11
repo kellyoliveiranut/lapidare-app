@@ -35,6 +35,73 @@ export const LINHA  = [221, 213, 196];  // #DDD5C4  bordas do card e do rodapé
 export const LINHA2 = [237, 230, 218];  // #EDE6DA  divisória entre itens
 
 /**
+ * Saneamento de texto para a tabela WinAnsi.
+ *
+ * O jsPDF com as fontes padrão escreve em WinAnsi. Quando UM caractere fora
+ * dessa tabela aparece numa string, ele troca a codificação da STRING INTEIRA
+ * para dois bytes por caractere, e o resultado é ilegível: o "≈" sai como as
+ * duas letras "H e cada caractere da linha ganha um nulo no meio, que os
+ * leitores mostram como l e t r a   e s p a ç a d a.
+ *
+ * Aconteceu em produção, na seção de substituições do plano de uma paciente,
+ * porque o editor grava a equivalência calórica dentro do texto da opção. Não
+ * era regressão de nada: o defeito existe desde que os geradores existem, e
+ * atinge os TRÊS documentos, porque todos passam por aqui.
+ *
+ * A tabela abaixo foi MEDIDA contra o próprio jsPDF, e não copiada da spec: as
+ * duas faixas em dúvida (bloco 0x80-0x9F e Latin-1 0xA0-0xFF) saem com 1 byte
+ * por caractere, e um "≈" acrescentado à mesma lista faz a prova cair.
+ *
+ * Português inteiro é seguro — acentuadas, ç e ã estão no Latin-1 — assim como
+ * —, –, •, …, aspas curvas, °, µ e ½. O que quebra são símbolos matemáticos,
+ * setas e emoji.
+ */
+const WINANSI = (() => {
+  const s = new Set(['\n', '\r', '\t']);
+  for (let c = 0x20; c <= 0x7E; c++) s.add(String.fromCharCode(c));
+  for (let c = 0xA0; c <= 0xFF; c++) s.add(String.fromCharCode(c));
+  for (const ch of '€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ') s.add(ch);
+  return s;
+})();
+
+// Onde o caractere carrega SENTIDO, entra o equivalente ASCII. Apagar o "≈"
+// seria pior que feio: "(≈ 14 g)" viraria "( 14 g)", e uma equivalência
+// aproximada passaria a se ler como quantidade exata. Numa prescrição, isso
+// muda o que está escrito.
+const TROCA = new Map(Object.entries({
+  '≈': '~',  '≠': '!=', '≤': '<=', '≥': '>=',
+  '→': '->', '←': '<-', '⇒': '=>',
+  '−': '-',  '‑': '-',  '⁄': '/',
+  '⅓': '1/3', '⅔': '2/3',
+  '′': "'",  '″': '"',
+  'μ': 'µ',                              // mu grego -> micro do Latin-1
+  ' ': ' ', ' ': ' ', '​': '',
+}));
+
+function sanear(txt) {
+  const s = String(txt ?? '');
+  // Caminho rápido: quase toda string já é WinAnsi inteira. Sair por aqui
+  // devolvendo a MESMA string é o que garante que este saneamento não muda um
+  // byte sequer dos documentos que já saíam corretos.
+  let precisa = false;
+  for (const ch of s) if (!WINANSI.has(ch)) { precisa = true; break; }
+  if (!precisa) return s;
+
+  let fora = '';
+  for (const ch of s) {
+    if (WINANSI.has(ch)) { fora += ch; continue; }
+    const trocado = TROCA.get(ch);
+    if (trocado !== undefined) { fora += trocado; continue; }
+    // Acento fora do Latin-1: NFD separa a letra do sinal, e a base costuma ser
+    // segura (ā -> a). Mesmo idioma do nomeArquivoPdf() mais abaixo.
+    // Sem base segura (emoji, CJK) o caractere é descartado — é o único caso em
+    // que se perde conteúdo, e não há equivalente a oferecer.
+    fora += ch.normalize('NFD').split('').filter(c => WINANSI.has(c)).join('');
+  }
+  return fora;
+}
+
+/**
  * Cria o documento e devolve as primitivas já amarradas a ele.
  *
  * O import do jsPDF é dinâmico pelo mesmo motivo que era nos dois geradores:
@@ -49,6 +116,21 @@ export const LINHA2 = [237, 230, 218];  // #EDE6DA  divisória entre itens
 export async function criarDocumento() {
   const { jsPDF } = await import('jspdf');
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+
+  // O saneamento entra no DOC, e não só no escrever(), porque splitTextToSize()
+  // e getTextWidth() MEDEM o texto: se medissem o original e só o desenho fosse
+  // saneado, a quebra de linha sairia calculada sobre uma string diferente da
+  // impressa. Os três precisam enxergar exatamente o mesmo texto.
+  //
+  // Envolver o doc cobre os três geradores de uma vez — hoje 1 doc.text, 11
+  // splitTextToSize e 1 getTextWidth — sem tocar em nenhum deles, e cobre
+  // também o gerador que vier depois.
+  const _text  = doc.text.bind(doc);
+  const _split = doc.splitTextToSize.bind(doc);
+  const _larg  = doc.getTextWidth.bind(doc);
+  doc.text = (txt, ...r) => _text(Array.isArray(txt) ? txt.map(sanear) : sanear(txt), ...r);
+  doc.splitTextToSize = (txt, ...r) => _split(sanear(txt), ...r);
+  doc.getTextWidth = (txt, ...r) => _larg(sanear(txt), ...r);
 
   // O fundo creme era `body { background }`. Em PDF não existe fundo herdado:
   // é retângulo pintado, e em toda página nova.
