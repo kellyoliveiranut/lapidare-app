@@ -196,6 +196,21 @@ function textoSubs(subs) {
   return String(subs ?? '');
 }
 
+// Opções de substituição DE UM ALIMENTO, como lista. Irmão do textoSubs(), que
+// junta tudo numa linha só para a seção global — e que fica intocado, porque
+// mexer nele mudaria o desenho de todo plano já publicado.
+//
+// Duplicado no pdfPlano.js, junto do textoSubs() que já era duplicado antes
+// desta mudança. Unificar os dois é tarefa própria, com prova de hash.
+function listaSubs(subs) {
+  if (Array.isArray(subs)) {
+    return subs
+      .map(s => (s && typeof s === 'object' ? (s.nome ?? '') : String(s ?? '')))
+      .filter(Boolean);
+  }
+  return String(subs ?? '').split(',').map(s => s.trim()).filter(Boolean);
+}
+
 /**
  * Documento de impressão do plano — invisível na tela, único visível no papel.
  * Montado direto de planos.dados, sem passar pelo PlanoView, que é
@@ -205,6 +220,7 @@ function PlanoImpressao({ dados, publicadoEm, paciente }) {
   const macros        = dados?.macros ?? {};
   const refeicoes     = dados?.refeicoes ?? [];
   const substituicoes = dados?.substituicoes ?? [];
+  const obs           = String(dados?.obs ?? '').trim();
 
   // A maioria dos planos tem macros vazio — a seção inteira é condicional.
   const linhasResumo = [
@@ -231,6 +247,15 @@ function PlanoImpressao({ dados, publicadoEm, paciente }) {
         </div>
         <div className="pr-id-linha">Atualizado em {dataBR(publicadoEm)}</div>
       </div>
+
+      {/* Antes das refeições, igual ao pdfPlano.js: vale para o documento
+          inteiro, então é lida antes da lista e não depois dela. */}
+      {obs && (
+        <>
+          <div className="pr-secao">Observações</div>
+          <div className="pr-obs">{obs}</div>
+        </>
+      )}
 
       {linhasResumo.length > 0 && (
         <>
@@ -262,13 +287,26 @@ function PlanoImpressao({ dados, publicadoEm, paciente }) {
               </tr>
             </thead>
             <tbody>
-              {(ref.alimentos ?? []).map((al, j) => (
-                <tr key={j}>
-                  <td>{al.nome}</td>
-                  {/* o editor guarda "quantidade"; buildDados grava "qty" */}
-                  <td>{al.qty ?? al.quantidade ?? ''}</td>
-                </tr>
-              ))}
+              {(ref.alimentos ?? []).map((al, j) => {
+                const opcoes = listaSubs(al.subs);
+                return (
+                  <tr key={j}>
+                    {/* As opções vão DENTRO da célula do nome, e não numa <tr>
+                        própria: a zebra do tbody conta <tr> e inverteria da
+                        linha seguinte em diante. */}
+                    <td>
+                      {al.nome}
+                      {opcoes.length > 0 && (
+                        <div className="pr-subs-alimento">
+                          {opcoes.map((o, k) => <div key={k}>→ {o}</div>)}
+                        </div>
+                      )}
+                    </td>
+                    {/* o editor guarda "quantidade"; buildDados grava "qty" */}
+                    <td>{al.qty ?? al.quantidade ?? ''}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

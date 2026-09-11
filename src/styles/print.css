@@ -184,6 +184,30 @@
   }
   .pr-subs-linha:last-child { border-bottom: none; }
 
+  /* ── 8b. Observação geral e substituições por alimento ── */
+
+  .pr-obs {
+    font-size: 9.5pt;
+    line-height: 1.45;
+    /* pre-wrap porque plano importado de PDF pode trazer quebra de linha
+       digitada; o splitTextToSize do lado do PDF respeita a quebra do mesmo
+       jeito, então as duas versões ficam iguais. */
+    white-space: pre-wrap;
+  }
+
+  /* As opções ficam DENTRO da célula do nome, e não em <tr> própria: a zebra
+     do tbody é :nth-child(even) sobre <tr>, e uma sub-linha por alimento
+     inverteria o zebrado de tudo que vem depois. Precisa vir DEPOIS da regra
+     .pr-tabela td lá de cima, que não declara vertical-align. */
+  .pr-tabela td { vertical-align: top; }
+  .pr-subs-alimento {
+    margin-top: 2pt;
+    padding-left: 10pt;
+    font-size: 8.5pt;
+    color: #6b5c3e;
+  }
+  .pr-subs-alimento div { padding: .5pt 0; }
+
   /* ── 9. Rodapé — uma vez, no fim ──
      "Página N" exigiria counter(page) em margin box do @page, que
      Chrome, Safari e Firefox não implementam. A data de impressão
