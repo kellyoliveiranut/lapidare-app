@@ -22,9 +22,16 @@
  * as formas de armazenamento. Estão no mesmo módulo por serem o mesmo domínio,
  * não por fazerem a mesma coisa.
  *
- * Repare que o `listaSubs()` ainda divide com `split(',')`, e NÃO com o
- * `dividirSubs()`. Não é descuido: trocar um pelo outro mudaria o desenho de
- * planos já publicados, então é mudança de comportamento, com prova própria.
+ * O `listaSubs()` divide com o `dividirSubs()` — a MESMA divisão que o editor
+ * usa para gravar. Antes era um `split(',')` solto, que partia a opção no
+ * decimal da medida caseira: "(~ 35 g · 1,5 colher de sopa)" virava duas opções
+ * sem sentido. Só alcança `al.subs` gravado como STRING; quando é array, não há
+ * divisão nenhuma a fazer.
+ *
+ * Um caso muda de mão nessa troca, e é deliberado: duas opções que carreguem
+ * cada uma metade de um par de parênteses ("Arroz (integral" e "branco)") agora
+ * são juntadas numa só. O decimal aparece em todo plano com equivalência; o
+ * outro exige digitar o parêntese aberto numa opção e o fechado em outra.
  */
 
 // Divide a lista de substitutos por vírgula, ignorando as vírgulas que estão
@@ -67,5 +74,5 @@ export function listaSubs(subs) {
       .map(s => (s && typeof s === 'object' ? (s.nome ?? '') : String(s ?? '')))
       .filter(Boolean);
   }
-  return String(subs ?? '').split(',').map(s => s.trim()).filter(Boolean);
+  return dividirSubs(subs);
 }
