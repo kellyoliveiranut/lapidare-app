@@ -26,6 +26,7 @@ import { fmtVal, xLabel } from '../../lib/graficoFormato.js';
 import { iniciarTokenPush, avisarPaciente } from '../../lib/push.js';
 import { callAnthropicComRetry, lerPdfBase64 } from '../../lib/anthropic.js';
 import { buscarAlimento, medidaCaseira, kcalDoAlimento, kcalEquivalente, parseGramas } from '../../lib/taco.js';
+import { dividirSubs } from '../../lib/subsTexto.js';
 import DateInput, { parseDatePaste } from '../../components/DateInput.jsx';
 import CheckinForm from '../../components/CheckinForm.jsx';
 const Evolucao             = lazy(() => import('./_Evolucao.jsx'));
@@ -3105,24 +3106,8 @@ function substitutoTemQuantidade(texto) {
   return /\+/.test(texto) || /\d/.test(texto);
 }
 
-// Divide a lista de substitutos por vírgula, ignorando as vírgulas que estão
-// dentro de parênteses: a equivalência que o app grava pode trazer decimal
-// ("~ 35 g · 1,5 colher de sopa"), e quebrar ali partiria a opção ao meio.
-//
-// Existe UMA versão disto. O buildDados grava a partir dela e o parseSubs lê a
-// partir dela, então escrita e leitura não podem divergir.
-function dividirSubs(texto) {
-  const items = [];
-  let depth = 0, cur = '';
-  for (const ch of String(texto ?? '')) {
-    if (ch === '(') depth++;
-    else if (ch === ')') depth--;
-    else if (ch === ',' && depth === 0) { if (cur.trim()) items.push(cur.trim()); cur = ''; continue; }
-    cur += ch;
-  }
-  if (cur.trim()) items.push(cur.trim());
-  return items;
-}
+// dividirSubs vem do subsTexto.js — mesma divisão usada pelo documento de
+// impressão e pelo PDF, para escrita e leitura não divergirem.
 
 function parseSubs(subs) {
   if (!subs) return [];
