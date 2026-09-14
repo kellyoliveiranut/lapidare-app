@@ -3094,6 +3094,13 @@ function novoAlimento() {
   return { _id: Math.random().toString(36).slice(2), nome: '', quantidade: '', subs: '' };
 }
 
+// Retorna true quando o texto do substituto já contém quantidade ou é uma
+// combinação. Nesse caso o chip de equivalência não deve ser exibido, para não
+// pendurar uma segunda quantidade ao lado da que a nutri escreveu.
+//
+// Passe o nome JÁ LIMPO pelo parseSubs: a equivalência que o próprio app grava
+// ("Chuchu cozido (~ 35 g · 1,5 colher de sopa)") também tem dígito, e cair
+// nesta guarda faria o texto do banco ser exibido cru, com o símbolo e tudo.
 function substitutoTemQuantidade(texto) {
   return /\+/.test(texto) || /\d/.test(texto);
 }
@@ -3101,8 +3108,9 @@ function substitutoTemQuantidade(texto) {
 function parseSubs(subs) {
   if (!subs) return [];
   const parseOne = (txt) => {
-    const nome = txt.replace(/\s*\(≈[^)]*\)/, '').trim();
-    const m = txt.match(/≈\s*([\d.,]+)\s*(g|ml)/);
+    // Planos antigos gravaram "≈"; os novos gravam "~". Ler os dois.
+    const nome = txt.replace(/\s*\([≈~][^)]*\)/, '').trim();
+    const m = txt.match(/[≈~]\s*([\d.,]+)\s*(g|ml)/);
     return { nome, gramas: m ? parseFloat(m[1].replace(',', '.')) : null, liquido: m ? m[2] === 'ml' : false };
   };
   if (Array.isArray(subs)) {
@@ -3572,10 +3580,10 @@ A resposta começa com "[" e termina com "]" — nada mais. "original" é sempre
           const eq = kcalEquivalente(kcalAlvo, nome);
           if (eq && (gramasOrig == null || (eq.gramas >= gramasOrig * 0.2 && eq.gramas <= gramasOrig * 5))) {
             const unid = eq.liquido ? 'ml' : 'g';
-            textoQty = eq.medida ? `≈ ${eq.gramas} ${unid} · ${eq.medida}` : `≈ ${eq.gramas} ${unid}`;
+            textoQty = eq.medida ? `~ ${eq.gramas} ${unid} · ${eq.medida}` : `~ ${eq.gramas} ${unid}`;
           }
         }
-        if (!textoQty && typeof s === 'object' && s.qty_equiv) textoQty = `≈ ${s.qty_equiv}`;
+        if (!textoQty && typeof s === 'object' && s.qty_equiv) textoQty = `~ ${s.qty_equiv}`;
         return textoQty ? `${nome} (${textoQty})` : nome;
       }).filter(Boolean);
 
@@ -4031,12 +4039,26 @@ Estrutura JSON obrigatória:
                         {al.subs?.length > 0 && (
                           <div style={{ padding: '3px 12px 8px 20px', display: 'flex', flexDirection: 'column', gap: 3, background: 'var(--bg2)' }}>
                             {al.subs.map((subNome, si) => {
-                              const eq = (!substitutoTemQuantidade(subNome) && kcalAlvo)
-                                ? kcalEquivalente(kcalAlvo, subNome) : null;
-                              const textoEquiv = eq ? `≈ ${eq.gramas} g${eq.medida ? ` · ${eq.medida}` : ''}` : null;
+                              // Mesmo parser das outras telas: separa o que o app
+                              // gravou do que a nutri digitou, que passa intacto.
+                              const [parsed] = parseSubs(String(subNome ?? ''));
+                              const nomeLimpo = parsed?.nome || String(subNome ?? '');
+                              let textoEquiv = null;
+                              if (!substitutoTemQuantidade(nomeLimpo)) {
+                                const alTaco = buscarAlimento(nomeLimpo);
+                                if (parsed?.gramas != null) {
+                                  // Preferir o grama GRAVADO: recalcular aqui faria o
+                                  // preview divergir do que a paciente e o PDF mostram.
+                                  const medida = alTaco ? medidaCaseira(parsed.gramas, alTaco) : null;
+                                  textoEquiv = `~ ${parsed.gramas} ${parsed.liquido ? 'ml' : 'g'}${medida ? ` · ${medida}` : ''}`;
+                                } else if (kcalAlvo) {
+                                  const eq = kcalEquivalente(kcalAlvo, nomeLimpo);
+                                  if (eq) textoEquiv = `~ ${eq.gramas} g${eq.medida ? ` · ${eq.medida}` : ''}`;
+                                }
+                              }
                               return (
                                 <div key={si} style={{ fontSize: 11, color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
-                                  <span>→ {subNome}</span>
+                                  <span>→ {nomeLimpo}</span>
                                   {textoEquiv && (
                                     <span style={{ fontSize: 10, color: '#9A7B3F', background: '#EDE5D8', borderRadius: 4, padding: '1px 6px', fontWeight: 500, whiteSpace: 'nowrap', flexShrink: 0 }}>
                                       {textoEquiv}
@@ -4095,7 +4117,7 @@ Estrutura JSON obrigatória:
                                     {sub.nome}
                                     {(medida || sub.gramas) && (
                                       <span style={{ color: 'var(--text3)', fontSize: 11 }}>
-                                        {medida ? ` · ${medida}` : ''}{sub.gramas ? ` (≈ ${sub.gramas} ${sub.liquido ? 'ml' : 'g'})` : ''}
+                                        {medida ? ` · ${medida}` : ''}{sub.gramas ? ` (~ ${sub.gramas} ${sub.liquido ? 'ml' : 'g'})` : ''}
                                       </span>
                                     )}
                                   </span>

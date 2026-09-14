@@ -7,8 +7,9 @@ import './PlanoView.css';
 function parseSubs(subs) {
   if (!subs) return [];
   const parseOne = (txt) => {
-    const nome = txt.replace(/\s*\(≈[^)]*\)/, '').trim();
-    const m = txt.match(/≈\s*([\d.,]+)\s*(g|ml)/);
+    // Planos antigos gravaram "≈"; os novos gravam "~". Ler os dois.
+    const nome = txt.replace(/\s*\([≈~][^)]*\)/, '').trim();
+    const m = txt.match(/[≈~]\s*([\d.,]+)\s*(g|ml)/);
     return { nome, gramas: m ? parseFloat(m[1].replace(',', '.')) : null, liquido: m ? m[2] === 'ml' : false };
   };
   if (Array.isArray(subs)) {
@@ -182,7 +183,7 @@ export default function PlanoView({ dados, validade, readOnly = false }) {
                             {sub.nome}
                             {(medida || sub.gramas) && (
                               <span style={{ color: 'var(--muted)', fontSize: 11 }}>
-                                {medida ? ` · ${medida}` : ''}{sub.gramas ? ` (≈ ${sub.gramas} ${sub.liquido ? 'ml' : 'g'})` : ''}
+                                {medida ? ` · ${medida}` : ''}{sub.gramas ? ` (~ ${sub.gramas} ${sub.liquido ? 'ml' : 'g'})` : ''}
                               </span>
                             )}
                           </span>
