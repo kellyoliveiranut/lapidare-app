@@ -23,6 +23,7 @@
  */
 import { criarDocumento, cabecalho, cardPaciente, rodape,
   M, W, TOPO, BRONZE, SEPIA, LINHA, LINHA2 } from './pdfBase.js';
+import { textoSubs, listaSubs } from './subsTexto.js';
 
 const FS_SEC  = 7.9;
 const FS_REF  = 10.5;
@@ -33,9 +34,8 @@ const PAD_REF = 12;           // respiro entre refeições
 const FS_SUB  = 8.5, LH_SUB = 11.5;   // opções de substituição de um alimento
 const IND_SUB = 14;           // recuo das opções sob o alimento
 
-// Planos antigos guardam as opções de substituição de três jeitos: texto único,
-// array de strings, ou array de objetos com .nome. Mesma tolerância do
-// PlanoImpressao — um plano de 2024 não pode gerar PDF quebrado.
+// textoSubs/listaSubs vêm do subsTexto.js, compartilhados com o PlanoImpressao
+// do Plano.jsx — os dois documentos precisam concordar no desenho.
 //
 // Uma assimetria com o PlanoImpressao é PROPOSITAL: lá o "≈" dos planos antigos
 // é convertido em "~" na leitura (o til() do Plano.jsx), e aqui não. Não é
@@ -44,28 +44,6 @@ const IND_SUB = 14;           // recuo das opções sob o alimento
 // sai com "~". Repetir a conversão aqui não mudaria a saída, só esconderia onde
 // ela realmente acontece. Os dois documentos continuam espelhados no que sai;
 // o que difere é por onde a troca passa.
-function textoSubs(subs) {
-  if (Array.isArray(subs)) {
-    return subs
-      .map(s => (s && typeof s === 'object' ? (s.nome ?? '') : String(s ?? '')))
-      .filter(Boolean)
-      .join(', ');
-  }
-  return String(subs ?? '');
-}
-
-// Opções de substituição DE UM ALIMENTO, como lista. Irmão do textoSubs(), que
-// junta tudo numa linha só para a seção global — e que NÃO é mexido aqui de
-// propósito: alterá-lo mudaria o desenho da seção de substituições em todo
-// plano já publicado, e esta mudança tem que ser puramente aditiva.
-function listaSubs(subs) {
-  if (Array.isArray(subs)) {
-    return subs
-      .map(s => (s && typeof s === 'object' ? (s.nome ?? '') : String(s ?? '')))
-      .filter(Boolean);
-  }
-  return String(subs ?? '').split(',').map(s => s.trim()).filter(Boolean);
-}
 
 function secao(p, y, rotulo) {
   p.escrever(rotulo.toUpperCase(), M, y,

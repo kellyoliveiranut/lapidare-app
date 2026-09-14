@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { dataBR } from '../../lib/utils.js';
 import PlanoView from '../../components/PlanoView.jsx';
+import * as subsTexto from '../../lib/subsTexto.js';
 import '../../styles/print.css';
 
 // Signed URL com validade folgada (8h) para aguentar sessões longas na tela.
@@ -191,32 +192,16 @@ function idadeEmAnos(nascimento) {
 // o desenho da seção não se mexe.
 const til = (t) => String(t ?? '').replace(/≈/g, '~');
 
-// As opções de substituição vêm como texto único ("A — 1 un, B — 2 col"),
-// mas planos antigos podem trazer array de strings ou de objetos.
-function textoSubs(subs) {
-  if (Array.isArray(subs)) {
-    return subs
-      .map(s => til(s && typeof s === 'object' ? (s.nome ?? '') : String(s ?? '')))
-      .filter(Boolean)
-      .join(', ');
-  }
-  return til(subs);
-}
-
-// Opções de substituição DE UM ALIMENTO, como lista. Irmão do textoSubs(), que
-// junta tudo numa linha só para a seção global — e que fica intocado, porque
-// mexer nele mudaria o desenho de todo plano já publicado.
+// A normalização das três formas de armazenamento vive no subsTexto.js,
+// compartilhada com o pdfPlano.js. O til() fica aqui, e não lá, porque é
+// saneamento do MEIO: o PDF já troca o caractere no sanear() do pdfBase, o HTML
+// não tem quem faça por ele.
 //
-// Duplicado no pdfPlano.js, junto do textoSubs() que já era duplicado antes
-// desta mudança. Unificar os dois é tarefa própria, com prova de hash.
-function listaSubs(subs) {
-  if (Array.isArray(subs)) {
-    return subs
-      .map(s => til(s && typeof s === 'object' ? (s.nome ?? '') : String(s ?? '')))
-      .filter(Boolean);
-  }
-  return til(subs).split(',').map(s => s.trim()).filter(Boolean);
-}
+// Aplicar o til() por fora dá o mesmo resultado que aplicá-lo item a item, como
+// era antes: ele só troca "≈" por "~", nunca esvazia uma opção nem mexe nas
+// vírgulas e espaços de que a divisão depende.
+const textoSubs = (subs) => til(subsTexto.textoSubs(subs));
+const listaSubs = (subs) => subsTexto.listaSubs(subs).map(s => til(s));
 
 /**
  * Documento de impressão do plano — invisível na tela, único visível no papel.
