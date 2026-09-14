@@ -3105,6 +3105,25 @@ function substitutoTemQuantidade(texto) {
   return /\+/.test(texto) || /\d/.test(texto);
 }
 
+// Divide a lista de substitutos por vírgula, ignorando as vírgulas que estão
+// dentro de parênteses: a equivalência que o app grava pode trazer decimal
+// ("~ 35 g · 1,5 colher de sopa"), e quebrar ali partiria a opção ao meio.
+//
+// Existe UMA versão disto. O buildDados grava a partir dela e o parseSubs lê a
+// partir dela, então escrita e leitura não podem divergir.
+function dividirSubs(texto) {
+  const items = [];
+  let depth = 0, cur = '';
+  for (const ch of String(texto ?? '')) {
+    if (ch === '(') depth++;
+    else if (ch === ')') depth--;
+    else if (ch === ',' && depth === 0) { if (cur.trim()) items.push(cur.trim()); cur = ''; continue; }
+    cur += ch;
+  }
+  if (cur.trim()) items.push(cur.trim());
+  return items;
+}
+
 function parseSubs(subs) {
   if (!subs) return [];
   const parseOne = (txt) => {
@@ -3124,16 +3143,7 @@ function parseSubs(subs) {
     }).filter(s => s.nome);
   }
   if (typeof subs !== 'string' || !subs.trim()) return [];
-  const items = [];
-  let depth = 0, cur = '';
-  for (const ch of subs) {
-    if (ch === '(') depth++;
-    else if (ch === ')') depth--;
-    else if (ch === ',' && depth === 0) { if (cur.trim()) items.push(parseOne(cur.trim())); cur = ''; continue; }
-    cur += ch;
-  }
-  if (cur.trim()) items.push(parseOne(cur.trim()));
-  return items.filter(s => s.nome);
+  return dividirSubs(subs).map(t => parseOne(t)).filter(s => s.nome);
 }
 
 // ─── Modal: conferência do lote de avaliações Shaped (revisar antes de salvar) ──
@@ -3548,11 +3558,11 @@ A resposta começa com "[" e termina com "]" — nada mais. "original" é sempre
       const subsRaw = Array.isArray(item.substitutos)
         ? item.substitutos
         : typeof item.substitutos === 'string' && item.substitutos.trim()
-        ? item.substitutos.split(',').map(s => s.trim()).filter(Boolean)
+        ? dividirSubs(item.substitutos)
         : Array.isArray(item.subs)
         ? item.subs
         : typeof item.subs === 'string' && item.subs.trim()
-        ? item.subs.split(',').map(s => s.trim()).filter(Boolean)
+        ? dividirSubs(item.subs)
         : [];
 
       // Locate the original food for TACO caloric lookup
@@ -3623,7 +3633,7 @@ A resposta começa com "[" e termina com "]" — nada mais. "original" é sempre
           const o = { nome: a.nome.trim() };
           if (a.quantidade.trim()) o.qty = a.quantidade.trim();
           // subs como array de strings simples (como Plano.jsx espera)
-          const subsArr = (a.subs ?? '').split(',').map(s => s.trim()).filter(Boolean);
+          const subsArr = dividirSubs(a.subs);
           if (subsArr.length) o.subs = subsArr;
           return o;
         });
