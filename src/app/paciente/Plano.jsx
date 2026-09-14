@@ -184,16 +184,23 @@ function idadeEmAnos(nascimento) {
   return anos >= 0 ? anos : null;
 }
 
+// Planos antigos gravaram "≈" (U+2248) na equivalência calórica; desde 3b3948f o
+// app escreve "~", e o PDF já sai com "~" pelo saneamento do pdfBase. Converter
+// aqui, na leitura, deixa os três documentos dizendo a mesma coisa sem tocar nos
+// planos que já estão no banco. Os dois caracteres ocupam uma posição cada, então
+// o desenho da seção não se mexe.
+const til = (t) => String(t ?? '').replace(/≈/g, '~');
+
 // As opções de substituição vêm como texto único ("A — 1 un, B — 2 col"),
 // mas planos antigos podem trazer array de strings ou de objetos.
 function textoSubs(subs) {
   if (Array.isArray(subs)) {
     return subs
-      .map(s => (s && typeof s === 'object' ? (s.nome ?? '') : String(s ?? '')))
+      .map(s => til(s && typeof s === 'object' ? (s.nome ?? '') : String(s ?? '')))
       .filter(Boolean)
       .join(', ');
   }
-  return String(subs ?? '');
+  return til(subs);
 }
 
 // Opções de substituição DE UM ALIMENTO, como lista. Irmão do textoSubs(), que
@@ -205,10 +212,10 @@ function textoSubs(subs) {
 function listaSubs(subs) {
   if (Array.isArray(subs)) {
     return subs
-      .map(s => (s && typeof s === 'object' ? (s.nome ?? '') : String(s ?? '')))
+      .map(s => til(s && typeof s === 'object' ? (s.nome ?? '') : String(s ?? '')))
       .filter(Boolean);
   }
-  return String(subs ?? '').split(',').map(s => s.trim()).filter(Boolean);
+  return til(subs).split(',').map(s => s.trim()).filter(Boolean);
 }
 
 /**

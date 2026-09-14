@@ -36,6 +36,14 @@ const IND_SUB = 14;           // recuo das opções sob o alimento
 // Planos antigos guardam as opções de substituição de três jeitos: texto único,
 // array de strings, ou array de objetos com .nome. Mesma tolerância do
 // PlanoImpressao — um plano de 2024 não pode gerar PDF quebrado.
+//
+// Uma assimetria com o PlanoImpressao é PROPOSITAL: lá o "≈" dos planos antigos
+// é convertido em "~" na leitura (o til() do Plano.jsx), e aqui não. Não é
+// esquecimento — o saneamento do pdfBase já troca o caractere dentro de
+// doc.text, splitTextToSize e getTextWidth, então tudo que este arquivo desenha
+// sai com "~". Repetir a conversão aqui não mudaria a saída, só esconderia onde
+// ela realmente acontece. Os dois documentos continuam espelhados no que sai;
+// o que difere é por onde a troca passa.
 function textoSubs(subs) {
   if (Array.isArray(subs)) {
     return subs
