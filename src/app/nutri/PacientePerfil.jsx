@@ -85,6 +85,9 @@ export default function PacientePerfil() {
   const [linkConviteCopiado, setLinkConviteCopiado] = useState(false);
   const [linkConviteCompartilhado, setLinkConviteCompartilhado] = useState(false);
   const [conviteEnviado, setConviteEnviado] = useState(false);
+  // null = paciente não é essentia (contrato não se aplica).
+  // []   = é essentia e NÃO tem contrato nenhum — o estado que precisa gritar.
+  const [contratos, setContratos] = useState(null);
 
   function labelTipoConsulta(tipo) {
     if (!tipo) return 'Consulta';
@@ -125,6 +128,29 @@ export default function PacientePerfil() {
       .from('pacientes').select('*').eq('id', id).maybeSingle();
     if (error) { setErroCarregar(true); return; }
     setPaciente(data);
+
+    // Contratos da paciente. Query própria porque contratos_essentia é tabela
+    // separada — ao contrário do termo de uso, que já vinha no select('*').
+    //
+    // Só para quem é essentia: paciente avulsa não tem contrato por definição,
+    // e buscar traria sempre lista vazia, que é indistinguível de "essentia sem
+    // contrato" — justamente o estado que esta tela precisa denunciar.
+    //
+    // nullsFirst põe O PENDENTE em primeiro. O banco garante no máximo um
+    // pendente por paciente (índice parcial contratos_essentia_pendente_unq),
+    // mas vários aceitos, por renovação. Então: [0] é o que mostrar, e [1],
+    // quando existe, é o "anterior assinado".
+    if (data?.tipo_plano?.trim().toLowerCase() === 'essentia') {
+      const { data: cts } = await supabase
+        .from('contratos_essentia')
+        .select('id, aceito_em, template:contratos_templates(versao)')
+        .eq('paciente_id', id)
+        .order('aceito_em', { ascending: false, nullsFirst: true });
+      setContratos(cts ?? []);
+    } else {
+      setContratos(null);   // null = não se aplica; [] = essentia SEM contrato
+    }
+
     // Selo "Acesso enviado": lê o status do pré-cadastro (só relevante enquanto sem conta)
     if (data && !data.user_id && data.email) {
       const { data: pend } = await supabase
@@ -556,6 +582,7 @@ export default function PacientePerfil() {
           <div className="page-sub" style={{ marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <span>
               {paciente.email} · cadastrada em {dataBR(paciente.created_at)} · <StatusTermo paciente={paciente} />
+              {contratos !== null && <> · <StatusContrato contratos={contratos} /></>}
             </span>
             <MenuSenha paciente={paciente} onEnviarEmail={enviarRedefinicaoSenha} />
             <button onClick={enviarAcessoWhatsApp}
@@ -1327,6 +1354,65 @@ function StatusTermo({ paciente }) {
     ].filter(Boolean).join('\n') || undefined}>
       Termo {versao ? `v${versao}` : '(versão não registrada)'} aceito em {dataBR(paciente.termo_aceito_em)}
       {!atual && <span style={{ color: 'var(--orange)' }}> — versão desatualizada</span>}
+    </span>
+  );
+}
+
+/**
+ * Estado do CONTRATO DE PRESTAÇÃO DE SERVIÇOS na linha de identificação.
+ *
+ * Não confundir com o StatusTermo acima: aquele é o termo de uso (LGPD), que
+ * vale para TODA paciente e mora em colunas da própria tabela `pacientes`.
+ * Este é o contrato do plano Essentia, que vive em `contratos_essentia`, só
+ * existe para quem tem tipo_plano 'essentia', e precisou de query própria.
+ *
+ * `contratos` distingue três coisas que uma lista vazia sozinha não
+ * distinguiria:
+ *   null  -> não é essentia; contrato não se aplica e nada é desenhado
+ *   []    -> É essentia e não tem contrato NENHUM — o estado que precisa gritar
+ *   [...] -> ordenado com o pendente primeiro (nullsFirst na query)
+ *
+ * Por que "nenhum" é vermelho e não laranja: pendente é um passo do fluxo
+ * normal, ela ainda vai assinar. "Nenhum" significa que o contrato nunca foi
+ * criado — a paciente está sendo atendida num plano cujo contrato não existe,
+ * e nenhuma tela avisava isso até agora.
+ *
+ * O caso de RENOVAÇÃO tem linha própria de propósito. O banco permite vários
+ * aceitos (índice parcial só limita o PENDENTE a um). Mostrar apenas o
+ * pendente esconderia que já houve um assinado; mostrar apenas o assinado
+ * esconderia que falta assinar o novo. Os dois fatos importam.
+ */
+function StatusContrato({ contratos }) {
+  if (contratos === null) return null;          // não é essentia
+
+  if (contratos.length === 0) {
+    return <strong style={{ color: 'var(--red)' }}>Contrato: nenhum</strong>;
+  }
+
+  const versaoDe = (c) => (c?.template?.versao ? `v${c.template.versao}` : 'sem versão');
+  const [primeiro, ...resto] = contratos;
+
+  if (!primeiro.aceito_em) {
+    // Pendente. Se houver um aceito atrás dele, é renovação — e o anterior
+    // continua valendo até esta ser assinada, então precisa aparecer.
+    const anterior = resto.find(c => c.aceito_em);
+    return (
+      <span style={{ color: 'var(--orange)' }}>
+        Contrato {versaoDe(primeiro)} aguardando assinatura
+        {anterior && (
+          <span style={{ color: 'var(--text3)' }}>
+            {' · anterior '}{versaoDe(anterior)} assinado em {dataBR(anterior.aceito_em)}
+          </span>
+        )}
+      </span>
+    );
+  }
+
+  const quando = new Date(primeiro.aceito_em);
+  const completo = Number.isNaN(quando.getTime()) ? null : quando.toLocaleString('pt-BR');
+  return (
+    <span title={completo ? `Assinado em ${completo}` : undefined}>
+      Contrato {versaoDe(primeiro)} assinado em {dataBR(primeiro.aceito_em)}
     </span>
   );
 }
