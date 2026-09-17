@@ -321,7 +321,7 @@ create table if not exists public.consultas (
   id            uuid primary key default gen_random_uuid(),
   paciente_id   uuid not null references public.pacientes(id) on delete cascade,
   nutri_id      uuid not null references public.nutris(id) on delete cascade,
-  data_hora     timestamptz not null,
+  data_hora     timestamptz,                     -- NULL = consulta "a definir", sem data
   duracao_min   integer not null default 45,
   tipo          text not null default 'consulta_2',
   status        text not null default 'agendada' check (status in ('agendada', 'realizada', 'cancelada')),
@@ -336,6 +336,8 @@ alter table public.consultas add column if not exists links_extras jsonb;
 alter table public.consultas drop constraint if exists consultas_tipo_check;
 -- Compat: adiciona meet_link se a tabela já existia sem ele
 alter table public.consultas add column if not exists meet_link text;
+-- Compat: consulta "a definir" (sem data) — ver migration 2026-09-17
+alter table public.consultas alter column data_hora drop not null;
 create index if not exists consultas_paciente_id_idx on public.consultas(paciente_id, data_hora);
 create index if not exists consultas_nutri_id_idx on public.consultas(nutri_id, data_hora);
 
