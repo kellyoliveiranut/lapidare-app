@@ -581,7 +581,10 @@ export default function PacientePerfil() {
           </div>
           <div className="page-sub" style={{ marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <span>
-              {paciente.email} · cadastrada em {dataBR(paciente.created_at)} · <StatusTermo paciente={paciente} />
+              {/* StatusTermo sai da linha por decisão de produto, mas a função
+                  continua no arquivo de propósito — para voltar, basta
+                  reinserir `· <StatusTermo paciente={paciente} />` aqui. */}
+              {paciente.email} · cadastrada em {dataBR(paciente.created_at)}
               {contratos !== null && <> · <StatusContrato contratos={contratos} /></>}
             </span>
             <MenuSenha paciente={paciente} onEnviarEmail={enviarRedefinicaoSenha} />
