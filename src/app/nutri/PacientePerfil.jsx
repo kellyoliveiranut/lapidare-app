@@ -3095,6 +3095,32 @@ function novoAlimento() {
   return { _id: Math.random().toString(36).slice(2), nome: '', quantidade: '', subs: '' };
 }
 
+// Campo de TEXTO vindo de fora: JSON colado pela nutri ou plano lido do banco.
+//
+// O `?? ''` que havia nos dois pontos de entrada protegia contra null e
+// undefined, mas não contra número. Um JSON com "quantidade": 100 punha um
+// Number no estado do editor, e o primeiro .trim() do buildDados() estourava
+// com "quantidade.trim is not a function" — fora do try/catch, sem nada na
+// tela. Sanear na ENTRADA vale mais do que espalhar String() pelos 20 .trim()
+// que leem esse estado: depois daqui, o editor só tem string.
+//
+// Número vira texto porque é o caso real (a IA às vezes devolve a quantidade
+// sem unidade, e "100" é exatamente o que a nutri quer ver no campo). Objeto
+// vira vazio de propósito: String({}) daria "[object Object]", que passaria
+// pela revisão e chegaria ao plano da paciente.
+function txtCampo(v) {
+  if (v == null) return '';
+  if (typeof v === 'object') return '';
+  return String(v);
+}
+
+// Idem, para o campo que a IA costuma devolver como lista (orientações): cada
+// item vira uma linha, em vez de o array inteiro virar vazio.
+function txtCampoOuLista(v) {
+  if (Array.isArray(v)) return v.map(txtCampo).filter(Boolean).join('\n');
+  return txtCampo(v);
+}
+
 // Retorna true quando o texto do substituto já contém quantidade ou é uma
 // combinação. Nesse caso o chip de equivalência não deve ser exibido, para não
 // pendurar uma segunda quantidade ao lado da que a nutri escreveu.
@@ -3404,22 +3430,22 @@ function PublicarPlano({ pacienteId, nutriId, calculosImportados, onLimparImport
     });
     setRefeicoes((dados?.refeicoes ?? []).map(r => ({
       _id: Math.random().toString(36).slice(2),
-      nome:    r.nome    ?? '',
-      horario: r.horario ?? '',
+      nome:    txtCampo(r.nome),
+      horario: txtCampo(r.horario),
       alimentos: (r.alimentos ?? []).map(a => ({
         _id: Math.random().toString(36).slice(2),
-        nome:       a.nome ?? '',
-        quantidade: a.qty  ?? a.quantidade ?? '',
+        nome:       txtCampo(a.nome),
+        quantidade: txtCampo(a.qty ?? a.quantidade),
         subs: Array.isArray(a.subs) ? a.subs.join(', ') : String(a.subs ?? ''),
       })).filter(a => a.nome.trim()),
     })));
-    setObs(dados?.obs ?? '');
+    setObs(txtCampoOuLista(dados?.obs));
     setValidade(validadeStr ?? '');
     setSubstituicoes((dados?.substituicoes ?? []).map(s => ({
       _id: Math.random().toString(36).slice(2),
-      original: s.original ?? '',
+      original: txtCampo(s.original),
       subs: Array.isArray(s.subs)
-        ? s.subs.map(sub => typeof sub === 'object' ? (sub.nome ?? '').trim() : String(sub).trim()).filter(Boolean).join(', ')
+        ? s.subs.map(sub => typeof sub === 'object' ? txtCampo(sub?.nome).trim() : String(sub).trim()).filter(Boolean).join(', ')
         : String(s.subs ?? ''),
     })));
   }
@@ -3808,29 +3834,30 @@ Estrutura JSON obrigatória:
 
       return {
         _id: Math.random().toString(36).slice(2),
-        nome:    r.nome    ?? r.name    ?? r.refeicao ?? r['refeição'] ?? r.title ?? '',
-        horario: r.horario ?? r.hora    ?? r.time     ?? r['horário'] ?? r.horario_sugerido ?? '',
+        nome:    txtCampo(r.nome    ?? r.name ?? r.refeicao ?? r['refeição'] ?? r.title),
+        horario: txtCampo(r.horario ?? r.hora ?? r.time     ?? r['horário']  ?? r.horario_sugerido),
         alimentos: (Array.isArray(alimentosBruto) ? alimentosBruto : []).map(a => ({
           _id: Math.random().toString(36).slice(2),
-          nome:      a.nome      ?? a.name      ?? a.alimento ?? a.item    ?? a.descricao ?? '',
-          quantidade: a.quantidade ?? a.qty      ?? a.quantity ?? a.qtd    ?? a.amount    ?? a.porcao ?? '',
+          nome:       txtCampo(a.nome       ?? a.name ?? a.alimento ?? a.item ?? a.descricao),
+          quantidade: txtCampo(a.quantidade ?? a.qty  ?? a.quantity ?? a.qtd  ?? a.amount ?? a.porcao),
           subs: Array.isArray(a.subs)
-            ? a.subs.map(s => (typeof s === 'object' ? (s.nome ?? s.name ?? '') : String(s))).join(', ')
+            ? a.subs.map(s => (typeof s === 'object' ? txtCampo(s?.nome ?? s?.name) : String(s))).filter(Boolean).join(', ')
             : String(a.subs ?? a.substitutos ?? a.substitutions ?? a.substituicoes ?? ''),
         })).filter(a => a.nome.trim()),
       };
     });
 
     setRefeicoes(refs);
-    if (plano.obs ?? plano.observacoes ?? plano.observações ?? plano.orientacoes) {
-      setObs(plano.obs ?? plano.observacoes ?? plano.observações ?? plano.orientacoes ?? '');
-    }
+    const obsBruta = plano.obs ?? plano.observacoes ?? plano.observações ?? plano.orientacoes;
+    if (obsBruta) setObs(txtCampoOuLista(obsBruta));
     const subsRaw = plano.substituicoes ?? plano.substituições ?? plano.substitutions ?? [];
-    if (subsRaw.length) {
+    if (Array.isArray(subsRaw) && subsRaw.length) {
       setSubstituicoes(subsRaw.map(s => ({
         _id: Math.random().toString(36).slice(2),
-        original: s.original ?? s.de ?? s.from ?? '',
-        subs: Array.isArray(s.subs) ? s.subs.join(', ') : (s.subs ?? s.por ?? s.to ?? ''),
+        original: txtCampo(s?.original ?? s?.de ?? s?.from),
+        subs: Array.isArray(s?.subs)
+          ? s.subs.map(x => (typeof x === 'object' ? txtCampo(x?.nome) : String(x))).filter(Boolean).join(', ')
+          : txtCampo(s?.subs ?? s?.por ?? s?.to),
       })));
     }
 
@@ -3848,16 +3875,21 @@ Estrutura JSON obrigatória:
     setFeedback(null);
     if (!refeicoes.length)
       return setFeedback({ tipo: 'erro', msg: 'Adicione pelo menos uma refeição.' });
-    if (refeicoes.some(r => !r.nome.trim()))
-      return setFeedback({ tipo: 'erro', msg: 'Todas as refeições precisam de um nome.' });
-
-    const dados = buildDados();
-    const v = validarPlano(dados);
-    if (!v.ok) return setFeedback({ tipo: 'erro', msg: v.erro });
-
     setBusy(true);
-    const tokenPush = iniciarTokenPush();
     try {
+      // A validação e o buildDados() ficavam FORA deste try. Quando o buildDados
+      // estourava — o caso do .trim() em campo numérico —, a exceção não tinha
+      // onde cair: o botão voltava ao normal e a tela não dizia nada. Aqui
+      // dentro, qualquer falha inesperada vira mensagem visível.
+      if (refeicoes.some(r => !r.nome.trim()))
+        return setFeedback({ tipo: 'erro', msg: 'Todas as refeições precisam de um nome.' });
+
+      const dados = buildDados();
+      const v = validarPlano(dados);
+      if (!v.ok) return setFeedback({ tipo: 'erro', msg: v.erro });
+
+      // Antes do primeiro await de Supabase, como o push.js exige (lock de auth).
+      const tokenPush = iniciarTokenPush();
       const { error } = await supabase.from('planos').insert({
         paciente_id: pacienteId, nutri_id: nutriId,
         dados, validade: validade || null,
@@ -3880,19 +3912,20 @@ Estrutura JSON obrigatória:
     setFeedback(null);
     if (!refeicoes.length)
       return setFeedback({ tipo: 'erro', msg: 'Adicione pelo menos uma refeição.' });
-    if (refeicoes.some(r => !r.nome.trim()))
-      return setFeedback({ tipo: 'erro', msg: 'Todas as refeições precisam de um nome.' });
-
-    // O PDF sai do EDITOR, e não do último plano publicado: é o mesmo `dados`
-    // que o publicar() gravaria, validado pela mesma regra.
-    const dados = buildDados();
-    const v = validarPlano(dados);
-    if (!v.ok) return setFeedback({ tipo: 'erro', msg: v.erro });
-
     setBusyPdf(true);
     let path = null;
     let baixado = false;
     try {
+      if (refeicoes.some(r => !r.nome.trim()))
+        return setFeedback({ tipo: 'erro', msg: 'Todas as refeições precisam de um nome.' });
+
+      // O PDF sai do EDITOR, e não do último plano publicado: é o mesmo `dados`
+      // que o publicar() gravaria, validado pela mesma regra. Estava fora do
+      // try, e uma falha aqui sumia sem mensagem.
+      const dados = buildDados();
+      const v = validarPlano(dados);
+      if (!v.ok) return setFeedback({ tipo: 'erro', msg: v.erro });
+
       const blob = await gerarPDFPlano({ pacienteNome, contato, dados, publicadoEm: null });
 
       // Baixa ANTES de subir: a cópia local não depende de rede, de storage
@@ -3947,14 +3980,20 @@ Estrutura JSON obrigatória:
   function abrirPreview() {
     if (!refeicoes.length)
       return setFeedback({ tipo: 'erro', msg: 'Adicione pelo menos uma refeição antes de pré-visualizar.' });
-    if (refeicoes.some(r => !r.nome.trim()))
-      return setFeedback({ tipo: 'erro', msg: 'Todas as refeições precisam de um nome.' });
-    const dados = buildDados();
-    const v = validarPlano(dados);
-    if (!v.ok) return setFeedback({ tipo: 'erro', msg: v.erro });
-    setDadosPreview(dados);
-    setPreviewSubsOpen({});
-    setPreviewOpen(true);
+    // Esta função não tinha try nenhum: uma exceção do buildDados() não abria o
+    // modal nem avisava — o clique em Pré-visualizar simplesmente não fazia nada.
+    try {
+      if (refeicoes.some(r => !r.nome.trim()))
+        return setFeedback({ tipo: 'erro', msg: 'Todas as refeições precisam de um nome.' });
+      const dados = buildDados();
+      const v = validarPlano(dados);
+      if (!v.ok) return setFeedback({ tipo: 'erro', msg: v.erro });
+      setDadosPreview(dados);
+      setPreviewSubsOpen({});
+      setPreviewOpen(true);
+    } catch (err) {
+      setFeedback({ tipo: 'erro', msg: err?.message || 'Erro ao montar a pré-visualização.' });
+    }
   }
 
   return (
