@@ -1,276 +1,145 @@
-# 📘 Tutorial passo a passo — Setup do Lapidare
+# ⚙️ Operação do Essentia — configuração e diagnóstico
 
-**Pra quem é:** nutricionistas (ou qualquer pessoa) que quer ter seu próprio app de acompanhamento nutricional, gratuito e privado.
+Para quem **mantém este deploy**. Não é tutorial de setup para terceiros.
 
-**Tempo total:** ~30 minutos.
-
-**Não precisa saber programar.** Só seguir os passos.
+**Produção:** https://kelly-onco.netlify.app · **Build:** `npm run build` → `dist/` (`netlify.toml`)
 
 ---
 
-## ✅ Antes de começar — você vai precisar
+## 🔑 Variáveis de ambiente
 
-- Computador com internet
-- Email pessoal
-- ~30 minutos sem interrupção
+São **12**. As 2 do cliente entram no build do Vite e precisam existir no
+`.env` local **e** no Netlify. As 10 do servidor existem só no Netlify, lidas
+pelas Functions em tempo de execução.
 
-Vai criar contas grátis em 3 serviços:
-- **Supabase** (banco de dados)
-- **GitHub** (código)
-- **Netlify** (hospedagem)
+### Cliente (2)
 
-Todos têm planos gratuitos pra sempre. Você **não vai pagar nada**.
+| Variável | Para quê |
+|---|---|
+| `VITE_SUPABASE_URL` | `https://<PROJECT_ID>.supabase.co` |
+| `VITE_SUPABASE_ANON_KEY` | Publishable key (`sb_publishable_...`) |
 
----
+### Servidor (10)
 
-## Etapa 1 — Criar banco de dados no Supabase (10 min)
+| Variável | Usada por | Para quê |
+|---|---|---|
+| `SUPABASE_URL` | as 7 funções | mesma URL do cliente |
+| `SUPABASE_SERVICE_ROLE_KEY` | as 7 funções | acesso que ignora RLS; **nunca** vai ao cliente |
+| `VAPID_PUBLIC_KEY` | `send-push`, `aniversarios`, `lembretes-consulta` | push web |
+| `VAPID_PRIVATE_KEY` | idem | push web |
+| `VAPID_SUBJECT` | idem | contato do remetente (`mailto:`) |
+| `GMAIL_USER` | `enviar-farmacia` | conta SMTP do Gmail |
+| `GMAIL_APP_PASSWORD` | `enviar-farmacia` | senha de app do Gmail |
+| `EMAIL_FROM_NOME` | `enviar-farmacia` | nome exibido como remetente |
+| `ANTHROPIC_API_KEY` | `anthropic-proxy` | chave da IA, só no servidor |
+| `CRON_SECRET` | `aniversarios`, `lembretes-consulta` | impede disparo do cron por fora |
 
-### 1.1 Criar conta
-1. Acesse [supabase.com](https://supabase.com)
-2. Clica em **Start your project**
-3. Login com Google ou email
+> ⚠️ Variável marcada como **secret** no Netlify chega **vazia** no `netlify
+> dev`. O sintoma é `supabaseKey is required` — é isso, não é bug de código.
 
-### 1.2 Criar projeto
-1. **New project**
-2. Preenche:
-   - **Name**: `lapidare-suanome` (ex: `lapidare-ana`)
-   - **Database password**: clica em **Generate** e **salva num lugar seguro** (gerenciador de senhas, anotação privada)
-   - **Region**: `South America (São Paulo)` — importante pra velocidade
-   - **Pricing Plan**: Free
-3. Clica em **Create new project**
-4. Aguarda ~2 minutos (vai mostrar "Setting up project")
+> ⚠️ Faltar variável do servidor **não quebra a tela**. A função falha calada:
+> push que não chega, e-mail que não sai, IA que não responde.
 
-### 1.3 Rodar o setup SQL
-1. No menu lateral esquerdo, clica em **SQL Editor** (ícone que parece `>_`)
-2. Clica em **+ New query** (canto superior direito)
-3. Abre o arquivo [`supabase/setup.sql`](supabase/setup.sql) deste repositório
-4. **Copia TUDO** (Cmd+A → Cmd+C)
-5. **Cola** no SQL Editor do Supabase (Cmd+V)
-6. Clica no botão **Run** (canto inferior direito, ou Cmd+Enter)
-7. Esperado: caixinha verde com **"Success. No rows returned"**
+### As 7 Functions
 
-> ⚠️ Se der erro, manda print do erro nos comentários do repositório.
-
-### 1.4 Desabilitar confirmação de email
-Importante pra teste e pra evitar limite de email.
-
-1. Menu lateral → **Authentication** → **Sign In / Providers**
-2. Procura **User Signups** (rola pra baixo se necessário)
-3. **Desliga** a chave **"Confirm email"**
-4. Clica em **Save changes**
-
-### 1.5 Pegar credenciais
-Você vai precisar de 2 valores. Estão em lugares diferentes do Supabase:
-
-**Project URL:**
-1. Ícone de engrenagem (canto inferior esquerdo) → **Project Settings**
-2. Menu lateral → **General**
-3. Copia o **Project ID** (ex: `ihlsexyjbbcdjdddmiym`)
-4. Monta a URL: `https://<PROJECT_ID>.supabase.co`
-
-**Publishable key (API key):**
-1. Ainda em Project Settings → **API Keys**
-2. Copia a chave que começa com `sb_publishable_...`
-
-Guarda os 2 valores num arquivo de texto/Notion privado pra usar no Netlify.
+| Função | O que faz |
+|---|---|
+| `send-push.js` | envia notificação push |
+| `aniversarios.js` | cron diário, 12:00 UTC |
+| `lembretes-consulta.js` | cron diário, 11:00 UTC |
+| `enviar-farmacia.js` | envia a fórmula manipulada por e-mail |
+| `anthropic-proxy.js` | chama a IA sem expor a chave no cliente |
+| `acesso-senha.js` | acesso da paciente cadastrada sem e-mail |
+| `login-telefone.js` | login por telefone |
 
 ---
 
-## Etapa 2 — Fork do código no GitHub (5 min)
+## 🔧 O que precisa estar ligado no Supabase
 
-### 2.1 Criar conta no GitHub
-1. Acesse [github.com](https://github.com) → **Sign up**
-2. Confirma email
+Configuração de uma vez. Se o projeto for recriado, refazer.
 
-### 2.2 Fazer fork deste repositório
-1. Acessa este repositório (link onde você baixou esse tutorial)
-2. Canto superior direito → clica em **Fork**
-3. Mantém o nome `lapidare-app`
-4. Clica em **Create fork**
+### Confirm email — DESLIGADO
+**Authentication → Sign In / Providers → User Signups → "Confirm email" OFF.**
+O plano grátis manda 3 e-mails/hora; com a confirmação ligada, o cadastro de
+paciente esbarra nesse teto.
 
-Pronto. Agora você tem o seu próprio repositório com o código do app.
+### Redirect URL da redefinição de senha
+**Authentication → URL Configuration → Redirect URLs:**
 
----
+```
+https://kelly-onco.netlify.app/redefinir-senha
+```
 
-## Etapa 3 — Hospedar no Netlify (10 min)
+Sem isso, "Esqueci minha senha" (Login) e "Enviar redefinição de senha"
+(perfil da paciente) mandam a paciente para uma URL que não abre. A rota
+existe em `src/App.jsx`.
 
-### 3.1 Criar conta
-1. Acesse [netlify.com](https://netlify.com) → **Sign up**
-2. Clica em **GitHub** (login pelo GitHub)
-3. Autoriza o Netlify a ler seus repositórios
+### Onde achar as credenciais
+- **Project ID:** Project Settings → General → monta `https://<ID>.supabase.co`
+- **Publishable key:** Project Settings → API Keys → `sb_publishable_...`
+- **Service role key:** mesma tela — ignora RLS, vive só no Netlify
 
-### 3.2 Conectar o repositório
-1. **Add new site** → **Import an existing project**
-2. **Deploy with GitHub**
-3. Procura por `lapidare-app` e clica
-4. Configurações de build (já vêm preenchidas — só confere):
-   - **Branch to deploy**: `main`
-   - **Build command**: `npm run build`
-   - **Publish directory**: `dist`
-
-### 3.3 Configurar variáveis de ambiente
-**Antes de clicar em Deploy:**
-
-1. Rola até **Environment variables**
-2. **Add variable** → adiciona estas 2:
-
-| Nome | Valor |
-|------|-------|
-| `VITE_SUPABASE_URL` | (a Project URL montada com o Project ID) |
-| `VITE_SUPABASE_ANON_KEY` | (a **Publishable key** que começa com `sb_publishable_...`) |
-
-3. Clica em **Deploy site**
-4. Aguarda ~2-3 min — vai mostrar "Site is live" em verde
-
-### 3.4 Pegar a URL do seu site
-- Endereço fica tipo `https://relaxed-eclair-xyz.netlify.app`
-- Pra mudar o nome: **Site configuration** → **Change site name** → escolhe algo tipo `app-ana-nutri`
+### SMTP próprio (opcional)
+Só se o teto de 3 e-mails/hora incomodar: **Project Settings → Authentication
+→ SMTP Settings → Enable Custom SMTP**. O e-mail da farmácia **não passa por
+aqui** — sai pela Function `enviar-farmacia`, via Gmail, com as `GMAIL_*`.
 
 ---
 
-## Etapa 4 — Criar sua conta de nutri (2 min)
+## 🆘 Quando para de responder
 
-1. Acessa a URL do seu site Netlify
-2. Vai cair na tela de Login
-3. Clica em **Criar conta**
-4. Preenche:
-   - **Nome completo**: seu nome
-   - **CRN**: número do seu CRN
-   - **Email**: seu email pessoal
-   - **Senha**: mínimo 6 caracteres
-5. **Criar conta**
-6. Vai entrar direto no painel da Visão geral
+### "Falha ao buscar" / "Failed to fetch" / "Conectando..." sem fim
+O app não falou com o Supabase. Nessa ordem:
 
-🎉 **Pronto, seu app está no ar!**
-
----
-
-## Etapa 5 — Personalizar (5 min)
-
-1. Menu lateral → **Personalização**
-2. Coloca o nome da sua marca, sobe seu logo, escolhe cores e tipografia
-3. **Salvar personalização**
-4. Pronto — agora o app tem a cara da sua marca
-
----
-
-## 📲 Como cadastrar suas primeiras pacientes
-
-1. Menu lateral → **Cadastrar paciente**
-2. Preenche os dados (nome, email, objetivo, plano, modalidade)
-3. **Cadastrar e gerar link**
-4. Clica em **Copiar link** ou **WhatsApp**
-5. Envia pra paciente
-6. Quando ela criar a senha pelo link, **já entra no app**
-
----
-
-## 🆘 Problemas comuns
-
-### ⚠️ "Falha ao buscar" / "Failed to fetch" ao criar conta
-
-Esse é o erro **mais comum** quando a nutri está montando o app pela primeira vez. Significa que o app **não conseguiu falar com o Supabase**. Resolve seguindo essa ordem:
-
-**1. Confirma se as variáveis do Netlify estão certas**
-- Vai em **Site settings → Environment variables**
-- Confere que tem **EXATAMENTE** essas 2 (sem espaço extra, sem aspas):
-  - `VITE_SUPABASE_URL` = `https://XXXXX.supabase.co` (XXXXX é o **Project ID**, sem traços ou nome bonito — exemplo: `ihlsexyjbbcdjdddmiym.supabase.co`)
-  - `VITE_SUPABASE_ANON_KEY` = `sb_publishable_xxxxx...`
-
-**2. Fez redeploy DEPOIS de adicionar as variáveis?**
-- Netlify só "lê" as variáveis quando faz build novo
-- Vai em **Deploys → Trigger deploy → Deploy site**
-- Aguarda ~2-3 min até ficar **"Published"** em verde
-
-**3. Seu Supabase está pausado?** (só se app já funcionou antes e parou de funcionar agora)
-- Plano grátis pausa projetos com 7+ dias sem acesso
-- Vai em [supabase.com](https://supabase.com) → seu projeto
-- Se aparecer botão verde **"Restore Project"**, clica e espera ~1 min
-
-**4. Pra confirmar exatamente o que falhou:**
-- No site, aperta **F12** (abre console do navegador)
-- Tenta cadastrar de novo
-- Olha a aba **Console** — vai mostrar a URL exata que falhou e por quê
-- Se aparecer `ERR_NAME_NOT_RESOLVED` → URL errada (causa 1)
-- Se aparecer `404` ou `Project does not exist` → Project ID errado
-- Se aparecer `401 Unauthorized` → Publishable key errada
-
-### "Bucket not found" ao subir arquivo
-Faltou rodar parte do setup.sql. Volta na **Etapa 1.3** e roda o SQL inteiro de novo (é seguro repetir).
+1. **Variáveis no Netlify** — Site settings → Environment variables. Sem
+   espaço extra, sem aspas.
+2. **Houve redeploy depois de mexer nelas?** O Netlify só lê variável em build
+   novo. Deploys → Trigger deploy → aguardar "Published".
+3. **Projeto Supabase pausado?** O plano grátis pausa com 7+ dias sem acesso —
+   aparece o botão **Restore Project**.
+4. **Ler o erro exato:** F12 → Console → repetir a ação.
+   - `ERR_NAME_NOT_RESOLVED` → URL errada
+   - `404` / `Project does not exist` → Project ID errado
+   - `401 Unauthorized` → publishable key errada
 
 ### "Email rate limit exceeded"
-Você excedeu 3 emails/hora do Supabase grátis. **Etapa 1.4** desliga a confirmação de email, que evita esse problema. Confere se "Confirm email" está OFF.
+Teto de 3/hora do Supabase. Conferir se "Confirm email" está OFF.
 
-### "Email não autorizado" ao cadastrar paciente
-Algumas vezes o Supabase bloqueia emails do mesmo domínio. Use um email diferente ou um alias `+teste` (ex: `seuemail+ana@gmail.com`).
+### "Bucket not found" ao subir arquivo
+Falta o bucket ou as policies dele. Conferir em Supabase → Storage e nas
+policies do banco — o `setup.sql` não é fonte de verdade sobre o que está lá.
 
-### App diz "Conectando..." sem fim
-Mesma causa do "Falha ao buscar" — segue o passo a passo acima.
+### Push não chega
+Não dá erro de tela. Conferir se as 3 `VAPID_*` existem no Netlify e se a
+paciente tem assinatura registrada.
 
----
-
-## 🔓 Recuperação de senha (importante)
-
-A partir da v1.7 o Lapidare tem:
-- Botão **"Esqueci minha senha"** na tela de Login (auto-serviço pra paciente)
-- Botão **"Enviar redefinição de senha"** no perfil da paciente (nutri ajuda)
-
-Pra esses botões funcionarem, você precisa fazer **2 configurações no Supabase** (1 vez só):
-
-### 1. Adicionar Redirect URL
-
-1. No Supabase → **Authentication** → **URL Configuration**
-2. Em **Redirect URLs**, adiciona:
-   ```
-   https://SUA-URL.netlify.app/redefinir-senha
-   ```
-   (Substitui `SUA-URL` pelo nome do seu site Netlify)
-3. Salva
-
-### 2. (OPCIONAL) Configurar Resend pra emails ilimitados
-
-O Supabase grátis envia **só 3 emails/hora**. Se você espera muito reset de senha, configura Resend (grátis, 3000 emails/mês):
-
-1. Cria conta em [resend.com](https://resend.com) (gratuita)
-2. **API Keys** → cria uma nova → copia
-3. (Opcional) Verifica seu próprio domínio em **Domains** pra usar `nutri@suamarca.com.br` como remetente. Se pular, usa `onboarding@resend.dev` (funciona mas parece menos profissional).
-4. No Supabase: **Project Settings** → **Authentication** → **SMTP Settings** → marca **Enable Custom SMTP**
-5. Preenche:
-   - Sender email: `onboarding@resend.dev` (ou seu domínio verificado)
-   - Sender name: o nome da sua marca
-   - Host: `smtp.resend.com`
-   - Port: `465`
-   - Username: `resend`
-   - Password: a API key que você copiou
-6. Salva. Pronto — todos os emails (signup, reset de senha, etc.) vão pelo Resend.
+### "Mudei e não aparece na tela"
+Antes de suspeitar do código: o commit foi **pushado**? (`git rev-parse HEAD`
+contra `origin/main`) e o deploy ficou "Published"? Um `200` numa URL de asset
+**não prova nada** — o redirect SPA do `netlify.toml` devolve `index.html` com
+status 200 para qualquer caminho inexistente. Olhar o `content-type`.
 
 ---
 
-## 🔄 Como atualizar quando sair versão nova
+## 💰 Limites do plano grátis
 
-1. No GitHub do seu fork, clica em **Sync fork** (botão no topo da página)
-2. No Supabase, roda o `setup.sql` atualizado de novo (é seguro)
-3. Netlify faz redeploy automático
+| Serviço | Limite | Observação |
+|---|---|---|
+| Supabase Database | 500 MB | ~100 pacientes ativas por anos |
+| Supabase Storage | 1 GB | imagens são comprimidas no cliente |
+| Supabase Email Auth | 3/hora | SMTP próprio resolve |
+| Netlify | 100 GB/mês de banda | praticamente nunca |
 
----
-
-## 💰 Quando vou começar a pagar?
-
-Resumo dos limites grátis:
-
-| Serviço | Limite Free | Quando estoura |
-|---------|-------------|----------------|
-| **Supabase Database** | 500 MB | ~100 pacientes ativas por ANOS |
-| **Supabase Storage** | 1 GB | ~500 fotos de evolução |
-| **Supabase Email Auth** | 3/hora | Configurar SMTP próprio (Resend grátis) |
-| **GitHub** | Ilimitado pra repos públicos | Nunca |
-| **Netlify** | 100 GB/mês de banda | Praticamente nunca pra esse uso |
-
-Pra maioria das nutris, **dá pra ficar grátis indefinidamente.**
+Supabase Pro: US$ 25/mês. Atenção: **transformação de imagem não funciona no
+plano Free e falha em silêncio** — é por isso que a compressão acontece no
+cliente.
 
 ---
 
-## 🤝 Contribuir / reportar problema
+## 🔄 Se precisar recriar o site no Netlify
 
-Esse é um projeto open source. Se encontrar bug, abre uma issue no GitHub.
-Se quiser contribuir com código, abre um Pull Request.
+1. Add new site → Import from GitHub → `kellyoliveiranut/lapidare-app`
+2. Build `npm run build` · Publish `dist` · Branch `main`
+3. **Cadastrar as 12 variáveis antes do primeiro deploy**
+4. Conferir os 2 crons agendados no `netlify.toml`
+5. Refazer as configurações do Supabase da seção acima

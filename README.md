@@ -1,180 +1,53 @@
-# Lapidare — App de acompanhamento nutricional
+# Essentia — acompanhamento nutricional em oncologia
 
-Template open source de plataforma completa para nutricionistas.
-Cada nutri tem **seu próprio painel + app das pacientes**, com banco
-isolado e zero custo recorrente.
+Painel da nutricionista + PWA da paciente. App único, de uso próprio no
+consultório. Não é template nem produto distribuído.
 
-> Use, modifique, distribua livremente. Sem suporte oficial — esse é um
-> projeto pessoal disponibilizado como template.
-
----
-
-## ✨ O que tem dentro
-
-### Painel da Nutri (desktop)
-- 📊 Visão geral: receita do mês, meta, consultas da semana, alertas
-- 👥 Pacientes: cadastro completo + perfil com 9 abas (Evolução, Follow-up, Plano, Compras, Suplementação, Prescrições, E-books, Avaliação, Check-in)
-- 📅 Agenda com calendário mensal + links Meet/Shaped/Notion
-- 💬 Chat realtime com cada paciente
-- 📷 Feed de pratos (paciente posta, nutri comenta)
-- 📋 Check-ins recorrentes + Questionários pré-consulta
-- 📑 Prescrições em PDF + Biblioteca de e-books
-- 💊 Suplementação com habit tracker (aderência %)
-- 💰 Financeiro completo: entradas, saídas, previsibilidade, cérebro do negócio
-- 🚨 Alertas relacionais: aniversário, sumiu do chat, baixa aderência etc.
-
-### App da Paciente (mobile-first)
-- 🏠 Início com banners de consulta, check-in pendente
-- 🥗 Plano alimentar com substituições
-- 🛒 Lista de compras
-- 📷 Feed de pratos (posta refeições, recebe comentários da nutri)
-- 📈 Progresso: peso, medidas, fotos de evolução
-- 💊 Suplementos com check diário e streak
-- 📑 Prescrições + E-books
-- 💬 Chat realtime
-- 📋 Check-in respondendo banner
-- 📜 Termo de consentimento LGPD no primeiro acesso
-
-### Stack
-- **React 18 + Vite** (frontend)
-- **Supabase** (Postgres + Auth + Storage + Realtime + RLS)
-- **Netlify** (deploy)
-- Plain CSS (sem Tailwind) com design system próprio
+**Produção:** https://kelly-onco.netlify.app
+**Notas internas:** [NOTES.md](NOTES.md) · **Operação e diagnóstico:** [SETUP.md](SETUP.md)
 
 ---
 
-## 🚀 Setup completo — passo a passo
+## Stack
 
-**Tempo total: ~30 minutos.** Não precisa saber programar.
+| Camada | Tecnologia |
+|---|---|
+| Frontend | React 19.2.6 + Vite 8.0.12, React Router v6 |
+| Backend | Supabase — Postgres, Auth, Storage, Realtime, RLS |
+| Serverless | Netlify Functions (7): push, e-mail, proxy da IA, 2 crons |
+| Deploy | Netlify — build `npm run build`, publish `dist` |
+| Estilo | CSS puro + design tokens (sem framework) |
 
-### 1. Crie sua conta no Supabase (grátis pra sempre)
+## Rodar local
 
-1. Acesse [supabase.com](https://supabase.com) → **Start your project**
-2. Login com GitHub ou email
-3. **New project** → escolhe nome (`lapidare-suanome`), senha forte do banco, região **São Paulo** (`sa-east-1`)
-4. Aguarda ~2 min até subir
-
-### 2. Rode o SQL de setup
-
-1. No painel do Supabase, vai em **SQL Editor** (ícone no menu lateral)
-2. Clica em **+ New query**
-3. Abre o arquivo [`supabase/setup.sql`](supabase/setup.sql) deste repositório
-4. **Copia tudo** (Cmd/Ctrl + A → Cmd/Ctrl + C)
-5. Cola no SQL Editor → **Run** (canto inferior direito)
-6. Esperado: `Success. No rows returned`
-
-> 💡 O script é **idempotente** — pode rodar de novo quando atualizar o template, sem perder dados.
-
-### 3. Pegue as credenciais do seu Supabase
-
-1. **Project Settings** (ícone de engrenagem) → **API**
-2. Copia:
-   - **Project ID** (em **Settings → General**): use pra montar a URL como `https://<PROJECT_ID>.supabase.co`
-   - **Publishable key** (em **Settings → API Keys**): chave começando com `sb_publishable_...`
-
-### 4. Fork deste repositório no GitHub
-
-1. No topo desta página do GitHub, clica em **Fork**
-2. Escolhe seu usuário → cria fork
-
-### 5. Deploy no Netlify (grátis)
-
-1. Acesse [netlify.com](https://netlify.com) → **Sign up** com GitHub
-2. **Add new site** → **Import an existing project** → **Deploy with GitHub**
-3. Escolhe o seu fork do `lapidare-app`
-4. Configurações de build (já vêm preenchidas pelo `netlify.toml`):
-   - Build command: `npm run build`
-   - Publish directory: `dist`
-5. **Site settings** → **Environment variables** → adiciona 2:
-
-```
-VITE_SUPABASE_URL=https://xyzabcd.supabase.co
-VITE_SUPABASE_ANON_KEY=eyJhbGciOiJI...
+```bash
+npm install
+cp .env.example .env    # preencher as 2 variáveis VITE_
+npm run dev             # http://localhost:5173
 ```
 
-6. **Deploys** → **Trigger deploy** → aguarda 2-3 min
-7. Seu app vai estar em `https://nome-do-site.netlify.app`
+`npm run build` gera `dist/`. `npm run lint` roda o ESLint.
 
-### 6. Crie sua conta de nutri
+## Variáveis de ambiente
 
-1. Abre o app na URL do Netlify
-2. Tab **Criar conta** → preenche nome, CRN, email, senha
-3. Confirma email (verifica spam)
-4. Login → cai na **Visão geral** do painel
-5. **Pronto!** Já dá pra cadastrar suas primeiras pacientes em **Cadastrar paciente**
+O app precisa de **12**: 2 no cliente (prefixo `VITE_`, entram no build) e 10
+no servidor, lidas pelas Netlify Functions. Faltar uma do servidor não quebra
+a tela — a função falha calada. A tabela com o papel de cada uma está em
+[SETUP.md](SETUP.md).
 
-### 7. (Opcional) Configurar email e domínio próprio
-
-**Email automático do Supabase** (convites, recuperação de senha):
-- O Supabase manda 3 emails/hora no plano grátis. Pra mais, configure SMTP próprio em **Project Settings → Authentication → SMTP**.
-
-**Domínio próprio** (ex: `app.suamarca.com.br`):
-- No Netlify: **Domain settings** → **Add custom domain**
-- Configurar DNS conforme as instruções do Netlify
-
----
-
-## 🔄 Como atualizar quando sair versão nova do template
-
-1. No GitHub do seu fork, clica em **Sync fork** (botão fica no topo)
-2. No Supabase, roda o `setup.sql` atualizado de novo (é idempotente)
-3. O Netlify faz redeploy automático
-
----
-
-## 🎨 Personalização
-
-**Sem mexer em código:**
-- Tela **Personalização** dentro do próprio app (menu lateral). Muda logo, marca, cores primária/secundária e tipografia.
-
-**Pra mudanças além do visual (adicionar páginas, campos, integrações):**
-- Veja [`CUSTOMIZAR.md`](CUSTOMIZAR.md) — guia completo de como usar o **Claude Code** pra modificar o app conversando em português. Sem precisar saber programar.
-
----
-
-## 📚 Estrutura do projeto
+## Estrutura
 
 ```
-src/
-├── app/
-│   ├── auth/          # Login, signup, callback
-│   ├── nutri/         # Painel da nutri
-│   └── paciente/      # App da paciente
-├── components/        # Layouts e componentes compartilhados
-├── lib/               # Supabase client, helpers, validators
-└── styles/            # CSS global + tokens
-
-supabase/
-├── setup.sql          # Schema completo (rode 1 vez)
-└── migrations/        # Histórico de mudanças (referência)
+src/app/{auth,nutri,paciente}   telas
+src/components/                 layouts, guards, modais compartilhados
+src/lib/                        supabase, sessão, tema, helpers
+src/styles/                     tokens.css + folhas por área
+netlify/functions/              7 funções serverless
+supabase/setup.sql              schema base
+supabase/migrations/            62 migrations aplicadas
 ```
 
----
+## Origem
 
-## ⚖️ Limites do plano grátis Supabase
-
-| Recurso | Limite | Quando estoura |
-|---------|--------|----------------|
-| Database | 500 MB | ~100 pacientes ativas por anos |
-| Storage | 1 GB | ~500 fotos de evolução |
-| Active users | 50.000/mês | irrelevante |
-| Email Auth | 3/hora | configurar SMTP próprio (grátis no Resend) |
-
-Quando estourar, o **Supabase Pro** sai US$ 25/mês (~R$ 130) com 8 GB DB + 100 GB storage.
-
----
-
-## 🤝 Contribuir / reportar bug
-
-Esse é um projeto **open source mantido pessoalmente**, sem garantia de suporte.
-
-- **Bugs**: abra uma issue no GitHub
-- **Pull requests** com melhorias são bem-vindas
-- **Dúvidas de setup**: tenta primeiro em comunidades de devs (Discord, Stack Overflow). Se for algo realmente novo do projeto, pode abrir issue.
-
----
-
-## 📜 Licença
-
-[MIT](LICENSE) — use livremente, comercialmente ou pessoalmente.
-Não precisa pedir permissão nem pagar.
+Nasceu em maio/2026 como cópia do template open-source Lapidare, de Daniela
+Soares, e seguiu caminho próprio desde então. Não há sync com a origem.
