@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { iniciais, textoDias } from '../../lib/utils.js';
+import { linkConvite } from '../../lib/convite.js';
 import ImportarCsv from './_ImportarCsv.jsx';
 
 // Seções da lista, na ordem em que aparecem na tela.
@@ -64,7 +65,17 @@ export default function Pacientes() {
   useEffect(() => { if (user) carregar(); }, [user]);
 
   async function copiarLinkSignup(p) {
-    const link = `${window.location.origin}/signup-paciente/${user.id}`;
+    // linkConvite() é o mesmo helper que o Cadastrar e a Agenda usam. Este era
+    // o único ponto que montava a URL à mão, e foi assim que o token ficou de
+    // fora: o link saía só com o nutri_id.
+    //
+    // Sem token a paciente cai no "fluxo genérico" do SignupPaciente
+    // (SignupPaciente.jsx:67): ela preenche tudo de novo e NÃO é ligada a este
+    // cadastro pendente — mesmo com o status virando 'enviado' logo abaixo.
+    // Pior para quem foi cadastrada sem e-mail: o sintético é
+    // `${token}@essentia.local` (SignupPaciente.jsx:105), que sem token vira
+    // literalmente `undefined@essentia.local`.
+    const link = linkConvite(user.id, p);
     await navigator.clipboard.writeText(link);
     alert(`Link copiado! Envie pra ${p.nome.split(' ')[0]} por WhatsApp ou email.`);
     await supabase.from('pacientes_pendentes').update({ status: 'enviado' }).eq('id', p.id);
