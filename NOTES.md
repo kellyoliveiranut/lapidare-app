@@ -1,17 +1,17 @@
-# 📝 NOTES.md — Lapidare App
+# 📝 NOTES.md — Essentia
 
-Registro vivo das decisões tomadas sobre o app **Lapidare** (painel da nutri + app da paciente).
+Registro vivo das decisões tomadas sobre o app **Essentia** (painel da nutri + app da paciente).
 Atualizado conforme o produto evolui. **Não é documentação pública** — é nosso log interno.
 
 ---
 
 ## 🎯 Visão geral
 
-**O que é:** template open-source de plataforma completa pra nutricionistas autônomas. Cada nutri tem seu próprio painel + app das pacientes, com banco isolado e zero custo recorrente no plano grátis.
+**O que é:** app de acompanhamento nutricional em oncologia — painel da nutri + PWA da paciente, com Supabase e deploy próprios.
 
-**Pra quem:** nutris que querem profissionalizar o acompanhamento sem pagar SaaS mensal e sem precisar saber programar.
+**Pra quem:** uso próprio no consultório. Não é produto distribuído nem template para terceiros.
 
-**Modelo:** distribuído via GitHub fork → cada nutri cria seu próprio Supabase + deploy no Netlify (instruções em SETUP.md).
+**Modelo:** app único. O repo nasceu como cópia do template open-source Lapidare (Daniela Soares, maio/2026) e seguiu caminho próprio desde então — não há sync com a origem.
 
 **Repositório:** [github.com/kellyoliveiranut/lapidare-app](https://github.com/kellyoliveiranut/lapidare-app)
 **Deploy de referência:** [kelly-onco.netlify.app](https://kelly-onco.netlify.app)
@@ -22,7 +22,7 @@ Atualizado conforme o produto evolui. **Não é documentação pública** — é
 
 | Camada | Tecnologia | Por quê |
 |--------|-----------|---------|
-| Frontend | **React 18 + Vite** | Build rápido, dev experience boa |
+| Frontend | **React 19.2.6 + Vite 8.0.12** | Build rápido, dev experience boa |
 | Roteamento | **React Router v6** | Padrão React, simples |
 | Backend | **Supabase** (Postgres + Auth + Storage + Realtime + RLS) | Tudo em um, plano grátis generoso, RLS pra isolar dados |
 | Deploy | **Netlify** | Grátis, integra com GitHub, HTTPS automático |
@@ -207,17 +207,6 @@ SESSÃO
 - Meta tags: `apple-mobile-web-app-capable`, `mobile-web-app-capable`, `theme-color`
 - Tutorial pra paciente "Adicionar à Tela de Início" no Safari (iOS) e Chrome (Android)
 
-### Distribuição open source
-- README.md + SETUP.md + CUSTOMIZAR.md
-- Workshop site (`lapidare-fase02-workshop`) com 4 dias de tarefas + 41 itens
-- Tutorial em vídeo + prints
-- Cada nutri precisa criar seu **próprio Supabase** + **fork no GitHub** + **deploy no Netlify**
-
-### Atualização do template (Sync Fork)
-- Nutri faz Sync Fork no GitHub → Netlify auto-redeploy
-- **Dados ficam intactos** (estão no Supabase dela, não no GitHub)
-- Setup.sql é **idempotente** (`create table if not exists`) → pode rodar de novo sem perder dados
-
 ---
 
 ## 🐛 Bugs corrigidos (histórico)
@@ -234,28 +223,6 @@ SESSÃO
 | `schema "cron" does not exist` (Kelly) | pg_cron precisa de permissão Supabase Pro | Wrap em `EXCEPTION` handler + `IF EXISTS pg_namespace` |
 | JS quebra (lightbox + check + tabs) | Temporal dead zone com `let diasCompletados` | Mover declaração ANTES do `updateProgress()` |
 | Financeiro: sem editar/excluir venda inteira | Só tinha modal de parcela | Botões "Editar venda" + "Excluir venda" no rodapé do card expandido + `EditarVendaModal` (paciente, serviço, data, obs) |
-
----
-
-## 🔄 Workshop Fase 02 (`lapidare-fase02-workshop`)
-
-Site HTML interativo pra ensinar nutris a fazer o setup + cadastrar primeira paciente.
-
-### Características
-- **4 dias de tarefas**, 41 itens no total:
-  - Dia 01 — Setup (11 tarefas): GitHub, Fork, Supabase, pg_cron, setup.sql, Netlify, deploy
-  - Dia 02 — Personalização (6 tarefas): logo, cores, tipografia
-  - Dia 03 — Primeira paciente (11 tarefas): cadastro, **ensinar a instalar app no celular**, JSON do plano, anamnese, hábitos, suplementos
-  - Dia 04 — Modificar app com Claude Code (13 tarefas)
-- Tabs entre dias + progresso por dia + total
-- Checkboxes com persistência no localStorage
-- Confetti animation quando completa
-- Lightbox com botão "+" pra zoom em prints
-- Animações smooth nos checks
-- "Como usar este guia" banner explicativo
-
-### Tarefa #2 do Dia 03 (importante)
-**"Orientar a paciente a instalar o app no celular"** com mensagem pronta pra mandar no WhatsApp + instruções separadas pra iPhone (Safari) e Android (Chrome).
 
 ---
 
@@ -282,22 +249,6 @@ Quando estourar: **Supabase Pro US$ 25/mês** (~R$ 130) com 8 GB DB + 100 GB sto
 - [ ] Tela de Cérebro do Negócio mais visual (gráficos)
 - [ ] Integração Stripe / Asaas pra cobrança automática
 - [ ] Export do banco da nutri (backup completo)
-
----
-
-## 🆘 Suporte recorrente das alunas
-
-**Erros mais comuns:**
-1. **"Email rate limit exceeded"** → desligar Confirm email no Supabase
-2. **"Bucket not found"** → rodar setup.sql completo de novo
-3. **"App diz Conectando... sem fim"** → conferir variáveis VITE_SUPABASE_* no Netlify
-4. **"Email não autorizado"** → usar alias `+teste` (ex: `seuemail+ana@gmail.com`)
-
-**Pra atualizar app:**
-1. GitHub do fork → botão **Sync fork** → **Update branch**
-2. Netlify auto-redeploy em 2-3 min
-3. Setup.sql é idempotente, pode rodar de novo se houver mudança no schema
-4. **Dados NÃO somem** (estão no Supabase dela)
 
 ---
 
@@ -345,4 +296,4 @@ lapidare-app/
 
 ---
 
-_Última atualização: maio/2026 · Mantido por Daniela Soares + Claude Code_
+_Última atualização: setembro/2026 · Mantido por Kelly + Claude Code_
