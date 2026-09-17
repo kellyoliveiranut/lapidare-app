@@ -17,7 +17,8 @@ import { SEXOS, PLANOS } from '../../lib/opcoesPaciente.js';
 import { gerarPDFPlano } from '../../lib/pdfPlano.js';
 import { baixarBlob, nomeArquivoPdf } from '../../lib/pdfBase.js';
 import { perguntasParaPaciente } from '../../lib/checkinVariacao.js';
-import { ehFeriado, validarDiaConsulta } from '../../lib/feriados.js';
+import { ehFeriado } from '../../lib/feriados.js';
+import { verificarAgenda, textoImpedimentos, textoConfirmacao } from '../../lib/agendaConflitos.js';
 // O gráfico de área saiu daqui para ser usado também pelos exames. O
 // comportamento do gráfico de peso não mudou: o corte de "menos de 2 pontos"
 // continua sendo do chamador, logo abaixo, e não do componente.
@@ -168,7 +169,9 @@ export default function PacientePerfil() {
     if (!user?.id) return;
     const { data, error } = await supabase
       .from('consultas')
-      .select('id, data_hora, tipo, status, encerrada_em')
+      // duracao_min entra por causa do ModalDefinirData: sem ela a verificação
+      // de conflito ao dar data mediria o intervalo errado.
+      .select('id, data_hora, tipo, status, duracao_min, encerrada_em')
       .eq('paciente_id', id)
       .eq('nutri_id', user.id)
       .neq('status', 'cancelada')
@@ -778,6 +781,9 @@ export default function PacientePerfil() {
         <ModalDefinirData
           labelTipo={labelTipoConsulta(definirDataConsulta.tipo)}
           dataHoraInicial={definirDataConsulta.data_hora}
+          nutriId={user?.id}
+          consultaId={definirDataConsulta.id}
+          duracaoMin={definirDataConsulta.duracao_min ?? 45}
           onClose={() => setDefinirDataConsulta(null)}
           onSalvar={async (dataHoraIso) => {
             const ok = await salvarDataConsulta(definirDataConsulta.id, dataHoraIso);
@@ -6421,24 +6427,43 @@ function ModalAgendarAcompanhamento({ pacienteId, nutriId, consultaAtiva, onClos
     if (!semData) {
       if (datas.some(d => !d.data)) { setErro('Preencha todas as datas.'); return; }
       if (datas.some(d => !horaConsultaValida(d.hora))) {
-        setErro('Todos os horários devem ser entre 08:00 e 17:00 (de 30 em 30 min).');
+        setErro('Todos os horários devem ser entre 08:00 e 18:00 (de 30 em 30 min).');
         return;
-      }
-      // A geração já pula fim de semana e feriado; esta trava cobre o campo de
-      // data editado à mão, que aceita qualquer dia. Para na PRIMEIRA data ruim
-      // e nomeia ela — "há consulta em feriado" mandaria a nutri caçar qual das
-      // seis é. Feriado é rígido mesmo com permitirFds marcado; quem decide
-      // isso é a própria validarDiaConsulta.
-      for (const d of datas) {
-        const problema = validarDiaConsulta(d.data, {
-          permitirFds,
-          dicaFds: ' Ou marque "permitir fim de semana".',
-        });
-        if (problema) { setErro(problema); return; }
       }
     }
     setSalvando(true);
     setErro(null);
+    if (!semData) {
+      // A geração já pula fim de semana e feriado; esta trava cobre o campo de
+      // data editado à mão, que aceita qualquer dia. Agora cobre também
+      // bloqueio e conflito — e as SEIS entre si, que era a colisão invisível:
+      // elas entram em bloco num insert só e ninguém comparava uma com a outra.
+      try {
+        const { impedimentos, avisos } = await verificarAgenda(supabase, {
+          nutriId,
+          // Sem rotulo: o padrão do módulo é "Consulta N", que casa com a
+          // ordem das seis linhas do formulário. O labelTipoConsulta daqui
+          // não serve — ele vive dentro do componente PacientePerfil, e este
+          // modal é uma função irmã, fora daquele escopo.
+          itens: datas.map(d => ({ data: d.data, hora: d.hora, duracaoMin: duracao })),
+          permitirFds,
+          dicaFds: ' Ou marque "permitir fim de semana".',
+        });
+        if (impedimentos.length) {
+          setErro(textoImpedimentos(impedimentos));
+          setSalvando(false);
+          return;
+        }
+        if (avisos.length && !window.confirm(textoConfirmacao(avisos))) {
+          setSalvando(false);
+          return;
+        }
+      } catch (e) {
+        setErro('Não consegui conferir a agenda: ' + (e?.message ?? 'tente de novo'));
+        setSalvando(false);
+        return;
+      }
+    }
     const payload = Array.from({ length: 6 }, (_, i) => ({
       paciente_id:    pacienteId,
       nutri_id:       nutriId,
@@ -6578,17 +6603,36 @@ function ModalAgendarAvulsa({ pacienteId, nutriId, onClose, onSalvo }) {
     if (!semData) {
       if (!data) { setErro('Preencha a data.'); return; }
       if (!horaConsultaValida(hora)) {
-        setErro('Escolha um horário entre 08:00 e 17:00 (de 30 em 30 min).');
+        setErro('Escolha um horário entre 08:00 e 18:00 (de 30 em 30 min).');
         return;
       }
-      // Fim de semana e feriado: rígidos, sem escape. A avulsa não tem o
-      // checkbox do pacote de 6, e por isso também não recebe dicaFds —
-      // apontar um controle que esta tela não tem só confundiria.
-      const problema = validarDiaConsulta(data);
-      if (problema) { setErro(problema); return; }
     }
     setSalvando(true);
     setErro(null);
+    if (!semData) {
+      // Fim de semana, feriado e bloqueio: rígidos, sem escape. A avulsa não
+      // tem o checkbox do pacote de 6, e por isso também não recebe dicaFds —
+      // apontar um controle que esta tela não tem só confundiria.
+      try {
+        const { impedimentos, avisos } = await verificarAgenda(supabase, {
+          nutriId,
+          itens: [{ data, hora, duracaoMin: duracao }],
+        });
+        if (impedimentos.length) {
+          setErro(textoImpedimentos(impedimentos));
+          setSalvando(false);
+          return;
+        }
+        if (avisos.length && !window.confirm(textoConfirmacao(avisos))) {
+          setSalvando(false);
+          return;
+        }
+      } catch (e) {
+        setErro('Não consegui conferir a agenda: ' + (e?.message ?? 'tente de novo'));
+        setSalvando(false);
+        return;
+      }
+    }
     const { error } = await supabase.from('consultas').insert({
       paciente_id:    pacienteId,
       nutri_id:       nutriId,
@@ -6680,7 +6724,10 @@ function ModalAgendarAvulsa({ pacienteId, nutriId, onClose, onSalvo }) {
 }
 
 // ─── Modal: Definir data de uma consulta "a definir" ─────────────────────────
-function ModalDefinirData({ labelTipo, dataHoraInicial = null, onClose, onSalvar }) {
+function ModalDefinirData({
+  labelTipo, dataHoraInicial = null, nutriId, consultaId, duracaoMin = 45,
+  onClose, onSalvar,
+}) {
   const seed = dataHoraInicial ? partesLocaisISO(dataHoraInicial) : null;
   const modoEdicao = !!dataHoraInicial;
   const [data, setData] = useState(() => seed ? seed.data : dataLocalISO(7));
@@ -6691,11 +6738,29 @@ function ModalDefinirData({ labelTipo, dataHoraInicial = null, onClose, onSalvar
 
   async function salvar() {
     if (!data) { setErro('Preencha a data.'); return; }
-    if (!horaConsultaValida(hora)) { setErro('Escolha um horário entre 08:00 e 17:00.'); return; }
+    if (!horaConsultaValida(hora)) {
+      setErro('Escolha um horário entre 08:00 e 18:00 (de 30 em 30 min).');
+      return;
+    }
     setSalvando(true);
     setErro(null);
-    await onSalvar(montarDataHoraISO(data, hora));
-    setSalvando(false);
+    try {
+      // Este caminho não tinha NENHUMA validação de dia: dava para pôr uma
+      // consulta "a definir" num feriado ou num domingo por aqui, enquanto os
+      // outros três caminhos travavam. Agora é a mesma regra dos outros.
+      const { impedimentos, avisos } = await verificarAgenda(supabase, {
+        nutriId,
+        itens: [{ data, hora, duracaoMin }],
+        ignorarIds: [consultaId],
+      });
+      if (impedimentos.length) { setErro(textoImpedimentos(impedimentos)); return; }
+      if (avisos.length && !window.confirm(textoConfirmacao(avisos))) return;
+      await onSalvar(montarDataHoraISO(data, hora));
+    } catch (e) {
+      setErro('Não consegui conferir a agenda: ' + (e?.message ?? 'tente de novo'));
+    } finally {
+      setSalvando(false);
+    }
   }
 
   const selStyle = { padding: '8px 10px', borderRadius: 8, border: '1px solid var(--hair)', fontSize: 13, background: 'var(--white)', fontFamily: 'var(--font-sans)' };

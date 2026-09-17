@@ -4,6 +4,10 @@ Para quem **mantém este deploy**. Não é tutorial de setup para terceiros.
 
 **Produção:** https://kelly-onco.netlify.app · **Build:** `npm run build` → `dist/` (`netlify.toml`)
 
+**Teste das regras de agenda:** `node src/lib/agendaConflitos.teste.mjs` — 29 casos
+de borda de conflito e bloqueio, sem framework e sem banco. Aceita `TZ_TESTE`
+para rodar em outro fuso (ex.: `TZ_TESTE=Asia/Tokyo`).
+
 ---
 
 ## 🔑 Variáveis de ambiente
