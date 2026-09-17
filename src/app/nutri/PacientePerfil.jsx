@@ -45,6 +45,7 @@ const Treinos              = lazy(() => import('./_Treinos.jsx'));
 const FinanceiroPaciente   = lazy(() => import('./_Financeiro.jsx'));
 const ChatFlutuante        = lazy(() => import('./_ChatFlutuante.jsx'));
 import DicaJSON from '../../components/DicaJSON.jsx';
+import { TERMO_VERSAO } from '../../components/TermoConsentimento.jsx';
 import PlanoView from '../../components/PlanoView.jsx';
 
 export default function PacientePerfil() {
@@ -553,7 +554,9 @@ export default function PacientePerfil() {
             </button>
           </div>
           <div className="page-sub" style={{ marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <span>{paciente.email} · cadastrada em {dataBR(paciente.created_at)}</span>
+            <span>
+              {paciente.email} · cadastrada em {dataBR(paciente.created_at)} · <StatusTermo paciente={paciente} />
+            </span>
             <MenuSenha paciente={paciente} onEnviarEmail={enviarRedefinicaoSenha} />
             <button onClick={enviarAcessoWhatsApp}
               disabled={!paciente.telefone?.trim() || !paciente.email?.trim()}
@@ -1278,6 +1281,53 @@ function BarraDeAbas({ children, style }) {
         <span ref={thumbRef} className="tabs-trilho-thumb" />
       </div>
     </div>
+  );
+}
+
+/**
+ * Estado do aceite do termo (LGPD), na linha de identificação do perfil.
+ *
+ * As colunas existem desde a migration 2026-05-22e e NUNCA tinham sido
+ * exibidas para a nutri — só o gate da paciente (TermoConsentimento.jsx) lia e
+ * escrevia. O dado já chega aqui de graça: a query do perfil é select('*').
+ *
+ * TERMO_VERSAO vem importada do próprio gate, e não copiada, para os dois
+ * nunca discordarem sobre qual é a versão corrente. Efeito a esperar: quando a
+ * versão subir, o gate volta a pedir aceite e ESTA linha passa a dizer "versão
+ * desatualizada" para todas as pacientes de uma vez, até cada uma entrar no
+ * app. É o comportamento certo, mas aparece em massa.
+ *
+ * SÓ o estado "não aceito" chama atenção. Os outros dois são fato
+ * administrativo e ficam na cor do resto da linha — um perfil em dia não deve
+ * ter nada gritando nele.
+ *
+ * O que isto PROVA: que alguém logado nesta conta clicou em "Aceito e
+ * continuar", com data e versão. Não há IP, dispositivo nem cópia do texto
+ * exibido. Se um dia for preciso valor probatório, o que muda é o momento do
+ * aceite, não esta linha.
+ */
+function StatusTermo({ paciente }) {
+  if (!paciente.termo_aceito_em) {
+    return <strong style={{ color: 'var(--red)' }}>Termo não aceito</strong>;
+  }
+
+  const versao = paciente.termo_versao;
+  const atual = versao === TERMO_VERSAO;
+
+  // Data na linha, data e HORA no title: a linha acompanha o "cadastrada em"
+  // ao lado, que também é só data, e quem precisa do horário exato passa o
+  // mouse em vez de carregar o ruído o tempo todo.
+  const quando = new Date(paciente.termo_aceito_em);
+  const completo = Number.isNaN(quando.getTime()) ? null : quando.toLocaleString('pt-BR');
+
+  return (
+    <span title={[
+      completo && `Aceito em ${completo}`,
+      !atual && `A versão atual é a ${TERMO_VERSAO} — a paciente verá o termo de novo no próximo acesso.`,
+    ].filter(Boolean).join('\n') || undefined}>
+      Termo {versao ? `v${versao}` : '(versão não registrada)'} aceito em {dataBR(paciente.termo_aceito_em)}
+      {!atual && <span style={{ color: 'var(--orange)' }}> — versão desatualizada</span>}
+    </span>
   );
 }
 
