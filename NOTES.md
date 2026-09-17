@@ -13,8 +13,8 @@ Atualizado conforme o produto evolui. **Não é documentação pública** — é
 
 **Modelo:** distribuído via GitHub fork → cada nutri cria seu próprio Supabase + deploy no Netlify (instruções em SETUP.md).
 
-**Repositório:** [github.com/danielasoares-rd/lapidare-app](https://github.com/danielasoares-rd/lapidare-app)
-**Deploy de referência:** [lapidareapp.netlify.app](https://lapidareapp.netlify.app)
+**Repositório:** [github.com/kellyoliveiranut/lapidare-app](https://github.com/kellyoliveiranut/lapidare-app)
+**Deploy de referência:** [kelly-onco.netlify.app](https://kelly-onco.netlify.app)
 
 ---
 
