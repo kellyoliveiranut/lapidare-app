@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { dataBR, brl, valorBR, gerarParcelas, distribuirTaxa, taxaSugerida, maxParcelas, clampParcelas, MAX_PARCELAS_ESSENTIA, FORMAS_PGTO_LIST, FORMAS_COM_TAXA, normalizarTelefone, telefoneValido, dataLocalISO } from '../../lib/utils.js';
 import { criarVendaComParcelas } from '../../lib/vendas.js';
+import { criarContratoPendente, parseValorContrato } from '../../lib/contratoEssentia.js';
 import { linkConvite, mensagemConviteEncoded } from '../../lib/convite.js';
 import { OBJETIVOS } from '../../lib/objetivos.js';
 import { SEXOS, PLANOS, MODALIDADES } from '../../lib/opcoesPaciente.js';
@@ -95,7 +96,7 @@ export default function Cadastrar() {
   // força probatória e é conferido antes de assinar, ao contrário do valor da
   // venda, digitado correndo. Se um dia isso for unificado, é valorBR() que
   // vale, e não o contrário.
-  const valorContratoNum = Number(String(valorContrato).replace(/\./g, '').replace(',', '.')) || 0;
+  const valorContratoNum = parseValorContrato(valorContrato);
 
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState(null);
@@ -269,35 +270,18 @@ export default function Cadastrar() {
 
     // Contrato Essentia: nasce pendente aqui, e a paciente aceita depois na tela
     // dela. Mesmo precedente da venda — se falhar, MANTÉM a paciente e só avisa.
-    // texto_html fica FORA do payload: o check snapshot_coerente exige que ele
-    // seja nulo enquanto aceito_em for nulo. O snapshot só nasce no aceite.
+    //
+    // A lógica saiu daqui para lib/contratoEssentia.js quando a mudança de plano
+    // pelo perfil passou a criar contrato também. Ter duas cópias foi o que
+    // deixou o perfil sem nenhuma.
     let avisoContrato = null;
     if (tipoPlano === 'essentia') {
-      // Índice único parcial garante no máximo um ativo por nutri — sem order by.
-      const { data: tplContrato, error: tplErro } = await supabase
-        .from('contratos_templates')
-        .select('id')
-        .eq('nutri_id', user.id)
-        .eq('ativo', true)
-        .maybeSingle();
-
-      if (tplErro || !tplContrato) {
-        avisoContrato = 'Paciente cadastrada, mas o contrato não foi gerado — nenhum template ativo encontrado.'
-          + (tplErro ? ' (' + tplErro.message + ')' : '');
-      } else {
-        const { error: contratoErro } = await supabase
-          .from('contratos_essentia')
-          .insert({
-            paciente_id: pacienteData.id,
-            nutri_id: user.id,
-            template_id: tplContrato.id,
-            valor: valorContratoNum,
-            aceito_em: null,
-          });
-        if (contratoErro) {
-          avisoContrato = 'Paciente cadastrada, mas o contrato não foi gerado — gere pelo perfil dela. (' + contratoErro.message + ')';
-        }
-      }
+      const { erro } = await criarContratoPendente(supabase, {
+        nutriId: user.id,
+        pacienteId: pacienteData.id,
+        valor: valorContratoNum,
+      });
+      if (erro) avisoContrato = `Paciente cadastrada. ${erro}`;
     }
 
     if (preConsultaId) {

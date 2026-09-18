@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import {
-  dataBR, iniciais, horaConsultaBR, TZ_CLINICA,
+  brl, dataBR, iniciais, horaConsultaBR, TZ_CLINICA,
   validarPlano, validarLista, contarItensLista,
   HORARIOS_CONSULTA, HORARIO_CONSULTA_PADRAO, horaConsultaValida,
   dataLocalISO, montarDataHoraISO, partesLocaisISO,
@@ -46,6 +46,7 @@ const FinanceiroPaciente   = lazy(() => import('./_Financeiro.jsx'));
 const ChatFlutuante        = lazy(() => import('./_ChatFlutuante.jsx'));
 import DicaJSON from '../../components/DicaJSON.jsx';
 import { TERMO_VERSAO } from '../../components/TermoConsentimento.jsx';
+import { criarContratoPendente, parseValorContrato } from '../../lib/contratoEssentia.js';
 import PlanoView from '../../components/PlanoView.jsx';
 
 export default function PacientePerfil() {
@@ -1960,8 +1961,15 @@ function ModalEditarDados({ paciente, onClose, onSaved }) {
   const [erroNasc, setErroNasc]   = useState(null);
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState(null);
+  const [valorContrato, setValorContrato] = useState('');
 
   const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
+
+  // Mudou PARA essentia: é o caso que exige contrato novo. Voltar de essentia
+  // para avulsa não mexe em contrato nenhum — o pendente que sobrar fica como
+  // está, de propósito, e o StatusContrato do cabeçalho o mostra.
+  const virandoEssentia = form.tipo_plano === 'essentia' && paciente.tipo_plano !== 'essentia';
+  const valorContratoNum = parseValorContrato(valorContrato);
 
   function onNascChange(e) {
     const v = e.target.value;
@@ -1973,6 +1981,12 @@ function ModalEditarDados({ paciente, onClose, onSaved }) {
     if (!form.nome.trim()) return setErro('Nome é obrigatório.');
     const { iso: nascISO, erro: nascErro } = parseBrData(nascInput);
     if (nascErro) { setErroNasc(nascErro); setErro(nascErro); return; }
+    // Mesma disciplina do cadastro (Cadastrar.jsx:208): plano Essentia sem
+    // valor não passa. Salvar o plano e avisar "contrato não criado" recriaria
+    // exatamente o buraco que esta mudança existe para fechar.
+    if (virandoEssentia && !(valorContratoNum > 0)) {
+      return setErro('Informe o valor do contrato (ex: 2700,00) para mudar o plano para Essentia.');
+    }
     setBusy(true); setErro(null);
     try {
       const emailVal = form.email.trim();
@@ -2001,6 +2015,27 @@ function ModalEditarDados({ paciente, onClose, onSaved }) {
         modalidade: form.modalidade    || null,
       }).eq('id', paciente.id);
       if (error) throw error;
+
+      // Contrato DEPOIS do update, nunca antes: se a gravação do plano falhasse,
+      // sobraria um contrato pendente de um plano que não existe. Se o contrato
+      // falhar, a mudança de plano FICA salva e só avisamos — mesmo precedente
+      // da venda no cadastro.
+      if (virandoEssentia) {
+        const { erro: erroContrato } = await criarContratoPendente(supabase, {
+          nutriId:    paciente.nutri_id,
+          pacienteId: paciente.id,
+          valor:      valorContratoNum,
+        });
+        if (erroContrato) {
+          // Modal fica ABERTO: o aviso precisa ser lido. onSaved() recarrega o
+          // perfil, então o StatusContrato do cabeçalho já reflete a realidade.
+          setErro(`Plano alterado. ${erroContrato}`);
+          setBusy(false);
+          onSaved();
+          return;
+        }
+      }
+
       onSaved();
       onClose();
     } catch (err) {
@@ -2120,6 +2155,39 @@ function ModalEditarDados({ paciente, onClose, onSaved }) {
                   <option key={o.v} value={o.v}>{o.l}</option>
                 ))}
               </select>
+              {/* Só ao MUDAR para essentia. Antes desta mudança, trocar o plano
+                  aqui gravava tipo_plano e não criava contrato nenhum — foi
+                  assim que pacientes essentia ficaram sem contrato. */}
+              {virandoEssentia && (
+                <div style={{ marginTop: 8 }}>
+                  <label className="field-label">Valor do contrato (R$) *</label>
+                  <input
+                    value={valorContrato}
+                    onChange={e => setValorContrato(e.target.value)}
+                    placeholder="2700,00"
+                    inputMode="decimal"
+                  />
+                  {/* Eco do valor INTERPRETADO, nao do que foi digitado. Um
+                      contrato foi gravado com 27000 no lugar de 2700 e passou
+                      despercebido ate a conferencia no banco, porque nada na
+                      tela mostrava o numero que o parseValorContrato entendeu.
+                      Este eco e a conferencia que o valor do contrato sempre
+                      presumiu ter (ver lib/contratoEssentia.js). */}
+                  {valorContrato.trim() && (
+                    <div style={{
+                      fontSize: 12, marginTop: 4, fontWeight: 500,
+                      color: valorContratoNum > 0 ? 'var(--text2)' : 'var(--red)',
+                    }}>
+                      {valorContratoNum > 0
+                        ? `Será gravado: ${brl(valorContratoNum)}`
+                        : 'Valor não reconhecido — digite só números, como 2700,00'}
+                    </div>
+                  )}
+                  <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>
+                    Um contrato pendente será criado. A paciente assina no app dela.
+                  </div>
+                </div>
+              )}
             </div>
 
             <div>
