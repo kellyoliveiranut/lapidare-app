@@ -32,20 +32,10 @@
  * e devolve o dia anterior a oeste de Greenwich.
  */
 
-import { montarDataHoraISO, partesLocaisISO } from './utils.js';
+import { montarDataHoraISO, partesLocaisISO, dataBR } from './utils.js';
 import { validarDiaConsulta, ehFeriado } from './feriados.js';
 
 const MS_DIA = 24 * 3600 * 1000;
-
-/**
- * 'YYYY-MM-DD' → 'DD/MM/YYYY', por corte de string.
- * Não usa Date de propósito: `new Date('2026-10-11')` é UTC e mostraria 10/10
- * aqui. O utils.dataBR parte de timestamp, não de data pura.
- */
-function dataBR(iso) {
-  const [a, m, d] = String(iso).slice(0, 10).split('-');
-  return `${d}/${m}/${a}`;
-}
 
 /** 'HH:MM:SS' (como o PostgREST devolve `time`) ou 'HH:MM' → 'HH:MM'. */
 export function hhmm(t) {

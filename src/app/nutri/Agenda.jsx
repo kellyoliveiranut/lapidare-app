@@ -5,12 +5,12 @@ import { useSession } from '../../lib/session.jsx';
 import DateInput from '../../components/DateInput.jsx';
 import NovaPacienteRapida from './_NovaPacienteRapida.jsx';
 import { linkConvite, mensagemConviteEncoded } from '../../lib/convite.js';
-import { verificarAgenda, textoImpedimentos, textoConfirmacao } from '../../lib/agendaConflitos.js';
+import { verificarAgenda, textoImpedimentos, textoConfirmacao, bloqueioCobre } from '../../lib/agendaConflitos.js';
 import { tipoColor, MODALIDADES_CONSULTA, modalidadeInfo } from '../../lib/consultaVisual.js';
 import ReguaDoDia from './_ReguaDoDia.jsx';
 import { HORARIOS_TAREFA, hhmm } from '../../lib/reguaDoDia.js';
 import {
-  dataConsultaBR, horaConsultaBR, TZ_CLINICA, textoDias, iniciais,
+  dataConsultaBR, horaConsultaBR, dataBR, TZ_CLINICA, textoDias, iniciais,
   gerarDiasCalendario, ehMesmoDia, mesAnoExtenso, DIAS_SEMANA_CURTOS, isoLocalDeData,
   montarDataHoraISO, partesLocaisISO,
   HORARIOS_CONSULTA, HORARIO_CONSULTA_PADRAO, horaConsultaValida,
@@ -273,13 +273,45 @@ export default function Agenda() {
   // que aparecem esmaecidos na grade. Buscar só o mês deixaria uma tarefa do
   // dia 31 de agosto sem marca na célula visível de setembro. Mesma função que
   // o CalendarioMensal usa, para as duas coisas nunca discordarem.
-  const faixaTarefas = useMemo(() => {
+  //
+  // Serve tarefas E bloqueios — por isso o nome é da grade, e não de um dos
+  // dois. Os dois seguem mesVisivel e precisam exatamente da mesma janela.
+  const faixaGrade = useMemo(() => {
     const dias = gerarDiasCalendario(mesVisivel);
     return {
       de:  isoLocalDeData(dias[0].data),
       ate: isoLocalDeData(dias[dias.length - 1].data),
     };
   }, [mesVisivel]);
+
+  // ─── Bloqueios de agenda (dia inteiro ou faixa de horário) ───
+  const [bloqueios, setBloqueios] = useState([]);
+  const [erroBloqueio, setErroBloqueio] = useState(null);
+  const [bloqueioModalOpen, setBloqueioModalOpen] = useState(false);
+
+  async function carregarBloqueios() {
+    if (!user) return;
+    const { data } = await supabase.from('bloqueios_agenda')
+      .select('id, data, hora_inicio, hora_fim, motivo')
+      .eq('nutri_id', user.id)
+      .gte('data', faixaGrade.de).lte('data', faixaGrade.ate)
+      // nullsFirst: o bloqueio de dia inteiro é a regra mais ampla e vem antes
+      // das faixas. Mesmo motivo do nullsFirst das tarefas — o default do
+      // Postgres em ASC é NULLS LAST, que jogaria o dia inteiro para o fim.
+      .order('data').order('hora_inicio', { nullsFirst: true });
+    setBloqueios(data ?? []);
+  }
+
+  async function excluirBloqueio(b) {
+    if (!window.confirm(
+      `Remover o bloqueio de ${dataBR(b.data)}${textoFaixaBloqueio(b)}? ` +
+      `Esta ação não pode ser desfeita.`
+    )) return;
+    setErroBloqueio(null);
+    const { error } = await supabase.from('bloqueios_agenda').delete().eq('id', b.id);
+    if (error) { setErroBloqueio('Não consegui remover: ' + error.message); return; }
+    carregarBloqueios();
+  }
 
   async function carregarTarefas() {
     if (!user) return;
@@ -291,7 +323,7 @@ export default function Agenda() {
       supabase.from('lembretes_nutri')
         .select('id, texto, data, hora, concluido_em, created_at')
         .eq('nutri_id', user.id)
-        .gte('data', faixaTarefas.de).lte('data', faixaTarefas.ate)
+        .gte('data', faixaGrade.de).lte('data', faixaGrade.ate)
         // nullsFirst na hora: tarefa sem hora é do dia inteiro e vem antes
         // das marcadas, na lista e na faixa do topo da régua. O default do
         // Postgres em ASC é NULLS LAST, que jogaria o dia inteiro para o fim.
@@ -517,7 +549,13 @@ export default function Agenda() {
   // tempo para vigiar.
   useEffect(() => {
     carregarTarefas();
-  }, [user, faixaTarefas.de, faixaTarefas.ate]);
+  }, [user, faixaGrade.de, faixaGrade.ate]);
+
+  // Mesma janela e mesmo gatilho das tarefas, em efeito próprio: uma falha ao
+  // carregar bloqueio não deve esvaziar a lista de tarefas, e vice-versa.
+  useEffect(() => {
+    carregarBloqueios();
+  }, [user, faixaGrade.de, faixaGrade.ate]);
 
   // Realtime: a paciente confirma pelo app e o chip vira verde sem F5; a nutri
   // remarca em outra aba/celular e o horário acompanha.
@@ -671,6 +709,12 @@ export default function Agenda() {
     const alvo = isoLocalDeData(diaSelecionado);
     return tarefas.filter(t => t.data === alvo);
   }, [tarefas, diaSelecionado]);
+
+  const bloqueiosDoDia = useMemo(() => {
+    if (!diaSelecionado) return [];
+    const alvo = isoLocalDeData(diaSelecionado);
+    return bloqueios.filter(b => b.data === alvo);
+  }, [bloqueios, diaSelecionado]);
 
   const abrirNova = () => setModalState({ open: true, consulta: null, pacienteInicialId: null, remarcando: false });
   const abrirEdit = (consulta) => setModalState({ open: true, consulta, pacienteInicialId: null, remarcando: false });
@@ -838,6 +882,7 @@ export default function Agenda() {
         diaSelecionado={diaSelecionado}
         consultas={consultas ?? []}
         tarefas={tarefas}
+        bloqueios={bloqueios}
         onMudarMes={setMesVisivel}
         onSelecionarDia={setDiaSelecionado}
       />
@@ -853,6 +898,14 @@ export default function Agenda() {
           {visaoDia === 'regua' ? 'Dia ' : 'Consultas em '}
           {diaSelecionado.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
         </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {/* Aqui, e não na barra de ações do topo: a data do bloqueio é o dia
+            ABERTO. Lá em cima o botão sugeriria "bloquear alguma data" e o
+            formulário teria de perguntar qual. Esta linha renderiza fora do
+            alternador, então o botão existe nas duas visões. */}
+        <button className="btn-outline" onClick={() => setBloqueioModalOpen(true)}>
+          <i className="ti ti-calendar-off" style={{ fontSize: 15 }} aria-hidden="true"></i> Bloquear
+        </button>
         <div style={{
           display: 'inline-flex', gap: 2, padding: 2, borderRadius: 8,
           background: 'var(--bg2)',
@@ -874,12 +927,14 @@ export default function Agenda() {
             </button>
           ))}
         </div>
+        </div>
       </div>
 
       {visaoDia === 'regua' ? (
         <ReguaDoDia
           consultas={consultasDoDia}
           tarefas={tarefasDoDia}
+          bloqueios={bloqueiosDoDia}
           diaSelecionado={diaSelecionado}
           onAbrirConsulta={abrirEdit}
           onAbrirTarefa={abrirTarefaEdit}
@@ -941,6 +996,47 @@ export default function Agenda() {
 
       {erroTarefa && (
         <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 6 }}>{erroTarefa}</div>
+      )}
+
+      {/* Bloqueios do dia. FORA do alternador, ao contrário das tarefas do dia:
+          enquanto a régua não souber desenhar bloqueio (passo 4), deixá-lo só
+          na visão lista esconderia de quem usa a régua a única forma de ver e
+          remover um bloqueio. Quando a régua desenhar, isto pode ir para dentro.
+          Some quando vazio, pelo mesmo motivo das tarefas — card vazio
+          permanente empurraria as listas de baixo para fora da tela. */}
+      {bloqueiosDoDia.length > 0 && (
+        <>
+          <div className="section-label" style={{ marginTop: 16 }}>
+            Bloqueios de {diaSelecionado.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
+          </div>
+          <div className="card" style={{ padding: 0 }}>
+            {bloqueiosDoDia.map((b, i) => (
+              <div key={b.id} style={{
+                display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
+                borderBottom: i === bloqueiosDoDia.length - 1 ? 'none' : '0.5px solid var(--hair)',
+              }}>
+                <i className="ti ti-calendar-off" style={{ fontSize: 16, color: 'var(--text3)' }} aria-hidden="true" />
+                <span style={{ fontSize: 14, color: 'var(--ink)', fontWeight: 500 }}>
+                  {b.hora_inicio ? `${hhmm(b.hora_inicio)} às ${hhmm(b.hora_fim)}` : 'Dia inteiro'}
+                </span>
+                {b.motivo && (
+                  <span style={{ fontSize: 13, color: 'var(--text3)' }}>{b.motivo}</span>
+                )}
+                <button onClick={() => excluirBloqueio(b)} title="Remover bloqueio"
+                  style={{
+                    marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer',
+                    color: 'var(--text3)', padding: 4, fontSize: 15, lineHeight: 1,
+                  }}>
+                  <i className="ti ti-trash" aria-hidden="true" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {erroBloqueio && (
+        <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 6 }}>{erroBloqueio}</div>
       )}
 
       {/* Listas tradicionais */}
@@ -1084,6 +1180,15 @@ export default function Agenda() {
           dataInicial={isoLocalDeData(diaSelecionado)}
           onClose={fecharTarefa}
           onSaved={() => { fecharTarefa(); carregarTarefas(); }}
+        />
+      )}
+
+      {bloqueioModalOpen && (
+        <BloqueioModal
+          nutriId={user.id}
+          dataInicial={isoLocalDeData(diaSelecionado)}
+          onClose={() => setBloqueioModalOpen(false)}
+          onSaved={() => { setBloqueioModalOpen(false); carregarBloqueios(); }}
         />
       )}
 
@@ -1494,7 +1599,7 @@ function PainelLembretes({ lembretes, confirmadas = 0, semConfirmacao = 0, locai
 /* ============================================================
    CALENDÁRIO MENSAL
    ============================================================ */
-function CalendarioMensal({ mesVisivel, diaSelecionado, consultas, tarefas, onMudarMes, onSelecionarDia }) {
+function CalendarioMensal({ mesVisivel, diaSelecionado, consultas, tarefas, bloqueios, onMudarMes, onSelecionarDia }) {
   const dias = useMemo(() => gerarDiasCalendario(mesVisivel), [mesVisivel]);
   const hoje = new Date();
 
@@ -1526,6 +1631,21 @@ function CalendarioMensal({ mesVisivel, diaSelecionado, consultas, tarefas, onMu
     }
     return m;
   }, [tarefas]);
+
+  // Chave pelo TEXTO 'YYYY-MM-DD', como tarefasPorDia e ao contrário de
+  // consultasPorDia — que monta Date e lê no fuso do NAVEGADOR. Aquele é um
+  // bug conhecido, tratado em separado, e não vai ser replicado aqui.
+  const bloqueiosPorDia = useMemo(() => {
+    const m = new Map();
+    for (const b of bloqueios ?? []) {
+      if (!b.data) continue;
+      const [y, mes, dia] = b.data.split('-').map(Number);
+      const key = `${y}-${mes - 1}-${dia}`;
+      if (!m.has(key)) m.set(key, []);
+      m.get(key).push(b);
+    }
+    return m;
+  }, [bloqueios]);
 
   const mudarMes = (delta) => {
     const novo = new Date(mesVisivel);
@@ -1590,6 +1710,8 @@ function CalendarioMensal({ mesVisivel, diaSelecionado, consultas, tarefas, onMu
           const key = `${d.data.getFullYear()}-${d.data.getMonth()}-${d.data.getDate()}`;
           const cs = consultasPorDia.get(key) ?? [];
           const ts = tarefasPorDia.get(key) ?? [];
+          const bs = bloqueiosPorDia.get(key) ?? [];
+          const temDiaInteiro = bs.some(b => !b.hora_inicio);
           // Um quadradinho por DIA, não por tarefa: a célula responde "tem
           // tarefa?", a lista abaixo responde "quais". Um por tarefa também
           // estouraria a linha, que já pode ter 4 bolinhas e o "+N".
@@ -1599,7 +1721,12 @@ function CalendarioMensal({ mesVisivel, diaSelecionado, consultas, tarefas, onMu
           return (
             <button key={i}
               onClick={() => onSelecionarDia(new Date(d.data))}
+              title={bs.length === 0 ? undefined
+                : temDiaInteiro ? 'Dia bloqueado'
+                : bs.length === 1 ? '1 horário bloqueado'
+                : `${bs.length} horários bloqueados`}
               style={{
+                position: 'relative',
                 background: isSelected ? 'var(--dark)' : isToday ? 'var(--orange-bg)' : 'var(--white)',
                 border: '0.5px solid ' + (isSelected ? 'var(--dark)' : 'var(--border)'),
                 borderRadius: 6,
@@ -1611,6 +1738,24 @@ function CalendarioMensal({ mesVisivel, diaSelecionado, consultas, tarefas, onMu
                 fontFamily: 'var(--font-sans)',
                 transition: 'background .15s',
               }}>
+              {/* Bloqueio é ESTADO DO DIA, não coisa agendada — por isso fundo
+                  hachurado, e não mais uma bolinha na fileira. Bolinha e
+                  quadrado contam itens, e a linha já vai até "4 + N + quadrado".
+                  Overlay em vez de trocar o background: assim funciona sobre os
+                  três estados da célula (normal, hoje, selecionado).
+                  currentColor herda a cor do texto — clara no dia selecionado,
+                  escura nos demais —, então a hachura acompanha sozinha.
+                  Dia inteiro e faixa parcial usam a MESMA marca; quem distingue
+                  é o title. A célula responde "tem bloqueio?", o painel do dia
+                  responde "qual". */}
+              {bs.length > 0 && (
+                <span aria-hidden="true" style={{
+                  position: 'absolute', inset: 0, borderRadius: 6,
+                  pointerEvents: 'none',
+                  background: 'repeating-linear-gradient(45deg, currentColor 0 4px, transparent 4px 8px)',
+                  opacity: .14,
+                }} />
+              )}
               <span style={{
                 fontSize: 14,
                 fontWeight: isToday || isSelected ? 600 : 400,
@@ -1662,15 +1807,23 @@ function CalendarioMensal({ mesVisivel, diaSelecionado, consultas, tarefas, onMu
         <Legenda cor="var(--green)" label="Retorno" />
         <Legenda cor="var(--orange)" label="Avaliação" />
         <Legenda cor="var(--gold-deep)" label="Tarefa" quadrado />
+        <Legenda label="Bloqueado" hachura />
       </div>
     </div>
   );
 }
 
-function Legenda({ cor, label, quadrado }) {
+function Legenda({ cor, label, quadrado, hachura }) {
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--text3)' }}>
-      <span style={{ width: 7, height: 7, borderRadius: quadrado ? 2 : '50%', background: cor }} />
+      <span style={{
+        width: 7, height: 7,
+        borderRadius: quadrado || hachura ? 2 : '50%',
+        background: hachura
+          ? 'repeating-linear-gradient(45deg, var(--text3) 0 2px, transparent 2px 4px)'
+          : cor,
+        border: hachura ? '0.5px solid var(--hair)' : 'none',
+      }} />
       {label}
     </span>
   );
@@ -2250,6 +2403,179 @@ function TarefaModal({ tarefa, nutriId, dataInicial, onClose, onSaved }) {
             <i className="ti ti-trash" aria-hidden="true" /> Excluir tarefa
           </button>
         )}
+      </div>
+    </div>
+  );
+}
+
+/** " das 14:00 às 16:00", ou "" no dia inteiro. Linha da lista e confirmações
+ *  de remoção usam o mesmo texto, para não divergirem. */
+function textoFaixaBloqueio(b) {
+  return b.hora_inicio ? ` das ${hhmm(b.hora_inicio)} às ${hhmm(b.hora_fim)}` : '';
+}
+
+// ─── Modal: bloquear dia ou horário ─────────────────────────────────────────
+// Espelha o TarefaModal na forma. NÃO tem modo de edição, de propósito:
+// bloqueio não tem ciclo de vida como a tarefa (que conclui, remarca, muda de
+// texto). Mudar um bloqueio é removê-lo e criar outro, e a lixeira da lista faz
+// isso em dois cliques — um modal de edição para três campos sem estado seria
+// cerimônia.
+function BloqueioModal({ nutriId, dataInicial, onClose, onSaved }) {
+  const [data, setData]             = useState(dataInicial ?? '');
+  const [horaInicio, setHoraInicio] = useState('');
+  const [horaFim, setHoraFim]       = useState('');
+  const [motivo, setMotivo]         = useState('');
+  const [busy, setBusy]             = useState(false);
+  const [erro, setErro]             = useState(null);
+
+  // Mesma regra do TarefaModal: com texto na tela o clique fora é recusado, e
+  // a saída vira explícita. Só o motivo é digitado — data e horas são selects.
+  function fecharPeloBackdrop() {
+    if (motivo.trim()) {
+      setErro('Tem texto não salvo aqui. Use "Bloquear" para gravar, ou "Fechar" para descartar.');
+      return;
+    }
+    onClose();
+  }
+
+  async function salvar() {
+    if (!data) { setErro('Escolha a data.'); return; }
+
+    // Um só preenchido é o engano provável: escolher "das 14:00" e esquecer o
+    // "até". O check bloqueio_faixa_coerente do banco recusaria, mas erro cru
+    // de banco na tela não diz o que fazer.
+    if (!!horaInicio !== !!horaFim) {
+      setErro('Preencha os dois horários, ou deixe os dois vazios para bloquear o dia inteiro.');
+      return;
+    }
+    // Comparação de string funciona porque 'HH:MM' tem largura fixa e zero à
+    // esquerda: '09:00' < '14:00'. A ordem lexicográfica é a ordem do relógio.
+    if (horaInicio && horaFim <= horaInicio) {
+      setErro('O fim precisa ser depois do início.');
+      return;
+    }
+
+    setBusy(true);
+    setErro(null);
+    try {
+      // AVISO SOBRE O QUE JÁ ESTÁ MARCADO. Bloquear não cancela nada — só
+      // impede marcar novas. Sem este aviso o bloqueio dá falsa sensação de
+      // "limpei o dia", e as pacientes seguiriam agendadas sem ninguém saber.
+      //
+      // Conta pelo dia ESCOLHIDO, não pelo dia aberto: o campo de data é
+      // editável, e avisar sobre o dia errado é pior do que não avisar.
+      const { data: doDia, error: errLer } = await supabase
+        .from('consultas')
+        .select('id, data_hora, duracao_min')
+        .eq('nutri_id', nutriId)
+        .neq('status', 'cancelada')
+        .not('data_hora', 'is', null)
+        .gte('data_hora', montarDataHoraISO(data, '00:00'))
+        .lte('data_hora', montarDataHoraISO(data, '23:30'));
+      if (errLer) throw errLer;
+
+      // bloqueioCobre é a MESMA função que a validação de salvamento usa. Sem
+      // reaproveitá-la haveria duas definições de "coberto pelo bloqueio", e
+      // elas discordariam no primeiro caso de borda — o fim exclusivo, por
+      // exemplo.
+      const candidato = {
+        data,
+        hora_inicio: horaInicio || null,
+        hora_fim:    horaFim    || null,
+      };
+      const afetadas = (doDia ?? []).filter(c => {
+        const p = partesLocaisISO(c.data_hora);
+        return bloqueioCobre(candidato, { data: p.data, hora: p.hora, duracaoMin: c.duracao_min });
+      });
+
+      if (afetadas.length && !window.confirm(
+        `${afetadas.length === 1
+          ? 'Já existe 1 consulta marcada'
+          : `Já existem ${afetadas.length} consultas marcadas`} neste horário.\n\n` +
+        'O bloqueio NÃO cancela nenhuma delas — só impede marcar novas.\n\n' +
+        'Bloquear mesmo assim?'
+      )) return;
+
+      const { error } = await supabase.from('bloqueios_agenda').insert({
+        nutri_id:    nutriId,
+        data,
+        hora_inicio: horaInicio || null,
+        hora_fim:    horaFim    || null,
+        motivo:      motivo.trim() || null,
+      });
+      if (error) {
+        // 23505 nesta tabela só pode ser o índice parcial
+        // bloqueios_agenda_dia_inteiro_unico. A mensagem do Postgres diria
+        // "duplicate key value violates unique constraint", que não ajuda.
+        setErro(error.code === '23505'
+          ? 'Este dia já está bloqueado por inteiro.'
+          : error.message);
+        return;
+      }
+      onSaved();
+    } catch (e) {
+      setErro(e?.message || 'Erro ao bloquear.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0,
+      background: 'rgba(28,23,18,.55)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100,
+    }} onClick={fecharPeloBackdrop}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: 'var(--white)', borderRadius: 12, padding: 22,
+        width: 420, maxWidth: '92vw', maxHeight: '92vh', overflowY: 'auto',
+        border: '0.5px solid var(--border)',
+      }}>
+        <div style={{ fontFamily: 'var(--font-serif)', fontSize: 17, marginBottom: 4 }}>
+          Bloquear agenda
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 14 }}>
+          Nenhuma consulta nova pode ser marcada num horário bloqueado. As já marcadas continuam.
+        </div>
+
+        <label className="form-lbl">Data</label>
+        <DateInput value={data} onChange={e => setData(e.target.value)} />
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 10 }}>
+          <div>
+            <label className="form-lbl">Das</label>
+            <select value={horaInicio} onChange={e => setHoraInicio(e.target.value)}>
+              <option value="">—</option>
+              {HORARIOS_CONSULTA.map(h => <option key={h} value={h}>{h}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="form-lbl">Até</label>
+            <select value={horaFim} onChange={e => setHoraFim(e.target.value)}>
+              <option value="">—</option>
+              {HORARIOS_CONSULTA.map(h => <option key={h} value={h}>{h}</option>)}
+            </select>
+          </div>
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>
+          Deixe os dois vazios para bloquear o dia inteiro. O fim é exclusivo: das 14:00 às 16:00 deixa as 16:00 livres.
+        </div>
+
+        <label className="form-lbl" style={{ marginTop: 10 }}>Motivo</label>
+        <input value={motivo} onChange={e => setMotivo(e.target.value)}
+          placeholder="Ex: congresso (opcional)" />
+        <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>
+          Aparece na mensagem quando alguém tentar agendar nesse horário.
+        </div>
+
+        {erro && <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 10 }}>{erro}</div>}
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 18 }}>
+          <button className="btn-outline" onClick={onClose} disabled={busy}>Fechar</button>
+          <button className="btn" onClick={salvar} disabled={busy}>
+            {busy ? 'Bloqueando…' : 'Bloquear'}
+          </button>
+        </div>
       </div>
     </div>
   );

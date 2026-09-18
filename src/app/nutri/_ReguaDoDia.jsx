@@ -4,7 +4,7 @@ import { tipoColor, modalidadeInfo } from '../../lib/consultaVisual.js';
 import {
   MIN_INICIO, MIN_FIM, ALTURA_HORA, ALTURA_TOTAL, HORAS_CHEIAS,
   DURACAO_TAREFA_MIN, topoDe, alturaDe, minutosDeHHMM, hhmm,
-  recortar, distribuirEmFaixas,
+  recortar, distribuirEmFaixas, bandasDeBloqueio,
 } from '../../lib/reguaDoDia.js';
 
 /* ============================================================
@@ -32,7 +32,7 @@ import {
 const LARGURA_CALHA = 52;   // coluna dos rótulos de hora, cabe "08:00"
 
 export default function ReguaDoDia({
-  consultas, tarefas, diaSelecionado,
+  consultas, tarefas, bloqueios, diaSelecionado,
   onAbrirConsulta, onAbrirTarefa, onAlternarTarefa,
 }) {
   // ── "agora" no relógio da CLÍNICA ──
@@ -54,6 +54,10 @@ export default function ReguaDoDia({
     () => (tarefas ?? []).filter(t => !t.hora),
     [tarefas],
   );
+
+  // Bandas de bloqueio. Ficam fora do useMemo de { dentro, fora } porque não
+  // passam por distribuirEmFaixas — ver bandasDeBloqueio em reguaDoDia.js.
+  const bandas = useMemo(() => bandasDeBloqueio(bloqueios), [bloqueios]);
 
   // Consultas e tarefas entram JUNTAS na distribuição em faixas. Se fossem
   // separadas, uma tarefa das 14:00 cairia por cima da consulta das 14:00.
@@ -148,6 +152,39 @@ export default function ReguaDoDia({
             position: 'absolute', left: 0, right: 0, top: ALTURA_TOTAL,
             borderTop: '0.5px solid var(--hair-soft)',
           }} />
+
+          {/* ── BANDAS DE BLOQUEIO ──
+              zIndex 1: acima das linhas de hora, abaixo dos blocos (2) e da
+              linha do agora (3). pointerEvents none — o bloqueio é informação
+              de fundo, e capturar clique aqui roubaria o clique do bloco que
+              está por cima. A ordem no DOM acompanha a dos zIndex de propósito,
+              para quem ler o arquivo não precisar reconstruir o empilhamento. */}
+          {bandas.map(b => {
+            const altura = alturaDe(b.fim - b.inicio);
+            return (
+              <div key={b.id} title={b.diaInteiro ? 'Dia bloqueado' : 'Horário bloqueado'}
+                style={{
+                  position: 'absolute', left: LARGURA_CALHA, right: 0,
+                  top: topoDe(b.inicio), height: altura,
+                  zIndex: 1, pointerEvents: 'none', borderRadius: 4,
+                  // Hachura por gradiente: funciona sobre custom property sem
+                  // concatenar alpha, que é a armadilha declarada no cabeçalho.
+                  background: 'repeating-linear-gradient(45deg, var(--hair) 0 5px, transparent 5px 10px)',
+                  border: '0.5px solid var(--hair)',
+                }}>
+                {/* O motivo só aparece se a banda tiver altura para uma linha
+                    de texto. Numa faixa de 30 min (33px) ele ficaria espremido
+                    contra a borda; abaixo disso, mentiria sobre o tamanho. */}
+                {b.motivo && altura >= 34 && (
+                  <span style={{
+                    position: 'absolute', top: 3, left: 8,
+                    fontSize: 10, color: 'var(--text3)',
+                    background: 'var(--white)', padding: '0 4px', borderRadius: 3,
+                  }}>{b.motivo}</span>
+                )}
+              </div>
+            );
+          })}
 
           {/* Linha do "agora" — só quando o dia selecionado é hoje */}
           {agoraVisivel && (

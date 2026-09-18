@@ -150,3 +150,30 @@ export function distribuirEmFaixas(itens) {
   if (grupo.length) fecharGrupo();
   return saida;
 }
+
+/**
+ * Bloqueios → bandas de fundo da régua.
+ *
+ * FORA de distribuirEmFaixas, de propósito. Aquele algoritmo faz todos os
+ * itens de um grupo dividirem a largura; um bloqueio de dia inteiro cruzaria
+ * TODAS as consultas e espremeria cada paciente para 1/(N+1) da largura.
+ * Bloqueio não disputa espaço lateral — ele é o fundo sobre o qual a consulta
+ * está desenhada.
+ *
+ * Dia inteiro (hora_inicio nula) vira a régua inteira. Faixa vira o recorte
+ * dela. Passa por recortar() como os outros: hoje sempre cabe, porque a grade
+ * de agendamento termina às 18:00 e a régua vai até 19:30, mas assumir isso
+ * seria dívida silenciosa se a grade mudar.
+ */
+export function bandasDeBloqueio(bloqueios) {
+  const out = [];
+  for (const b of bloqueios ?? []) {
+    const inicio = b.hora_inicio ? minutosDeHHMM(b.hora_inicio) : MIN_INICIO;
+    const fim    = b.hora_fim    ? minutosDeHHMM(b.hora_fim)    : MIN_FIM;
+    if (inicio == null || fim == null || fim <= inicio) continue;
+    const corte = recortar(inicio, fim);
+    if (!corte) continue;
+    out.push({ id: b.id, motivo: b.motivo ?? null, diaInteiro: !b.hora_inicio, ...corte });
+  }
+  return out;
+}
