@@ -816,7 +816,7 @@ export default function PacientePerfil() {
           dataHoraInicial={definirDataConsulta.data_hora}
           nutriId={user?.id}
           consultaId={definirDataConsulta.id}
-          duracaoMin={definirDataConsulta.duracao_min ?? 45}
+          duracaoMin={definirDataConsulta.duracao_min ?? 30}
           onClose={() => setDefinirDataConsulta(null)}
           onSalvar={async (dataHoraIso) => {
             const ok = await salvarDataConsulta(definirDataConsulta.id, dataHoraIso);
@@ -6864,7 +6864,7 @@ function ModalAgendarAvulsa({ pacienteId, nutriId, onClose, onSalvo }) {
 
 // ─── Modal: Definir data de uma consulta "a definir" ─────────────────────────
 function ModalDefinirData({
-  labelTipo, dataHoraInicial = null, nutriId, consultaId, duracaoMin = 45,
+  labelTipo, dataHoraInicial = null, nutriId, consultaId, duracaoMin = 30,
   onClose, onSalvar,
 }) {
   const seed = dataHoraInicial ? partesLocaisISO(dataHoraInicial) : null;
