@@ -72,6 +72,7 @@ export default function PacientePerfil() {
   const [salvandoCampo, setSalvandoCampo] = useState(false);
   const [arquivarOpen, setArquivarOpen] = useState(false);
   const [editarDadosOpen, setEditarDadosOpen] = useState(false);
+  const [criarContratoOpen, setCriarContratoOpen] = useState(false);
   const [excluirOpen, setExcluirOpen] = useState(false);
   const [pausando, setPausando] = useState(false);
   const [desarquivando, setDesarquivando] = useState(false);
@@ -587,6 +588,30 @@ export default function PacientePerfil() {
                   reinserir `· <StatusTermo paciente={paciente} />` aqui. */}
               {paciente.email} · cadastrada em {dataBR(paciente.created_at)}
               {contratos !== null && <> · <StatusContrato contratos={contratos} /></>}
+              {/* Colado no "Contrato: nenhum" de propósito: o problema e a ação
+                  se leem juntos. Fica FORA do StatusContrato, que é função de
+                  apresentação pura — passar um callback para lá o tornaria
+                  outra coisa.
+                  `contratos?.length === 0` é exatamente "é essentia E não tem
+                  contrato nenhum": null = não é essentia, [] = essentia sem
+                  contrato, [...] = já tem. Quem já assinou não vê o botão.
+                  Este é o caminho que o ModalEditarDados não cobre, porque lá o
+                  virandoEssentia exige tipo_plano != 'essentia'. */}
+              {contratos?.length === 0 && (
+                <button
+                  onClick={() => setCriarContratoOpen(true)}
+                  style={{
+                    marginLeft: 8,
+                    background: 'none', border: '0.5px solid var(--border)',
+                    borderRadius: 6, padding: '3px 9px', fontSize: 11,
+                    color: 'var(--text3)', cursor: 'pointer',
+                    fontFamily: 'var(--font-sans)',
+                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                  }}>
+                  <i className="ti ti-file-plus" style={{ fontSize: 12 }} aria-hidden="true" />
+                  Criar contrato
+                </button>
+              )}
             </span>
             <MenuSenha paciente={paciente} onEnviarEmail={enviarRedefinicaoSenha} />
             <button onClick={enviarAcessoWhatsApp}
@@ -1203,6 +1228,14 @@ export default function PacientePerfil() {
         <ModalEditarDados
           paciente={paciente}
           onClose={() => setEditarDadosOpen(false)}
+          onSaved={carregar}
+        />
+      )}
+
+      {criarContratoOpen && (
+        <ModalCriarContrato
+          paciente={paciente}
+          onClose={() => setCriarContratoOpen(false)}
           onSaved={carregar}
         />
       )}
@@ -1945,6 +1978,160 @@ function parseBrData(raw) {
   return { iso, erro: null };
 }
 
+/**
+ * Cria contrato para quem JÁ é essentia e está sem nenhum.
+ *
+ * O ModalEditarDados não alcança este caso: lá o `virandoEssentia` exige
+ * tipo_plano != 'essentia', porque o gatilho é a MUDANÇA de plano. Quem já
+ * estava essentia antes da Porta 1 existir ficou sem caminho — e é a maioria
+ * das pacientes sem contrato.
+ *
+ * Mesma criarContratoPendente dos outros dois caminhos. Nenhuma regra nova.
+ */
+function ModalCriarContrato({ paciente, onClose, onSaved }) {
+  const [valor, setValor] = useState('');
+  const [busy, setBusy]   = useState(false);
+  const [erro, setErro]   = useState(null);
+  // Quando preenchido, o contrato JÁ FOI criado e o modal vira só o aviso.
+  const [aviso, setAviso] = useState(null);
+
+  const valorNum = parseValorContrato(valor);
+
+  async function salvar() {
+    if (!(valorNum > 0)) {
+      return setErro('Informe o valor do contrato (ex: 2700,00).');
+    }
+    setBusy(true); setErro(null);
+
+    const { erro: erroContrato } = await criarContratoPendente(supabase, {
+      nutriId:    paciente.nutri_id,
+      pacienteId: paciente.id,
+      valor:      valorNum,
+    });
+    if (erroContrato) { setBusy(false); setErro(erroContrato); return; }
+
+    // O contrato nasce, mas a paciente só o VÊ se houver consulta datada — é a
+    // regra do previa_contrato_essentia, que devolve null sem ela e faz o gate
+    // deixar passar em silêncio. Sem este aviso dá para criar dezenas de
+    // contratos achando que as pacientes foram notificadas.
+    const { count, error: errCount } = await supabase
+      .from('consultas')
+      .select('id', { count: 'exact', head: true })
+      .eq('nutri_id', paciente.nutri_id)
+      .eq('paciente_id', paciente.id)
+      .neq('status', 'cancelada')
+      .not('data_hora', 'is', null);
+
+    setBusy(false);
+    onSaved();
+
+    // Falha ao CONFERIR não é falha ao criar: o contrato está lá, e o
+    // StatusContrato do cabeçalho já mostra. Fechar sem afirmar nada é melhor
+    // do que inventar um aviso que não foi verificado.
+    if (errCount) { onClose(); return; }
+
+    if (!count) {
+      setAviso('Contrato criado. Mas ela ainda não vai vê-lo no app: o contrato '
+        + 'só aparece quando existe uma consulta com data marcada, e hoje não há nenhuma.');
+      return;
+    }
+    onClose();
+  }
+
+  return (
+    // Overlay NÃO fecha no clique, mesmo precedente do ModalExcluir: um clique
+    // fora perderia o valor digitado, e aqui ele vai para um documento.
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(28,23,18,.55)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      zIndex: 100, padding: 16,
+    }}>
+      <div style={{
+        background: 'var(--white)', borderRadius: 12, padding: 24,
+        width: 420, maxWidth: '92vw',
+        border: '0.5px solid var(--border)',
+      }}>
+        <div style={{ fontFamily: 'var(--font-serif)', fontSize: 18, marginBottom: 4 }}>
+          Criar contrato Essentia
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 18 }}>
+          {paciente.nome}
+        </div>
+
+        {aviso ? (
+          <div style={{
+            fontSize: 13, lineHeight: 1.5, color: 'var(--text2)',
+            background: 'var(--orange-bg)', borderRadius: 8, padding: '10px 12px',
+          }}>{aviso}</div>
+        ) : (
+          <>
+            <CampoValorContrato valor={valor} valorNum={valorNum} onChange={setValor} />
+            {erro && (
+              <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 10 }}>{erro}</div>
+            )}
+          </>
+        )}
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
+          {aviso ? (
+            <button className="btn" onClick={onClose}>Entendi</button>
+          ) : (
+            <>
+              <button className="btn-outline" onClick={onClose} disabled={busy}>Cancelar</button>
+              <button className="btn" onClick={salvar} disabled={busy}>
+                {busy ? 'Criando…' : 'Criar contrato'}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Campo do valor do contrato, com o eco do valor INTERPRETADO.
+ *
+ * Extraído para ser usado por DOIS modais — o ModalEditarDados, quando a
+ * paciente muda de plano, e o ModalCriarContrato, quando ela já é essentia e
+ * está sem contrato. Duas cópias divergiriam, e é justamente a divergência
+ * entre dois caminhos que produziu as pacientes sem contrato.
+ *
+ * O ECO existe porque um contrato foi gravado com 27000 no lugar de 2700 e
+ * passou despercebido até a conferência no banco: nada na tela mostrava o
+ * número que o parseValorContrato tinha entendido. Ele mostra o resultado da
+ * conversão, não o texto digitado — é a diferença entre conferir e repetir.
+ *
+ * `valorNum` vem do pai de propósito: o pai já precisa dele para validar e para
+ * gravar, então a conversão acontece UMA vez por modal.
+ */
+function CampoValorContrato({ valor, valorNum, onChange }) {
+  return (
+    <>
+      <label className="field-label">Valor do contrato (R$) *</label>
+      <input
+        value={valor}
+        onChange={e => onChange(e.target.value)}
+        placeholder="2700,00"
+        inputMode="decimal"
+      />
+      {valor.trim() && (
+        <div style={{
+          fontSize: 12, marginTop: 4, fontWeight: 500,
+          color: valorNum > 0 ? 'var(--text2)' : 'var(--red)',
+        }}>
+          {valorNum > 0
+            ? `Será gravado: ${brl(valorNum)}`
+            : 'Valor não reconhecido — digite só números, como 2700,00'}
+        </div>
+      )}
+      <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>
+        Um contrato pendente será criado. A paciente assina no app dela.
+      </div>
+    </>
+  );
+}
+
 function ModalEditarDados({ paciente, onClose, onSaved }) {
   const [form, setForm] = useState({
     nome:       paciente.nome       ?? '',
@@ -2160,32 +2347,11 @@ function ModalEditarDados({ paciente, onClose, onSaved }) {
                   assim que pacientes essentia ficaram sem contrato. */}
               {virandoEssentia && (
                 <div style={{ marginTop: 8 }}>
-                  <label className="field-label">Valor do contrato (R$) *</label>
-                  <input
-                    value={valorContrato}
-                    onChange={e => setValorContrato(e.target.value)}
-                    placeholder="2700,00"
-                    inputMode="decimal"
+                  <CampoValorContrato
+                    valor={valorContrato}
+                    valorNum={valorContratoNum}
+                    onChange={setValorContrato}
                   />
-                  {/* Eco do valor INTERPRETADO, nao do que foi digitado. Um
-                      contrato foi gravado com 27000 no lugar de 2700 e passou
-                      despercebido ate a conferencia no banco, porque nada na
-                      tela mostrava o numero que o parseValorContrato entendeu.
-                      Este eco e a conferencia que o valor do contrato sempre
-                      presumiu ter (ver lib/contratoEssentia.js). */}
-                  {valorContrato.trim() && (
-                    <div style={{
-                      fontSize: 12, marginTop: 4, fontWeight: 500,
-                      color: valorContratoNum > 0 ? 'var(--text2)' : 'var(--red)',
-                    }}>
-                      {valorContratoNum > 0
-                        ? `Será gravado: ${brl(valorContratoNum)}`
-                        : 'Valor não reconhecido — digite só números, como 2700,00'}
-                    </div>
-                  )}
-                  <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>
-                    Um contrato pendente será criado. A paciente assina no app dela.
-                  </div>
                 </div>
               )}
             </div>
