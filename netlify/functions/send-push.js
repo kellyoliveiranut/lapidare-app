@@ -56,7 +56,7 @@ exports.handler = async (event) => {
     if (body.mode === 'notify_nutri') {
       const { data: paciente, error: pacienteError } = await supabase
         .from('pacientes')
-        .select('nutri_id, nome')
+        .select('id, nutri_id, nome')
         .eq('user_id', caller.id)
         .maybeSingle();
 
@@ -72,6 +72,17 @@ exports.handler = async (event) => {
         resposta_prato: { title: primeiroNome, body: 'Nova resposta num prato',  url: '/nutri/feed' },
         consulta_confirmada: { title: primeiroNome, body: 'Confirmou a consulta', url: '/nutri/agenda' },
         checkin_respondido:  { title: primeiroNome, body: 'Respondeu o check-in',  url: '/nutri/checkins' },
+        // Primeiro payload da nutri com URL DINAMICA. Os outros cinco apontam
+        // para rota fixa porque o destino e uma lista; o estado do contrato so
+        // existe dentro do perfil da paciente (StatusContrato, PacientePerfil.jsx).
+        // O id vem do servidor, nunca do corpo do request — e por isso que o
+        // select acima passou a trazer `id`.
+        //
+        // Nao exige mudanca no sw.js nem no PushNavigator: os dois so tratam a
+        // URL como externa quando ela casa ^https?://, e como interna quando
+        // comeca com '/'. '/nutri/pacientes/<uuid>' cai no caminho interno.
+        contrato_assinado:   { title: primeiroNome, body: 'Assinou o contrato',
+                               url: `/nutri/pacientes/${paciente.id}` },
       };
       const payload = NUTRI_PAYLOADS[body.kind] ?? NUTRI_PAYLOADS.mensagem;
 

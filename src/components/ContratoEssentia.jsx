@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { useSession } from '../lib/session.jsx';
+import { iniciarTokenPush, avisarNutri } from '../lib/push.js';
 
 /**
  * Gate do contrato de prestação de serviços do plano Essentia.
@@ -98,7 +99,11 @@ export default function ContratoEssentia({ children }) {
   async function aceitar() {
     setErro(null);
     setAceitando(true);
-    const { error } = await supabase.rpc('aceitar_contrato_essentia', {
+    // No topo, antes do primeiro await de Supabase — não é estilo, é o que
+    // impede a promise de nunca resolver por disputa do lock de auth. Ver o
+    // comentário de iniciarTokenPush em lib/push.js.
+    const tokenPush = iniciarTokenPush();
+    const { data, error } = await supabase.rpc('aceitar_contrato_essentia', {
       p_contrato_id: contratoId,
       p_cpf: cpf.trim() || null,
       p_rg: rg.trim() || null,
@@ -110,6 +115,15 @@ export default function ContratoEssentia({ children }) {
       setErro(error.message);
       return;
     }
+    // `novo: false` é a RPC dizendo que só devolveu o carimbo que já existia —
+    // outra aba aceitou antes, ou a resposta do primeiro clique se perdeu e ela
+    // clicou de novo. Nos dois casos o banco está certo e nada mudou, então a
+    // nutri não pode receber um segundo "Assinou o contrato".
+    //
+    // O `?? true` falha ABERTO de propósito: se o retorno vier numa forma que
+    // eu não previ, manda o push. Um aviso repetido incomoda; um aceite que
+    // nunca avisa some, e o push é o único canal que existe para isto.
+    if (data?.[0]?.novo ?? true) avisarNutri(tokenPush, 'contrato_assinado');
     // A função pode ter gravado cpf/rg no cadastro — o profile precisa saber.
     if (typeof refreshProfile === 'function') await refreshProfile();
     setHtml(null);   // libera o app
