@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { useSession } from '../lib/session.jsx';
 import { iniciarTokenPush, avisarNutri } from '../lib/push.js';
+import { formatarCpf } from '../lib/utils.js';
 
 /**
  * Gate do contrato de prestação de serviços do plano Essentia.
@@ -23,12 +24,11 @@ import { iniciarTokenPush, avisarNutri } from '../lib/push.js';
  * texto gravado são o mesmo.
  */
 export default function ContratoEssentia({ children }) {
-  const { profile, role, refreshProfile } = useSession();
+  const { profile, role } = useSession();
 
   const [contratoId, setContratoId] = useState(null);
   const [html, setHtml] = useState(null);
-  const [cpf, setCpf] = useState('');
-  const [rg, setRg] = useState('');
+  const [concordou, setConcordou] = useState(false);
   const [aceitando, setAceitando] = useState(false);
   const [erro, setErro] = useState(null);
 
@@ -37,11 +37,30 @@ export default function ContratoEssentia({ children }) {
     && !!profile
     && profile.tipo_plano?.trim().toLowerCase() === 'essentia';
 
+  // O documento vem do CADASTRO, preenchido pela nutri no perfil da paciente.
+  // Ela não digita mais nada aqui: antes, o que ela escrevesse era gravado na
+  // ficha dela pelo passo 6 do aceitar_contrato_essentia — identidade
+  // autodeclarada entrando no contrato e no cadastro de uma vez só.
+  //
+  // A ORDEM espelha o servidor: RG na frente do CPF (ver v_ident em
+  // aceitar_contrato_essentia). Se a tela dissesse CPF e o contrato dissesse
+  // RG, ela leria uma coisa e assinaria outra.
+  const rgCadastro  = profile?.rg?.trim()  || '';
+  const cpfCadastro = profile?.cpf?.trim() || '';
+  const identificacao = rgCadastro
+    ? `RG ${rgCadastro}`
+    : (cpfCadastro ? `CPF ${formatarCpf(cpfCadastro)}` : null);
+
   // 1) Contrato pendente + prévia. Qualquer buraco no caminho (sem contrato,
-  //    sem consulta datada, erro de rede) termina em children: um contrato não
-  //    resolvido nunca pode trancar o app inteiro.
+  //    sem consulta datada, SEM DOCUMENTO no cadastro, erro de rede) termina em
+  //    children: um contrato não resolvido nunca pode trancar o app inteiro.
+  //
+  //    Sem documento a paciente não vê o contrato e segue usando o app — ela
+  //    não tem como resolver isso sozinha, e uma tela de bloqueio com botão
+  //    morto seria beco sem saída. Quem é avisada é a nutri, pelo StatusContrato
+  //    do perfil, que passa a dizer "sem CPF/RG no cadastro".
   useEffect(() => {
-    if (!ehEssentia) return;
+    if (!ehEssentia || !identificacao) return;
     let ativo = true;
     (async () => {
       // Índice único parcial garante no máximo um pendente por paciente.
@@ -56,8 +75,7 @@ export default function ContratoEssentia({ children }) {
       // Essentia que já aceitou ou ainda não tem contrato.
       if (!ativo || !contrato) return;
 
-      // null aqui de propósito: o servidor já prefere o que está gravado no
-      // cadastro, e nada foi digitado ainda.
+      // null nos dois: o servidor lê CPF/RG do cadastro e é a única fonte.
       const { data: texto } = await supabase.rpc('previa_contrato_essentia', {
         p_contrato_id: contrato.id, p_cpf: null, p_rg: null,
       });
@@ -69,32 +87,12 @@ export default function ContratoEssentia({ children }) {
       setHtml(texto);
     })();
     return () => { ativo = false; };
-  }, [ehEssentia, profile?.id]);
+  }, [ehEssentia, identificacao, profile?.id]);
 
-  // 2) Reescreve a prévia conforme ela digita — é assim que o "____________"
-  //    da identificação vira a frase de verdade. Roda para os dois campos
-  //    mesmo que um já esteja no cadastro: um RG digitado troca a frase de
-  //    CPF para RG (a função prefere RG quando existe).
-  useEffect(() => {
-    if (!contratoId) return;
-    if (!cpf.trim() && !rg.trim()) return;
-    let ativo = true;
-    const t = setTimeout(async () => {
-      const { data: texto } = await supabase.rpc('previa_contrato_essentia', {
-        p_contrato_id: contratoId,
-        p_cpf: cpf.trim() || null,
-        p_rg: rg.trim() || null,
-      });
-      if (ativo && texto) setHtml(texto);
-    }, 500);
-    return () => { ativo = false; clearTimeout(t); };
-  }, [cpf, rg, contratoId]);
-
-  const faltaCpf = !profile?.cpf;
-  const faltaRg  = !profile?.rg;
-  // O servidor exige RG ou CPF para aceitar. Se nenhum dos dois existe e nada
-  // foi digitado, o botão fica travado em vez de gerar erro no clique.
-  const podeAceitar = !!(profile?.cpf || profile?.rg || cpf.trim() || rg.trim());
+  // Marcar a caixa é o ato de assinar; o botão é o envio. Os dois existem de
+  // propósito: `aceito_em` é permanente e o pendente some da tela depois, então
+  // um toque acidental numa caixa não pode fechar contrato sozinho.
+  const podeAceitar = concordou && !!identificacao;
 
   async function aceitar() {
     setErro(null);
@@ -103,15 +101,17 @@ export default function ContratoEssentia({ children }) {
     // impede a promise de nunca resolver por disputa do lock de auth. Ver o
     // comentário de iniciarTokenPush em lib/push.js.
     const tokenPush = iniciarTokenPush();
+    // null nos dois: o documento é o do cadastro. Os parâmetros continuam na
+    // assinatura da função no banco, agora sem uso — tirá-los custaria um
+    // DROP/CREATE e não resolveria nada.
     const { data, error } = await supabase.rpc('aceitar_contrato_essentia', {
       p_contrato_id: contratoId,
-      p_cpf: cpf.trim() || null,
-      p_rg: rg.trim() || null,
+      p_cpf: null,
+      p_rg: null,
     });
     setAceitando(false);
     if (error) {
-      // As mensagens da função já são escritas para a paciente ler
-      // ("CPF inválido — informe os 11 dígitos.").
+      // As mensagens da função já são escritas para a paciente ler.
       setErro(error.message);
       return;
     }
@@ -124,8 +124,6 @@ export default function ContratoEssentia({ children }) {
     // eu não previ, manda o push. Um aviso repetido incomoda; um aceite que
     // nunca avisa some, e o push é o único canal que existe para isto.
     if (data?.[0]?.novo ?? true) avisarNutri(tokenPush, 'contrato_assinado');
-    // A função pode ter gravado cpf/rg no cadastro — o profile precisa saber.
-    if (typeof refreshProfile === 'function') await refreshProfile();
     setHtml(null);   // libera o app
   }
 
@@ -177,35 +175,33 @@ export default function ContratoEssentia({ children }) {
           dangerouslySetInnerHTML={{ __html: html }}
         />
 
-        {(faltaCpf || faltaRg) && (
-          <div style={{
-            padding: '12px 24px 0',
-            display: 'grid', gap: 8,
-            gridTemplateColumns: faltaCpf && faltaRg ? '1fr 1fr' : '1fr',
-          }}>
-            {faltaCpf && (
-              <label style={{ display: 'block' }}>
-                <span style={{
-                  display: 'block', fontSize: 11, color: 'var(--muted, #999)',
-                  marginBottom: 4, fontWeight: 500,
-                }}>CPF</span>
-                <input value={cpf} onChange={e => setCpf(e.target.value)}
-                  inputMode="numeric" placeholder="000.000.000-00"
-                  style={campoStyle} />
-              </label>
-            )}
-            {faltaRg && (
-              <label style={{ display: 'block' }}>
-                <span style={{
-                  display: 'block', fontSize: 11, color: 'var(--muted, #999)',
-                  marginBottom: 4, fontWeight: 500,
-                }}>RG</span>
-                <input value={rg} onChange={e => setRg(e.target.value)}
-                  placeholder="0000000" style={campoStyle} />
-              </label>
-            )}
-          </div>
-        )}
+        {/* Com QUAL documento ela está assinando. Fica fora do corpo do
+            contrato, que rola, para não depender de ela ter chegado ao fim do
+            texto para enxergar isto. */}
+        <div style={{
+          padding: '12px 24px 0',
+          fontSize: 12, color: 'var(--muted, #999)', lineHeight: 1.5,
+        }}>
+          Assinando como <strong style={{ color: 'var(--ink, #2b2b2b)' }}>
+            {profile?.nome}
+          </strong>, {identificacao}.
+        </div>
+
+        <label style={{
+          display: 'flex', alignItems: 'flex-start', gap: 10,
+          padding: '12px 24px 0', cursor: 'pointer',
+          touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent',
+        }}>
+          <input
+            type="checkbox"
+            checked={concordou}
+            onChange={e => setConcordou(e.target.checked)}
+            style={{ width: 18, height: 18, marginTop: 1, flexShrink: 0, cursor: 'pointer' }}
+          />
+          <span style={{ fontSize: 13, color: 'var(--ink, #2b2b2b)', lineHeight: 1.45 }}>
+            Li e concordo com os termos
+          </span>
+        </label>
 
         {erro && (
           <div style={{
@@ -233,25 +229,20 @@ export default function ContratoEssentia({ children }) {
               WebkitTapHighlightColor: 'transparent',
               userSelect: 'none',
             }}>
-            {aceitando ? 'Registrando...' : 'Li e aceito o contrato'}
+            {aceitando ? 'Registrando...' : 'Confirmar assinatura'}
           </button>
           <div style={{
             fontSize: 11, color: 'var(--muted, #999)',
             textAlign: 'center', marginTop: 8, lineHeight: 1.4,
           }}>
+            {/* O ramo de baixo só existe para a caixa desmarcada: sem documento
+                no cadastro esta tela nem chega a ser montada. */}
             {podeAceitar
-              ? 'Em caso de dúvida, fale com sua nutricionista antes de aceitar.'
-              : 'Informe o RG ou o CPF para poder aceitar.'}
+              ? 'Em caso de dúvida, fale com sua nutricionista antes de confirmar.'
+              : 'Marque "Li e concordo com os termos" para confirmar.'}
           </div>
         </div>
       </div>
     </div>
   );
 }
-
-const campoStyle = {
-  width: '100%', padding: '10px 12px', fontSize: 13,
-  border: '0.5px solid var(--hair, #e6dfd0)', borderRadius: 8,
-  outline: 'none', fontFamily: 'var(--font-sans)',
-  boxSizing: 'border-box',
-};

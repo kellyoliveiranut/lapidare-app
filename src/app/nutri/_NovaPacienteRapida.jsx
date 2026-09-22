@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { callAnthropicComRetry } from '../../lib/anthropic.js';
-import { telefoneValido } from '../../lib/utils.js';
+import { telefoneValido, soDigitos, formatarCpf } from '../../lib/utils.js';
 import { OBJETIVOS } from '../../lib/objetivos.js';
 import { SEXOS, PLANOS, MODALIDADES } from '../../lib/opcoesPaciente.js';
 import DateInput from '../../components/DateInput.jsx';
@@ -98,16 +98,6 @@ function parseJsonDaIa(bruto) {
   } catch {
     return null;
   }
-}
-
-const soDigitos = (s) => String(s ?? '').replace(/\D/g, '');
-
-// Máscara só para exibição/conferência — o banco guarda dígitos puros
-// (ver comment on column public.pacientes.cpf).
-function formatarCpf(bruto) {
-  const d = soDigitos(bruto);
-  if (d.length !== 11) return String(bruto ?? '').trim();
-  return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
 }
 
 export default function NovaPacienteRapida({ nutriId, onClose, onCriada }) {

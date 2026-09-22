@@ -7,6 +7,7 @@ import {
   validarPlano, validarLista, contarItensLista,
   HORARIOS_CONSULTA, HORARIO_CONSULTA_PADRAO, horaConsultaValida,
   dataLocalISO, montarDataHoraISO, partesLocaisISO,
+  soDigitos, formatarCpf,
 } from '../../lib/utils.js';
 import { TEMPLATE_PADRAO } from '../../lib/checkinDefault.js';
 import { mensagemAcesso, mensagemSenhaDefinida } from '../../lib/mensagemAcesso.js';
@@ -587,7 +588,7 @@ export default function PacientePerfil() {
                   continua no arquivo de propósito — para voltar, basta
                   reinserir `· <StatusTermo paciente={paciente} />` aqui. */}
               {paciente.email} · cadastrada em {dataBR(paciente.created_at)}
-              {contratos !== null && <> · <StatusContrato contratos={contratos} /></>}
+              {contratos !== null && <> · <StatusContrato contratos={contratos} paciente={paciente} /></>}
               {/* Colado no "Contrato: nenhum" de propósito: o problema e a ação
                   se leem juntos. Fica FORA do StatusContrato, que é função de
                   apresentação pura — passar um callback para lá o tornaria
@@ -1419,7 +1420,7 @@ function StatusTermo({ paciente }) {
  * pendente esconderia que já houve um assinado; mostrar apenas o assinado
  * esconderia que falta assinar o novo. Os dois fatos importam.
  */
-function StatusContrato({ contratos }) {
+function StatusContrato({ contratos, paciente }) {
   if (contratos === null) return null;          // não é essentia
 
   if (contratos.length === 0) {
@@ -1436,6 +1437,14 @@ function StatusContrato({ contratos }) {
     return (
       <span style={{ color: 'var(--orange)' }}>
         Contrato {versaoDe(primeiro)} aguardando assinatura
+        {/* Sem CPF nem RG a paciente NAO chega a ver o contrato: o gate em
+            components/ContratoEssentia.jsx deixa passar em vez de trancar o
+            app por um campo que ela nao pode preencher. Entao este aviso e o
+            UNICO lugar onde isso aparece. Vermelho, e nao laranja, porque
+            pendente e um passo do fluxo normal e isto esta parado. */}
+        {!(paciente?.cpf || paciente?.rg) && (
+          <span style={{ color: 'var(--red)' }}> · sem CPF/RG no cadastro</span>
+        )}
         {anterior && (
           <span style={{ color: 'var(--text3)' }}>
             {' · anterior '}{versaoDe(anterior)} assinado em {dataBR(anterior.aceito_em)}
@@ -2143,6 +2152,11 @@ function ModalEditarDados({ paciente, onClose, onSaved }) {
     objetivo:   paciente.objetivo   ?? '',
     tipo_plano: paciente.tipo_plano ?? '',
     modalidade: paciente.modalidade ?? '',
+    // CPF entra formatado para leitura e sai como digitos puros no payload
+    // (comment on column public.pacientes.cpf). RG nao leva mascara: varia
+    // por estado e pode conter letra, entao mascara rejeitaria RG legitimo.
+    cpf:        formatarCpf(paciente.cpf ?? ''),
+    rg:         paciente.rg ?? '',
   });
   const [nascInput, setNascInput] = useState(isoParaBR(paciente.nascimento));
   const [erroNasc, setErroNasc]   = useState(null);
@@ -2168,6 +2182,15 @@ function ModalEditarDados({ paciente, onClose, onSaved }) {
     if (!form.nome.trim()) return setErro('Nome é obrigatório.');
     const { iso: nascISO, erro: nascErro } = parseBrData(nascInput);
     if (nascErro) { setErroNasc(nascErro); setErro(nascErro); return; }
+    // As colunas nao tem CHECK e este caminho grava direto em `pacientes`,
+    // sem passar por RPC nenhuma — esta validacao e a unica barreira. Um CPF
+    // pela metade salvo aqui vira documento quebrado dentro de um contrato
+    // assinado, via formatar_cpf no banco.
+    const cpfDigitos = soDigitos(form.cpf);
+    if (cpfDigitos && cpfDigitos.length !== 11) {
+      return setErro('CPF precisa ter 11 dígitos, ou deixe o campo em branco.');
+    }
+
     // Mesma disciplina do cadastro (Cadastrar.jsx:208): plano Essentia sem
     // valor não passa. Salvar o plano e avisar "contrato não criado" recriaria
     // exatamente o buraco que esta mudança existe para fechar.
@@ -2200,6 +2223,8 @@ function ModalEditarDados({ paciente, onClose, onSaved }) {
         objetivo:   form.objetivo      || null,
         tipo_plano: form.tipo_plano    || null,
         modalidade: form.modalidade    || null,
+        cpf:        cpfDigitos         || null,
+        rg:         form.rg.trim()     || null,
       }).eq('id', paciente.id);
       if (error) throw error;
 
@@ -2300,6 +2325,32 @@ function ModalEditarDados({ paciente, onClose, onSaved }) {
             {erroNasc && (
               <div style={{ fontSize: 11, color: 'var(--red, #dc2626)', marginTop: 3 }}>{erroNasc}</div>
             )}
+          </div>
+
+          {/* Documento. Fica junto do nascimento porque e bloco de identidade,
+              e e daqui que o contrato Essentia tira o "portador do CPF nº".
+              Antes disto, o documento so entrava pelo cadastro rapido, pelo CSV
+              (que nem traz RG) ou pela propria paciente digitando na hora de
+              assinar — nao havia onde corrigir depois. */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label className="field-label">CPF</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                placeholder="000.000.000-00"
+                value={form.cpf}
+                onChange={set('cpf')}
+                onBlur={e => setForm(f => ({ ...f, cpf: formatarCpf(e.target.value) }))}
+              />
+            </div>
+            <div>
+              <label className="field-label">RG</label>
+              <input type="text" value={form.rg} onChange={set('rg')} />
+              <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 3 }}>
+                Como está no documento — pode ter letra.
+              </div>
+            </div>
           </div>
 
           {/* Sexo decide a variação do check-in (src/lib/checkinVariacao.js):

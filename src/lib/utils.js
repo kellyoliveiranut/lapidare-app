@@ -645,3 +645,19 @@ export function ehMesmoDia(a, b) {
       && a.getMonth() === b.getMonth()
       && a.getDate() === b.getDate();
 }
+
+// Documento da paciente. A mascara e so para exibicao e conferencia: o banco
+// guarda digitos puros (comment on column public.pacientes.cpf). Mora aqui, e
+// nao dentro de uma tela, porque DOIS caminhos gravam CPF -- o cadastro rapido
+// e o modal de editar dados do perfil -- e duas copias divergiriam.
+//
+// Nao existe equivalente para RG de proposito: ele e emitido por estado, pode
+// conter letra e nao tem formato nacional, entao qualquer mascara rejeitaria
+// RG legitimo (ver a migration 2026-08-08d_pacientes_cpf_rg.sql).
+export const soDigitos = (s) => String(s ?? '').replace(/[^0-9]/g, '');
+
+export function formatarCpf(bruto) {
+  const d = soDigitos(bruto);
+  if (d.length !== 11) return String(bruto ?? '').trim();
+  return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
+}
