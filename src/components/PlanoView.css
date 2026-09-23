@@ -60,7 +60,8 @@
   color: var(--muted);
 }
 
-/* ── REFEIÇÕES ── */
+/* ── REFEIÇÕES ──
+   Cor por tipo chega em --ref-cor / --ref-soft (inline, do PlanoView). */
 .plano-view-scope .refeicao-card {
   margin: 0 0 10px;
   background: var(--paper);
@@ -71,26 +72,100 @@
     0 1px 2px rgba(28, 23, 18, .04),
     0 4px 16px rgba(28, 23, 18, .04);
 }
+.plano-view-scope .refeicao-card.is-momento {
+  border-color: var(--ref-cor);
+  box-shadow: 0 0 0 1px var(--ref-cor), 0 4px 16px rgba(28, 23, 18, .08);
+}
 
 .plano-view-scope .refeicao-header {
-  background: var(--ink);
+  background: var(--ref-soft);
   padding: 10px 16px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 10px;
 }
+.plano-view-scope .refeicao-icone {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--paper);
+  color: var(--ref-cor);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+}
+.plano-view-scope .refeicao-info { flex: 1; min-width: 0; }
 .plano-view-scope .refeicao-titulo {
   font-family: var(--font-serif);
   font-size: 16px;
-  color: var(--bg-soft);
+  color: var(--ink);
+}
+.plano-view-scope .refeicao-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 3px;
+}
+.plano-view-scope .refeicao-etiqueta {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--ref-cor);
+  background: var(--paper);
+  border: 0.5px solid var(--ref-cor);
+  border-radius: 20px;
+  padding: 1px 8px;
+  font-variant-numeric: tabular-nums;
+}
+.plano-view-scope .refeicao-agora {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--paper);
+  background: var(--ref-cor);
+  border-radius: 20px;
+  padding: 2px 8px;
 }
 .plano-view-scope .refeicao-kcal {
   font-size: 11px;
-  color: var(--gold-soft);
+  color: var(--muted);
+  flex-shrink: 0;
 }
-.plano-view-scope .refeicao-horario {
-  font-size: 10px;
-  color: var(--muted-2);
+
+/* ── TROCA INLINE ── */
+.plano-view-scope .alimento-lado {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.plano-view-scope .alimento-troca {
+  width: 44px;                         /* alvo de toque */
+  height: 44px;
+  margin: -10px -12px -10px 0;         /* sem engordar a linha */
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--gold-deep);
+  font-size: 17px;
+  border-radius: 50%;
+}
+.plano-view-scope .alimento-troca.is-aberto {
+  color: var(--ref-cor);
+  background: var(--ref-soft);
+}
+.plano-view-scope .alimento-subs {
+  padding: 4px 16px 8px 22px;
+  background: var(--bg-soft);
+  border-bottom: 0.5px solid var(--hair-soft);
 }
 
 .plano-view-scope .alimento-row {

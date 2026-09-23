@@ -248,14 +248,6 @@ body:has(.paciente-app) {
   border-radius: 14px;
   overflow: hidden;
 }
-.paciente-app .refeicao-header {
-  background: var(--ink);
-  padding: 10px 16px;
-  display: flex; align-items: center; justify-content: space-between;
-}
-.paciente-app .refeicao-titulo { font-family: var(--font-serif); font-size: 16px; color: var(--bg-soft); }
-.paciente-app .refeicao-kcal { font-size: 11px; color: var(--gold-soft); }
-.paciente-app .refeicao-horario { font-size: 10px; color: var(--muted-2); }
 .paciente-app .alimento-row {
   display: flex; align-items: center; justify-content: space-between;
   padding: 9px 16px; border-bottom: 0.5px solid var(--hair-soft);
