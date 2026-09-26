@@ -6,6 +6,7 @@ import { useTheme } from '../lib/theme.jsx';
 import { supabase } from '../lib/supabase.js';
 import { iniciais, diasAte, horaConsultaBR } from '../lib/utils.js';
 import { ativarNotificacoes } from '../lib/push.js';
+import { bloqueadoNoPlano } from '../lib/planoPaciente.js';
 import '../styles/paciente.css';
 
 const TABS = [
@@ -18,6 +19,9 @@ const TABS = [
 ];
 
 const MAIS_ITEMS = [
+  // Primeiro da lista: é o mapa do acompanhamento. Só do Essentia — para a
+  // Avulsa aparece com cadeado (fora de AVULSA_ALLOWED).
+  { path: '/paciente/jornada',     icon: 'route',           label: 'Minha jornada',      sub: 'Seu plano e suas consultas' },
   { path: '/paciente/checkins',    icon: 'clipboard-check', label: 'Check-ins',          sub: 'Formulários da Dra.' },
   { path: '/paciente/progresso',   icon: 'trending-up',     label: 'Progresso',          sub: 'Evolução e medidas' },
   { path: '/paciente/compras',     icon: 'shopping-cart',   label: 'Lista de compras',   sub: 'Lista da semana' },
@@ -28,22 +32,7 @@ const MAIS_ITEMS = [
   { path: '/paciente/exames',      icon: 'test-pipe',       label: 'Exames',             sub: 'Solicitações da Dra.' },
 ];
 
-// Paths acessíveis no plano Avulsa — todo o resto fica bloqueado
-const AVULSA_ALLOWED = new Set([
-  '/paciente/inicio',
-  '/paciente/plano',
-  '/paciente/feed',
-  '/paciente/habitos',
-  '/paciente/compras',
-  '/paciente/progresso',
-  '/paciente/suplementos',
-  '/paciente/ebooks',
-  '/paciente/avaliacao',
-  // Solicitação de exames vale para TODA paciente, independente do plano — foi
-  // requisito explícito. Esta lista é ALLOWLIST: esquecer a linha não deixa a
-  // tela "meio acessível", deixa a avulsa levando redirect com toast.
-  '/paciente/exames',
-]);
+// A lista do que a Avulsa acessa (AVULSA_ALLOWED) mora em lib/planoPaciente.js.
 
 const HEADERS = {
   '/paciente/inicio':       (nome) => { const h = new Date().getHours(); const s = h < 5 || h >= 18 ? 'Boa noite' : h < 12 ? 'Bom dia' : 'Boa tarde'; return { eyebrow: 'Essentia', title: `${s}, ${nome}` }; },
@@ -60,6 +49,7 @@ const HEADERS = {
   '/paciente/monitoramento-oncologico': ()                => ({ eyebrow: 'Check-in diário',      title: 'Como você está hoje?',        subtitle: 'Leva menos de 2 minutos' }),
   '/paciente/avaliacao':                ()                => ({ eyebrow: 'Avaliação física',    title: 'Sua avaliação' }),
   '/paciente/exames':                   ()                => ({ eyebrow: 'Exames',              title: 'Solicitações',                subtitle: 'Documentos para levar ao laboratório' }),
+  '/paciente/jornada':                  ()                => ({ eyebrow: 'Acompanhamento',      title: 'Minha jornada' }),
 };
 
 export default function PacienteLayout() {
@@ -85,13 +75,7 @@ export default function PacienteLayout() {
 
   const tabs = profile?.objetivo === 'Oncologia' ? TABS : TABS.filter(t => t.id !== 'tratamento');
 
-  const isBlocked = (path) => {
-    if (!path) return false;
-    // Normaliza na leitura: protege mesmo se alguma linha escapar capitalizada
-    // ou com espaço. A lógica é negativa — qualquer valor != 'avulsa' libera tudo.
-    if (profile?.tipo_plano?.trim().toLowerCase() !== 'avulsa') return false;
-    return !AVULSA_ALLOWED.has(path);
-  };
+  const isBlocked = (path) => bloqueadoNoPlano(profile, path);
 
   function handleBlocked() {
     setLockToast(true);
@@ -428,7 +412,7 @@ export default function PacienteLayout() {
           {tabs.map(t => {
             const active = t.path
               ? location.pathname === t.path
-              : ['/paciente/checkins', '/paciente/progresso', '/paciente/compras', '/paciente/suplementos', '/paciente/ebooks', '/paciente/chat', '/paciente/treinos'].includes(location.pathname);
+              : ['/paciente/jornada', '/paciente/checkins', '/paciente/progresso', '/paciente/compras', '/paciente/suplementos', '/paciente/ebooks', '/paciente/chat', '/paciente/treinos'].includes(location.pathname);
             const blocked = isBlocked(t.path);
 
             if (!t.path) {

@@ -7,6 +7,8 @@ import { textoDias, dataConsultaBR, horaConsultaBR, diasAte, gerarGoogleCalendar
 import { cumpriuHabito } from './_HabitosHoje.jsx';
 import { escolherDaSemana } from '../../lib/rotacaoMensagens.js';
 import { iniciarTokenPush, avisarNutri } from '../../lib/push.js';
+import { useJornada, ehEssentia } from '../../lib/useJornada.js';
+import { CardJornadaResumo } from './_Jornada.jsx';
 
 
 const DIAS_SEG = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
@@ -111,6 +113,11 @@ export default function Inicio() {
   const [todosLogs, setTodosLogs] = useState([]);      // 30 dias — pra streak
   const [mensagemCiclo, setMensagemCiclo] = useState(null);
   const [monHoje, setMonHoje] = useState(null);        // { id, disposicao } do monitoramento
+  // Card da jornada: critério ESTRITO, só tipo_plano 'essentia' (Kelly,
+  // 2026-09-25). A tela /paciente/jornada usa o critério negativo do layout;
+  // aqui, plano nulo ou inesperado não ganha card. A atualização (volta ao
+  // app, sem realtime) mora no hook.
+  const { jornada } = useJornada(pacienteId, ehEssentia(profile));
 
   useEffect(() => {
     let active = true;
@@ -634,6 +641,11 @@ export default function Inicio() {
           </div>
         );
       })()}
+
+      {/* 1c — Jornada Essentia: logo abaixo da consulta, que é o passo que
+          ela acompanha. Some sozinho sem jornada (não Essentia, carregando,
+          erro ou pacote vazio) — ver CardJornadaResumo. */}
+      <CardJornadaResumo jornada={jornada} onAbrir={() => navigate('/paciente/jornada')} />
 
       {/* 2 — Banner motivacional */}
       {mensagemCiclo && (
