@@ -8,9 +8,9 @@ import ImportarCsv from './_ImportarCsv.jsx';
 
 // Seções da lista, na ordem em que aparecem na tela.
 const SECOES_PLANO = [
-  { id: 'avulsa',  titulo: 'Avulsa' },
   { id: 'onco',    titulo: 'Essentia · Oncologia' },
   { id: 'emagrec', titulo: 'Essentia · Emagrecimento' },
+  { id: 'avulsa',  titulo: 'Avulsa' },
 ];
 
 // Particionamento EXAUSTIVO: todo caminho devolve uma das três chaves, então a
