@@ -17,6 +17,7 @@ import { SEXOS, PLANOS } from '../../lib/opcoesPaciente.js';
 // jsPDF, que continua atras do import dinamico dentro do criarDocumento().
 import { gerarPDFPlano } from '../../lib/pdfPlano.js';
 import { baixarBlob, nomeArquivoPdf } from '../../lib/pdfBase.js';
+import { gerarPdfContrato } from '../../lib/pdfContrato.js';
 import { perguntasParaPaciente } from '../../lib/checkinVariacao.js';
 import { ehFeriado } from '../../lib/feriados.js';
 import { verificarAgenda, textoImpedimentos, textoConfirmacao } from '../../lib/agendaConflitos.js';
@@ -590,9 +591,11 @@ export default function PacientePerfil() {
               {paciente.email} · cadastrada em {dataBR(paciente.created_at)}
               {contratos !== null && <> · <StatusContrato contratos={contratos} paciente={paciente} /></>}
               {/* Colado no "Contrato: nenhum" de propósito: o problema e a ação
-                  se leem juntos. Fica FORA do StatusContrato, que é função de
-                  apresentação pura — passar um callback para lá o tornaria
-                  outra coisa.
+                  se leem juntos. Fica FORA do StatusContrato porque:
+                  lá dentro só mora o que se resolve sozinho (o "Baixar PDF"
+                  busca e baixa sem avisar ninguém); criar contrato abre modal
+                  e recarrega o perfil, e passar esse callback para lá o
+                  tornaria outra coisa.
                   `contratos?.length === 0` é exatamente "é essentia E não tem
                   contrato nenhum": null = não é essentia, [] = essentia sem
                   contrato, [...] = já tem. Quem já assinou não vê o botão.
@@ -1419,8 +1422,20 @@ function StatusTermo({ paciente }) {
  * aceitos (índice parcial só limita o PENDENTE a um). Mostrar apenas o
  * pendente esconderia que já houve um assinado; mostrar apenas o assinado
  * esconderia que falta assinar o novo. Os dois fatos importam.
+ *
+ * O "Baixar PDF" sai só onde existe contrato ASSINADO: no assinado, ele mesmo;
+ * na renovação, o anterior (é o que vale até o novo ser assinado). O
+ * texto_html NÃO vem na query do perfil — é o contrato inteiro, e a lista de
+ * contratos carrega em toda abertura de perfil. Ele é buscado só no clique.
+ *
+ * Os hooks ficam ANTES do `return null` e de todo return antecipado, mesmo
+ * cuidado do ContratoEssentia.jsx: `contratos` muda de null para lista quando
+ * o perfil recarrega, e hook depois de return quebraria o React nessa troca.
  */
 function StatusContrato({ contratos, paciente }) {
+  const [baixando, setBaixando] = useState(false);
+  const [erroPdf, setErroPdf] = useState(null);
+
   if (contratos === null) return null;          // não é essentia
 
   if (contratos.length === 0) {
@@ -1429,6 +1444,56 @@ function StatusContrato({ contratos, paciente }) {
 
   const versaoDe = (c) => (c?.template?.versao ? `v${c.template.versao}` : 'sem versão');
   const [primeiro, ...resto] = contratos;
+
+  async function baixarPdf(c) {
+    setBaixando(true);
+    setErroPdf(null);
+    try {
+      const { data, error } = await supabase
+        .from('contratos_essentia')
+        .select('texto_html, aceito_em')
+        .eq('id', c.id)
+        .single();
+      if (error) throw error;
+      // aceito_em vem da MESMA leitura do texto, e não da lista do perfil:
+      // o carimbo impresso e o texto impresso saem da mesma linha, lida junta.
+      const { blob, nomeArquivo } = await gerarPdfContrato({
+        textoHtml: data.texto_html,
+        aceitoEm: data.aceito_em,
+        pacienteNome: paciente?.nome,
+        contratoId: c.id,
+        dataEmissao: new Date().toLocaleDateString('pt-BR'),
+      });
+      baixarBlob(blob, nomeArquivo);
+    } catch (e) {
+      // A guarda do pdfContrato lança com frase em português (texto fora de
+      // h2/h3/p, contrato não aceito); erro de rede/RLS vem do supabase.
+      setErroPdf(e?.message || 'Não foi possível gerar o PDF.');
+    } finally {
+      setBaixando(false);
+    }
+  }
+
+  const botaoPdf = (c) => (
+    <>
+      <button
+        onClick={() => baixarPdf(c)}
+        disabled={baixando}
+        title={`Baixar o contrato ${versaoDe(c)} assinado em ${dataBR(c.aceito_em)}`}
+        style={{
+          marginLeft: 8,
+          background: 'none', border: '0.5px solid var(--border)',
+          borderRadius: 6, padding: '3px 9px', fontSize: 11,
+          color: 'var(--text3)', cursor: baixando ? 'default' : 'pointer',
+          fontFamily: 'var(--font-sans)',
+          display: 'inline-flex', alignItems: 'center', gap: 4,
+        }}>
+        <i className="ti ti-download" style={{ fontSize: 12 }} aria-hidden="true" />
+        {baixando ? 'Gerando…' : 'Baixar PDF'}
+      </button>
+      {erroPdf && <span style={{ color: 'var(--red)' }}> · {erroPdf}</span>}
+    </>
+  );
 
   if (!primeiro.aceito_em) {
     // Pendente. Se houver um aceito atrás dele, é renovação — e o anterior
@@ -1448,6 +1513,7 @@ function StatusContrato({ contratos, paciente }) {
         {anterior && (
           <span style={{ color: 'var(--text3)' }}>
             {' · anterior '}{versaoDe(anterior)} assinado em {dataBR(anterior.aceito_em)}
+            {botaoPdf(anterior)}
           </span>
         )}
       </span>
@@ -1459,6 +1525,7 @@ function StatusContrato({ contratos, paciente }) {
   return (
     <span title={completo ? `Assinado em ${completo}` : undefined}>
       Contrato {versaoDe(primeiro)} assinado em {dataBR(primeiro.aceito_em)}
+      {botaoPdf(primeiro)}
     </span>
   );
 }
