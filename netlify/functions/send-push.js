@@ -86,7 +86,7 @@ exports.handler = async (event) => {
       };
       const payload = NUTRI_PAYLOADS[body.kind] ?? NUTRI_PAYLOADS.mensagem;
 
-      return await enviarParaUsuario(supabase, paciente.nutri_id, payload);
+      return await enviarParaUsuario(supabase, paciente.nutri_id, payload, body.kind);
     }
 
     // === Modo: notify_paciente (nutri → paciente) ===
@@ -117,7 +117,7 @@ exports.handler = async (event) => {
       };
 
       const payload = PAYLOADS[kind] ?? PAYLOADS.mensagem;
-      return await enviarParaUsuario(supabase, paciente.user_id, payload);
+      return await enviarParaUsuario(supabase, paciente.user_id, payload, kind);
     }
 
     // === Modo: enviar_link_avaliacao (nutri → paciente, link do Shaped) ===
@@ -189,7 +189,7 @@ exports.handler = async (event) => {
         title: 'Essentia',
         body: 'Sua nutricionista te enviou o link para realizar a avaliação física.',
         url: '/paciente/avaliacao',
-      });
+      }, 'link_avaliacao');
 
       // `registrado: true` é o que deixa a tela da nutri parar de tratar
       // enviados:0 como fracasso — sem push o link continua entregue.
@@ -210,7 +210,7 @@ exports.handler = async (event) => {
       return { statusCode: 403, body: JSON.stringify({ error: 'Não autorizado a enviar para outro usuário.' }) };
     }
 
-    return await enviarParaUsuario(supabase, user_id, payload);
+    return await enviarParaUsuario(supabase, user_id, payload, 'self');
 
   } catch (err) {
     console.error('send-push unhandled error:', err);
@@ -225,7 +225,9 @@ exports.handler = async (event) => {
   }
 };
 
-async function enviarParaUsuario(supabase, userId, payload) {
+// `kind` só vai para o log: o payload já chega montado. É o kind PEDIDO, não o
+// resolvido — um kind desconhecido que caiu em "mensagem" aparece com o nome real.
+async function enviarParaUsuario(supabase, userId, payload, kind) {
   const { data: rows, error: dbError } = await supabase
     .from('push_subscriptions')
     .select('endpoint, subscription')
@@ -236,6 +238,7 @@ async function enviarParaUsuario(supabase, userId, payload) {
   }
 
   if (!rows || rows.length === 0) {
+    console.log(JSON.stringify({ evt: 'send-push', kind, inscricoes: 0, enviados: 0, removidos: 0, falhas: 0 }));
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'application/json' },
@@ -261,6 +264,8 @@ async function enviarParaUsuario(supabase, userId, payload) {
       }
     }),
   );
+
+  console.log(JSON.stringify({ evt: 'send-push', kind, inscricoes: rows.length, enviados, removidos, falhas }));
 
   return {
     statusCode: 200,
