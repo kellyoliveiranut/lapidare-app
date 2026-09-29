@@ -52,7 +52,12 @@ export async function ativarNotificacoes() {
     },
     { onConflict: 'endpoint', count: 'exact' }
   );
-  if (error) throw new Error('Erro ao salvar assinatura: ' + error.message);
+  // O final do endpoint vai na mensagem porque o conflito do upsert pode cair
+  // numa linha de OUTRA conta, invisível para esta pelo RLS: sem esse trecho na
+  // tela não há como achar no banco qual linha está prendendo este aparelho.
+  if (error) throw new Error(
+    'Erro ao salvar assinatura (endpoint …' + subscription.endpoint.slice(-12) + '): ' + error.message
+  );
   // count === 0 é gravação bloqueada sem erro. count === null é só o header de
   // contagem ausente: não prova nada, e tratar como falha daria alarme falso.
   if (count === 0) {
