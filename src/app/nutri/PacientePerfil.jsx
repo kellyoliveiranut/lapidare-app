@@ -1620,7 +1620,10 @@ function MenuSenha({ paciente, onEnviarEmail }) {
     setBusy(true);
     try {
       const r = await chamar('atualizar_email');
-      setDiag(d => ({ ...d, email_login: r.email_login, divergente: false }));
+      setDiag(d => ({
+        ...d, email_login: r.email_login, divergente: false,
+        sintetico: !!r.email_login && r.email_login.endsWith('@essentia.local'),
+      }));
       alert(r.inalterado
         ? 'O e-mail de login já era esse.'
         : `Pronto. O login de ${paciente.nome} agora é ${r.email_login}.`);

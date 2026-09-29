@@ -91,8 +91,15 @@ exports.handler = async (event) => {
     // Conta de cadastro manual: o e-mail do auth é derivado do token de convite
     // (ver SignupPaciente.jsx). Nunca recebeu e nunca vai receber e-mail.
     const sintetico = !!emailLogin && emailLogin.endsWith('@essentia.local');
-    const divergente = !!emailLogin && !sintetico
-      && emailLogin.toLowerCase() !== (paciente.email ?? '').toLowerCase();
+    // Divergência = a ficha tem um e-mail REAL que não é o do login. O login
+    // sintético não fica de fora: é justamente o caso de quem foi cadastrada sem
+    // e-mail e ganhou um depois. O que fica de fora é a ficha sem e-mail real,
+    // porque aí não há para onde alinhar. Normalizado igual ao `novo` do
+    // atualizar_email, para o botão aparecer só quando o servidor tem o que fazer.
+    const emailCadastro = (paciente.email ?? '').trim().toLowerCase();
+    const cadastroReal = !!emailCadastro && !emailCadastro.endsWith('@essentia.local');
+    const divergente = !!emailLogin && cadastroReal
+      && emailLogin.toLowerCase() !== emailCadastro;
 
     if (acao === 'diagnostico') {
       return json(200, {
