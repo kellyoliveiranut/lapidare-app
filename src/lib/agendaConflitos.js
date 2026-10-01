@@ -7,20 +7,19 @@
  * (reguaDoDia.js, distribuirEmFaixas) — o conflito sempre foi visível na tela
  * e nunca foi impedido na gravação.
  *
- * DUAS SEVERIDADES, de propósito:
- *   impedimentos → travam o salvamento: feriado, fim de semana e bloqueio.
- *   avisos       → pedem confirmação: conflito com outra paciente.
- * A diferença é de natureza. Bloqueio e feriado são regra que a nutri já
- * decidiu; conflito é situação, e encaixar uma consulta rápida em cima de
- * outra é legítimo. Trava rígida no conflito seria contornada apagando a
- * outra consulta, o que é bem pior do que confirmar um diálogo.
+ * DUAS SEVERIDADES, por quem é a outra consulta (decisão de 2026-09-29):
+ *   impedimentos → travam: feriado, fim de semana, bloqueio, duração inválida
+ *                  e conflito com OUTRA paciente. Até 2026-09-29 este último
+ *                  era aviso, para permitir encaixe; a Kelly decidiu travar,
+ *                  sabendo que isso tira o encaixe intencional.
+ *   avisos       → pedem confirmação: conflito com a PRÓPRIA paciente, seja
+ *                  entre as candidatas (as seis do pacote) ou com uma consulta
+ *                  dela já gravada.
  *
- * IMPEDIMENTO É { tipo, texto }, E AVISO É STRING. A assimetria é de
- * propósito: a tela AGE diferente conforme o tipo do impedimento — ao editar
- * uma consulta sem mudar a data, feriado e fim de semana são perdoados
- * (senão não dava para trocar o local de uma consulta antiga de sábado), mas
- * bloqueio nunca é. Filtrar isso pelo conteúdo do texto seria frágil. Aviso
- * só tem um tipo, então não carrega um rótulo que ninguém leria.
+ * IMPEDIMENTO É { tipo, texto }, E AVISO É STRING. tipo em
+ * 'feriado' | 'fds' | 'bloqueio' | 'duracao' | 'conflito'. A tela AGE
+ * diferente conforme o tipo ao editar (ver impedimentosQueTravam); filtrar
+ * pelo texto seria frágil. Aviso só tem um tipo, então não carrega rótulo.
  *
  * `supabase` VEM POR PARÂMETRO, e não por import no topo como em push.js e
  * imagem.js. Assim este arquivo não arrasta o cliente para quem só quer a
@@ -127,6 +126,30 @@ export function textoConfirmacao(avisos) {
 }
 
 /**
+ * Dos impedimentos, quais travam o salvamento no modal da Agenda.
+ *
+ * - bloqueio e duracao: sempre travam.
+ * - conflito: trava quando o HORÁRIO muda (data, hora, duração) ou quando a
+ *   consulta sai de 'cancelada'. Editar só a obs ou o local de uma consulta que
+ *   já colidia antes da regra não trava: a colisão é legada, não criada agora.
+ *   Salvar como 'cancelada' nunca trava por conflito.
+ * - feriado/fds: perdoados ao editar sem mudar a data (consulta antiga de
+ *   sábado precisa poder trocar de local).
+ */
+export function impedimentosQueTravam(impedimentos, { isEdit, inicial, atual }) {
+  const mudouData = !isEdit || atual.data !== inicial.data;
+  const mudouHorario = mudouData
+    || atual.hora !== inicial.hora
+    || Number(atual.duracao) !== Number(inicial.duracao)
+    || inicial.status === 'cancelada';
+  return impedimentos.filter(i => {
+    if (i.tipo === 'bloqueio' || i.tipo === 'duracao') return true;
+    if (i.tipo === 'conflito') return atual.status !== 'cancelada' && mudouHorario;
+    return mudouData;
+  });
+}
+
+/**
  * Verifica uma ou várias consultas candidatas contra feriado, fim de semana,
  * bloqueio e consultas já agendadas.
  *
@@ -137,11 +160,16 @@ export function textoConfirmacao(avisos) {
  * `ignorarIds` são as consultas a desconsiderar. Ao editar, a própria linha
  * sempre "conflitaria" consigo mesma.
  *
+ * `pacienteId` é de quem são as candidatas. Separa o conflito com outra
+ * paciente (trava) do conflito com a própria (avisa). Sem ele, todo conflito
+ * conta como outra paciente: na dúvida, o lado seguro é travar.
+ *
  * Devolve { impedimentos: [{ tipo, texto }], avisos: [string] },
- * com tipo em 'feriado' | 'fds' | 'bloqueio'.
+ * com tipo em 'feriado' | 'fds' | 'bloqueio' | 'duracao' | 'conflito'.
  */
 export async function verificarAgenda(supabase, {
   nutriId,
+  pacienteId = null,
   itens,
   ignorarIds = [],
   permitirFds = false,
@@ -164,6 +192,15 @@ export async function verificarAgenda(supabase, {
     }
   }
 
+  // 1b. Duração. Intervalo de tamanho zero não cruza nada (intervalosSeCruzam
+  //     é meio-aberto), então uma duração vazia desligaria a trava de
+  //     conflito em silêncio. Nenhuma tela manda isso hoje; aqui fica o piso.
+  for (const it of validos) {
+    if (!(Number(it.duracaoMin) > 0)) {
+      impedimentos.push({ tipo: 'duracao', texto: 'Escolha a duração da consulta.' });
+    }
+  }
+
   const datas = [...new Set(validos.map(i => i.data))].sort();
 
   // 2. Bloqueios. A coluna é `date`, então .in() por data resolve.
@@ -182,15 +219,15 @@ export async function verificarAgenda(supabase, {
     }
   }
 
-  // 3. Consultas já agendadas. data_hora é timestamptz e não aceita .in() por
-  //    dia: janela de um dia a mais em cada ponta, barata, e cobre a consulta
-  //    que começa perto da virada.
+  // 3. Consultas já agendadas. Outra paciente TRAVA; a própria só AVISA.
+  //    data_hora é timestamptz e não aceita .in() por dia: janela de um dia a
+  //    mais em cada ponta, barata, e cobre a consulta que começa perto da virada.
   const de  = new Date(new Date(montarDataHoraISO(datas[0], '00:00')).getTime() - MS_DIA);
   const ate = new Date(new Date(montarDataHoraISO(datas[datas.length - 1], '23:30')).getTime() + MS_DIA);
 
   const { data: existentes, error: errCons } = await supabase
     .from('consultas')
-    .select('id, data_hora, duracao_min, paciente:pacientes(nome)')
+    .select('id, paciente_id, data_hora, duracao_min, paciente:pacientes(nome)')
     .eq('nutri_id', nutriId)
     .neq('status', 'cancelada')
     .not('data_hora', 'is', null)
@@ -206,14 +243,18 @@ export async function verificarAgenda(supabase, {
       if (ignorar.has(c.id)) continue;
       const p = partesLocaisISO(c.data_hora);
       if (!intervalosSeCruzam(alvo, intervaloConsulta(p.data, p.hora, c.duracao_min))) continue;
-      avisos.push(
-        `${c.paciente?.nome ?? 'Outra paciente'} já tem consulta em ${dataBR(p.data)}, ` +
-        `das ${p.hora} às ${horaMais(p.hora, c.duracao_min)}.`
-      );
+      const faixa = `${dataBR(p.data)}, das ${p.hora} às ${horaMais(p.hora, c.duracao_min)}`;
+      if (pacienteId && c.paciente_id === pacienteId) {
+        avisos.push(`Esta paciente já tem outra consulta em ${faixa}.`);
+      } else {
+        impedimentos.push({ tipo: 'conflito', texto:
+          `${c.paciente?.nome ?? 'Outra paciente'} já tem consulta em ${faixa}. Escolha outro horário.` });
+      }
     }
   }
 
-  // 4. Os candidatos entre si — a colisão que o pacote de 6 nunca viu.
+  // 4. Os candidatos entre si — a colisão que o pacote de 6 nunca viu. Todos
+  //    são da mesma paciente, então fica como aviso.
   for (let i = 0; i < validos.length; i++) {
     for (let j = i + 1; j < validos.length; j++) {
       const a = validos[i], b = validos[j];

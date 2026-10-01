@@ -845,6 +845,7 @@ export default function PacientePerfil() {
           labelTipo={labelTipoConsulta(definirDataConsulta.tipo)}
           dataHoraInicial={definirDataConsulta.data_hora}
           nutriId={user?.id}
+          pacienteId={id}
           consultaId={definirDataConsulta.id}
           duracaoMin={definirDataConsulta.duracao_min ?? 30}
           onClose={() => setDefinirDataConsulta(null)}
@@ -6935,6 +6936,7 @@ function ModalAgendarAcompanhamento({ pacienteId, nutriId, consultaAtiva, onClos
       try {
         const { impedimentos, avisos } = await verificarAgenda(supabase, {
           nutriId,
+          pacienteId,
           // Sem rotulo: o padrão do módulo é "Consulta N", que casa com a
           // ordem das seis linhas do formulário. O labelTipoConsulta daqui
           // não serve — ele vive dentro do componente PacientePerfil, e este
@@ -7110,6 +7112,7 @@ function ModalAgendarAvulsa({ pacienteId, nutriId, onClose, onSalvo }) {
       try {
         const { impedimentos, avisos } = await verificarAgenda(supabase, {
           nutriId,
+          pacienteId,
           itens: [{ data, hora, duracaoMin: duracao }],
         });
         if (impedimentos.length) {
@@ -7219,7 +7222,7 @@ function ModalAgendarAvulsa({ pacienteId, nutriId, onClose, onSalvo }) {
 
 // ─── Modal: Definir data de uma consulta "a definir" ─────────────────────────
 function ModalDefinirData({
-  labelTipo, dataHoraInicial = null, nutriId, consultaId, duracaoMin = 30,
+  labelTipo, dataHoraInicial = null, nutriId, pacienteId, consultaId, duracaoMin = 30,
   onClose, onSalvar,
 }) {
   const seed = dataHoraInicial ? partesLocaisISO(dataHoraInicial) : null;
@@ -7244,6 +7247,7 @@ function ModalDefinirData({
       // outros três caminhos travavam. Agora é a mesma regra dos outros.
       const { impedimentos, avisos } = await verificarAgenda(supabase, {
         nutriId,
+        pacienteId,
         itens: [{ data, hora, duracaoMin }],
         ignorarIds: [consultaId],
       });

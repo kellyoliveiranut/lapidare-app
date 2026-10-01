@@ -5,7 +5,7 @@ import { useSession } from '../../lib/session.jsx';
 import DateInput from '../../components/DateInput.jsx';
 import NovaPacienteRapida from './_NovaPacienteRapida.jsx';
 import { linkConvite, mensagemConviteEncoded } from '../../lib/convite.js';
-import { verificarAgenda, textoImpedimentos, textoConfirmacao, bloqueioCobre } from '../../lib/agendaConflitos.js';
+import { verificarAgenda, textoImpedimentos, textoConfirmacao, bloqueioCobre, impedimentosQueTravam } from '../../lib/agendaConflitos.js';
 import { tipoColor, MODALIDADES_CONSULTA, modalidadeInfo } from '../../lib/consultaVisual.js';
 import ReguaDoDia from './_ReguaDoDia.jsx';
 import { HORARIOS_TAREFA, hhmm } from '../../lib/reguaDoDia.js';
@@ -2733,20 +2733,20 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
       // na tela, não exceção sem dono.
       const { impedimentos, avisos } = await verificarAgenda(supabase, {
         nutriId,
+        // Separa conflito com outra paciente (trava) do conflito com a própria
+        // (avisa).
+        pacienteId,
         itens: [{ data, hora, duracaoMin: Number(duracao) }],
         // Ao editar, a própria consulta sempre "conflitaria" consigo mesma.
         ignorarIds: isEdit ? [consulta.id] : [],
       });
 
-      // Ao EDITAR sem mexer na data, feriado e fim de semana são perdoados:
-      // consulta antiga gravada num sábado existe no banco, e travar o save
-      // impediria trocar o local, a observação ou a duração dela sem antes
-      // mexer na data. BLOQUEIO nunca é perdoado — é regra que a nutri criou e
-      // pode apagar. O conflito é sempre checado, porque mudar só a DURAÇÃO já
-      // cria sobreposição sem a data mudar.
-      const trava = (isEdit && data === initial.data)
-        ? impedimentos.filter(i => i.tipo === 'bloqueio')
-        : impedimentos;
+      // O que perdoar ao EDITAR mora em impedimentosQueTravam: feriado e fds
+      // sem mudar a data, conflito legado sem mudar o horário, e conflito ao
+      // salvar como cancelada. Bloqueio e duração inválida nunca são perdoados.
+      const trava = impedimentosQueTravam(impedimentos, {
+        isEdit, inicial: initial, atual: { data, hora, duracao, status },
+      });
       if (trava.length) { setErro(textoImpedimentos(trava)); return; }
       if (avisos.length && !window.confirm(textoConfirmacao(avisos))) return;
 

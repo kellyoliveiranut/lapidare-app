@@ -81,6 +81,85 @@ t('hhmm', 'corta segundos', hhmm('14:00:00'), '14:00');
 t('hhmm', 'já curto passa',  hhmm('14:00'), '14:00');
 t('hhmm', 'null vira null',  hhmm(null), null);
 
+// ─── verificarAgenda (banco falso) ───────────────────────────────────
+// Devolve linhas fixas por tabela e IGNORA os filtros: testa a classificação,
+// não a query. O .neq('status','cancelada') fica sem cobertura aqui.
+const { verificarAgenda, impedimentosQueTravam } = M;
+const { montarDataHoraISO } = await import('./utils.js');
+function bancoFalso({ consultas = [], bloqueios = [] } = {}) {
+  const q = rows => {
+    const o = { select: () => o, eq: () => o, in: () => o, neq: () => o,
+                not: () => o, gte: () => o, lte: () => o,
+                then: r => r({ data: rows, error: null }) };
+    return o;
+  };
+  return { from: t => q(t === 'consultas' ? consultas : t === 'bloqueios_agenda' ? bloqueios : []) };
+}
+const DV = '2026-10-06', SAB = '2026-10-03';          // terça comum; sábado
+const EU = 'pac-eu', ANA = 'pac-ana';
+const cons = (id, pac, hora, dur = 45, nome = 'Ana') =>
+  ({ id, paciente_id: pac, data_hora: montarDataHoraISO(DV, hora), duracao_min: dur, paciente: { nome } });
+const va = (banco, itens, extra = {}) =>
+  verificarAgenda(bancoFalso(banco), { nutriId: 'n', pacienteId: EU, itens, ...extra });
+const tipos = r => r.impedimentos.map(i => i.tipo);
+const it = (hora, dur = 45, data = DV) => ({ data, hora, duracaoMin: dur });
+const resumo = r => [tipos(r), r.avisos.length];
+let r;
+
+r = await va({ consultas: [cons('a', ANA, '14:00')] }, [it('14:00')]);
+t('verificar', 'OUTRA paciente no mesmo horário TRAVA', resumo(r), [['conflito'], 0]);
+r = await va({ consultas: [cons('a', ANA, '14:00')] }, [it('14:45')]);
+t('verificar', 'outra paciente, só encosta (14:45): nada', resumo(r), [[], 0]);
+r = await va({ consultas: [cons('a', ANA, '14:00')] }, [it('14:30', 30)]);
+t('verificar', 'outra paciente, sobreposição parcial TRAVA', resumo(r), [['conflito'], 0]);
+r = await va({ consultas: [cons('a', ANA, '14:00')] }, [it('14:00')], { ignorarIds: ['a'] });
+t('verificar', 'a própria consulta em ignorarIds: nada', resumo(r), [[], 0]);
+r = await va({}, [it('10:00', 30), it('10:00', 30)]);
+t('verificar', 'pacote: duas iguais entre si AVISA, não trava', resumo(r), [[], 1]);
+r = await va({ consultas: [cons('b', EU, '14:00')] }, [it('14:00')]);
+t('verificar', 'MESMA paciente, consulta já gravada: AVISA', resumo(r), [[], 1]);
+r = await va({ consultas: [cons('b', EU, '14:00')] }, [it('14:00')], { pacienteId: null });
+t('verificar', 'sem pacienteId: conta como outra e TRAVA', resumo(r), [['conflito'], 0]);
+r = await va({ consultas: [cons('a', ANA, '14:00')],
+               bloqueios: [{ data: DV, hora_inicio: null, hora_fim: null, motivo: null }] }, [it('14:00')]);
+t('verificar', 'bloqueio + conflito: os dois travam', tipos(r), ['bloqueio', 'conflito']);
+r = await va({}, [it('10:00', 45, SAB)]);
+t('verificar', 'sábado sem conflito: só fds', resumo(r), [['fds'], 0]);
+r = await va({}, [it('10:00')]);
+t('verificar', 'retorno mantém as duas chaves', Object.keys(r).sort(), ['avisos', 'impedimentos']);
+
+// ─── duração ─────────────────────────────────────────────────────────
+// Item montado à mão: it('10:00', undefined) cairia no default dur = 45.
+r = await va({}, [{ data: DV, hora: '10:00', duracaoMin: undefined }]);
+t('duracao', 'vazia trava', tipos(r), ['duracao']);
+r = await va({}, [it('10:00', 0)]);
+t('duracao', 'zero trava', tipos(r), ['duracao']);
+r = await va({}, [it('10:00', -30)]);
+t('duracao', 'negativa trava', tipos(r), ['duracao']);
+r = await va({}, [it('10:00', '45')]);
+t('duracao', "texto '45' (vem do <select>) passa", tipos(r), []);
+r = await va({ consultas: [cons('a', ANA, '14:00')] }, [it('14:00', 0)]);
+t('duracao', 'zero em cima de outra paciente: trava garantida pela duração',
+  tipos(r).includes('duracao'), true);
+
+// ─── impedimentosQueTravam (modal da Agenda) ─────────────────────────
+const INI = { data: DV, hora: '14:00', duracao: 45, status: 'agendada' };
+const imp = (...ts) => ts.map(tipo => ({ tipo, texto: tipo }));
+const tv = (lista, isEdit, mudanca = {}, inicial = INI) =>
+  impedimentosQueTravam(lista, { isEdit, inicial, atual: { ...inicial, ...mudanca } }).map(i => i.tipo);
+
+t('travas', 'consulta nova com conflito trava',           tv(imp('conflito'), false), ['conflito']);
+t('travas', 'editar sem mudar nada, conflito legado: não', tv(imp('conflito'), true), []);
+t('travas', 'editar só a duração trava',                  tv(imp('conflito'), true, { duracao: 60 }), ['conflito']);
+t('travas', 'editar a hora trava',                        tv(imp('conflito'), true, { hora: '14:30' }), ['conflito']);
+t('travas', 'salvar como cancelada: conflito não trava',  tv(imp('conflito'), true, { status: 'cancelada' }), []);
+t('travas', 'reativar cancelada no mesmo horário trava',
+  tv(imp('conflito'), true, { status: 'agendada' }, { ...INI, status: 'cancelada' }), ['conflito']);
+t('travas', 'editar sem mudar a data: fds perdoado',      tv(imp('fds'), true, { hora: '15:00' }), []);
+t('travas', 'editar sem mudar a data: bloqueio trava',    tv(imp('bloqueio'), true), ['bloqueio']);
+t('travas', 'editar mudando a data para sábado trava',    tv(imp('fds'), true, { data: SAB }), ['fds']);
+t('travas', 'duração inválida trava mesmo sem mudar nada', tv(imp('duracao'), true), ['duracao']);
+
 // ─── saída ───────────────────────────────────────────────────────────
 let grupoAtual = '';
 for (const c of casos) {
