@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
+import { avisarStatus } from '../../lib/realtime.js';
 import { useSession } from '../../lib/session.jsx';
 import { useTheme } from '../../lib/theme.jsx';
 import { iniciais, dataLocalISO } from '../../lib/utils.js';
@@ -108,7 +109,7 @@ export default function ChatPaciente() {
           await supabase.from('mensagens').update({ lida: true }).eq('id', m.id);
         }
       })
-      .subscribe();
+      .subscribe(avisarStatus('chat-paciente'));
     return () => { supabase.removeChannel(channel); };
   }, [user]);
 

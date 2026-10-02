@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useSession, signOut } from '../lib/session.jsx';
 import { useTheme } from '../lib/theme.jsx';
 import { supabase } from '../lib/supabase.js';
+import { avisarStatus } from '../lib/realtime.js';
 import BrandFooter from './BrandFooter.jsx';
 import BannerNovidades from './BannerNovidades.jsx';
 import { iniciais, mesAno } from '../lib/utils.js';
@@ -87,7 +88,7 @@ export default function NutriLayout() {
         event: '*', schema: 'public', table: 'mensagens',
         filter: `nutri_id=eq.${user.id}`,
       }, recarregar)
-      .subscribe();
+      .subscribe(avisarStatus('nutri-unread'));
 
     return () => { active = false; supabase.removeChannel(channel); };
   }, [user]);

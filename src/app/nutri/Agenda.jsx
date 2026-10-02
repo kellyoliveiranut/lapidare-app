@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
+import { avisarStatus } from '../../lib/realtime.js';
 import { useSession } from '../../lib/session.jsx';
 import DateInput from '../../components/DateInput.jsx';
 import NovaPacienteRapida from './_NovaPacienteRapida.jsx';
@@ -604,7 +605,7 @@ export default function Agenda() {
             }
           : l));
       })
-      .subscribe();
+      .subscribe(avisarStatus('agenda-consultas'));
     return () => { supabase.removeChannel(channel); };
   }, [user]);
 

@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
+import { avisarStatus } from '../../lib/realtime.js';
 import { iniciais, dataLocalISO } from '../../lib/utils.js';
 import { comprimirImagem, getAnexoUrl } from '../../lib/imagem.js';
 import { iniciarTokenPush, avisarPaciente } from '../../lib/push.js';
@@ -101,7 +102,7 @@ export default function ConversaPanel({ paciente, nutriId, onAfterAction, onFech
           onAfterAction?.();
         }
       })
-      .subscribe();
+      .subscribe(avisarStatus('chat-conv'));
     return () => { supabase.removeChannel(channel); };
   }, [paciente.id, nutriId]);
 

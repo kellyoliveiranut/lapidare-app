@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
+import { avisarStatus } from '../../lib/realtime.js';
 import { useSession } from '../../lib/session.jsx';
 import { iniciais } from '../../lib/utils.js';
 import ConversaPanel from './_Conversa.jsx';
@@ -121,7 +122,7 @@ export default function ChatNutri() {
         clearTimeout(recarregarRef.current);
         recarregarRef.current = setTimeout(carregar, 400);
       })
-      .subscribe();
+      .subscribe(avisarStatus('chat-nutri'));
     return () => {
       clearTimeout(recarregarRef.current);
       supabase.removeChannel(channel);

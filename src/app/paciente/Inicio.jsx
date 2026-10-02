@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
+import { avisarStatus } from '../../lib/realtime.js';
 import { useSession } from '../../lib/session.jsx';
 import { useTheme } from '../../lib/theme.jsx';
 import { textoDias, dataConsultaBR, horaConsultaBR, diasAte, gerarGoogleCalendarUrl, dataBR, dataLocalISO } from '../../lib/utils.js';
@@ -217,7 +218,7 @@ export default function Inicio() {
         event: '*', schema: 'public', table: 'consultas',
         filter: `paciente_id=eq.${pacienteId}`,
       }, () => { recarregarProximaConsulta(); })
-      .subscribe();
+      .subscribe(avisarStatus('inicio-consultas'));
     return () => {
       active = false;
       supabase.removeChannel(channel);

@@ -4,6 +4,7 @@ import BrandFooter from './BrandFooter.jsx';
 import { useSession, signOut } from '../lib/session.jsx';
 import { useTheme } from '../lib/theme.jsx';
 import { supabase } from '../lib/supabase.js';
+import { avisarStatus } from '../lib/realtime.js';
 import { iniciais, diasAte, horaConsultaBR } from '../lib/utils.js';
 import { ativarNotificacoes } from '../lib/push.js';
 import { bloqueadoNoPlano } from '../lib/planoPaciente.js';
@@ -105,7 +106,7 @@ export default function PacienteLayout() {
         event: '*', schema: 'public', table: 'mensagens',
         filter: `paciente_id=eq.${pacienteId}`,
       }, recarregar)
-      .subscribe();
+      .subscribe(avisarStatus('paciente-unread'));
 
     return () => { active = false; supabase.removeChannel(channel); };
   }, [pacienteId]);
@@ -131,7 +132,7 @@ export default function PacienteLayout() {
         event: '*', schema: 'public', table: 'ebooks_pacientes',
         filter: `paciente_id=eq.${pacienteId}`,
       }, recarregarEbooks)
-      .subscribe();
+      .subscribe(avisarStatus('paciente-ebooks'));
 
     return () => { active = false; supabase.removeChannel(ch); };
   }, [pacienteId]);
@@ -157,7 +158,7 @@ export default function PacienteLayout() {
         event: '*', schema: 'public', table: 'checkin_envios',
         filter: `paciente_id=eq.${pacienteId}`,
       }, recarregarCheckins)
-      .subscribe();
+      .subscribe(avisarStatus('paciente-checkins'));
 
     return () => { active = false; supabase.removeChannel(ch); };
   }, [pacienteId]);
@@ -196,10 +197,10 @@ export default function PacienteLayout() {
     recarregarNovidadesSecoes();
 
     const chs = [
-      supabase.channel(`sv-sups-${pacienteId}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'suplementos', filter: `paciente_id=eq.${pacienteId}` }, recarregarNovidadesSecoes).subscribe(),
-      supabase.channel(`sv-trei-${pacienteId}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'treinos_prescritos', filter: `paciente_id=eq.${pacienteId}` }, recarregarNovidadesSecoes).subscribe(),
-      supabase.channel(`sv-prog-${pacienteId}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'peso_registros', filter: `paciente_id=eq.${pacienteId}` }, recarregarNovidadesSecoes).subscribe(),
-      supabase.channel(`sv-comp-${pacienteId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'listas_compras', filter: `paciente_id=eq.${pacienteId}` }, recarregarNovidadesSecoes).subscribe(),
+      supabase.channel(`sv-sups-${pacienteId}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'suplementos', filter: `paciente_id=eq.${pacienteId}` }, recarregarNovidadesSecoes).subscribe(avisarStatus('sv-sups')),
+      supabase.channel(`sv-trei-${pacienteId}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'treinos_prescritos', filter: `paciente_id=eq.${pacienteId}` }, recarregarNovidadesSecoes).subscribe(avisarStatus('sv-trei')),
+      supabase.channel(`sv-prog-${pacienteId}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'peso_registros', filter: `paciente_id=eq.${pacienteId}` }, recarregarNovidadesSecoes).subscribe(avisarStatus('sv-prog')),
+      supabase.channel(`sv-comp-${pacienteId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'listas_compras', filter: `paciente_id=eq.${pacienteId}` }, recarregarNovidadesSecoes).subscribe(avisarStatus('sv-comp')),
     ];
 
     return () => { active = false; chs.forEach(ch => supabase.removeChannel(ch)); };
@@ -257,7 +258,7 @@ export default function PacienteLayout() {
         event: 'UPDATE', schema: 'public', table: 'consultas',
         filter: `paciente_id=eq.${pacienteId}`,
       }, () => { if (active) fetchBanner(); })
-      .subscribe();
+      .subscribe(avisarStatus('banner-consulta'));
 
     return () => {
       active = false;
