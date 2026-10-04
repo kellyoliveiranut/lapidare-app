@@ -217,7 +217,15 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
 
   async function excluir(s) {
     if (!window.confirm(`Excluir "${s.nome}"? Os logs de aderência também serão removidos.`)) return;
-    await supabase.from('suplementos').delete().eq('id', s.id);
+    // Sem o .select(), o PostgREST responde 204 também quando nada foi apagado
+    // (linha filtrada pelo RLS ou requisição sem sessão). Pedir as linhas
+    // apagadas é o único jeito de a tela saber.
+    const { data, error } = await supabase.from('suplementos').delete().eq('id', s.id).select('id');
+    if (error) {
+      alert('Erro ao excluir: ' + error.message);
+    } else if (!data?.length) {
+      alert('Nada foi excluído. Tente de novo, ou recarregue a página e confira se a sessão continua ativa.');
+    }
     carregar();
   }
 
