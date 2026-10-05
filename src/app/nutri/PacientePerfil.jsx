@@ -1832,14 +1832,38 @@ function ModalSenhaDefinida({ dados, paciente, onClose }) {
   );
 }
 
+// vendas.paciente_id é ON DELETE CASCADE em produção (decisão de 04/10/2026):
+// excluir a paciente apaga as vendas e, por cascata, as parcelas. O modal
+// precisa dizer quanto some do Financeiro antes do clique.
+async function resumoVendasPaciente(pacienteId) {
+  const { data, error } = await supabase.from('vendas').select('valor_total').eq('paciente_id', pacienteId);
+  if (error) return { erro: true };
+  return { n: data.length, total: data.reduce((s, v) => s + Number(v.valor_total || 0), 0) };
+}
+
 function ModalExcluir({ paciente, onClose, onExcluido }) {
   const [busy, setBusy] = useState(false);
+  // null enquanto confere; depois { n, total } ou { erro: true }.
+  const [vendas, setVendas] = useState(null);
+
+  useEffect(() => {
+    let vivo = true;
+    resumoVendasPaciente(paciente.id).then(r => { if (vivo) setVendas(r); });
+    return () => { vivo = false; };
+  }, [paciente.id]);
 
   async function confirmar() {
     setBusy(true);
-    const { error } = await supabase.from('pacientes').delete().eq('id', paciente.id);
+    // Sem o .select(), o PostgREST responde 204 também quando nada foi apagado
+    // (linha filtrada pelo RLS ou requisição sem sessão). Mesmo defeito da
+    // lixeira de suplementos.
+    const { data, error } = await supabase.from('pacientes').delete().eq('id', paciente.id).select('id');
     setBusy(false);
     if (error) { alert('Erro ao excluir: ' + error.message); return; }
+    if (!data?.length) {
+      alert('Nada foi excluído. Tente de novo, ou recarregue a página e confira se a sessão continua ativa.');
+      return;
+    }
     onExcluido();
   }
 
@@ -1872,6 +1896,21 @@ function ModalExcluir({ paciente, onClose, onExcluido }) {
           padding: '8px 12px', borderRadius: 6, background: 'var(--red-bg)',
         }}>
           Esta ação é permanente e não pode ser desfeita.
+          <div style={{ marginTop: 6 }}>
+            Também será apagado todo o histórico dela no app: plano, consultas, mensagens, exames, check-ins, contrato e os demais registros.
+          </div>
+          <div style={{ marginTop: 6 }}>
+            {vendas === null && 'Conferindo as vendas desta paciente…'}
+            {vendas?.erro && 'Não foi possível conferir as vendas desta paciente. Se ela tiver vendas, elas serão apagadas junto.'}
+            {vendas?.n === 0 && 'Ela não tem vendas registradas no Financeiro.'}
+            {vendas?.n > 0 && (
+              <>
+                {vendas.n === 1 ? 'A venda' : `As ${vendas.n} vendas`} desta paciente
+                {' '}(<strong>{brl(vendas.total)}</strong>) e as parcelas também serão apagadas.
+                {' '}Esse valor sai do Financeiro e da Previsibilidade. Para manter o histórico, use Arquivar.
+              </>
+            )}
+          </div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn-outline" style={{ flex: 1, justifyContent: 'center' }} onClick={onClose}>
@@ -1879,14 +1918,14 @@ function ModalExcluir({ paciente, onClose, onExcluido }) {
           </button>
           <button
             onClick={confirmar}
-            disabled={busy}
+            disabled={busy || vendas === null}
             style={{
               flex: 1, padding: '10px 14px', borderRadius: 8, border: 'none',
               cursor: 'pointer', fontSize: 13, fontWeight: 500,
               fontFamily: 'var(--font-sans)',
               background: 'var(--red)', color: '#fff',
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-              opacity: busy ? 0.6 : 1,
+              opacity: busy || vendas === null ? 0.6 : 1,
             }}>
             <i className="ti ti-trash" aria-hidden="true" />
             {busy ? 'Excluindo…' : 'Excluir permanentemente'}
