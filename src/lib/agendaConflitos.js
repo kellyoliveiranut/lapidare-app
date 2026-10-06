@@ -31,10 +31,14 @@
  * e devolve o dia anterior a oeste de Greenwich.
  */
 
-import { montarDataHoraISO, partesLocaisISO, dataBR } from './utils.js';
+import { montarDataHoraISO, partesLocaisISO, dataBR, HORARIOS_CONSULTA } from './utils.js';
 import { validarDiaConsulta, ehFeriado } from './feriados.js';
 
 const MS_DIA = 24 * 3600 * 1000;
+
+// Duração assumida para consulta GRAVADA sem duração (ver horariosLivres).
+// Mesmo valor do padrão da Agenda e do default da coluna (2026-09-18b).
+const DURACAO_LEGADA_MIN = 30;
 
 /** 'HH:MM:SS' (como o PostgREST devolve `time`) ou 'HH:MM' → 'HH:MM'. */
 export function hhmm(t) {
@@ -88,6 +92,59 @@ export function bloqueioCobre(bloqueio, { data, hora, duracaoMin }) {
   const fim = ini + Number(duracaoMin || 0);
   return minutosDe(bloqueio.hora_inicio) < fim
       && ini < minutosDe(bloqueio.hora_fim);            // hora_fim é exclusivo
+}
+
+/**
+ * Horários da grade em que uma consulta de `duracaoMin` cabe INTEIRA no dia.
+ *
+ * Um horário só é livre se o intervalo [início, início + duração) não cruza
+ * nenhuma consulta nem bloqueio — a mesma geometria meio-aberta da trava
+ * (intervalosSeCruzam e bloqueioCobre), para a lista e o salvar nunca
+ * discordarem sobre o que é "ocupado".
+ *
+ * `consultas` são as linhas já gravadas ({ id, data_hora, duracao_min, status }),
+ * de QUALQUER paciente, inclusive da própria (decisão de 2026-10-06): a lista
+ * oferece só o que está de fato vazio, e o aviso de "mesma paciente" continua
+ * no salvar como rede de segurança. Canceladas e "a definir" (data_hora null)
+ * não ocupam. Pode vir mais de um dia: o cruzamento é por instante, então a
+ * consulta da véspera que atravessa a meia-noite também conta.
+ *
+ * Duração vazia (null, 0, undefined) numa consulta GRAVADA conta como
+ * DURACAO_LEGADA_MIN. Sem isso o intervalo teria tamanho zero, não cruzaria
+ * nada, e o horário dela apareceria como livre. A coluna é NOT NULL default 30
+ * no repo, então o caso é de dado legado ou de select sem a coluna.
+ *
+ * `ignorarIds`: ao editar, a própria consulta não ocupa o próprio horário.
+ *
+ * `grade` é a lista de inícios possíveis, HORARIOS_CONSULTA por padrão
+ * (08:00 a 18:00 como último início — decisão de 2026-10-06, sem mexer na
+ * lista compartilhada com os modais do perfil).
+ *
+ * Função pura, sem supabase nem React: quem chama traz as consultas e os
+ * bloqueios do dia. Sem data ou com duração inválida, devolve lista vazia.
+ */
+export function horariosLivres({
+  data,
+  duracaoMin,
+  consultas = [],
+  bloqueios = [],
+  ignorarIds = [],
+  grade = HORARIOS_CONSULTA,
+}) {
+  if (!data || !(Number(duracaoMin) > 0)) return [];
+  const ignorar = new Set(ignorarIds.filter(Boolean));
+  const ocupadas = (consultas ?? [])
+    .filter(c => c?.data_hora && c.status !== 'cancelada' && !ignorar.has(c.id))
+    .map(c => {
+      const p = partesLocaisISO(c.data_hora);
+      const dur = Number(c.duracao_min) > 0 ? Number(c.duracao_min) : DURACAO_LEGADA_MIN;
+      return intervaloConsulta(p.data, p.hora, dur);
+    });
+  return grade.filter(hora => {
+    const alvo = intervaloConsulta(data, hora, duracaoMin);
+    if (ocupadas.some(o => intervalosSeCruzam(alvo, o))) return false;
+    return !(bloqueios ?? []).some(b => bloqueioCobre(b, { data, hora, duracaoMin }));
+  });
 }
 
 function descreverBloqueio(bloqueio, data) {
