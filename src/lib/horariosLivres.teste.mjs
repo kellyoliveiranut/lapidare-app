@@ -10,7 +10,7 @@
 process.env.TZ = process.env.TZ_TESTE || 'America/Belem';
 
 // Import DINAMICO: o TZ acima precisa valer antes de o módulo carregar.
-const { horariosLivres } = await import('./agendaConflitos.js');
+const { horariosLivres, opcoesHorario, primeiroLivreAPartirDe, carregarOcupacaoDoDia } = await import('./agendaConflitos.js');
 const { montarDataHoraISO, HORARIOS_CONSULTA } = await import('./utils.js');
 
 let ok = 0, falhou = 0;
@@ -101,6 +101,107 @@ t('sem duração', 'com 60 min, a legada sem duração tira 13:30 e 14:00',
 // ─── grade injetável ─────────────────────────────────────────────────
 t('grade', 'grade própria é respeitada',
   horariosLivres({ data: D, duracaoMin: 30, grade: ['09:00', '14:00'], consultas: [cons('a', '14:00', 30)] }), ['09:00']);
+
+// ─── primeiroLivreAPartirDe ──────────────────────────────────────────
+t('primeiro livre', '14:00 livre: fica 14:00', primeiroLivreAPartirDe(['13:30', '14:00', '14:30'], '14:00'), '14:00');
+t('primeiro livre', '14:00 ocupado: vai para 14:30', primeiroLivreAPartirDe(['13:30', '14:30'], '14:00'), '14:30');
+t('primeiro livre', 'nada depois das 14:00: o primeiro do dia', primeiroLivreAPartirDe(['08:00', '09:30'], '14:00'), '08:00');
+t('primeiro livre', 'lista vazia: null', primeiroLivreAPartirDe([], '14:00'), null);
+
+// ─── opcoesHorario (o select do ConsultaModal) ───────────────────────
+const so = (r) => r.opcoes.map(o => o.rotulo);
+t('select', 'sem data: desabilitado, "Escolha a data"',
+  (({ desabilitado, placeholder, semHorario }) => ({ desabilitado, placeholder, semHorario }))(
+    opcoesHorario({ livres: G, temData: false, hora: '14:00' })),
+  { desabilitado: true, placeholder: 'Escolha a data', semHorario: false });
+t('select', 'carregando: desabilitado, "Carregando horários…"',
+  opcoesHorario({ livres: G, carregando: true, hora: '14:00' }).placeholder, 'Carregando horários…');
+t('select', 'só os livres, em ordem, sem "(atual)" ao criar',
+  so(opcoesHorario({ livres: ['09:00', '14:30'], hora: '14:00' })), ['09:00', '14:30']);
+t('select', 'nenhum livre e sem atual: "Nenhum horário livre neste dia" e semHorario',
+  (({ placeholder, semHorario, desabilitado }) => ({ placeholder, semHorario, desabilitado }))(
+    opcoesHorario({ livres: [], hora: '14:00' })),
+  { placeholder: 'Nenhum horário livre neste dia', semHorario: true, desabilitado: true });
+t('select', 'consulta NOVA com 14:00 ocupado: valor vai para o primeiro livre depois (14:30)',
+  opcoesHorario({ livres: ['09:00', '14:30', '15:00'], hora: '14:00', preferido: '14:00' }).valor, '14:30');
+t('select', 'consulta NOVA sem livre depois das 14:00: o primeiro do dia',
+  opcoesHorario({ livres: ['08:00', '08:30'], hora: '14:00', preferido: '14:00' }).valor, '08:00');
+t('select', 'hora escolhida que está livre é mantida',
+  opcoesHorario({ livres: ['09:00', '14:30'], hora: '09:00' }).valor, '09:00');
+t('select', 'editar fora da grade: "15:15 (atual)" entra na ordem do relógio e é o valor',
+  (r => [so(r), r.valor])(opcoesHorario({ livres: ['15:00', '15:30'], atual: '15:15', hora: '15:15', preferido: '15:15' })),
+  [['15:00', '15:15 (atual)', '15:30'], '15:15']);
+t('select', 'editar com o horário ocupado (duração aumentou): "14:00 (atual)" continua',
+  so(opcoesHorario({ livres: ['13:00', '15:00'], atual: '14:00', hora: '14:00', preferido: '14:00' })),
+  ['13:00', '14:00 (atual)', '15:00']);
+t('select', 'editar com o horário original livre: sem o sufixo "(atual)"',
+  so(opcoesHorario({ livres: ['14:00', '14:30'], atual: '14:00', hora: '14:00' })), ['14:00', '14:30']);
+t('select', 'editar com nenhum livre: só o "(atual)", e o Salvar não desabilita',
+  (r => [so(r), r.semHorario])(opcoesHorario({ livres: [], atual: '20:13', hora: '20:13' })),
+  [['20:13 (atual)'], false]);
+t('select', 'horário passado NÃO é escondido (a função não olha o relógio)',
+  so(opcoesHorario({ livres: ['08:00', '08:30'], hora: '08:00' })), ['08:00', '08:30']);
+
+// ─── desabilitado nunca devolve o horário do estado ─────────────────
+t('select', 'sem data: valor null (não o horário do estado)',
+  opcoesHorario({ livres: G, temData: false, hora: '14:00' }).valor, null);
+t('select', 'carregando: valor null',
+  opcoesHorario({ livres: G, carregando: true, hora: '14:00' }).valor, null);
+t('select', 'nenhum livre: valor null',
+  opcoesHorario({ livres: [], hora: '14:00' }).valor, null);
+
+// ─── opção B: editar/remarcar não troca o horário sozinho ───────────
+const edB = (o) => opcoesHorario({ escolherSozinho: false, ...o });
+t('opção B', 'editar em outro dia com o horário original ocupado: valor null e precisaEscolher',
+  (r => [r.valor, r.precisaEscolher, r.placeholder, r.desabilitado])(edB({ livres: ['09:00', '15:00'], hora: '14:00', preferido: '14:00' })),
+  [null, true, 'Escolha o horário', false]);
+t('opção B', 'as opções continuam todas lá para escolher',
+  so(edB({ livres: ['09:00', '15:00'], hora: '14:00' })), ['09:00', '15:00']);
+t('opção B', 'editar em outro dia com o horário original livre: mantém, sem pedir escolha',
+  (r => [r.valor, r.precisaEscolher])(edB({ livres: ['14:00', '15:00'], hora: '14:00' })), ['14:00', false]);
+t('opção B', 'depois de escolher (hora = um livre): valor é a escolha',
+  (r => [r.valor, r.precisaEscolher])(edB({ livres: ['09:00', '15:00'], hora: '15:00' })), ['15:00', false]);
+t('opção B', 'no dia original o "(atual)" está na lista: não pede escolha',
+  (r => [r.valor, r.precisaEscolher])(edB({ livres: ['13:00'], atual: '14:00', hora: '14:00' })), ['14:00', false]);
+t('opção B', 'consulta NOVA (escolherSozinho padrão) segue a regra das 14:00',
+  (r => [r.valor, r.precisaEscolher])(opcoesHorario({ livres: ['09:00', '14:30'], hora: '14:00', preferido: '14:00' })), ['14:30', false]);
+
+// ─── carregarOcupacaoDoDia (cliente falso) ───────────────────────────
+function clienteFalso(respostas) {
+  const log = [];
+  const from = (tabela) => {
+    const ops = [];
+    const b = {
+      select(c) { ops.push(`select:${c}`); return b; },
+      eq(c, v) { ops.push(`eq:${c}=${v}`); return b; },
+      neq(c, v) { ops.push(`neq:${c}=${v}`); return b; },
+      not(c, o, v) { ops.push(`not:${c} ${o} ${v}`); return b; },
+      gte(c, v) { ops.push(`gte:${c}`); return b; },
+      lte(c, v) { ops.push(`lte:${c}`); return b; },
+      then(r, j) { log.push({ tabela, ops }); return Promise.resolve(respostas[tabela]).then(r, j); },
+    };
+    return b;
+  };
+  return { log, supabase: { from } };
+}
+{
+  const f = clienteFalso({ consultas: { data: [{ id: 'a' }], error: null }, bloqueios_agenda: { data: [{ data: D }], error: null } });
+  const r = await carregarOcupacaoDoDia(f.supabase, { nutriId: 'N', data: D });
+  t('leitura', 'devolve consultas e bloqueios', [r.consultas.length, r.bloqueios.length], [1, 1]);
+  const c = f.log.find(l => l.tabela === 'consultas')?.ops ?? [];
+  t('leitura', 'consultas: da nutri, sem canceladas, sem "a definir", com janela',
+    ['eq:nutri_id=N', 'neq:status=cancelada', 'not:data_hora is null', 'gte:data_hora', 'lte:data_hora'].every(o => c.includes(o)), true);
+  const b = f.log.find(l => l.tabela === 'bloqueios_agenda')?.ops ?? [];
+  t('leitura', 'bloqueios: da nutri e só do dia', ['eq:nutri_id=N', `eq:data=${D}`].every(o => b.includes(o)), true);
+}
+{
+  const f = clienteFalso({ consultas: { data: null, error: { message: 'x' } }, bloqueios_agenda: { data: [], error: null } });
+  let lancou = false;
+  try { await carregarOcupacaoDoDia(f.supabase, { nutriId: 'N', data: D }); } catch { lancou = true; }
+  t('leitura', 'erro de leitura é lançado (o modal cai na grade inteira)', lancou, true);
+}
+t('leitura', 'sem data: nada lido, listas vazias',
+  await carregarOcupacaoDoDia(clienteFalso({}).supabase, { nutriId: 'N', data: '' }), { consultas: [], bloqueios: [] });
 
 // ─── saída ───────────────────────────────────────────────────────────
 let grupoAtual = '';

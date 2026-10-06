@@ -147,6 +147,72 @@ export function horariosLivres({
   });
 }
 
+/**
+ * Primeiro horário da lista a partir de `preferido` ('HH:MM'); se não houver
+ * nenhum depois, o primeiro da lista; lista vazia → null. A lista vem em ordem
+ * de relógio, e 'HH:MM' compara certo como texto.
+ */
+export function primeiroLivreAPartirDe(lista, preferido) {
+  if (!lista?.length) return null;
+  return lista.find(h => h >= preferido) ?? lista[0];
+}
+
+/**
+ * O que o select de Horário do ConsultaModal mostra. Pura: a tela só desenha.
+ *
+ * Entrada:
+ *   livres     horariosLivres() do dia, ou a grade inteira se a leitura falhou
+ *   atual      horário original da consulta editada, no MESMO dia; null ao criar
+ *   hora       o que está no estado do formulário
+ *   preferido  de onde procurar quando `hora` não está entre as opções
+ *              (14:00 ao criar, o horário original ao editar)
+ *   carregando / temData
+ *
+ *   escolherSozinho  true ao criar; false ao editar/remarcar (opção B)
+ *
+ * Saída { opcoes: [{ valor, rotulo }], valor, placeholder, desabilitado, semHorario, precisaEscolher }:
+ *   - `atual` fora da lista (fora da grade, ou ocupado depois de aumentar a
+ *     duração) entra como "HH:MM (atual)", na ordem do relógio — decisões 2 e 5
+ *     de 2026-10-06. A trava do salvar continua avisando se ele colidir.
+ *   - `valor` é o que o select deve mostrar e o salvar deve gravar: `hora` se
+ *     ela é uma das opções; senão, ao criar, o primeiro livre a partir de
+ *     `preferido`, e ao editar, null com `precisaEscolher`. Desabilitado (sem
+ *     data, carregando, sem livre) → null. É derivado, não estado, para o
+ *     select nunca exibir uma opção diferente do que vai ser salvo (o defeito
+ *     do select de Duração com 50 min).
+ *   - `semHorario`: nenhum livre e nenhum "(atual)" → o Salvar desabilita.
+ *   Horário passado não é escondido (decisão 4).
+ */
+export function opcoesHorario({
+  livres = [], atual = null, hora = null, preferido = '14:00',
+  carregando = false, temData = true, escolherSozinho = true,
+}) {
+  // Desabilitado → valor null: o salvar nunca grava o horário do ESTADO por
+  // baixo de um select que não está mostrando nenhum horário.
+  const vazio = { opcoes: [], valor: null, desabilitado: true, semHorario: false, precisaEscolher: false };
+  if (!temData)   return { ...vazio, placeholder: 'Escolha a data' };
+  if (carregando) return { ...vazio, placeholder: 'Carregando horários…' };
+
+  const valores = [...livres];
+  if (atual && !valores.includes(atual)) valores.push(atual);
+  valores.sort();
+  if (!valores.length) {
+    return { ...vazio, placeholder: 'Nenhum horário livre neste dia', semHorario: true };
+  }
+  const opcoes = valores.map(v => ({
+    valor: v,
+    rotulo: v === atual && !livres.includes(v) ? `${v} (atual)` : v,
+  }));
+  const base = { opcoes, desabilitado: false, semHorario: false };
+  if (valores.includes(hora)) return { ...base, valor: hora, placeholder: null, precisaEscolher: false };
+  // Editar/remarcar (decisão de 2026-10-06, opção B): o horário NÃO troca
+  // sozinho. O select pede a escolha e o Salvar espera — na remarcação a hora
+  // é combinada com a paciente, e trocar em silêncio gravaria uma que ninguém
+  // combinou. Só a consulta nova escolhe sozinha (regra das 14:00).
+  if (!escolherSozinho) return { ...base, valor: null, placeholder: 'Escolha o horário', precisaEscolher: true };
+  return { ...base, valor: primeiroLivreAPartirDe(valores, preferido), placeholder: null, precisaEscolher: false };
+}
+
 function descreverBloqueio(bloqueio, data) {
   const faixa = bloqueio.hora_inicio
     ? ` das ${hhmm(bloqueio.hora_inicio)} às ${hhmm(bloqueio.hora_fim)}`
@@ -331,4 +397,41 @@ export async function verificarAgenda(supabase, {
     impedimentos: semRepetir(impedimentos, i => i.texto),
     avisos:       semRepetir(avisos, a => a),
   };
+}
+
+/**
+ * Consultas e bloqueios que ocupam `data`, para horariosLivres().
+ *
+ * As MESMAS duas leituras do verificarAgenda — consultas não canceladas numa
+ * janela de um dia a mais em cada ponta (data_hora é timestamptz e não aceita
+ * .in() por dia) e os bloqueios do dia —, para a lista e a trava olharem o
+ * mesmo recorte. Os bloqueios que a Agenda já tem em memória NÃO servem: cobrem
+ * só o mês visível no calendário.
+ *
+ * Erro de leitura é lançado; quem chama decide (o modal cai na grade inteira e
+ * deixa a trava do salvar como rede de segurança).
+ */
+export async function carregarOcupacaoDoDia(supabase, { nutriId, data }) {
+  if (!nutriId || !data) return { consultas: [], bloqueios: [] };
+  const de  = new Date(new Date(montarDataHoraISO(data, '00:00')).getTime() - MS_DIA);
+  const ate = new Date(new Date(montarDataHoraISO(data, '23:30')).getTime() + MS_DIA);
+
+  const [cons, bloq] = await Promise.all([
+    supabase
+      .from('consultas')
+      .select('id, data_hora, duracao_min, status')
+      .eq('nutri_id', nutriId)
+      .neq('status', 'cancelada')
+      .not('data_hora', 'is', null)
+      .gte('data_hora', de.toISOString())
+      .lte('data_hora', ate.toISOString()),
+    supabase
+      .from('bloqueios_agenda')
+      .select('data, hora_inicio, hora_fim')
+      .eq('nutri_id', nutriId)
+      .eq('data', data),
+  ]);
+  if (cons.error) throw cons.error;
+  if (bloq.error) throw bloq.error;
+  return { consultas: cons.data ?? [], bloqueios: bloq.data ?? [] };
 }

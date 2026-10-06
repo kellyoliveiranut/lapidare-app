@@ -6,7 +6,10 @@ import { useSession } from '../../lib/session.jsx';
 import DateInput from '../../components/DateInput.jsx';
 import NovaPacienteRapida from './_NovaPacienteRapida.jsx';
 import { linkConvite, mensagemConviteEncoded } from '../../lib/convite.js';
-import { verificarAgenda, textoImpedimentos, textoConfirmacao, bloqueioCobre, impedimentosQueTravam } from '../../lib/agendaConflitos.js';
+import {
+  verificarAgenda, textoImpedimentos, textoConfirmacao, bloqueioCobre, impedimentosQueTravam,
+  carregarOcupacaoDoDia, horariosLivres, opcoesHorario,
+} from '../../lib/agendaConflitos.js';
 import { tipoColor, MODALIDADES_CONSULTA, modalidadeInfo } from '../../lib/consultaVisual.js';
 import ReguaDoDia from './_ReguaDoDia.jsx';
 import { HORARIOS_TAREFA, hhmm } from '../../lib/reguaDoDia.js';
@@ -2633,6 +2636,52 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
   const [remarcando, setRemarcando] = useState(!!remarcarAoAbrir);
   const campoDataRef = useRef(null);
 
+  // Horários livres do dia (pedido de 2026-10-06). A ocupação é lida do banco
+  // a cada data, com as mesmas consultas da trava; a duração só recalcula a
+  // lista, sem nova ida ao banco. `ocupacao.data` diz de qual dia é a resposta
+  // em mãos: "carregando" é derivado disso, e não estado, e uma resposta
+  // atrasada de um dia anterior é descartada pelo `vivo`.
+  const [ocupacao, setOcupacao] = useState({ data: null, consultas: [], bloqueios: [], falhou: false });
+  useEffect(() => {
+    if (!data) return;
+    let vivo = true;
+    carregarOcupacaoDoDia(supabase, { nutriId, data })
+      .then(r => { if (vivo) setOcupacao({ data, ...r, falhou: false }); })
+      // Leitura falhou: não bloqueia. A lista volta a ser a grade inteira e a
+      // trava do salvar (verificarAgenda) segue como rede de segurança.
+      .catch(() => { if (vivo) setOcupacao({ data, consultas: [], bloqueios: [], falhou: true }); });
+    return () => { vivo = false; };
+  }, [data, nutriId]);
+
+  const idEditado = isEdit ? consulta.id : null;
+  const carregandoHorarios = !!data && ocupacao.data !== data;
+  const livres = useMemo(() => {
+    if (!data || carregandoHorarios) return [];
+    if (ocupacao.falhou) return HORARIOS_CONSULTA;
+    return horariosLivres({
+      data, duracaoMin: Number(duracao),
+      consultas: ocupacao.consultas, bloqueios: ocupacao.bloqueios,
+      ignorarIds: idEditado ? [idEditado] : [],
+    });
+  }, [data, duracao, ocupacao, carregandoHorarios, idEditado]);
+
+  // "(atual)" só no dia original: em outro dia o horário de antes não é
+  // referência de nada. `valor` é o que o select mostra E o que o salvar grava.
+  const selectHorario = opcoesHorario({
+    livres,
+    atual: isEdit && data === initial.data ? initial.hora : null,
+    hora,
+    preferido: isEdit ? initial.hora : HORARIO_CONSULTA_PADRAO,
+    carregando: carregandoHorarios,
+    temData: !!data,
+    // Opção B (2026-10-06): ao editar/remarcar o horário não troca sozinho.
+    escolherSozinho: !isEdit,
+  });
+  const horaEfetiva = selectHorario.valor;
+  // Sem horário escolhível, não há o que salvar: carregando, nenhum livre, ou
+  // editando com o horário original indisponível e nada escolhido ainda.
+  const salvarBloqueado = carregandoHorarios || selectHorario.semHorario || selectHorario.precisaEscolher;
+
   // Remarcar não tem lógica própria: trocar data/horário e salvar já dispara o
   // trigger que zera a confirmação. O botão só dá nome e caminho para isso —
   // leva a nutri até os campos e explica o que vai acontecer ao salvar.
@@ -2712,11 +2761,17 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
 
   async function salvar() {
     setErro(null);
+    // Grava o horário que o select MOSTRA. Ele pode diferir do estado quando o
+    // horário escolhido deixou de estar livre (troca de dia ou de duração).
+    const hora = horaEfetiva;
     if (!pacienteId || !data || !hora) {
       setErro('Preencha paciente, data e horário.');
       return;
     }
-    if (!horaConsultaValida(hora)) {
+    // Fora da grade só passa se for o horário que a consulta já tinha: o
+    // "(atual)" de uma consulta legada (decisão de 2026-10-06). A grade em si
+    // (HORARIOS_CONSULTA/horaConsultaValida) não muda.
+    if (!horaConsultaValida(hora) && !(isEdit && hora === initial.hora)) {
       setErro('O horário deve ser um dos valores entre 08:00 e 18:00 (de 30 em 30 min).');
       return;
     }
@@ -2856,21 +2911,33 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
           <div>
             <label className="form-lbl" style={{ marginTop: 10 }}>Horário</label>
-            <select value={hora} onChange={e => setHora(e.target.value)}
+            {/* Só horários livres (opcoesHorario). Sem opções, o select fica
+                desabilitado com o motivo no lugar do horário. */}
+            <select value={horaEfetiva ?? ''}
+              onChange={e => setHora(e.target.value)}
+              disabled={selectHorario.desabilitado}
               style={remarcando ? destaqueRemarcacao : undefined}>
-              {!HORARIOS_CONSULTA.includes(hora) && hora && (
-                <option value={hora}>{hora} (fora do padrão)</option>
-              )}
-              {HORARIOS_CONSULTA.map(h => <option key={h} value={h}>{h}</option>)}
+              {selectHorario.desabilitado
+                ? <option value="">{selectHorario.placeholder}</option>
+                : <>
+                    {selectHorario.precisaEscolher && <option value="" disabled>{selectHorario.placeholder}</option>}
+                    {selectHorario.opcoes.map(o => <option key={o.valor} value={o.valor}>{o.rotulo}</option>)}
+                  </>}
             </select>
           </div>
           <div>
             <label className="form-lbl" style={{ marginTop: 10 }}>Duração</label>
-            <select value={duracao} onChange={e => setDuracao(e.target.value)}>
+            {/* Duração gravada fora da lista (ex.: 50, das consultas antigas)
+                entra como "(atual)": sem ela o select exibia "30 min" com 50
+                no estado, e salvava 50 sem a nutri ver. */}
+            <select value={String(duracao)} onChange={e => setDuracao(e.target.value)}>
               <option value="30">30 min</option>
               <option value="45">45 min</option>
               <option value="60">60 min</option>
               <option value="90">90 min</option>
+              {!['30', '45', '60', '90'].includes(String(initial.duracao)) && (
+                <option value={String(initial.duracao)}>{initial.duracao} min (atual)</option>
+              )}
             </select>
           </div>
         </div>
@@ -2975,7 +3042,7 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
             <i className="ti ti-x" aria-hidden="true"></i> Fechar
           </button>
           <button className="btn" style={{ flex: 1, justifyContent: 'center' }}
-            onClick={salvar} disabled={busy}>
+            onClick={salvar} disabled={busy || salvarBloqueado}>
             <i className="ti ti-check" aria-hidden="true"></i> {busy ? '...' : (remarcando ? 'Salvar remarcação' : (isEdit ? 'Salvar alterações' : 'Agendar'))}
           </button>
         </div>
