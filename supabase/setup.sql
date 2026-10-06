@@ -201,10 +201,13 @@ create table if not exists public.servicos (
 create index if not exists servicos_nutri_idx on public.servicos(nutri_id, ativo);
 
 -- 2.9 Vendas (financeiro) ------------------------------------------
+-- paciente_id e CASCADE em producao, e fica assim (decisao de 04/10/2026):
+-- excluir a paciente apaga as vendas e as parcelas dela. Antes de 2026-10-05
+-- este arquivo dizia SET NULL. Ver 2026-10-05_registro_fks_e_treinos_created_at.sql.
 create table if not exists public.vendas (
   id            uuid primary key default gen_random_uuid(),
   nutri_id      uuid not null references public.nutris(id) on delete cascade,
-  paciente_id   uuid references public.pacientes(id) on delete set null,
+  paciente_id   uuid references public.pacientes(id) on delete cascade,
   servico_id    uuid references public.servicos(id) on delete set null,
   servico       text not null,
   valor_total   numeric(10,2) not null,
@@ -967,7 +970,10 @@ create table if not exists public.followups (
   conteudo    text not null,
   data        date not null default current_date,
   template_id uuid references public.followup_templates(id) on delete set null,
-  consulta_id uuid references public.consultas(id) on delete set null,
+  -- CASCADE em producao, e fica assim (decisao de 04/10/2026): apagar a
+  -- consulta apaga o follow-up ligado. Antes de 2026-10-05 este arquivo dizia
+  -- SET NULL. Ver 2026-10-05_registro_fks_e_treinos_created_at.sql.
+  consulta_id uuid references public.consultas(id) on delete cascade,
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now()
 );
