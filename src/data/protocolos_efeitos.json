@@ -394,29 +394,31 @@
       "aliases": [
         "anastrozol",
         "letrozol",
-        "inibidor de aromatase"
+        "inibidor de aromatase",
+        "Femara",
+        "Letrozole"
       ],
       "indicacao": "Cancer de mama (hormonioterapia)",
       "efeitos": [
         {
           "efeito": "Artralgia / dores articulares",
-          "manejo": "Padrao alimentar anti-inflamatorio conforme conduta; suporte geral"
+          "manejo": "Padrão alimentar anti-inflamatório conforme conduta; suporte geral"
         },
         {
-          "efeito": "Perda de densidade ossea",
-          "manejo": "Reforcar calcio e vitamina D conforme avaliacao; atencao a saude ossea"
+          "efeito": "Perda de densidade óssea",
+          "manejo": "Reforçar cálcio e vitamina D conforme avaliação; atenção à saúde óssea"
         },
         {
           "efeito": "Dislipidemia",
-          "manejo": "Acompanhar perfil lipidico; padrao alimentar cardioprotetor"
+          "manejo": "Acompanhar perfil lipídico; padrão alimentar cardioprotetor"
         },
         {
-          "efeito": "Possivel ganho de peso",
-          "manejo": "Suporte a controle de peso; atividade fisica conforme tolerancia"
+          "efeito": "Possível ganho de peso",
+          "manejo": "Suporte a controle de peso; atividade física conforme tolerância"
         },
         {
           "efeito": "Fogachos e fadiga",
-          "manejo": "Reduzir gatilhos; refeicoes praticas e equilibradas"
+          "manejo": "Reduzir gatilhos; refeições práticas e equilibradas"
         }
       ]
     },
@@ -3179,9 +3181,7 @@
       "indicacao": "Câncer de mama HR+/HER2- (inibidor de CDK4/6, em associação à terapia endócrina)",
       "aliases": [
         "Kisqali",
-        "ribociclibe",
-        "Kisqali + Letrozol",
-        "Ribociclibe + Letrozol"
+        "ribociclibe"
       ],
       "duracaoCiclo": 28,
       "conduta_base": "Inibidor de CDK4/6 oral (comprimido, não é infusão), usado junto com a terapia endócrina — esquema de 21 dias de uso seguidos de 7 dias de pausa, repetindo a cada 28 dias. Evitar grapefruit e suco de grapefruit, que interferem no metabolismo do medicamento. Revisar suplementos, fitoterápicos e medicamentos em uso antes de incluir qualquer item no plano. Não indicar \"dieta neutropênica\" padrão: se houver neutropenia, o foco é segurança alimentar rigorosa, preservando a ingestão proteica e energética.",
@@ -3245,6 +3245,135 @@
           "efeito": "Alopecia",
           "relacionado_a": "Ribociclibe",
           "manejo": "Garantir ingestão proteica e energética adequada. Não há evidência de suplemento que evite a queda; investigar deficiência só com indicação clínica ou laboratorial."
+        }
+      ],
+      "sinais_alerta": [
+        "Febre de 38°C ou mais, calafrios ou sinais de infecção (risco de neutropenia)",
+        "Palpitações, batimento irregular, tontura importante ou desmaio (risco de prolongamento do QT)",
+        "Icterícia, urina escura, dor no lado direito abaixo das costelas, perda importante de apetite ou cansaço intenso (possível hepatotoxicidade)",
+        "Vômitos persistentes ou incapacidade de manter líquidos",
+        "Diarreia intensa ou persistente, principalmente com tontura, fraqueza ou redução da urina",
+        "Sangramentos ou hematomas incomuns (possível alteração de plaquetas)",
+        "Sinais de desidratação: pouca urina, boca muito seca, tontura, fraqueza importante, incapacidade de ingerir líquidos",
+        "Falta de ar nova ou piora respiratória"
+      ]
+    },
+    {
+      "nome": "Kisqali + Femara (ribociclibe + letrozol)",
+      "indicacao": "Câncer de mama HR+/HER2- (inibidor de CDK4/6, em associação à terapia endócrina)",
+      "aliases": [
+        "Kisqali + Femara",
+        "Femara + Kisqali",
+        "Kisqali e Femara",
+        "Femara e Kisqali",
+        "Kisqali com Femara",
+        "Femara com Kisqali",
+        "Kisqali + Letrozol",
+        "Letrozol + Kisqali",
+        "Kisqali e Letrozol",
+        "Letrozol e Kisqali",
+        "Kisqali com Letrozol",
+        "Letrozol com Kisqali",
+        "Ribociclibe + Femara",
+        "Femara + Ribociclibe",
+        "Ribociclibe e Femara",
+        "Femara e Ribociclibe",
+        "Ribociclibe com Femara",
+        "Femara com Ribociclibe",
+        "Ribociclibe + Letrozol",
+        "Letrozol + Ribociclibe",
+        "Ribociclibe e Letrozol",
+        "Letrozol e Ribociclibe",
+        "Ribociclibe com Letrozol",
+        "Letrozol com Ribociclibe"
+      ],
+      "duracaoCiclo": 28,
+      "conduta_base": "Inibidor de CDK4/6 oral (comprimido, não é infusão), usado junto com a terapia endócrina — esquema de 21 dias de uso seguidos de 7 dias de pausa, repetindo a cada 28 dias. Evitar grapefruit e suco de grapefruit, que interferem no metabolismo do medicamento. Revisar suplementos, fitoterápicos e medicamentos em uso antes de incluir qualquer item no plano. Não indicar \"dieta neutropênica\" padrão: se houver neutropenia, o foco é segurança alimentar rigorosa, preservando a ingestão proteica e energética.",
+      "efeitos": [
+        {
+          "efeito": "Náusea",
+          "relacionado_a": "Ribociclibe",
+          "manejo": "Fracionar em 5 a 6 pequenas refeições e evitar jejum prolongado. Se o cheiro incomodar, preferir preparações frias ou em temperatura ambiente. Alimentos secos e simples ao acordar (torrada, cracker). Priorizar proteína mesmo em pequena quantidade (iogurte, ovo, queijo, frango desfiado, peixe, suplemento oral se necessário)."
+        },
+        {
+          "efeito": "Vômitos",
+          "relacionado_a": "Ribociclibe",
+          "manejo": "Hidratação em pequenos volumes (meio copo, cerca de 100 mL, a cada 15 a 20 minutos). Reintroduzir primeiro os líquidos e depois alimentos leves, de forma gradual. Se for recorrente, monitorar hidratação, peso e sinais de desidratação."
+        },
+        {
+          "efeito": "Diarreia",
+          "relacionado_a": "Ribociclibe",
+          "manejo": "Aumentar líquidos e eletrólitos. Preferir arroz, batata, mandioca, banana, maçã sem casca, torradas e proteínas magras. Reduzir temporariamente gordurosos, álcool, excesso de café e excesso de fibra insolúvel. Se persistir, investigar."
+        },
+        {
+          "efeito": "Constipação",
+          "relacionado_a": "Ribociclibe",
+          "manejo": "Hidratação, movimento físico conforme tolerância e progressão gradual de fibras (mamão, kiwi, laranja com bagaço, ameixa). Se a ingestão alimentar estiver baixa, priorizar líquidos e refeições antes de aumentar fibra."
+        },
+        {
+          "efeito": "Alteração de paladar",
+          "relacionado_a": "Ribociclibe",
+          "manejo": "Testar temperaturas e texturas diferentes, usar ervas, limão e temperos suaves. Talheres não metálicos se houver gosto metálico. Variar as fontes proteicas."
+        },
+        {
+          "efeito": "Anorexia / redução do apetite",
+          "relacionado_a": "Ribociclibe",
+          "manejo": "Não esperar a fome aparecer: pequenas refeições a cada 2 a 3 horas, priorizando proteína e energia. Enriquecer as preparações com azeite, leite em pó, pasta de amendoim ou queijo."
+        },
+        {
+          "efeito": "Fadiga",
+          "relacionado_a": "Ribociclibe",
+          "manejo": "Evitar períodos longos sem comer, distribuir a proteína ao longo do dia e manter a hidratação. Avaliar ingestão, perda de peso e, quando disponível, hemoglobina e eletrólitos."
+        },
+        {
+          "efeito": "Perda de peso / massa muscular",
+          "relacionado_a": "Ribociclibe",
+          "manejo": "Monitorar peso, composição corporal e ingestão proteico-energética. Aumentar a densidade nutricional e considerar suplemento oral. A meta é preservar massa muscular, não só \"comer saudável\"."
+        },
+        {
+          "efeito": "Mucosite / estomatite",
+          "relacionado_a": "Ribociclibe",
+          "manejo": "Alimentos macios, úmidos, em temperatura fria ou ambiente. Evitar álcool, pimenta, ácidos, salgados e crocantes."
+        },
+        {
+          "efeito": "Alterações de função hepática",
+          "relacionado_a": "Ribociclibe (hepatotoxicidade: ALT/AST)",
+          "manejo": "Evitar álcool e suplementos, fitoterápicos ou produtos \"detox\" sem avaliação da equipe. A conduta acompanha os exames hepáticos."
+        },
+        {
+          "efeito": "Alterações de eletrólitos",
+          "relacionado_a": "Ribociclibe (risco de QT longo)",
+          "manejo": "Alimentação variada e adequada, sem suplementar eletrólitos de forma empírica. Se houver alteração laboratorial, a reposição é individualizada pela equipe."
+        },
+        {
+          "efeito": "Alopecia",
+          "relacionado_a": "Ribociclibe",
+          "manejo": "Garantir ingestão proteica e energética adequada. Não há evidência de suplemento que evite a queda; investigar deficiência só com indicação clínica ou laboratorial."
+        },
+        {
+          "efeito": "Artralgia / dores articulares",
+          "relacionado_a": "Letrozol (Femara)",
+          "manejo": "Padrão alimentar anti-inflamatório conforme conduta; suporte geral"
+        },
+        {
+          "efeito": "Perda de densidade óssea",
+          "relacionado_a": "Letrozol (Femara)",
+          "manejo": "Reforçar cálcio e vitamina D conforme avaliação; atenção à saúde óssea"
+        },
+        {
+          "efeito": "Dislipidemia",
+          "relacionado_a": "Letrozol (Femara)",
+          "manejo": "Acompanhar perfil lipídico; padrão alimentar cardioprotetor"
+        },
+        {
+          "efeito": "Possível ganho de peso",
+          "relacionado_a": "Letrozol (Femara)",
+          "manejo": "Suporte a controle de peso; atividade física conforme tolerância"
+        },
+        {
+          "efeito": "Fogachos e fadiga",
+          "relacionado_a": "Letrozol (Femara)",
+          "manejo": "Reduzir gatilhos; refeições práticas e equilibradas"
         }
       ],
       "sinais_alerta": [
