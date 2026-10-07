@@ -12,7 +12,8 @@ import {
 import { TEMPLATE_PADRAO } from '../../lib/checkinDefault.js';
 import { mensagemAcesso, mensagemSenhaDefinida } from '../../lib/mensagemAcesso.js';
 import { OBJETIVOS } from '../../lib/objetivos.js';
-import { SEXOS, PLANOS } from '../../lib/opcoesPaciente.js';
+import { SEXOS, PLANOS, modalidadeDaPaciente, localPadrao, datasSemLocal, localParaDefinirData } from '../../lib/opcoesPaciente.js';
+import { MODALIDADES_CONSULTA } from '../../lib/consultaVisual.js';
 // Estatico de proposito: pdfPlano + pdfBase somam poucos kB. O peso real e o
 // jsPDF, que continua atras do import dinamico dentro do criarDocumento().
 import { gerarPDFPlano } from '../../lib/pdfPlano.js';
@@ -242,12 +243,45 @@ export default function PacientePerfil() {
     await Promise.all([loadAcompConsultas(), reloadConsultaAtiva()]);
   }
 
-  async function salvarDataConsulta(consultaId, dataHoraIso) {
+  async function salvarDataConsulta(consultaId, dataHoraIso, consulta = null) {
     setErroAcomp(null);
-    const { error } = await supabase.from('consultas')
-      .update({ data_hora: dataHoraIso })
-      .eq('id', consultaId);
-    if (error) { setErroAcomp('Erro ao definir data: ' + error.message); return false; }
+    // Consulta "a definir" presencial nasce sem local (pedido 5). Ao ganhar a
+    // data, ganha também o local pela regra de dia da semana — senão a Agenda
+    // mostra "Sem endereço" e não oferece o WhatsApp. As duas leituras abaixo
+    // são AUXILIARES: se falharem, a data é gravada como sempre foi, sem local.
+    let modalidade = consulta?.modalidade;
+    let localId = consulta?.local_id;
+    if (modalidade === undefined) {
+      // A lista de acompanhamento não traz modalidade nem local_id.
+      const { data: atual, error: errLeitura } = await supabase.from('consultas')
+        .select('modalidade, local_id').eq('id', consultaId).maybeSingle();
+      if (!errLeitura && atual) { modalidade = atual.modalidade; localId = atual.local_id; }
+    }
+    let novoLocal = null;
+    if (modalidade === 'presencial' && !localId) {
+      // Sob demanda: só quando há local a decidir. Mesmo select do
+      // useLocaisAtendimento. Data LOCAL da consulta, não o dia em UTC.
+      const { data: locais, error: errLocais } = await supabase.from('locais_atendimento')
+        .select('id, nome, endereco, ativo, dias_semana')
+        .eq('nutri_id', user?.id);
+      if (!errLocais) {
+        novoLocal = localParaDefinirData({
+          modalidade, localId, locais: locais ?? [], dataISO: partesLocaisISO(dataHoraIso).data,
+        });
+      }
+    }
+    const patch = novoLocal ? { data_hora: dataHoraIso, local_id: novoLocal } : { data_hora: dataHoraIso };
+    // .select('id'): sem ele, um update barrado pelo RLS volta sem erro e com
+    // zero linhas, e a tela fecharia o modal como se tivesse gravado.
+    const { data, error } = await supabase.from('consultas')
+      .update(patch)
+      .eq('id', consultaId)
+      .select('id');
+    if (error || data?.length !== 1) {
+      setErroAcomp('Erro ao definir data: ' + (error?.message
+        ?? 'nenhuma consulta foi atualizada. Recarregue a página e tente de novo.'));
+      return false;
+    }
     await Promise.all([loadAcompConsultas(), reloadConsultaAtiva()]);
     return true;
   }
@@ -818,6 +852,7 @@ export default function PacientePerfil() {
           pacienteId={id}
           nutriId={user?.id}
           consultaAtiva={consultaAtiva}
+          modalidadePaciente={paciente?.modalidade}
           onClose={() => setAgendarAcompOpen(false)}
           onSalvo={() => {
             setAgendarAcompOpen(false);
@@ -831,6 +866,7 @@ export default function PacientePerfil() {
         <ModalAgendarAvulsa
           pacienteId={id}
           nutriId={user?.id}
+          modalidadePaciente={paciente?.modalidade}
           onClose={() => setAgendarAvulsaOpen(false)}
           onSalvo={() => {
             setAgendarAvulsaOpen(false);
@@ -850,7 +886,7 @@ export default function PacientePerfil() {
           duracaoMin={definirDataConsulta.duracao_min ?? 30}
           onClose={() => setDefinirDataConsulta(null)}
           onSalvar={async (dataHoraIso) => {
-            const ok = await salvarDataConsulta(definirDataConsulta.id, dataHoraIso);
+            const ok = await salvarDataConsulta(definirDataConsulta.id, dataHoraIso, definirDataConsulta);
             if (ok) setDefinirDataConsulta(null);
           }}
         />
@@ -6929,7 +6965,80 @@ function tipoConsulta(idx) {
   return `consulta_${idx + 1}`;
 }
 
-function ModalAgendarAcompanhamento({ pacienteId, nutriId, consultaAtiva, onClose, onSalvo }) {
+// ─── Modalidade e local nos modais do pacote e da avulsa (pedido de 2026-10-06)
+// Até aqui os dois modais não mandavam modalidade, e o default do banco gravava
+// toda consulta como 'online' — inclusive de paciente presencial. Agora a
+// modalidade vem do cadastro (modalidadeDaPaciente), editável, e no presencial
+// cada data ganha o local pela mesma regra de dia da semana do ConsultaModal
+// (localPadrao). Presencial sem local bloqueia o lembrete de WhatsApp na
+// Agenda, então as datas que a regra não resolve são listadas antes de salvar.
+
+// Locais para a regra de dia da semana. O perfil não carrega
+// locais_atendimento. Falha de leitura NÃO fica pendurada: vira lista vazia
+// com `falhou`, o modal avisa e o Salvar libera.
+function useLocaisAtendimento(nutriId) {
+  const [estado, setEstado] = useState({ locais: [], carregando: true, falhou: false });
+  useEffect(() => {
+    let vivo = true;
+    supabase.from('locais_atendimento')
+      .select('id, nome, endereco, ativo, dias_semana')
+      .eq('nutri_id', nutriId)
+      .then(
+        ({ data, error }) => {
+          if (!vivo) return;
+          setEstado(error
+            ? { locais: [], carregando: false, falhou: true }
+            : { locais: data ?? [], carregando: false, falhou: false });
+        },
+        () => { if (vivo) setEstado({ locais: [], carregando: false, falhou: true }); },
+      );
+    return () => { vivo = false; };
+  }, [nutriId]);
+  return estado;
+}
+
+// Os dois botões de modalidade (mesma constante MODALIDADES_CONSULTA da
+// Agenda) e os avisos de local. `semLocal` são datas 'YYYY-MM-DD'.
+function CampoModalidadeConsulta({ modalidade, onChange, semLocal, falhouLocais, lblStyle }) {
+  const aviso = {
+    fontSize: 12, color: 'var(--orange)', background: 'var(--orange-bg)',
+    padding: '8px 10px', borderRadius: 6, marginTop: 8, lineHeight: 1.45,
+  };
+  return (
+    <div style={{ marginBottom: 18 }}>
+      <span style={lblStyle}>Modalidade</span>
+      <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+        {MODALIDADES_CONSULTA.map(m => {
+          const ativa = modalidade === m.value;
+          return (
+            <button key={m.value} type="button" aria-pressed={ativa} onClick={() => onChange(m.value)}
+              style={{
+                flex: 1, minHeight: 38, borderRadius: 8, cursor: 'pointer',
+                fontFamily: 'var(--font-sans)', fontSize: 13, fontWeight: ativa ? 600 : 400,
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                background: ativa ? 'var(--green)' : 'var(--white)',
+                color: ativa ? '#fff' : 'var(--ink)',
+                border: ativa ? '1px solid var(--green)' : '1px solid var(--hair)',
+              }}>
+              <i className={`ti ${m.icone}`} aria-hidden="true"></i> {m.label}
+            </button>
+          );
+        })}
+      </div>
+      {modalidade === 'presencial' && falhouLocais && (
+        <div style={aviso}>Não foi possível carregar os locais; as consultas presenciais ficarão sem local.</div>
+      )}
+      {modalidade === 'presencial' && !falhouLocais && semLocal.length > 0 && (
+        <div style={aviso}>
+          Sem local definido para {semLocal.map(d => dataBR(d)).join(', ')}. O lembrete de WhatsApp
+          {semLocal.length > 1 ? ' dessas consultas' : ' desta consulta'} só sai depois de escolher o local na Agenda.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ModalAgendarAcompanhamento({ pacienteId, nutriId, consultaAtiva, modalidadePaciente, onClose, onSalvo }) {
   const seed = consultaAtiva ? partesLocaisISO(consultaAtiva.data_hora) : null;
   const defaultData = seed ? seed.data : dataLocalISO(15);
   const defaultHora = seed && horaConsultaValida(seed.hora) ? seed.hora : HORARIO_CONSULTA_PADRAO;
@@ -6938,6 +7047,9 @@ function ModalAgendarAcompanhamento({ pacienteId, nutriId, consultaAtiva, onClos
   const [hora, setHora] = useState(defaultHora);
   const [intervalo, setIntervalo] = useState(15);
   const [duracao, setDuracao] = useState(30);
+  // Uma modalidade para as 6. Pré-preenchida pelo cadastro, editável.
+  const [modalidade, setModalidade] = useState(() => modalidadeDaPaciente(modalidadePaciente));
+  const { locais, carregando: carregandoLocais, falhou: falhouLocais } = useLocaisAtendimento(nutriId);
   const [datas, setDatas] = useState(() => gerarDatas(defaultData, defaultHora, 15, 6, true));
   const [semData, setSemData] = useState(false);
   const [permitirFds, setPermitirFds] = useState(false);
@@ -7004,6 +7116,10 @@ function ModalAgendarAcompanhamento({ pacienteId, nutriId, consultaAtiva, onClos
       nutri_id:       nutriId,
       data_hora:      semData ? null : montarDataHoraISO(datas[i].data, datas[i].hora),
       duracao_min:    duracao,
+      modalidade,
+      // Presencial: o local de CADA data pela regra de dia da semana; '' vira
+      // null (sem local), que o aviso já listou. Online e "a definir": null.
+      local_id:       modalidade === 'presencial' && !semData ? (localPadrao(locais, datas[i].data) || null) : null,
       tipo:           tipoConsulta(i),
       status:         'agendada',
       lembrete_ativo: true,
@@ -7050,6 +7166,14 @@ function ModalAgendarAcompanhamento({ pacienteId, nutriId, consultaAtiva, onClos
             {[30, 45, 50, 60, 90].map(m => <option key={m} value={m}>{m} min</option>)}
           </select>
         </label>
+
+        <CampoModalidadeConsulta
+          modalidade={modalidade}
+          onChange={setModalidade}
+          semLocal={semData || carregandoLocais ? [] : datasSemLocal(datas.map(d => d.data), locais)}
+          falhouLocais={falhouLocais}
+          lblStyle={lblStyle}
+        />
 
         {!semData && (<>
           {/* Configuração: 1ª consulta (data + horário) e intervalo */}
@@ -7108,13 +7232,15 @@ function ModalAgendarAcompanhamento({ pacienteId, nutriId, consultaAtiva, onClos
 
         <button
           onClick={salvar}
-          disabled={salvando}
+          // Presencial espera os locais SÓ enquanto carregam; depois de falha
+          // carregandoLocais é false e o Salvar libera (com o aviso na tela).
+          disabled={salvando || (modalidade === 'presencial' && carregandoLocais)}
           style={{
             width: '100%', padding: '13px', borderRadius: 12,
             background: 'var(--gold-deep, #a08456)', color: '#fff',
             border: 'none', fontSize: 14, fontWeight: 600,
-            cursor: salvando ? 'default' : 'pointer',
-            opacity: salvando ? 0.7 : 1,
+            cursor: salvando || (modalidade === 'presencial' && carregandoLocais) ? 'default' : 'pointer',
+            opacity: salvando || (modalidade === 'presencial' && carregandoLocais) ? 0.7 : 1,
             fontFamily: 'var(--font-sans)',
           }}
         >
@@ -7126,10 +7252,13 @@ function ModalAgendarAcompanhamento({ pacienteId, nutriId, consultaAtiva, onClos
 }
 
 // ─── Modal: Agendar consulta avulsa (atendimento único, fora do pacote de 6) ──
-function ModalAgendarAvulsa({ pacienteId, nutriId, onClose, onSalvo }) {
+function ModalAgendarAvulsa({ pacienteId, nutriId, modalidadePaciente, onClose, onSalvo }) {
   const [data, setData] = useState(() => dataLocalISO(7));
   const [hora, setHora] = useState(HORARIO_CONSULTA_PADRAO);
   const [duracao, setDuracao] = useState(30);
+  // Pré-preenchida pelo cadastro, editável. Mesma regra do pacote de 6.
+  const [modalidade, setModalidade] = useState(() => modalidadeDaPaciente(modalidadePaciente));
+  const { locais, carregando: carregandoLocais, falhou: falhouLocais } = useLocaisAtendimento(nutriId);
   const [semData, setSemData] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState(null);
@@ -7174,6 +7303,8 @@ function ModalAgendarAvulsa({ pacienteId, nutriId, onClose, onSalvo }) {
       nutri_id:       nutriId,
       data_hora:      semData ? null : montarDataHoraISO(data, hora),
       duracao_min:    duracao,
+      modalidade,
+      local_id:       modalidade === 'presencial' && !semData ? (localPadrao(locais, data) || null) : null,
       tipo:           'avulsa',
       status:         'agendada',
       lembrete_ativo: true,
@@ -7234,6 +7365,14 @@ function ModalAgendarAvulsa({ pacienteId, nutriId, onClose, onSalvo }) {
           </select>
         </label>
 
+        <CampoModalidadeConsulta
+          modalidade={modalidade}
+          onChange={setModalidade}
+          semLocal={semData || carregandoLocais ? [] : datasSemLocal([data], locais)}
+          falhouLocais={falhouLocais}
+          lblStyle={lblStyle}
+        />
+
         {erro && (
           <div style={{ color: 'var(--red, #dc2626)', fontSize: 13, marginBottom: 12, padding: '8px 12px', background: 'var(--red-bg, #fef2f2)', borderRadius: 8 }}>
             {erro}
@@ -7242,13 +7381,14 @@ function ModalAgendarAvulsa({ pacienteId, nutriId, onClose, onSalvo }) {
 
         <button
           onClick={salvar}
-          disabled={salvando}
+          // Mesma regra do pacote: espera os locais só enquanto carregam.
+          disabled={salvando || (modalidade === 'presencial' && carregandoLocais)}
           style={{
             width: '100%', padding: '13px', borderRadius: 12,
             background: 'var(--gold-deep, #a08456)', color: '#fff',
             border: 'none', fontSize: 14, fontWeight: 600,
-            cursor: salvando ? 'default' : 'pointer',
-            opacity: salvando ? 0.7 : 1,
+            cursor: salvando || (modalidade === 'presencial' && carregandoLocais) ? 'default' : 'pointer',
+            opacity: salvando || (modalidade === 'presencial' && carregandoLocais) ? 0.7 : 1,
             fontFamily: 'var(--font-sans)',
           }}
         >
