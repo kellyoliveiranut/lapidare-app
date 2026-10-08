@@ -13,6 +13,7 @@ import {
 import { tipoColor, tipoColorSoft, MODALIDADES_CONSULTA, modalidadeInfo, opcoesTipoConsulta, tipoSugerido } from '../../lib/consultaVisual.js';
 import { modalidadeDaPaciente, localPadrao } from '../../lib/opcoesPaciente.js';
 import { pacientesComCancelada } from '../../lib/agendaListas.js';
+import { gravar } from '../../lib/gravar.js';
 import ReguaDoDia from './_ReguaDoDia.jsx';
 import { HORARIOS_TAREFA, hhmm } from '../../lib/reguaDoDia.js';
 import {
@@ -2924,10 +2925,19 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
         obs: obs.trim() || null,
         lembrete_ativo: lembreteAtivo,
       };
-      const { error } = isEdit
-        ? await supabase.from('consultas').update(payload).eq('id', consulta.id)
-        : await supabase.from('consultas').insert(payload);
-      if (error) throw error;
+      // Editar confere a linha alterada (gravar): um update barrado pelo RLS,
+      // ou com a consulta já apagada, voltaria sem erro e o modal fecharia
+      // como salvo. Criar segue como antes — insert barrado já devolve erro.
+      if (isEdit) {
+        const r = await gravar(
+          supabase.from('consultas').update(payload).eq('id', consulta.id),
+          { rotulo: 'salvar a consulta' },
+        );
+        if (!r.ok) { setErro(r.msg); return; }
+      } else {
+        const { error } = await supabase.from('consultas').insert(payload);
+        if (error) throw error;
+      }
       onSaved();
     } catch (err) {
       setErro(err?.message || 'Erro ao salvar consulta');
@@ -2939,25 +2949,31 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
   async function finalizarConsulta() {
     if (!window.confirm('Marcar esta consulta como realizada?')) return;
     setBusy(true);
-    const { error } = await supabase
-      .from('consultas')
-      .update({ status: 'realizada', encerrada_em: new Date().toISOString() })
-      .eq('id', consulta.id);
+    const r = await gravar(
+      supabase
+        .from('consultas')
+        .update({ status: 'realizada', encerrada_em: new Date().toISOString() })
+        .eq('id', consulta.id),
+      { rotulo: 'finalizar a consulta' },
+    );
     setBusy(false);
-    if (error) { setErro(error.message); return; }
+    if (!r.ok) { setErro(r.msg); return; }
     onSaved();
   }
 
   async function cancelarConsulta() {
     if (!window.confirm('Tem certeza que deseja cancelar esta consulta?')) return;
     setBusy(true);
-    const { error } = await supabase
-      .from('consultas')
-      .update({ status: 'cancelada' })
-      .eq('id', consulta.id);
+    const r = await gravar(
+      supabase
+        .from('consultas')
+        .update({ status: 'cancelada' })
+        .eq('id', consulta.id),
+      { rotulo: 'cancelar a consulta' },
+    );
     setBusy(false);
-    if (error) {
-      setErro(error.message);
+    if (!r.ok) {
+      setErro(r.msg);
       return;
     }
     onSaved();

@@ -6,6 +6,7 @@ import {
   brl, dataBR, iniciais, statusParcela, liquidoParcela, TZ_CLINICA,
   dataLocalISO, horaConsultaBR, partesLocaisISO,
 } from '../../lib/utils.js';
+import { janelasDaVisao } from '../../lib/visaoJanelas.js';
 
 // Nº esperado de consultas por tipo de plano (para alertar planos chegando ao fim).
 // Só entra aqui plano com pacote fechado: 'avulsa' fica de fora de propósito —
@@ -99,24 +100,17 @@ export default function Visao() {
     if (!user) return;
     let active = true;
     async function carregar() {
-      const hoje = new Date();
-      // Semana: segunda à domingo
-      const dow = (hoje.getDay() + 6) % 7;
-      const segunda = new Date(hoje); segunda.setDate(hoje.getDate() - dow); segunda.setHours(0, 0, 0, 0);
-      const domingo = new Date(segunda); domingo.setDate(segunda.getDate() + 6); domingo.setHours(23, 59, 59, 999);
-      const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().slice(0, 10);
-      const fimMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).toISOString().slice(0, 10);
-      const isoSegunda = segunda.toISOString();
-      const isoDomingo = domingo.toISOString();
-      const dataSegunda = segunda.toISOString().slice(0, 10);
-      const dataDomingo = domingo.toISOString().slice(0, 10);
+      // Semana (segunda a domingo), mês e janelas dos alertas, em dia LOCAL
+      // (src/lib/visaoJanelas.js). Antes saíam de toISOString().slice: em
+      // Belém o domingo 23:59 virava segunda, e depois das 21:00 o "7 dias
+      // atrás" andava um dia.
+      const {
+        inicioMes, fimMes, dataDomingo, dias7atras,
+        isoSegunda, isoDomingo, dias30atras,
+      } = janelasDaVisao(new Date());
       // Dia de hoje para a coluna `data` dos lembretes: dataLocalISO, nunca
       // toISOString — a coluna é `date` e o corte tem que ser o do calendário.
       const hojeISO = dataLocalISO();
-
-      // Limites pra queries dos alertas relacionais
-      const dias30atras = new Date(Date.now() - 30 * 86_400_000).toISOString();
-      const dias7atras  = new Date(Date.now() - 7 * 86_400_000).toISOString().slice(0, 10);
 
       const [
         pacRes, agSemanaRes, parcRes, checkRes,

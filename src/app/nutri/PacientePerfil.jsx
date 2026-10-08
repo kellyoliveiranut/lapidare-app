@@ -280,9 +280,12 @@ export default function PacientePerfil() {
       .eq('id', consultaId)
       .select('id');
     if (error || data?.length !== 1) {
-      setErroAcomp('Erro ao definir data: ' + (error?.message
-        ?? 'nenhuma consulta foi atualizada. Recarregue a página e tente de novo.'));
-      return false;
+      // Devolve a MENSAGEM (e não false): o ModalDefinirData a mostra dentro
+      // dele. O erroAcomp fica também, mas é desenhado no card atrás do modal.
+      const msg = 'Erro ao definir data: ' + (error?.message
+        ?? 'nenhuma consulta foi atualizada. Recarregue a página e tente de novo.');
+      setErroAcomp(msg);
+      return msg;
     }
     await Promise.all([loadAcompConsultas(), reloadConsultaAtiva()]);
     return true;
@@ -888,8 +891,10 @@ export default function PacientePerfil() {
           duracaoMin={definirDataConsulta.duracao_min ?? 30}
           onClose={() => setDefinirDataConsulta(null)}
           onSalvar={async (dataHoraIso) => {
-            const ok = await salvarDataConsulta(definirDataConsulta.id, dataHoraIso, definirDataConsulta);
-            if (ok) setDefinirDataConsulta(null);
+            // true = gravou; texto = mensagem de falha, que volta ao modal.
+            const r = await salvarDataConsulta(definirDataConsulta.id, dataHoraIso, definirDataConsulta);
+            if (r === true) { setDefinirDataConsulta(null); return null; }
+            return r;
           }}
         />
       )}
@@ -7535,7 +7540,10 @@ function ModalDefinirData({
       });
       if (impedimentos.length) { setErro(textoImpedimentos(impedimentos)); return; }
       if (avisos.length && !window.confirm(textoConfirmacao(avisos))) return;
-      await onSalvar(montarDataHoraISO(data, horaEscolhida));
+      // Falha volta como texto e aparece aqui dentro, e não só no card do
+      // perfil, que fica atrás deste modal.
+      const msg = await onSalvar(montarDataHoraISO(data, horaEscolhida));
+      if (typeof msg === 'string') setErro(msg);
     } catch (e) {
       setErro('Não consegui conferir a agenda: ' + (e?.message ?? 'tente de novo'));
     } finally {
