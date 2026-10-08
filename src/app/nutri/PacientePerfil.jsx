@@ -21,7 +21,9 @@ import { baixarBlob, nomeArquivoPdf } from '../../lib/pdfBase.js';
 import { gerarPdfContrato } from '../../lib/pdfContrato.js';
 import { perguntasParaPaciente } from '../../lib/checkinVariacao.js';
 import { ehFeriado } from '../../lib/feriados.js';
-import { verificarAgenda, textoImpedimentos, textoConfirmacao } from '../../lib/agendaConflitos.js';
+import { verificarAgenda, textoImpedimentos, textoConfirmacao, opcoesHorario, horariosLivres } from '../../lib/agendaConflitos.js';
+import { useHorariosLivres, useOcupacaoDeDatas } from '../../lib/useHorariosLivres.js';
+import { horariosDoPacote } from '../../lib/horariosDoPacote.js';
 // O gráfico de área saiu daqui para ser usado também pelos exames. O
 // comportamento do gráfico de peso não mudou: o corte de "menos de 2 pontos"
 // continua sendo do chamador, logo abaixo, e não do componente.
@@ -7069,10 +7071,42 @@ function ModalAgendarAcompanhamento({ pacienteId, nutriId, consultaAtiva, modali
     setDatas(prev => prev.map((d, i) => i === idx ? { ...d, [campo]: v } : d));
   }
 
+  // Só horários livres (pedido 9, parte 2). Cada linha vê o banco do dia dela
+  // E as linhas anteriores do pacote no mesmo dia (horariosDoPacote). A hora
+  // EFETIVA de cada linha (`horasEfetivas[i]`) é a que o select mostra, a
+  // trava confere e o insert grava — nunca o `d.hora` do estado por baixo.
+  const { ocupacaoPorData } = useOcupacaoDeDatas({
+    supabase, nutriId,
+    datas: semData ? [] : [primeiraData, ...datas.map(d => d.data)],
+  });
+  const porLinha = horariosDoPacote({
+    linhas: datas.map(d => ({ data: d.data, hora: d.hora })),
+    duracao, ocupacaoPorData, preferidoPadrao: HORARIO_CONSULTA_PADRAO,
+  });
+  const horasEfetivas = porLinha.map(p => p.valor);
+
+  // O "Horário" do topo é só o GERADOR das seis (handleHora regera todas com
+  // ele), não a linha 1: oferece o que está livre no banco no dia da 1ª
+  // consulta, sem olhar as linhas do pacote.
+  const ocTopo = primeiraData ? ocupacaoPorData[primeiraData] : undefined;
+  const selTopo = opcoesHorario({
+    livres: !ocTopo ? []
+      : ocTopo.falhou ? HORARIOS_CONSULTA
+      : horariosLivres({ data: primeiraData, duracaoMin: Number(duracao), consultas: ocTopo.consultas, bloqueios: ocTopo.bloqueios }),
+    atual: null, hora, preferido: hora || HORARIO_CONSULTA_PADRAO,
+    carregando: !!primeiraData && !ocTopo, temData: !!primeiraData, escolherSozinho: true,
+  });
+
+  // Uma linha com data ainda carregando, ou sem nenhum horário livre, segura o
+  // Salvar: não há hora efetiva para gravar.
+  const pacoteSemHorario = !semData && datas.some((d, i) =>
+    !!d.data && (!ocupacaoPorData[d.data] || porLinha[i].semHorario));
+  const pacoteNaoConferido = !semData && porLinha.some(p => p.falhou);
+
   async function salvar() {
     if (!semData) {
       if (datas.some(d => !d.data)) { setErro('Preencha todas as datas.'); return; }
-      if (datas.some(d => !horaConsultaValida(d.hora))) {
+      if (horasEfetivas.some(h => !horaConsultaValida(h))) {
         setErro('Todos os horários devem ser entre 08:00 e 18:00 (de 30 em 30 min).');
         return;
       }
@@ -7092,7 +7126,7 @@ function ModalAgendarAcompanhamento({ pacienteId, nutriId, consultaAtiva, modali
           // ordem das seis linhas do formulário. O labelTipoConsulta daqui
           // não serve — ele vive dentro do componente PacientePerfil, e este
           // modal é uma função irmã, fora daquele escopo.
-          itens: datas.map(d => ({ data: d.data, hora: d.hora, duracaoMin: duracao })),
+          itens: datas.map((d, i) => ({ data: d.data, hora: horasEfetivas[i], duracaoMin: duracao })),
           permitirFds,
           dicaFds: ' Ou marque "permitir fim de semana".',
         });
@@ -7114,7 +7148,7 @@ function ModalAgendarAcompanhamento({ pacienteId, nutriId, consultaAtiva, modali
     const payload = Array.from({ length: 6 }, (_, i) => ({
       paciente_id:    pacienteId,
       nutri_id:       nutriId,
-      data_hora:      semData ? null : montarDataHoraISO(datas[i].data, datas[i].hora),
+      data_hora:      semData ? null : montarDataHoraISO(datas[i].data, horasEfetivas[i]),
       duracao_min:    duracao,
       modalidade,
       // Presencial: o local de CADA data pela regra de dia da semana; '' vira
@@ -7184,8 +7218,11 @@ function ModalAgendarAcompanhamento({ pacienteId, nutriId, consultaAtiva, modali
             </label>
             <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               <span style={lblStyle}>Horário</span>
-              <select value={hora} onChange={e => handleHora(e.target.value)} style={selStyle}>
-                {HORARIOS_CONSULTA.map(h => <option key={h} value={h}>{h}</option>)}
+              <select value={selTopo.valor ?? ''} onChange={e => handleHora(e.target.value)}
+                disabled={selTopo.desabilitado} style={selStyle}>
+                {selTopo.desabilitado
+                  ? <option value="">{selTopo.placeholder}</option>
+                  : selTopo.opcoes.map(o => <option key={o.valor} value={o.valor}>{o.rotulo}</option>)}
               </select>
             </label>
           </div>
@@ -7209,6 +7246,9 @@ function ModalAgendarAcompanhamento({ pacienteId, nutriId, consultaAtiva, modali
           <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.1em', fontWeight: 500, marginBottom: 8 }}>
             Confirme as datas
           </div>
+          {pacoteNaoConferido && (
+            <div style={{ marginBottom: 8 }}><AvisoHorariosNaoConferidos /></div>
+          )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 20 }}>
             {datas.map((dt, i) => (
               <div key={i} style={{ display: 'grid', gridTemplateColumns: '76px 1fr 96px', gap: 8, alignItems: 'center' }}>
@@ -7216,9 +7256,18 @@ function ModalAgendarAcompanhamento({ pacienteId, nutriId, consultaAtiva, modali
                   Consulta {i + 1}
                 </span>
                 <DateInput value={dt.data} onChange={e => handleData(i, 'data', e.target.value)} />
-                <select value={dt.hora} onChange={e => handleData(i, 'hora', e.target.value)} style={selStyle}>
-                  {HORARIOS_CONSULTA.map(h => <option key={h} value={h}>{h}</option>)}
+                <select value={porLinha[i].valor ?? ''} onChange={e => handleData(i, 'hora', e.target.value)}
+                  disabled={porLinha[i].desabilitado} style={selStyle}>
+                  {porLinha[i].desabilitado
+                    ? <option value="">{porLinha[i].placeholder}</option>
+                    : porLinha[i].opcoes.map(o => <option key={o.valor} value={o.valor}>{o.rotulo}</option>)}
                 </select>
+                {/* Só quando a linha pulou: a nutri vê que o horário mudou. */}
+                {porLinha[i].ajustada && (
+                  <span style={{ gridColumn: '2 / -1', fontSize: 11, color: 'var(--muted)', lineHeight: 1.4 }}>
+                    {dt.hora} estava ocupado; ficou {porLinha[i].valor}.
+                  </span>
+                )}
               </div>
             ))}
           </div>
@@ -7230,17 +7279,24 @@ function ModalAgendarAcompanhamento({ pacienteId, nutriId, consultaAtiva, modali
           </div>
         )}
 
+        {pacoteSemHorario && (
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 8 }}>
+            Há um dia sem horário livre ou ainda carregando. Escolha outra data.
+          </div>
+        )}
+
         <button
           onClick={salvar}
           // Presencial espera os locais SÓ enquanto carregam; depois de falha
           // carregandoLocais é false e o Salvar libera (com o aviso na tela).
-          disabled={salvando || (modalidade === 'presencial' && carregandoLocais)}
+          // E espera os horários de cada linha com data.
+          disabled={salvando || (modalidade === 'presencial' && carregandoLocais) || pacoteSemHorario}
           style={{
             width: '100%', padding: '13px', borderRadius: 12,
             background: 'var(--gold-deep, #a08456)', color: '#fff',
             border: 'none', fontSize: 14, fontWeight: 600,
-            cursor: salvando || (modalidade === 'presencial' && carregandoLocais) ? 'default' : 'pointer',
-            opacity: salvando || (modalidade === 'presencial' && carregandoLocais) ? 0.7 : 1,
+            cursor: salvando || (modalidade === 'presencial' && carregandoLocais) || pacoteSemHorario ? 'default' : 'pointer',
+            opacity: salvando || (modalidade === 'presencial' && carregandoLocais) || pacoteSemHorario ? 0.7 : 1,
             fontFamily: 'var(--font-sans)',
           }}
         >
@@ -7252,6 +7308,16 @@ function ModalAgendarAcompanhamento({ pacienteId, nutriId, consultaAtiva, modali
 }
 
 // ─── Modal: Agendar consulta avulsa (atendimento único, fora do pacote de 6) ──
+// Quando a leitura da ocupação falha, a lista volta a ser a grade inteira:
+// a nutri precisa saber que ali pode haver horário ocupado.
+function AvisoHorariosNaoConferidos() {
+  return (
+    <span style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.4 }}>
+      Não consegui conferir os horários ocupados. A conferência final acontece ao salvar.
+    </span>
+  );
+}
+
 function ModalAgendarAvulsa({ pacienteId, nutriId, modalidadePaciente, onClose, onSalvo }) {
   const [data, setData] = useState(() => dataLocalISO(7));
   const [hora, setHora] = useState(HORARIO_CONSULTA_PADRAO);
@@ -7263,10 +7329,23 @@ function ModalAgendarAvulsa({ pacienteId, nutriId, modalidadePaciente, onClose, 
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState(null);
 
+  // Só horários livres (pedido 9): mesmo desenho do ConsultaModal da Agenda.
+  // `horaEscolhida` é o que o select MOSTRA e o que o salvar grava — nunca o
+  // estado `hora` por baixo, que pode ter ficado num horário que sumiu da lista.
+  const { carregando: carregandoHorarios, falhou: falhouHorarios, livres } =
+    useHorariosLivres({ supabase, nutriId, data, duracao, ignorarIds: [] });
+  const sel = opcoesHorario({
+    livres, atual: null, hora, preferido: HORARIO_CONSULTA_PADRAO,
+    carregando: carregandoHorarios, temData: !!data, escolherSozinho: true,
+  });
+  const horaEscolhida = sel.valor;
+  // Sem data ("definir depois") não há horário a esperar.
+  const semHorarioParaSalvar = !semData && !!data && (carregandoHorarios || sel.semHorario);
+
   async function salvar() {
     if (!semData) {
       if (!data) { setErro('Preencha a data.'); return; }
-      if (!horaConsultaValida(hora)) {
+      if (!horaConsultaValida(horaEscolhida)) {
         setErro('Escolha um horário entre 08:00 e 18:00 (de 30 em 30 min).');
         return;
       }
@@ -7281,7 +7360,7 @@ function ModalAgendarAvulsa({ pacienteId, nutriId, modalidadePaciente, onClose, 
         const { impedimentos, avisos } = await verificarAgenda(supabase, {
           nutriId,
           pacienteId,
-          itens: [{ data, hora, duracaoMin: duracao }],
+          itens: [{ data, hora: horaEscolhida, duracaoMin: duracao }],
         });
         if (impedimentos.length) {
           setErro(textoImpedimentos(impedimentos));
@@ -7301,7 +7380,7 @@ function ModalAgendarAvulsa({ pacienteId, nutriId, modalidadePaciente, onClose, 
     const { error } = await supabase.from('consultas').insert({
       paciente_id:    pacienteId,
       nutri_id:       nutriId,
-      data_hora:      semData ? null : montarDataHoraISO(data, hora),
+      data_hora:      semData ? null : montarDataHoraISO(data, horaEscolhida),
       duracao_min:    duracao,
       modalidade,
       local_id:       modalidade === 'presencial' && !semData ? (localPadrao(locais, data) || null) : null,
@@ -7351,9 +7430,15 @@ function ModalAgendarAvulsa({ pacienteId, nutriId, modalidadePaciente, onClose, 
           </label>
           <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <span style={lblStyle}>Horário</span>
-            <select value={hora} onChange={e => setHora(e.target.value)} style={selStyle}>
-              {HORARIOS_CONSULTA.map(h => <option key={h} value={h}>{h}</option>)}
+            {/* Só horários livres (opcoesHorario). Sem opções, o select fica
+                desabilitado com o motivo no lugar do horário. */}
+            <select value={horaEscolhida ?? ''} onChange={e => setHora(e.target.value)}
+              disabled={sel.desabilitado} style={selStyle}>
+              {sel.desabilitado
+                ? <option value="">{sel.placeholder}</option>
+                : sel.opcoes.map(o => <option key={o.valor} value={o.valor}>{o.rotulo}</option>)}
             </select>
+            {falhouHorarios && <AvisoHorariosNaoConferidos />}
           </label>
         </div>
         )}
@@ -7381,14 +7466,15 @@ function ModalAgendarAvulsa({ pacienteId, nutriId, modalidadePaciente, onClose, 
 
         <button
           onClick={salvar}
-          // Mesma regra do pacote: espera os locais só enquanto carregam.
-          disabled={salvando || (modalidade === 'presencial' && carregandoLocais)}
+          // Mesma regra do pacote: espera os locais só enquanto carregam. E,
+          // com data, espera os horários e recusa dia sem horário livre.
+          disabled={salvando || (modalidade === 'presencial' && carregandoLocais) || semHorarioParaSalvar}
           style={{
             width: '100%', padding: '13px', borderRadius: 12,
             background: 'var(--gold-deep, #a08456)', color: '#fff',
             border: 'none', fontSize: 14, fontWeight: 600,
-            cursor: salvando || (modalidade === 'presencial' && carregandoLocais) ? 'default' : 'pointer',
-            opacity: salvando || (modalidade === 'presencial' && carregandoLocais) ? 0.7 : 1,
+            cursor: salvando || (modalidade === 'presencial' && carregandoLocais) || semHorarioParaSalvar ? 'default' : 'pointer',
+            opacity: salvando || (modalidade === 'presencial' && carregandoLocais) || semHorarioParaSalvar ? 0.7 : 1,
             fontFamily: 'var(--font-sans)',
           }}
         >
@@ -7412,9 +7498,21 @@ function ModalDefinirData({
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState(null);
 
+  // Só horários livres (pedido 9). A própria consulta não ocupa o próprio
+  // horário (ignorarIds), e a duração é a dela. `horaEscolhida` é o que o
+  // select mostra e o que o salvar grava.
+  const { carregando: carregandoHorarios, falhou: falhouHorarios, livres } =
+    useHorariosLivres({ supabase, nutriId, data, duracao: duracaoMin, ignorarIds: [consultaId] });
+  const sel = opcoesHorario({
+    livres, atual: null, hora, preferido: HORARIO_CONSULTA_PADRAO,
+    carregando: carregandoHorarios, temData: !!data, escolherSozinho: true,
+  });
+  const horaEscolhida = sel.valor;
+  const semHorarioParaSalvar = !!data && (carregandoHorarios || sel.semHorario);
+
   async function salvar() {
     if (!data) { setErro('Preencha a data.'); return; }
-    if (!horaConsultaValida(hora)) {
+    if (!horaConsultaValida(horaEscolhida)) {
       setErro('Escolha um horário entre 08:00 e 18:00 (de 30 em 30 min).');
       return;
     }
@@ -7427,12 +7525,12 @@ function ModalDefinirData({
       const { impedimentos, avisos } = await verificarAgenda(supabase, {
         nutriId,
         pacienteId,
-        itens: [{ data, hora, duracaoMin }],
+        itens: [{ data, hora: horaEscolhida, duracaoMin }],
         ignorarIds: [consultaId],
       });
       if (impedimentos.length) { setErro(textoImpedimentos(impedimentos)); return; }
       if (avisos.length && !window.confirm(textoConfirmacao(avisos))) return;
-      await onSalvar(montarDataHoraISO(data, hora));
+      await onSalvar(montarDataHoraISO(data, horaEscolhida));
     } catch (e) {
       setErro('Não consegui conferir a agenda: ' + (e?.message ?? 'tente de novo'));
     } finally {
@@ -7471,9 +7569,15 @@ function ModalDefinirData({
           </label>
           <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <span style={lblStyle}>Horário</span>
-            <select value={hora} onChange={e => setHora(e.target.value)} style={selStyle}>
-              {HORARIOS_CONSULTA.map(h => <option key={h} value={h}>{h}</option>)}
+            {/* Só horários livres (opcoesHorario). Sem opções, o select fica
+                desabilitado com o motivo no lugar do horário. */}
+            <select value={horaEscolhida ?? ''} onChange={e => setHora(e.target.value)}
+              disabled={sel.desabilitado} style={selStyle}>
+              {sel.desabilitado
+                ? <option value="">{sel.placeholder}</option>
+                : sel.opcoes.map(o => <option key={o.valor} value={o.valor}>{o.rotulo}</option>)}
             </select>
+            {falhouHorarios && <AvisoHorariosNaoConferidos />}
           </label>
         </div>
 
@@ -7485,13 +7589,13 @@ function ModalDefinirData({
 
         <button
           onClick={salvar}
-          disabled={salvando}
+          disabled={salvando || semHorarioParaSalvar}
           style={{
             width: '100%', padding: '13px', borderRadius: 12,
             background: 'var(--gold-deep, #a08456)', color: '#fff',
             border: 'none', fontSize: 14, fontWeight: 600,
-            cursor: salvando ? 'default' : 'pointer',
-            opacity: salvando ? 0.7 : 1,
+            cursor: salvando || semHorarioParaSalvar ? 'default' : 'pointer',
+            opacity: salvando || semHorarioParaSalvar ? 0.7 : 1,
             fontFamily: 'var(--font-sans)',
           }}
         >
