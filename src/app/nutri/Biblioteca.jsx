@@ -490,9 +490,10 @@ function ModalEditar({ item, onClose, onSaved }) {
       const { error: upErr } = await supabase.storage.from('ebooks')
         .upload(path, arquivo, { contentType: arquivo.type });
       if (upErr) { setBusy(false); return setErro('Upload falhou: ' + upErr.message); }
-      if (item.storage_path) await supabase.storage.from('ebooks').remove([item.storage_path]);
       storage_path = path;
     }
+    // O arquivo antigo só sai depois que a linha passou a apontar para o novo:
+    // se o update falhar, a linha continua no antigo, que precisa existir.
     const r = await gravar(supabase.from('ebooks').update({
       titulo: titulo.trim(),
       descricao: descricao.trim() || null,
@@ -500,7 +501,15 @@ function ModalEditar({ item, onClose, onSaved }) {
       storage_path,
     }).eq('id', item.id), { rotulo: 'salvar o material' });
     setBusy(false);
-    if (!r.ok) return setErro(r.msg);
+    if (!r.ok) {
+      // o novo, recém-enviado, ficaria órfão
+      if (arquivo) await supabase.storage.from('ebooks').remove([storage_path]);
+      return setErro(r.msg);
+    }
+    if (arquivo && item.storage_path) {
+      const { error: rmErr } = await supabase.storage.from('ebooks').remove([item.storage_path]);
+      if (rmErr) console.warn('Não consegui remover o arquivo antigo do material:', rmErr.message);
+    }
     onSaved();
   }
 

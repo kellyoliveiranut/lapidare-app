@@ -220,10 +220,15 @@ export default function PacienteLayout() {
     if (!entry) return;
     const [secao, resetFn] = entry;
     resetFn(0);
+    // O .then é o que faz a requisição sair (sem ele o upsert nunca rodava).
+    // Marcação automática: na falha, só console.warn. Sem gravar(): a tabela
+    // não tem coluna id.
     supabase.from('secoes_vistas').upsert(
       { paciente_id: pacienteId, secao, visto_em: new Date().toISOString() },
       { onConflict: 'paciente_id,secao' }
-    );
+    ).then(({ error }) => {
+      if (error) console.warn('Não consegui registrar a seção vista:', error.message);
+    });
   }, [location.pathname, pacienteId]);
 
   // Banner de consulta: busca a próxima dentro de 48h (ou até 15min passada)
