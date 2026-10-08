@@ -12,6 +12,7 @@ import {
 } from '../../lib/agendaConflitos.js';
 import { tipoColor, tipoColorSoft, MODALIDADES_CONSULTA, modalidadeInfo } from '../../lib/consultaVisual.js';
 import { modalidadeDaPaciente, localPadrao } from '../../lib/opcoesPaciente.js';
+import { pacientesComCancelada } from '../../lib/agendaListas.js';
 import ReguaDoDia from './_ReguaDoDia.jsx';
 import { HORARIOS_TAREFA, hhmm } from '../../lib/reguaDoDia.js';
 import {
@@ -511,6 +512,54 @@ export default function Agenda() {
     );
   }
 
+  // Remarcar da LINHA (pedido 8, 2026-10-08): tira a consulta do calendário e
+  // a deixa em "A definir" — a MESMA linha, com data_hora null e o status
+  // ainda 'agendada'. Nada é cancelado, então pacote, contrato e Jornada não
+  // mudam. Quem zera confirmação, "não confirmou", lembrete e push é o trigger
+  // consultas_limpa_ao_reagendar_tg, que dispara porque data_hora muda.
+  //
+  // O .eq('status', 'agendada') e o .select('id') fazem do update uma
+  // pergunta com resposta: se a consulta mudou de status em outra aba, ou o
+  // RLS recusou em silêncio, volta zero linha — e isso é erro, não sucesso.
+  //
+  // `mandandoId` desabilita o botão da linha durante a gravação: o confirm
+  // não impede um segundo clique enquanto o update está no ar.
+  const [mandandoId, setMandandoId] = useState(null);
+  async function mandarParaADefinir(c) {
+    if (c.status !== 'agendada' || !c.data_hora || mandandoId) return;
+    const nome = c.paciente?.nome ?? 'paciente sem nome';
+    if (!window.confirm(
+      `Tirar a consulta de ${nome} (${dataConsultaBR(c.data_hora)}) do calendário e mandar para "A definir"? ` +
+      'A confirmação de presença e o lembrete dessa consulta serão zerados. ' +
+      'A paciente fica em "A definir" até você dar uma nova data.'
+    )) return;
+    setMandandoId(c.id);
+    setErroLembrete(null);
+    try {
+      const { data, error } = await supabase.from('consultas')
+        .update({ data_hora: null })
+        .eq('id', c.id)
+        .eq('status', 'agendada')
+        .select('id');
+      if (error || data?.length !== 1) {
+        setErroLembrete(error
+          ? 'Não consegui mandar para "A definir": ' + error.message
+          : 'Não consegui mandar para "A definir": a consulta não foi alterada. Recarregue a página e tente de novo.');
+        setTimeout(() => setErroLembrete(null), 6000);
+        return;
+      }
+      // O mesmo recarregamento de depois de salvar no modal: a consulta muda
+      // de seção e o painel de lembretes perde o cartão dela.
+      setEnviadosLocais(prev => { const m = new Map(prev); m.delete(c.id); return m; });
+      await Promise.all([carregar(), verificarLembretes()]);
+    } catch (err) {
+      setErroLembrete('Não consegui mandar para "A definir": ' + (err?.message ?? 'tente de novo'));
+      setTimeout(() => setErroLembrete(null), 6000);
+    } finally {
+      setMandandoId(null);
+    }
+  }
+
   useEffect(() => {
     carregar();
     carregarPacientes();
@@ -588,7 +637,7 @@ export default function Agenda() {
   const ativas = (consultas ?? []).filter(c => c.status !== 'cancelada');
   const futuras = ativas.filter(c => c.data_hora && c.data_hora >= agora);
   const aDefinir = ativas.filter(c => !c.data_hora);
-  const canceladas = (consultas ?? []).filter(c => c.status === 'cancelada');
+  const pacientesCanceladas = pacientesComCancelada(consultas ?? [], agora);
 
   // Busca da seção "A definir", por nome da paciente. Sem useMemo pela mesma
   // razão do `diasFuturos` logo abaixo: `aDefinir` nasce de um filter novo a
@@ -693,10 +742,6 @@ export default function Agenda() {
 
   const abrirNova = () => setModalState({ open: true, consulta: null, pacienteInicialId: null, remarcando: false });
   const abrirEdit = (consulta) => setModalState({ open: true, consulta, pacienteInicialId: null, remarcando: false });
-  // Mesmo modal, já em modo remarcação: a faixa explicativa, o destaque nos
-  // campos de data/hora e o rótulo "Salvar remarcação" saem todos do mesmo
-  // `remarcando` que o botão de dentro do modal já acionava.
-  const abrirRemarcacao = (consulta) => setModalState({ open: true, consulta, pacienteInicialId: null, remarcando: true });
   const fechar = () => setModalState({ open: false, consulta: null, pacienteInicialId: null, remarcando: false });
 
   // Busca ampla da barra de ações: escolher a paciente abre o modal de consulta
@@ -927,7 +972,8 @@ export default function Agenda() {
             <ConsultaRow key={c.id} c={c} isLast={i === consultasDoDia.length - 1} onClick={() => abrirEdit(c)}
               onToggleConfirmada={toggleConfirmada}
               onToggleNaoConfirmada={toggleNaoConfirmada}
-              onRemarcar={() => abrirRemarcacao(c)}
+              onRemarcar={() => mandarParaADefinir(c)}
+              remarcandoAgora={mandandoId === c.id}
               corDoTipo />
           ))}
         </div>
@@ -1103,7 +1149,8 @@ export default function Agenda() {
                         onClick={() => abrirEdit(c)}
                         onToggleConfirmada={toggleConfirmada}
                         onToggleNaoConfirmada={toggleNaoConfirmada}
-                        onRemarcar={() => abrirRemarcacao(c)}
+                        onRemarcar={() => mandarParaADefinir(c)}
+                        remarcandoAgora={mandandoId === c.id}
                         corDoTipo />
                     ))}
                   </div>
@@ -1112,17 +1159,19 @@ export default function Agenda() {
             </>
           )}
 
-          {canceladas.length > 0 && (
+          {/* Uma linha por PACIENTE, não por consulta (pedido 8): só quem tem
+              cancelada e nada agendado à frente. Clicar abre o perfil. */}
+          {pacientesCanceladas.length > 0 && (
             <details style={{ marginTop: 16 }}>
               <summary style={{
                 fontSize: 13, color: 'var(--text3)', cursor: 'pointer',
                 listStyle: 'none', userSelect: 'none', padding: '4px 0',
               }}>
-                Mostrar canceladas ({canceladas.length})
+                Mostrar canceladas ({pacientesCanceladas.length} paciente{pacientesCanceladas.length === 1 ? '' : 's'})
               </summary>
               <div className="card" style={{ padding: 0, opacity: .55, marginTop: 8 }}>
-                {canceladas.map((c, i) => (
-                  <ConsultaRow key={c.id} c={c} isLast={i === canceladas.length - 1} onClick={() => abrirEdit(c)} isCanceled />
+                {pacientesCanceladas.map((p, i) => (
+                  <LinhaPacienteCancelada key={p.paciente_id} p={p} isLast={i === pacientesCanceladas.length - 1} />
                 ))}
               </div>
             </details>
@@ -1889,14 +1938,49 @@ function TituloRecolhivel({ aberta, onAlternar, children }) {
   );
 }
 
+/**
+ * Linha da seção de canceladas: a PACIENTE, não a consulta (pedido 8). Mesmo
+ * avatar neutro do ConsultaRow; a linha inteira leva ao perfil, com o mesmo
+ * state de volta que o nome clicável do ConsultaRow usa.
+ */
+function LinhaPacienteCancelada({ p, isLast }) {
+  const navigate = useNavigate();
+  return (
+    <div
+      onClick={() => navigate(`/nutri/pacientes/${p.paciente_id}`, { state: { from: '/nutri/agenda', label: 'Agenda' } })}
+      title="Ver perfil da paciente"
+      style={{
+        display: 'flex', alignItems: 'center', gap: 12,
+        padding: '12px 16px',
+        borderBottom: isLast ? 'none' : '0.5px solid #f5f0e8',
+        cursor: 'pointer', transition: 'background .15s',
+      }}
+      onMouseEnter={e => e.currentTarget.style.background = '#faf8f5'}
+      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+    >
+      <div style={{
+        width: 36, height: 36, borderRadius: '50%',
+        background: 'var(--bg2)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: 13, fontWeight: 600, color: 'var(--dark)', flexShrink: 0,
+      }}>{iniciais(p.nome)}</div>
+      <div style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 500 }}>{p.nome}</div>
+      <i className="ti ti-chevron-right" style={{ fontSize: 14, color: 'var(--text3)' }} aria-hidden="true"></i>
+    </div>
+  );
+}
+
 /* ============================================================
    LINHA DE CONSULTA
    ============================================================ */
 // corDoTipo: a linha inteira na cor do tipo — fundo suave e faixa de 3px —, na
 // lista do dia, em "A definir" e em "Todas as próximas" (pedido 6, 2026-10-08).
 // A faixa laranja de "falta confirmar" sai dali: o botão "Marcar confirmada"
-// continua mostrando o que falta. Sem a prop (canceladas), a linha é a de antes.
-function ConsultaRow({ c, isLast, isCanceled, onClick, onToggleConfirmada, onToggleNaoConfirmada, onRemarcar, corDoTipo = false }) {
+// continua mostrando o que falta. Sem a prop, a linha é a de antes.
+//
+// remarcandoAgora: o Remarcar da linha está gravando (mandarParaADefinir) —
+// o botão fica desabilitado até a resposta do banco.
+function ConsultaRow({ c, isLast, onClick, onToggleConfirmada, onToggleNaoConfirmada, onRemarcar, remarcandoAgora = false, corDoTipo = false }) {
   const navigate = useNavigate();
   const cor = tipoColor(c.tipo);
   const confirmavel = podeConfirmar(c) && typeof onToggleConfirmada === 'function';
@@ -1975,10 +2059,9 @@ function ConsultaRow({ c, isLast, isCanceled, onClick, onToggleConfirmada, onTog
         background: 'var(--bg2)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontSize: 13, fontWeight: 600, color: 'var(--dark)', flexShrink: 0,
-        textDecoration: isCanceled ? 'line-through' : 'none',
       }}>{iniciais(c.paciente?.nome)}</div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: 500, textDecoration: isCanceled ? 'line-through' : 'none' }}>
+        <div style={{ fontSize: 14, fontWeight: 500 }}>
           {c.paciente?.id ? (
             <button
               type="button"
@@ -1988,9 +2071,6 @@ function ConsultaRow({ c, isLast, isCanceled, onClick, onToggleConfirmada, onTog
                 background: 'none', border: 'none', padding: 0, margin: 0,
                 font: 'inherit', color: 'inherit', textAlign: 'left',
                 cursor: 'pointer',
-                // O line-through do pai não atravessa o botão (inline-block),
-                // então a linha cancelada precisa repetir a decoração aqui.
-                textDecoration: isCanceled ? 'line-through' : 'none',
               }}>
               {c.paciente.nome}
             </button>
@@ -2075,7 +2155,8 @@ function ConsultaRow({ c, isLast, isCanceled, onClick, onToggleConfirmada, onTog
             {remarcavel && (
               <button
                 onClick={acionarRemarcar}
-                title="Abrir a consulta já na escolha de nova data e horário"
+                disabled={remarcandoAgora}
+                title="Manda para A definir"
                 style={{
                   minHeight: 30, padding: '0 11px',
                   borderRadius: 20, cursor: 'pointer',
@@ -2098,7 +2179,7 @@ function ConsultaRow({ c, isLast, isCanceled, onClick, onToggleConfirmada, onTog
         }}>
           {tipoLabel(c.tipo)}
         </span>
-        {!isCanceled && c.data_hora && (
+        {c.data_hora && (
           <span style={{ fontSize: 11, color: 'var(--text3)' }}>{textoDias(c.data_hora)}</span>
         )}
         <i className="ti ti-chevron-right" style={{ fontSize: 14, color: 'var(--text3)' }} aria-hidden="true"></i>
