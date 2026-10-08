@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
-import { iniciais, dataBR } from '../../lib/utils.js';
+import { iniciais, dataBR, dataLocalISO, isoLocalDeData } from '../../lib/utils.js';
 import { iniciarTokenPush, avisarPaciente } from '../../lib/push.js';
 
 const PAGINA = 12;
@@ -62,10 +62,10 @@ export default function FeedNutri() {
 
   const filtrados = useMemo(() => {
     if (!posts) return [];
-    const hoje = new Date().toISOString().slice(0, 10);
+    const hoje = dataLocalISO();
     if (filtro === 'sem_feedback')  return posts.filter(p => !temComentarioNutri(p));
     if (filtro === 'nova_resposta') return posts.filter(p => temNovaResposta(p));
-    if (filtro === 'hoje') return posts.filter(p => p.created_at?.slice(0, 10) === hoje);
+    if (filtro === 'hoje') return posts.filter(p => p.created_at && isoLocalDeData(new Date(p.created_at)) === hoje);
     return posts;
   }, [posts, filtro]);
 
@@ -146,7 +146,7 @@ export default function FeedNutri() {
 
   const semFeedback = posts?.filter(p => !temComentarioNutri(p)).length ?? 0;
   const novasRespostas = posts?.filter(p => temNovaResposta(p)).length ?? 0;
-  const hoje = posts?.filter(p => p.created_at?.slice(0, 10) === new Date().toISOString().slice(0, 10)).length ?? 0;
+  const hoje = posts?.filter(p => p.created_at && isoLocalDeData(new Date(p.created_at)) === dataLocalISO()).length ?? 0;
 
   return (
     <>

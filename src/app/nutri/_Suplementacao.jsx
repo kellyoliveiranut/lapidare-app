@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
-import { dataBR, normalizarTelefone, normalizarBusca } from '../../lib/utils.js';
+import { dataBR, normalizarTelefone, normalizarBusca, dataLocalISO } from '../../lib/utils.js';
 import { criarDocumento, cabecalho, cardPaciente, rodape, nomeArquivoPdf,
   M, W, TOPO, BRONZE, SEPIA, LINHA, LINHA2 } from '../../lib/pdfBase.js';
 
-const HOJE_ISO = () => new Date().toISOString().slice(0, 10);
+const HOJE_ISO = () => dataLocalISO();
 
 /**
  * Os três recortes possíveis do PDF de prescrição, e a ÚNICA definição da
@@ -84,7 +84,7 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
       supabase.from('suplementos').select('id, nome, dose, horario, obs, foto_url, ativo, data_inicio, manipulado').eq('paciente_id', pacienteId).order('ordem'),
       supabase.from('suplementos_logs').select('tomado, data, suplemento_id')
         .eq('paciente_id', pacienteId)
-        .gte('data', new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10))
+        .gte('data', dataLocalISO(-30))
         .order('data', { ascending: false }),
       supabase.from('envios_farmacia').select('enviado_em')
         .eq('paciente_id', pacienteId)
@@ -271,7 +271,7 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
     if (ativos.length === 0) return null;
     const dias7 = [];
     for (let i = 6; i >= 0; i--)
-      dias7.push(new Date(Date.now() - i * 86_400_000).toISOString().slice(0, 10));
+      dias7.push(dataLocalISO(-i));
     const esperado = ativos.length * dias7.length;
     const cumprido = logs.filter(l =>
       l.tomado && dias7.includes(l.data) && ativos.some(s => s.id === l.suplemento_id)
@@ -652,7 +652,7 @@ function ModalAdicionarSuplemento({ favoritos, onClose, onSalvarBiblioteca, onSa
   // estado manual
   const [form, setForm] = useState({
     nome: '', dose: '', horario: '', obs: '', foto_url: null,
-    data_inicio: new Date().toISOString().slice(0, 10),
+    data_inicio: dataLocalISO(),
     manipulado: false,
   });
   const [fotoFile, setFotoFile] = useState(null);
@@ -673,7 +673,7 @@ function ModalAdicionarSuplemento({ favoritos, onClose, onSalvarBiblioteca, onSa
           horario: '',
           obs: fav.descricao ?? '',
           foto_url: fav.foto_url ?? null,
-          data_inicio: new Date().toISOString().slice(0, 10),
+          data_inicio: dataLocalISO(),
           manipulado: false,
           favorito_id: fav.id,
         },
@@ -1283,7 +1283,7 @@ function ModalEnviarLoja({ pacienteNome, contato, lojas, onClose }) {
 function ModalSuplemento({ s, onClose, onSave, busy }) {
   const [form, setForm] = useState({
     ...s,
-    data_inicio: s.data_inicio ?? new Date().toISOString().slice(0, 10),
+    data_inicio: s.data_inicio ?? dataLocalISO(),
   });
   const [fotoFile, setFotoFile] = useState(null);
   const [fotoPreview, setFotoPreview] = useState(s.foto_url ?? null);

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
-import { dataBR } from '../../lib/utils.js';
+import { dataBR, dataLocalISO } from '../../lib/utils.js';
 import DateInput from '../../components/DateInput.jsx';
 
 export default function FollowUp({ pacienteId, nutriId, pacienteNome }) {
@@ -35,7 +35,7 @@ export default function FollowUp({ pacienteId, nutriId, pacienteNome }) {
       novo: true,
       titulo: '',
       conteudo: '',
-      data: new Date().toISOString().slice(0, 10),
+      data: dataLocalISO(),
       template_id: null,
     });
   }
@@ -45,7 +45,7 @@ export default function FollowUp({ pacienteId, nutriId, pacienteNome }) {
       novo: true,
       titulo: t.nome,
       conteudo: t.conteudo,
-      data: new Date().toISOString().slice(0, 10),
+      data: dataLocalISO(),
       template_id: t.id,
     });
   }

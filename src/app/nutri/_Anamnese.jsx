@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
-import { dataBR } from '../../lib/utils.js';
+import { dataBR, dataLocalISO } from '../../lib/utils.js';
 import { ANAMNESE_LAPIDARE, QFA_LAPIDARE, RECORDATORIO_LAPIDARE, formatarRespostaAnamnese } from '../../lib/anamneseDefault.js';
 import DicaJSON from '../../components/DicaJSON.jsx';
 import DateInput from '../../components/DateInput.jsx';
@@ -38,7 +38,7 @@ export default function Anamnese({ pacienteId, nutriId, pacienteNome }) {
       titulo: ANAMNESE_LAPIDARE.nome,
       estrutura: ANAMNESE_LAPIDARE.estrutura,
       respostas: {},
-      data: new Date().toISOString().slice(0, 10),
+      data: dataLocalISO(),
       template_id: null,
     });
   }
@@ -48,7 +48,7 @@ export default function Anamnese({ pacienteId, nutriId, pacienteNome }) {
       titulo: QFA_LAPIDARE.nome,
       estrutura: QFA_LAPIDARE.estrutura,
       respostas: {},
-      data: new Date().toISOString().slice(0, 10),
+      data: dataLocalISO(),
       template_id: null,
     });
   }
@@ -58,7 +58,7 @@ export default function Anamnese({ pacienteId, nutriId, pacienteNome }) {
       titulo: RECORDATORIO_LAPIDARE.nome,
       estrutura: RECORDATORIO_LAPIDARE.estrutura,
       respostas: {},
-      data: new Date().toISOString().slice(0, 10),
+      data: dataLocalISO(),
       template_id: null,
     });
   }
@@ -68,7 +68,7 @@ export default function Anamnese({ pacienteId, nutriId, pacienteNome }) {
       titulo: t.nome,
       estrutura: t.estrutura,
       respostas: {},
-      data: new Date().toISOString().slice(0, 10),
+      data: dataLocalISO(),
       template_id: t.id,
     });
   }
@@ -78,7 +78,7 @@ export default function Anamnese({ pacienteId, nutriId, pacienteNome }) {
       titulo: 'Anamnese',
       estrutura: { secoes: [{ id: 's1', titulo: 'Seção 1', perguntas: [] }] },
       respostas: {},
-      data: new Date().toISOString().slice(0, 10),
+      data: dataLocalISO(),
       template_id: null,
     });
   }

@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
-import { iniciais } from '../../lib/utils.js';
+import { iniciais, isoLocalDeData } from '../../lib/utils.js';
 
 const HIDRATACAO_LABEL = ['0–2 copos (até 400ml)', '3–4 copos (600–800ml)', '5–6 copos (1000–1200ml)', '7+ copos (1400ml+)'];
 const SUPLEMENTO_LABEL = { todos: 'Todos ✓', parcialmente: 'Parcial', nao: 'Não tomou' };
@@ -66,7 +66,7 @@ function calcIndicadores(registros) {
   const dias = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(hoje);
     d.setDate(d.getDate() - i);
-    return d.toISOString().split('T')[0];
+    return isoLocalDeData(d);
   });
   const regs = dias.map(d => registros.find(r => r.data === d) ?? null);
   const comDados = regs.filter(Boolean);
@@ -120,7 +120,7 @@ export default function MonitoramentoOncologico() {
     async function carregar() {
       const seteDias = new Date();
       seteDias.setDate(seteDias.getDate() - 7);
-      const dataMin = seteDias.toISOString().split('T')[0];
+      const dataMin = isoLocalDeData(seteDias);
 
       const [{ data: pacs }, { data: regs }] = await Promise.all([
         supabase.from('pacientes').select('id, nome, email, avatar_url').order('nome'),

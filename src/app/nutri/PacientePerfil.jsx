@@ -3140,7 +3140,7 @@ function RegistrarAvaliacao({ pacienteId, nutriId, paciente }) {
 
   function novaAvaliacao() {
     return {
-      data: new Date().toISOString().slice(0, 10),
+      data: dataLocalISO(),
       kg: '', altura_cm: '',
       cintura_cm: '', quadril_cm: '', abdome_cm: '',
       braco_dir_cm: '', braco_esq_cm: '', braco_cm: '',

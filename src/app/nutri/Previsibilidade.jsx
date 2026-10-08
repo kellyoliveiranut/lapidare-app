@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
-import { brl, liquidoParcela } from '../../lib/utils.js';
+import { brl, liquidoParcela, isoLocalDeData } from '../../lib/utils.js';
 
 const DEFAULTS = {
   meta_mensal:     15000,
@@ -29,8 +29,8 @@ export default function Previsibilidade() {
     let active = true;
     async function load() {
       const hoje = new Date();
-      const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().slice(0, 10);
-      const fimMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).toISOString().slice(0, 10);
+      const inicioMes = isoLocalDeData(new Date(hoje.getFullYear(), hoje.getMonth(), 1));
+      const fimMes = isoLocalDeData(new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0));
 
       const [nutriRes, servRes, parcelasRes, vendasRes] = await Promise.all([
         supabase.from('nutris')

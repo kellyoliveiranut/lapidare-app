@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { callAnthropic } from '../../lib/anthropic.js';
-import { dataBR } from '../../lib/utils.js';
+import { dataBR, dataLocalISO } from '../../lib/utils.js';
 
 export default function RelatorioEvolucao({ pacienteId, paciente, nutriId }) {
   const [dados, setDados] = useState(null);
@@ -15,7 +15,7 @@ export default function RelatorioEvolucao({ pacienteId, paciente, nutriId }) {
 
   async function buscarDados() {
     setCarregando(true);
-    const trintaDiasAtras = new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10);
+    const trintaDiasAtras = dataLocalISO(-30);
 
     const [pesosRes, supsRes, supLogsRes, habitosRes, habitoLogsRes,
            checkinsRes, followupsRes, planosRes, consultasRes] = await Promise.all([

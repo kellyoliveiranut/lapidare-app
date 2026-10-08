@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
+import { dataLocalISO } from '../../lib/utils.js';
 
 // Modelos prontos pra nutri adicionar rápido
 const MODELOS = [
@@ -26,7 +27,7 @@ export default function Habitos({ pacienteId, nutriId, pacienteNome }) {
         .eq('paciente_id', pacienteId).order('ordem'),
       supabase.from('habitos_logs').select('habito_id, data, valor')
         .eq('paciente_id', pacienteId)
-        .gte('data', new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10))
+        .gte('data', dataLocalISO(-30))
         .order('data', { ascending: false }),
     ]);
     if (signal.cancelled) return;
@@ -85,7 +86,7 @@ export default function Habitos({ pacienteId, nutriId, pacienteNome }) {
     const mapa = {};
     const dias7 = [];
     for (let i = 0; i < 7; i++) {
-      dias7.push(new Date(Date.now() - i * 86_400_000).toISOString().slice(0, 10));
+      dias7.push(dataLocalISO(-i));
     }
     for (const h of habitos ?? []) {
       const logsH = logs.filter(l => l.habito_id === h.id && dias7.includes(l.data));

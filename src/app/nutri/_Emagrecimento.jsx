@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase.js';
+import { dataLocalISO } from '../../lib/utils.js';
 
-const HOJE = () => new Date().toISOString().slice(0, 10);
+const HOJE = () => dataLocalISO();
 
 const CATEGORIAS = [
   {

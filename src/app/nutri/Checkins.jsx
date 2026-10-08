@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
-import { dataBR, iniciais } from '../../lib/utils.js';
+import { dataBR, iniciais, dataLocalISO } from '../../lib/utils.js';
 import DateInput from '../../components/DateInput.jsx';
 import {
   TEMPLATE_PADRAO,
@@ -441,7 +441,7 @@ export default function Checkins() {
    PROCESSADOR DE AGENDAMENTOS (executa no client)
    ============================================================ */
 async function processarAgendamentosVencidos(nutriId, agendamentos, mostraToast) {
-  const hoje = new Date().toISOString().slice(0, 10);
+  const hoje = dataLocalISO();
   let total = 0;
 
   for (const ag of agendamentos) {
@@ -984,7 +984,7 @@ function ProgramacaoTab({ agendamentos, templates, pacientes, nutriId, onRecarre
 
 function AgendamentoEditor({ agendamento, templates, pacientes, nutriId, onClose, onSaved }) {
   const isEdit = !!agendamento?.id;
-  const hoje = new Date().toISOString().slice(0, 10);
+  const hoje = dataLocalISO();
 
   const [templateId, setTemplateId] = useState(agendamento?.template_id ?? templates.find(t => t.is_padrao)?.id ?? templates[0]?.id ?? '');
   const [pacienteId, setPacienteId] = useState(agendamento?.paciente_id ?? '');

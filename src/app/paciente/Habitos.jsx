@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
+import { dataLocalISO, isoLocalDeData } from '../../lib/utils.js';
 import { useSession } from '../../lib/session.jsx';
 import { HabitosHoje, cumpriuHabito } from './_HabitosHoje.jsx';
 
 const DIAS_7 = (() => {
   const arr = [];
   for (let i = 6; i >= 0; i--) {
-    const d = new Date(Date.now() - i * 86_400_000);
+    const d = new Date(); d.setDate(d.getDate() - i);
     arr.push({
-      iso: d.toISOString().slice(0, 10),
+      iso: isoLocalDeData(d),
       dia: d.toLocaleDateString('pt-BR', { weekday: 'short' }).slice(0, 1).toUpperCase(),
       num: d.getDate(),
     });
@@ -16,7 +17,7 @@ const DIAS_7 = (() => {
   return arr;
 })();
 
-const HOJE = () => new Date().toISOString().slice(0, 10);
+const HOJE = () => dataLocalISO();
 
 export default function Habitos() {
   const { user, profile } = useSession();
@@ -32,7 +33,7 @@ export default function Habitos() {
         .eq('paciente_id', pacienteId).eq('ativo', true).order('ordem'),
       supabase.from('habitos_logs').select('*')
         .eq('paciente_id', pacienteId)
-        .gte('data', new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10))
+        .gte('data', dataLocalISO(-30))
         .order('data', { ascending: false }),
     ]);
     if (signal.cancelled) return;
@@ -104,7 +105,7 @@ export default function Habitos() {
     if (!habitos?.length) return 0;
     let c = 0;
     for (let i = 0; i < 30; i++) {
-      const dia = new Date(Date.now() - i * 86_400_000).toISOString().slice(0, 10);
+      const dia = dataLocalISO(-i);
       if (habitos.every(h => cumpriuHabito(h, logMap[h.id]?.[dia]))) c++;
       else break;
     }

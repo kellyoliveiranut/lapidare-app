@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase.js';
 import { avisarStatus } from '../../lib/realtime.js';
 import { useSession } from '../../lib/session.jsx';
 import { useTheme } from '../../lib/theme.jsx';
-import { textoDias, dataConsultaBR, horaConsultaBR, diasAte, gerarGoogleCalendarUrl, dataBR, dataLocalISO } from '../../lib/utils.js';
+import { textoDias, dataConsultaBR, horaConsultaBR, diasAte, gerarGoogleCalendarUrl, dataBR, dataLocalISO, isoLocalDeData } from '../../lib/utils.js';
 import { cumpriuHabito } from './_HabitosHoje.jsx';
 import { escolherDaSemana } from '../../lib/rotacaoMensagens.js';
 import { iniciarTokenPush, avisarNutri } from '../../lib/push.js';
@@ -125,7 +125,7 @@ export default function Inicio() {
     async function load() {
       if (!pacienteId) return;
       const agora = new Date().toISOString();
-      const hoje  = new Date().toISOString().slice(0, 10);
+      const hoje  = dataLocalISO();
       const [planoRes, dietaPdfRes, comprasRes, consultaRes, checkinRes, avaliacaoRes, habitosRes, logsHojeRes, monRes] = await Promise.all([
         supabase.from('planos').select('dados, publicado_em')
           .eq('paciente_id', pacienteId).order('publicado_em', { ascending: false }).limit(1).maybeSingle(),
@@ -156,7 +156,7 @@ export default function Inicio() {
           .eq('paciente_id', pacienteId).eq('ativo', true).order('ordem'),
         supabase.from('habitos_logs').select('habito_id, valor, data')
           .eq('paciente_id', pacienteId)
-          .gte('data', new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10)),
+          .gte('data', dataLocalISO(-30)),
         supabase.from('monitoramento_oncologico')
           .select('id, disposicao')
           .eq('paciente_id', pacienteId)
@@ -379,7 +379,7 @@ export default function Inicio() {
     for (const l of todosLogs) m.set(`${l.habito_id}|${l.data}`, Number(l.valor));
     let count = 0;
     for (let i = 0; i < 30; i++) {
-      const dia = new Date(Date.now() - i * 86_400_000).toISOString().slice(0, 10);
+      const dia = dataLocalISO(-i);
       const todos = habitos.every(h => {
         const v = m.get(`${h.id}|${dia}`);
         if (v === undefined) return false;
@@ -397,7 +397,7 @@ export default function Inicio() {
   const semanaCalendar = useMemo(() => {
     if (!habitos.length) return [];
     const hoje = new Date();
-    const hojeIso = hoje.toISOString().slice(0, 10);
+    const hojeIso = isoLocalDeData(hoje);
     const dow = hoje.getDay(); // 0=Dom
     const offsetSeg = dow === 0 ? -6 : 1 - dow;
     const segunda = new Date(hoje);
@@ -409,7 +409,7 @@ export default function Inicio() {
     return Array.from({ length: 7 }, (_, i) => {
       const d = new Date(segunda);
       d.setDate(segunda.getDate() + i);
-      const iso = d.toISOString().slice(0, 10);
+      const iso = isoLocalDeData(d);
       const ehHoje  = iso === hojeIso;
       const isFuturo = iso > hojeIso;
       const cumprido = !isFuturo && habitos.every(h => cumpriuHabito(h, logMap.get(`${h.id}|${iso}`) ?? 0));
@@ -421,7 +421,7 @@ export default function Inicio() {
   // ─── Adesão semanal ───────────────────────────────────────────────────────
   const adesaoSemana = useMemo(() => {
     if (!habitos.length || !semanaCalendar.length) return null;
-    const hojeIso = new Date().toISOString().slice(0, 10);
+    const hojeIso = dataLocalISO();
     const diasPassados = semanaCalendar.filter(d => !d.isFuturo && d.iso <= hojeIso);
     if (!diasPassados.length) return null;
     const logMap = new Map();
@@ -463,7 +463,7 @@ export default function Inicio() {
 
   // ─── Ações ────────────────────────────────────────────────────────────────
   async function setValorHabito(habito, valor) {
-    const hoje = new Date().toISOString().slice(0, 10);
+    const hoje = dataLocalISO();
     setHabitosLogs(prev => ({ ...prev, [habito.id]: valor }));
     setTodosLogs(prev => {
       const sem = prev.filter(l => !(l.habito_id === habito.id && l.data === hoje));
@@ -489,7 +489,7 @@ export default function Inicio() {
       await setValorHabito(habiToHumor, opcao.valEscala);
     } else if (profile?.objetivo === 'Oncologia') {
       if (!profile?.nutri_id) return;
-      const hoje = new Date().toISOString().slice(0, 10);
+      const hoje = dataLocalISO();
       const { data } = await supabase.from('monitoramento_oncologico')
         .upsert(
           { paciente_id: pacienteId, nutri_id: profile.nutri_id, data: hoje, disposicao: opcao.valMon },

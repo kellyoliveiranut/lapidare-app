@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabase.js';
+import { dataLocalISO } from '../../lib/utils.js';
 
 /* ── helpers ─────────────────────────────────────── */
 const r1 = (v) => Math.round(v * 10) / 10;
@@ -133,7 +134,7 @@ function NRS2002({ imc, idade, pacienteId, nutriId }) {
       paciente_id: pacienteId,
       nutri_id:    nutriId,
       tipo:        'nrs2002',
-      data:        new Date().toISOString().slice(0, 10),
+      data:        dataLocalISO(),
       respostas:   { step, pre, scoreNutri, scoreDoenca },
       resultado:   { total, emRisco, prePositivo },
     });
@@ -296,7 +297,7 @@ function MUST({ imc, pacienteId, nutriId }) {
       paciente_id: pacienteId,
       nutri_id:    nutriId,
       tipo:        'must',
-      data:        new Date().toISOString().slice(0, 10),
+      data:        dataLocalISO(),
       respostas:   {
         imc,        imcScore,
         perdaScore, perdaScoreNum: perdaScore !== '' ? parseInt(perdaScore) : null,
@@ -477,7 +478,7 @@ function PGSGA({ pacienteId, nutriId }) {
       paciente_id: pacienteId,
       nutri_id:    nutriId,
       tipo:        'pgsga',
-      data:        new Date().toISOString().slice(0, 10),
+      data:        dataLocalISO(),
       respostas:   { pesAtual, pes1mes, recMudanca, box2Idx, sintomas,
                      box4Idx, scoreDoenca, scoreMetab, scoreExame },
       resultado:   { total, pacienteScore, clinicoScore,

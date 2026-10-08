@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import DateInput from '../../components/DateInput.jsx';
 import {
-  brl, valorBR, dataBR,
+  brl, valorBR, dataBR, dataLocalISO,
   CATEGORIAS_GASTO, infoCategoria,
   FORMAS_PGTO_GASTO_LIST, labelFormaPgtoGasto, iconFormaPgtoGasto,
 } from '../../lib/utils.js';
@@ -450,7 +450,7 @@ export default function Gastos() {
    ============================================================ */
 function EditorGasto({ gasto, nutriId, onClose, onSaved }) {
   const isEdit = !!gasto?.id;
-  const hojeStr = new Date().toISOString().slice(0, 10);
+  const hojeStr = dataLocalISO();
 
   const [descricao, setDescricao]   = useState(gasto?.descricao ?? '');
   const [categoria, setCategoria]   = useState(gasto?.categoria ?? 'outros');
