@@ -10,7 +10,7 @@ import {
   verificarAgenda, textoImpedimentos, textoConfirmacao, bloqueioCobre, impedimentosQueTravam, avisosQueConfirmam,
   carregarOcupacaoDoDia, horariosLivres, opcoesHorario,
 } from '../../lib/agendaConflitos.js';
-import { tipoColor, tipoColorSoft, MODALIDADES_CONSULTA, modalidadeInfo } from '../../lib/consultaVisual.js';
+import { tipoColor, tipoColorSoft, MODALIDADES_CONSULTA, modalidadeInfo, opcoesTipoConsulta, tipoSugerido } from '../../lib/consultaVisual.js';
 import { modalidadeDaPaciente, localPadrao } from '../../lib/opcoesPaciente.js';
 import { pacientesComCancelada } from '../../lib/agendaListas.js';
 import ReguaDoDia from './_ReguaDoDia.jsx';
@@ -2093,6 +2093,17 @@ function ConsultaRow({ c, isLast, onClick, onToggleConfirmada, onToggleNaoConfir
             <i className={`ti ${mod.icone}`} aria-hidden="true" style={{ fontSize: 12 }} /> {mod.label}
           </span>
         </div>
+        {/* Observação da consulta (pedido 10), abaixo de data e horário. Até
+            duas linhas; o texto inteiro fica no title. */}
+        {c.obs?.trim() && (
+          <div title={c.obs} style={{
+            fontSize: 12, color: 'var(--text2)', marginTop: 3, lineHeight: 1.4,
+            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+            overflow: 'hidden', overflowWrap: 'anywhere',
+          }}>
+            {c.obs.trim()}
+          </div>
+        )}
         {/* flexWrap para os botões quebrarem em vez de espremer o nome da
             paciente no celular. */}
         {(confirmavel || remarcavel) && (
@@ -2800,10 +2811,9 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
         .neq('status', 'cancelada')
         .neq('tipo', 'avaliacao');
       if (!active) return;
-      const n = (count ?? 0) + 1;
-      if (n === 1) setTipo('primeira');
-      else if (n <= 12) setTipo(`consulta_${n}`);
-      else setTipo('consulta_12');
+      // Para na consulta_6 e depois sugere 'avulsa' (pedido 10): o select não
+      // oferece mais consulta_7 em diante.
+      setTipo(tipoSugerido((count ?? 0) + 1));
     })();
     return () => { active = false; };
   }, [pacienteId, isEdit]);
@@ -2980,8 +2990,11 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
         />
 
         <label className="form-lbl">Tipo</label>
+        {/* Só as seis do pacote e os tipos fora dele. O tipo com que a
+            consulta ABRIU, se ficou de fora (consulta_7 antiga), entra como
+            "(atual)" e não some ao trocar. */}
         <select value={tipo} onChange={e => setTipo(e.target.value)}>
-          {TIPOS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+          {opcoesTipoConsulta(TIPOS, initial.tipo).map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
         </select>
 
         {remarcando && (
