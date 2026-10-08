@@ -26,6 +26,7 @@ import PacienteErrorBoundary from './components/PacienteErrorBoundary.jsx';
 // Login e Callback ficam eager — são o caminho crítico para usuários não autenticados
 import Login from './app/auth/Login.jsx';
 import Callback from './app/auth/Callback.jsx';
+import { ROTA_INICIAL_NUTRI } from './lib/rotas.js';
 
 const SignupPaciente = lazy(() => import('./app/auth/SignupPaciente.jsx'));
 const RedefinirSenha = lazy(() => import('./app/auth/RedefinirSenha.jsx'));
@@ -91,7 +92,7 @@ export default function App() {
 
               {/* Painel da Nutri */}
               <Route element={<RequireAuth role="nutri"><NutriLayout /></RequireAuth>}>
-                <Route path="/nutri" element={<Navigate to="/nutri/visao" replace />} />
+                <Route path="/nutri" element={<Navigate to={ROTA_INICIAL_NUTRI} replace />} />
                 <Route path="/nutri/visao" element={<Visao />} />
                 <Route path="/nutri/pacientes" element={<Pacientes />} />
                 <Route path="/nutri/pacientes/:id" element={<PacientePerfil />} />

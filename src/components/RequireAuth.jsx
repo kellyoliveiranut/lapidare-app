@@ -1,5 +1,6 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useSession } from '../lib/session.jsx';
+import { ROTA_INICIAL_NUTRI } from '../lib/rotas.js';
 
 function Loading() {
   return (
@@ -26,7 +27,7 @@ export default function RequireAuth({ children, role }) {
   }
 
   if (role && userRole && userRole !== role) {
-    const dest = userRole === 'nutri' ? '/nutri/visao' : '/paciente/inicio';
+    const dest = userRole === 'nutri' ? ROTA_INICIAL_NUTRI : '/paciente/inicio';
     return <Navigate to={dest} replace />;
   }
 

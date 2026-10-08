@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../../lib/session.jsx';
+import { ROTA_INICIAL_NUTRI } from '../../lib/rotas.js';
 
 /**
  * Rota chamada pelo link de convite e pelo magic link do Supabase.
@@ -17,7 +18,7 @@ export default function Callback() {
       navigate('/login', { replace: true });
       return;
     }
-    if (role === 'nutri') navigate('/nutri/visao', { replace: true });
+    if (role === 'nutri') navigate(ROTA_INICIAL_NUTRI, { replace: true });
     else if (role === 'paciente') navigate('/paciente/inicio', { replace: true });
     // se role=null o RequireAuth com role exibirá o aviso
     else navigate('/login', { replace: true });

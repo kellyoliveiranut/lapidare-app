@@ -1,10 +1,11 @@
 import { Navigate } from 'react-router-dom';
 import { useSession } from '../lib/session.jsx';
+import { ROTA_INICIAL_NUTRI } from '../lib/rotas.js';
 
 /**
  * Decide para onde mandar o usuário na raiz "/":
  *   • sem sessão → /login
- *   • nutri      → /nutri/visao
+ *   • nutri      → /nutri/agenda
  *   • paciente   → /paciente/inicio
  */
 export default function RootRedirect() {
@@ -22,7 +23,7 @@ export default function RootRedirect() {
   }
 
   if (!session) return <Navigate to="/login" replace />;
-  if (role === 'nutri') return <Navigate to="/nutri/visao" replace />;
+  if (role === 'nutri') return <Navigate to={ROTA_INICIAL_NUTRI} replace />;
   if (role === 'paciente') return <Navigate to="/paciente/inicio" replace />;
   return <Navigate to="/login" replace />;
 }

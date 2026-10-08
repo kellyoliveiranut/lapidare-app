@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { useTheme } from '../../lib/theme.jsx';
 import BrandFooter from '../../components/BrandFooter.jsx';
+import { ROTA_INICIAL_NUTRI } from '../../lib/rotas.js';
 
 function signInComTimeout(email, password, ms = 15_000) {
   const timeout = new Promise((_, reject) =>
@@ -51,7 +52,7 @@ export default function Login() {
     if (sessionLoading || !session) return;
     const from = location.state?.from;
     if (role === 'nutri') {
-      navigate(from?.startsWith('/nutri') ? from : '/nutri/visao', { replace: true });
+      navigate(from?.startsWith('/nutri') ? from : ROTA_INICIAL_NUTRI, { replace: true });
     } else if (role === 'paciente') {
       navigate(from?.startsWith('/paciente') ? from : '/paciente/inicio', { replace: true });
     }

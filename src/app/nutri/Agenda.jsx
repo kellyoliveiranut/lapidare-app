@@ -828,6 +828,16 @@ export default function Agenda() {
         </div>
       )}
 
+      <CalendarioMensal
+        mesVisivel={mesVisivel}
+        diaSelecionado={diaSelecionado}
+        consultas={consultas ?? []}
+        tarefas={tarefas}
+        bloqueios={bloqueios}
+        onMudarMes={setMesVisivel}
+        onSelecionarDia={setDiaSelecionado}
+      />
+
       {lembretes.length > 0 && (
         <PainelLembretes
           lembretes={lembretesPendentes}
@@ -839,16 +849,6 @@ export default function Agenda() {
           onDesfazer={desfazerEnvio}
         />
       )}
-
-      <CalendarioMensal
-        mesVisivel={mesVisivel}
-        diaSelecionado={diaSelecionado}
-        consultas={consultas ?? []}
-        tarefas={tarefas}
-        bloqueios={bloqueios}
-        onMudarMes={setMesVisivel}
-        onSelecionarDia={setDiaSelecionado}
-      />
 
       {/* Alternador lista ↔ régua. Fica na linha do rótulo do dia, e não no
           topo da tela, porque troca só ESTA região — o calendário, "A
