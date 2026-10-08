@@ -17,6 +17,17 @@ export function tipoColor(tipo) {
   return 'var(--green)';
 }
 
+/**
+ * Versão clara da cor do tipo, para fundo de linha. Mesmo mapa do tipoColor,
+ * com os tokens *-soft do tokens.css — e não alpha concatenado na custom
+ * property, que é CSS inválido.
+ */
+export function tipoColorSoft(tipo) {
+  if (tipo === 'primeira') return 'var(--blue-soft)';
+  if (tipo === 'avaliacao') return 'var(--orange-soft)';
+  return 'var(--green-soft)';
+}
+
 // Modalidade da consulta. O banco só aceita 'online' | 'presencial'
 // (check consultas_modalidade_check). Híbrido não existe aqui — segue só em
 // pacientes.modalidade, no perfil da paciente.

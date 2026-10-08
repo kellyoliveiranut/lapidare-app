@@ -10,7 +10,7 @@ import {
   verificarAgenda, textoImpedimentos, textoConfirmacao, bloqueioCobre, impedimentosQueTravam,
   carregarOcupacaoDoDia, horariosLivres, opcoesHorario,
 } from '../../lib/agendaConflitos.js';
-import { tipoColor, MODALIDADES_CONSULTA, modalidadeInfo } from '../../lib/consultaVisual.js';
+import { tipoColor, tipoColorSoft, MODALIDADES_CONSULTA, modalidadeInfo } from '../../lib/consultaVisual.js';
 import { modalidadeDaPaciente, localPadrao } from '../../lib/opcoesPaciente.js';
 import ReguaDoDia from './_ReguaDoDia.jsx';
 import { HORARIOS_TAREFA, hhmm } from '../../lib/reguaDoDia.js';
@@ -197,6 +197,19 @@ export default function Agenda() {
       if (proximo.has(chave)) proximo.delete(chave); else proximo.add(chave);
       return proximo;
     });
+  }
+
+  // "A definir" e "Todas as próximas" nascem FECHADAS (pedido 6, 2026-10-08):
+  // só o título com o contador. Sem localStorage, de propósito — sair da tela
+  // e voltar fecha de novo; o que a Agenda abre mostrando é o dia, no alto.
+  const [aDefinirAberta, setADefinirAberta] = useState(false);
+  const [proximasAberta, setProximasAberta] = useState(false);
+
+  // Abrir "Todas as próximas" mostra todos os dias expandidos: um dia recolhido
+  // numa abertura anterior não fica escondido na próxima.
+  function alternarProximas() {
+    if (!proximasAberta) setDiasRecolhidos(new Set());
+    setProximasAberta(a => !a);
   }
   const [novaPacienteOpen, setNovaPacienteOpen] = useState(false);
   // Convite da paciente recém-criada pelo cadastro rápido: fica na faixa verde
@@ -574,7 +587,6 @@ export default function Agenda() {
   const agora = new Date().toISOString();
   const ativas = (consultas ?? []).filter(c => c.status !== 'cancelada');
   const futuras = ativas.filter(c => c.data_hora && c.data_hora >= agora);
-  const passadas = ativas.filter(c => c.data_hora && c.data_hora < agora);
   const aDefinir = ativas.filter(c => !c.data_hora);
   const canceladas = (consultas ?? []).filter(c => c.status === 'cancelada');
 
@@ -915,7 +927,8 @@ export default function Agenda() {
             <ConsultaRow key={c.id} c={c} isLast={i === consultasDoDia.length - 1} onClick={() => abrirEdit(c)}
               onToggleConfirmada={toggleConfirmada}
               onToggleNaoConfirmada={toggleNaoConfirmada}
-              onRemarcar={() => abrirRemarcacao(c)} />
+              onRemarcar={() => abrirRemarcacao(c)}
+              corDoTipo />
           ))}
         </div>
       )}
@@ -1008,11 +1021,13 @@ export default function Agenda() {
           {aDefinir.length > 0 && (
             <>
               {/* Com filtro ativo o contador vira "3 de 42": sem isso ele diria
-                  42 com três linhas na tela. Sem busca, é o mesmo de antes. */}
-              <div className="section-label" style={{ marginTop: 20 }}>
-                A definir ({qADefinir ? `${aDefinirFiltradas.length} de ${aDefinir.length}` : aDefinir.length})
-              </div>
+                  42 com três linhas na tela. Sem busca, é o mesmo de antes.
+                  Fechada, a busca não aparece, então o contador é o total. */}
+              <TituloRecolhivel aberta={aDefinirAberta} onAlternar={() => setADefinirAberta(a => !a)}>
+                A definir ({aDefinirAberta && qADefinir ? `${aDefinirFiltradas.length} de ${aDefinir.length}` : aDefinir.length})
+              </TituloRecolhivel>
 
+              {aDefinirAberta && (<>
               {aDefinir.length > LIMIAR_BUSCA_A_DEFINIR && (
                 <input
                   value={buscaADefinir}
@@ -1034,9 +1049,10 @@ export default function Agenda() {
                   // isLast conta a lista FILTRADA: com o original, a última
                   // linha visível ficaria com borda e o cartão terminaria num
                   // risco solto.
-                  <ConsultaRow key={c.id} c={c} isLast={i === aDefinirFiltradas.length - 1} onClick={() => abrirEdit(c)} />
+                  <ConsultaRow key={c.id} c={c} isLast={i === aDefinirFiltradas.length - 1} onClick={() => abrirEdit(c)} corDoTipo />
                 ))}
               </div>
+              </>)}
             </>
           )}
 
@@ -1046,8 +1062,12 @@ export default function Agenda() {
               some quando fechado. */}
           {diasVisiveis.length > 0 && (
             <>
-              <div className="section-label" style={{ marginTop: 20 }}>Todas as próximas</div>
-              {diasVisiveis.map(g => {
+              {/* N = consultas dos dias listados (diasVisiveis), o mesmo
+                  conjunto que a lista mostra ao abrir — não `futuras`. */}
+              <TituloRecolhivel aberta={proximasAberta} onAlternar={alternarProximas}>
+                Todas as próximas ({diasVisiveis.reduce((s, g) => s + g.consultas.length, 0)})
+              </TituloRecolhivel>
+              {proximasAberta && diasVisiveis.map(g => {
                 const recolhido = diasRecolhidos.has(g.chave);
                 const rotulo = rotuloDoDia(new Date(g.consultas[0].data_hora));
                 const n = g.consultas.length;
@@ -1083,22 +1103,12 @@ export default function Agenda() {
                         onClick={() => abrirEdit(c)}
                         onToggleConfirmada={toggleConfirmada}
                         onToggleNaoConfirmada={toggleNaoConfirmada}
-                        onRemarcar={() => abrirRemarcacao(c)} />
+                        onRemarcar={() => abrirRemarcacao(c)}
+                        corDoTipo />
                     ))}
                   </div>
                 );
               })}
-            </>
-          )}
-
-          {passadas.length > 0 && (
-            <>
-              <div className="section-label">Anteriores (10 últimas)</div>
-              <div className="card" style={{ padding: 0, opacity: .85 }}>
-                {passadas.slice(-10).reverse().map((c, i, arr) => (
-                  <ConsultaRow key={c.id} c={c} isLast={i === arr.length - 1} onClick={() => abrirEdit(c)} isPast />
-                ))}
-              </div>
             </>
           )}
 
@@ -1856,10 +1866,37 @@ function LinhaTarefa({ t, onAlternar, onAbrir }) {
   );
 }
 
+/**
+ * Título de seção que abre e fecha a seção inteira. É o mesmo section-label
+ * de sempre, só que botão de largura total: o clique pega a linha toda, e não
+ * só a seta. Mesmos ícones do recolher de cada dia em "Todas as próximas".
+ */
+function TituloRecolhivel({ aberta, onAlternar, children }) {
+  return (
+    <button
+      type="button"
+      className="section-label"
+      onClick={onAlternar}
+      aria-expanded={aberta}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 6,
+        width: '100%', padding: 0, textAlign: 'left', marginTop: 20,
+      }}>
+      <span style={{ flex: 1 }}>{children}</span>
+      <i className={`ti ti-chevron-${aberta ? 'up' : 'down'}`}
+         style={{ fontSize: 14 }} aria-hidden="true" />
+    </button>
+  );
+}
+
 /* ============================================================
    LINHA DE CONSULTA
    ============================================================ */
-function ConsultaRow({ c, isLast, isPast, isCanceled, onClick, onToggleConfirmada, onToggleNaoConfirmada, onRemarcar }) {
+// corDoTipo: a linha inteira na cor do tipo — fundo suave e faixa de 3px —, na
+// lista do dia, em "A definir" e em "Todas as próximas" (pedido 6, 2026-10-08).
+// A faixa laranja de "falta confirmar" sai dali: o botão "Marcar confirmada"
+// continua mostrando o que falta. Sem a prop (canceladas), a linha é a de antes.
+function ConsultaRow({ c, isLast, isCanceled, onClick, onToggleConfirmada, onToggleNaoConfirmada, onRemarcar, corDoTipo = false }) {
   const navigate = useNavigate();
   const cor = tipoColor(c.tipo);
   const confirmavel = podeConfirmar(c) && typeof onToggleConfirmada === 'function';
@@ -1917,9 +1954,21 @@ function ConsultaRow({ c, isLast, isPast, isCanceled, onClick, onToggleConfirmad
         // outros casos para o conteúdo não deslocar 3px entre linhas.
         borderLeft: `3px solid ${confirmavel && semResposta ? 'var(--orange)' : 'transparent'}`,
         cursor: 'pointer', transition: 'background .15s',
+        // Com corDoTipo a faixa é a cor do tipo e o fundo, a versão clara dela.
+        // O hover escurece com filter, e não troca o background: trocar
+        // apagaria o fundo do tipo ao tirar o mouse.
+        ...(corDoTipo && {
+          background: tipoColorSoft(c.tipo),
+          borderLeft: `3px solid ${cor}`,
+          transition: 'filter .15s',
+        }),
       }}
-      onMouseEnter={e => e.currentTarget.style.background = '#faf8f5'}
-      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+      onMouseEnter={corDoTipo
+        ? e => { e.currentTarget.style.filter = 'brightness(.97)'; }
+        : e => e.currentTarget.style.background = '#faf8f5'}
+      onMouseLeave={corDoTipo
+        ? e => { e.currentTarget.style.filter = ''; }
+        : e => e.currentTarget.style.background = 'transparent'}
     >
       <div style={{
         width: 36, height: 36, borderRadius: '50%',
@@ -1953,7 +2002,6 @@ function ConsultaRow({ c, isLast, isPast, isCanceled, onClick, onToggleConfirmad
         }}>
           <span>
             {c.data_hora ? dataConsultaBR(c.data_hora) : 'A definir'} · {c.duracao_min}min
-            {isPast && c.status === 'agendada' && ' · sem status'}
             {c.status === 'realizada' && ' · ✓ realizada'}
           </span>
           <span style={{
@@ -2050,7 +2098,7 @@ function ConsultaRow({ c, isLast, isPast, isCanceled, onClick, onToggleConfirmad
         }}>
           {tipoLabel(c.tipo)}
         </span>
-        {!isPast && !isCanceled && c.data_hora && (
+        {!isCanceled && c.data_hora && (
           <span style={{ fontSize: 11, color: 'var(--text3)' }}>{textoDias(c.data_hora)}</span>
         )}
         <i className="ti ti-chevron-right" style={{ fontSize: 14, color: 'var(--text3)' }} aria-hidden="true"></i>
