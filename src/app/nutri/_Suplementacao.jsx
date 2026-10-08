@@ -4,6 +4,7 @@ import { useSession } from '../../lib/session.jsx';
 import { dataBR, normalizarTelefone, normalizarBusca, dataLocalISO } from '../../lib/utils.js';
 import { criarDocumento, cabecalho, cardPaciente, rodape, nomeArquivoPdf,
   M, W, TOPO, BRONZE, SEPIA, LINHA, LINHA2 } from '../../lib/pdfBase.js';
+import { gravar } from '../../lib/gravar.js';
 
 const HOJE_ISO = () => dataLocalISO();
 
@@ -165,15 +166,15 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
         });
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('suplementos').update({
+        const r = await gravar(supabase.from('suplementos').update({
           nome: s.nome.trim(), dose: s.dose?.trim() || null,
           horario: s.horario?.trim() || null, obs: s.obs?.trim() || null,
           foto_url, ativo: s.ativo,
           data_inicio: s.data_inicio || null,
           manipulado: !!s.manipulado,
           updated_at: new Date().toISOString(),
-        }).eq('id', s.id);
-        if (error) throw error;
+        }).eq('id', s.id), { rotulo: 'salvar o suplemento' });
+        if (!r.ok) throw new Error(r.msg);
       }
       setEditar(null);
       setAdicionarOpen(false);

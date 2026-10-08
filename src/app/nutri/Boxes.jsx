@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { TZ_CLINICA } from '../../lib/utils.js';
+import { gravar } from '../../lib/gravar.js';
 
 // Os dois tipos de box. A grafia é IDÊNTICA à de src/lib/objetivos.js e ao
 // check de box_tipo na migration 2026-08-22 — os três precisam concordar, e um
@@ -140,9 +141,10 @@ export default function Boxes() {
 
   async function toggleAtivo(item) {
     setErro(null);
-    const { error } = await supabase.from('estoque_itens')
-      .update({ ativo: !item.ativo }).eq('id', item.id);
-    if (error) return setErro('Erro ao atualizar: ' + error.message);
+    const r = await gravar(supabase.from('estoque_itens')
+      .update({ ativo: !item.ativo }).eq('id', item.id),
+      { rotulo: item.ativo ? 'desativar o item' : 'ativar o item' });
+    if (!r.ok) return setErro(r.msg);
     carregar();
   }
 
@@ -184,8 +186,9 @@ export default function Boxes() {
 
   async function removerDaReceita(receitaId) {
     setErro(null);
-    const { error } = await supabase.from('box_receitas').delete().eq('id', receitaId);
-    if (error) return setErro('Erro ao remover: ' + error.message);
+    const r = await gravar(supabase.from('box_receitas').delete().eq('id', receitaId),
+      { rotulo: 'remover o item da receita' });
+    if (!r.ok) return setErro(r.msg);
     carregar();
   }
 

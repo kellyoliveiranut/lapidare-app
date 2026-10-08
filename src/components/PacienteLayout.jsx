@@ -8,6 +8,7 @@ import { avisarStatus } from '../lib/realtime.js';
 import { iniciais, diasAte, horaConsultaBR } from '../lib/utils.js';
 import { ativarNotificacoes } from '../lib/push.js';
 import { bloqueadoNoPlano } from '../lib/planoPaciente.js';
+import { gravar } from '../lib/gravar.js';
 import '../styles/paciente.css';
 
 const TABS = [
@@ -867,12 +868,12 @@ function PerfilSheet({ profile, user, onClose, refreshProfile }) {
     if (avatarPreview && avatarPreview !== profile?.avatar_url) {
       updates.avatar_url = avatarPreview;
     }
-    const { error } = await supabase
+    const r = await gravar(supabase
       .from('pacientes')
       .update(updates)
-      .eq('id', profile?.id);
+      .eq('id', profile?.id), { rotulo: 'salvar o perfil' });
     setSaving(false);
-    if (error) { setErro('Erro ao salvar: ' + error.message); return; }
+    if (!r.ok) { setErro(r.msg); return; }
     await refreshProfile();
     onClose();
   }

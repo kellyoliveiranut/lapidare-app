@@ -236,11 +236,17 @@ function EditorServico({ servico, nutriId, onClose, onSaved }) {
       ticket: t,
       descricao: descricao.trim() || null,
     };
-    const { error } = isEdit
-      ? await supabase.from('servicos').update(payload).eq('id', servico.id)
-      : await supabase.from('servicos').insert(payload);
+    let msgErro = null;
+    if (isEdit) {
+      const r = await gravar(supabase.from('servicos').update(payload).eq('id', servico.id),
+        { rotulo: 'salvar o serviço' });
+      if (!r.ok) msgErro = r.msg;
+    } else {
+      const { error } = await supabase.from('servicos').insert(payload);
+      if (error) msgErro = error.message;
+    }
     setBusy(false);
-    if (error) return setErro(error.message);
+    if (msgErro) return setErro(msgErro);
     onSaved();
   }
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { useSession } from '../lib/session.jsx';
+import { gravar } from '../lib/gravar.js';
 
 // Versão do termo. Se atualizar o texto abaixo, incrementa a versão
 // e todas as pacientes precisam aceitar de novo.
@@ -77,13 +78,15 @@ export default function TermoConsentimento({ children }) {
   async function aceitar() {
     setErro(null);
     setAceitando(true);
-    const { error } = await supabase.from('pacientes').update({
+    // Na falha (inclusive 0 linhas) não recarrega o profile: o termo continua
+    // na tela, sem aceite, e a mensagem aparece embaixo do botão.
+    const r = await gravar(supabase.from('pacientes').update({
       termo_aceito_em: new Date().toISOString(),
       termo_versao: TERMO_VERSAO,
-    }).eq('id', profile.id);
+    }).eq('id', profile.id), { rotulo: 'registrar o aceite do termo' });
     setAceitando(false);
-    if (error) {
-      setErro('Não foi possível salvar: ' + error.message);
+    if (!r.ok) {
+      setErro(r.msg);
       return;
     }
     if (typeof refreshProfile === 'function') {

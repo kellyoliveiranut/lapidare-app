@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { dataBR } from '../../lib/utils.js';
+import { gravar } from '../../lib/gravar.js';
 
 // Duplicado do _Treinos.jsx de propósito: exportar a constante de lá faria o
 // arquivo exportar algo que não é componente, que é exatamente o
@@ -179,13 +180,17 @@ export default function TreinoDias({ treino, rascunhoInicial = null, onClose, on
     try {
       // Deletes primeiro. O delete do dia leva os exercícios dele por CASCADE,
       // então um id que apareça nas duas listas some duas vezes — inofensivo.
+      // esperado = os ids que a tela leu do banco e a nutri removeu. Exercícios
+      // saem antes dos dias, então a cascata do dia não mexe nesta contagem.
       if (exRemovidos.length) {
-        const { error } = await supabase.from('treinos_exercicios').delete().in('id', exRemovidos);
-        if (error) throw error;
+        const r = await gravar(supabase.from('treinos_exercicios').delete().in('id', exRemovidos),
+          { esperado: exRemovidos.length, rotulo: 'remover os exercícios' });
+        if (!r.ok) throw new Error(r.msg);
       }
       if (diasRemovidos.length) {
-        const { error } = await supabase.from('treinos_dias').delete().in('id', diasRemovidos);
-        if (error) throw error;
+        const r = await gravar(supabase.from('treinos_dias').delete().in('id', diasRemovidos),
+          { esperado: diasRemovidos.length, rotulo: 'remover os dias' });
+        if (!r.ok) throw new Error(r.msg);
       }
 
       // `ordem` sai do índice do array: reordenar é só um UPDATE de ordem,
@@ -198,8 +203,9 @@ export default function TreinoDias({ treino, rascunhoInicial = null, onClose, on
         };
         let diaId = d.id;
         if (diaId) {
-          const { error } = await supabase.from('treinos_dias').update(payloadDia).eq('id', diaId);
-          if (error) throw error;
+          const r = await gravar(supabase.from('treinos_dias').update(payloadDia).eq('id', diaId),
+            { rotulo: 'salvar o dia' });
+          if (!r.ok) throw new Error(r.msg);
         } else {
           const { data, error } = await supabase.from('treinos_dias')
             .insert({ ...payloadDia, treino_id: treino.id })
@@ -219,8 +225,9 @@ export default function TreinoDias({ treino, rascunhoInicial = null, onClose, on
             ordem: j,
           };
           if (e.id) {
-            const { error } = await supabase.from('treinos_exercicios').update(payloadEx).eq('id', e.id);
-            if (error) throw error;
+            const r = await gravar(supabase.from('treinos_exercicios').update(payloadEx).eq('id', e.id),
+              { rotulo: 'salvar o exercício' });
+            if (!r.ok) throw new Error(r.msg);
           } else {
             const { error } = await supabase.from('treinos_exercicios').insert({ ...payloadEx, dia_id: diaId });
             if (error) throw error;

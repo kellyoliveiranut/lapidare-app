@@ -4,6 +4,7 @@ import { dataBR } from '../../lib/utils.js';
 import { CATEGORIAS_EXAME, TOTAL_ITENS_EXAME } from '../../data/exames_solicitacao.js';
 import { criarDocumento, cabecalho, cardPaciente, rodape,
   M, W, TOPO, BRONZE, SEPIA, LINHA, LINHA2 } from '../../lib/pdfBase.js';
+import { gravar } from '../../lib/gravar.js';
 
 /* ============================================================
    SOLICITAÇÃO DE EXAMES — aba "Exames" do perfil da paciente
@@ -154,8 +155,9 @@ export default function SolicitacaoExames({ pacienteId, nutriId, pacienteNome })
     // Ordem inversa da criação, pelo mesmo raciocínio: some primeiro da tela da
     // paciente (a linha), e só depois o arquivo. Se o storage falhar, sobra um
     // órfão que ninguém enxerga — melhor que um card sem arquivo.
-    const { error } = await supabase.from('prescricoes').delete().eq('id', item.id);
-    if (error) return setFeedback({ tipo: 'erro', msg: 'Erro ao excluir: ' + error.message });
+    const r = await gravar(supabase.from('prescricoes').delete().eq('id', item.id),
+      { rotulo: 'excluir a solicitação' });
+    if (!r.ok) return setFeedback({ tipo: 'erro', msg: r.msg });
     await supabase.storage.from('prescricoes').remove([item.storage_path]).catch(() => {});
     await carregar();
     setFeedback({ tipo: 'ok', msg: 'Solicitação excluída.' });

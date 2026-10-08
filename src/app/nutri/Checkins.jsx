@@ -127,21 +127,21 @@ export default function Checkins() {
   }
 
   async function enviarLembrete(envio) {
-    const { error } = await supabase
+    const r = await gravar(supabase
       .from('checkin_envios')
       .update({ lembrete_enviado_em: new Date().toISOString() })
-      .eq('id', envio.id);
-    if (error) return mostraToast('Erro: ' + error.message);
+      .eq('id', envio.id), { rotulo: 'marcar o lembrete' });
+    if (!r.ok) return mostraToast(r.msg);
     mostraToast(`Lembrete marcado para ${envio.paciente?.nome?.split(' ')[0] ?? 'paciente'}`);
     carregar();
   }
 
   async function enviarLembreteWA(paciente, envio) {
-    const { error } = await supabase
+    const r = await gravar(supabase
       .from('checkin_envios')
       .update({ lembrete_enviado_em: new Date().toISOString() })
-      .eq('id', envio.id);
-    if (error) return mostraToast('Erro: ' + error.message);
+      .eq('id', envio.id), { rotulo: 'marcar o lembrete' });
+    if (!r.ok) return mostraToast(r.msg);
     const nome = paciente.nome.split(' ')[0];
     const link = `${window.location.origin}/paciente/checkin/${envio.id}`;
     const msg = montarMsgCheckinWA(nome, link, assinatura);
@@ -630,8 +630,9 @@ function SelecionarTemplateModal({ templates, onClose, onEscolher, title, action
 function TemplatesTab({ templates, pacientes, nutriId, onRecarregar, mostraToast, onEditar }) {
   async function excluir(t) {
     if (!window.confirm(`Excluir o template "${t.nome}"?\n\nIsso também remove agendamentos que usavam este template.`)) return;
-    const { error } = await supabase.from('checkin_templates').delete().eq('id', t.id);
-    if (error) return mostraToast('Erro: ' + error.message);
+    const r = await gravar(supabase.from('checkin_templates').delete().eq('id', t.id),
+      { rotulo: 'excluir o template' });
+    if (!r.ok) return mostraToast(r.msg);
     mostraToast('Template excluído');
     onRecarregar();
   }
@@ -825,11 +826,17 @@ function TemplateEditor({ template, nutriId, pacientes, onClose, onSaved }) {
       tipo: 'recorrente',
       updated_at: new Date().toISOString(),
     };
-    const { error } = isEdit
-      ? await supabase.from('checkin_templates').update(payload).eq('id', template.id)
-      : await supabase.from('checkin_templates').insert(payload);
+    let msgErro = null;
+    if (isEdit) {
+      const r = await gravar(supabase.from('checkin_templates').update(payload).eq('id', template.id),
+        { rotulo: 'salvar o template' });
+      if (!r.ok) msgErro = r.msg;
+    } else {
+      const { error } = await supabase.from('checkin_templates').insert(payload);
+      if (error) msgErro = error.message;
+    }
     setBusy(false);
-    if (error) return setErro(error.message);
+    if (msgErro) return setErro(msgErro);
     onSaved();
   }
 
@@ -1029,11 +1036,17 @@ function AgendamentoEditor({ agendamento, templates, pacientes, nutriId, onClose
       proximo_envio: proximoEnvio,
       ativo,
     };
-    const { error } = isEdit
-      ? await supabase.from('checkin_agendamentos').update(payload).eq('id', agendamento.id)
-      : await supabase.from('checkin_agendamentos').insert(payload);
+    let msgErro = null;
+    if (isEdit) {
+      const r = await gravar(supabase.from('checkin_agendamentos').update(payload).eq('id', agendamento.id),
+        { rotulo: 'salvar o agendamento' });
+      if (!r.ok) msgErro = r.msg;
+    } else {
+      const { error } = await supabase.from('checkin_agendamentos').insert(payload);
+      if (error) msgErro = error.message;
+    }
     setBusy(false);
-    if (error) return setErro(error.message);
+    if (msgErro) return setErro(msgErro);
     onSaved();
   }
 

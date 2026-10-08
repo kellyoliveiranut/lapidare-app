@@ -309,17 +309,18 @@ export default function Treinos({ pacienteId, nutriId, pacienteNome }) {
 
     // O .neq é obrigatório: sem ele o update desativaria o que acabou de
     // nascer. O filtro por ativo evita reescrever linhas já inativas.
-    const { error: erroDesativar } = await supabase
+    // esperado null: no primeiro treino da paciente não há outro ativo (0 linhas é legítimo).
+    const rDesativar = await gravar(supabase
       .from('treinos_prescritos')
       .update({ ativo: false })
       .eq('paciente_id', pacienteId)
       .eq('ativo', true)
-      .neq('id', novo.id);
+      .neq('id', novo.id), { esperado: null, rotulo: 'desativar o treino anterior' });
 
     setBusy(false);
     setForm(form0());
     await carregar();
-    setFeedback(erroDesativar
+    setFeedback(!rDesativar.ok
       ? { tipo: 'aviso', msg: 'Treino publicado, mas o plano anterior continua ativo — desative pela lista.' }
       : { tipo: 'ok', msg: `Treino publicado para ${pacienteNome.split(' ')[0]}!` });
     // Abre o editor já no treino novo: é o momento em que ela tem o plano na

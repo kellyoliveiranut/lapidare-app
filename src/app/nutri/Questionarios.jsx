@@ -334,11 +334,17 @@ function EditorPreConsulta({ template, nutriId, onClose, onSaved }) {
       tipo: 'pre_consulta',
       updated_at: new Date().toISOString(),
     };
-    const { error } = isEdit
-      ? await supabase.from('checkin_templates').update(payload).eq('id', template.id)
-      : await supabase.from('checkin_templates').insert(payload);
+    let msgErro = null;
+    if (isEdit) {
+      const r = await gravar(supabase.from('checkin_templates').update(payload).eq('id', template.id),
+        { rotulo: 'salvar o modelo' });
+      if (!r.ok) msgErro = r.msg;
+    } else {
+      const { error } = await supabase.from('checkin_templates').insert(payload);
+      if (error) msgErro = error.message;
+    }
     setBusy(false);
-    if (error) return setErro(error.message);
+    if (msgErro) return setErro(msgErro);
     onSaved();
   }
 

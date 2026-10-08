@@ -286,8 +286,9 @@ export default function Agenda() {
       `Esta ação não pode ser desfeita.`
     )) return;
     setErroBloqueio(null);
-    const { error } = await supabase.from('bloqueios_agenda').delete().eq('id', b.id);
-    if (error) { setErroBloqueio('Não consegui remover: ' + error.message); return; }
+    const r = await gravar(supabase.from('bloqueios_agenda').delete().eq('id', b.id),
+      { rotulo: 'remover o bloqueio' });
+    if (!r.ok) { setErroBloqueio(r.msg); return; }
     carregarBloqueios();
   }
 
@@ -331,9 +332,9 @@ export default function Agenda() {
     setTarefas(aplicar);
     setTarefasSemPrazo(aplicar);
     setErroTarefa(null);
-    const { error } = await supabase.from('lembretes_nutri')
-      .update({ concluido_em: valor }).eq('id', id);
-    if (error) {
+    const r = await gravar(supabase.from('lembretes_nutri')
+      .update({ concluido_em: valor }).eq('id', id), { rotulo: 'salvar a tarefa' });
+    if (!r.ok) {
       setTarefas(antes.comData);
       setTarefasSemPrazo(antes.semPrazo);
       setErroTarefa('Não consegui salvar, tente novamente');
@@ -419,10 +420,10 @@ export default function Agenda() {
   // Só é chamado ao clicar no botão — NUNCA automaticamente ao exibir o painel.
   async function marcarEnviado(consultaId) {
     const agora = new Date().toISOString();
-    const { error } = await supabase.from('consultas')
+    const r = await gravar(supabase.from('consultas')
       .update({ lembrete_enviado: true, lembrete_enviado_em: agora })
-      .eq('id', consultaId);
-    if (error) {
+      .eq('id', consultaId), { rotulo: 'marcar o lembrete como enviado' });
+    if (!r.ok) {
       setErroLembrete('Não consegui salvar, tente novamente');
       setTimeout(() => setErroLembrete(null), 4000);
       return;
@@ -435,10 +436,10 @@ export default function Agenda() {
   }
 
   async function desfazerEnvio(consultaId) {
-    const { error } = await supabase.from('consultas')
+    const r = await gravar(supabase.from('consultas')
       .update({ lembrete_enviado: false, lembrete_enviado_em: null })
-      .eq('id', consultaId);
-    if (error) {
+      .eq('id', consultaId), { rotulo: 'desfazer o envio do lembrete' });
+    if (!r.ok) {
       setErroLembrete('Não consegui salvar, tente novamente');
       setTimeout(() => setErroLembrete(null), 4000);
       return;
@@ -471,8 +472,9 @@ export default function Agenda() {
       nao_confirmada_em: patch.nao_confirmada_em,
     } : l));
 
-    const { error } = await supabase.from('consultas').update(patch).eq('id', consultaId);
-    if (error) {
+    const r = await gravar(supabase.from('consultas').update(patch).eq('id', consultaId),
+      { rotulo: 'salvar a confirmação' });
+    if (!r.ok) {
       setConsultas(prev => (prev ?? []).map(c => c.id === consultaId ? {
         ...c,
         confirmada_em:     anterior?.confirmada_em     ?? null,
@@ -2413,11 +2415,17 @@ function TarefaModal({ tarefa, nutriId, dataInicial, onClose, onSaved }) {
       data: data || null,
       hora: data ? (hora || null) : null,
     };
-    const { error } = isEdit
-      ? await supabase.from('lembretes_nutri').update(payload).eq('id', tarefa.id)
-      : await supabase.from('lembretes_nutri').insert({ ...payload, nutri_id: nutriId });
+    let msgErro = null;
+    if (isEdit) {
+      const r = await gravar(supabase.from('lembretes_nutri').update(payload).eq('id', tarefa.id),
+        { rotulo: 'salvar a tarefa' });
+      if (!r.ok) msgErro = r.msg;
+    } else {
+      const { error } = await supabase.from('lembretes_nutri').insert({ ...payload, nutri_id: nutriId });
+      if (error) msgErro = error.message;
+    }
     setBusy(false);
-    if (error) { setErro(error.message); return; }
+    if (msgErro) { setErro(msgErro); return; }
     onSaved();
   }
 
@@ -2425,9 +2433,10 @@ function TarefaModal({ tarefa, nutriId, dataInicial, onClose, onSaved }) {
     if (!window.confirm(`Excluir a tarefa "${tarefa.texto}"? Esta ação não pode ser desfeita.`)) return;
     setBusy(true);
     setErro(null);
-    const { error } = await supabase.from('lembretes_nutri').delete().eq('id', tarefa.id);
+    const r = await gravar(supabase.from('lembretes_nutri').delete().eq('id', tarefa.id),
+      { rotulo: 'excluir a tarefa' });
     setBusy(false);
-    if (error) { setErro(error.message); return; }
+    if (!r.ok) { setErro(r.msg); return; }
     onSaved();
   }
 

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { dataLocalISO, isoLocalDeData } from '../../lib/utils.js';
 import { useSession } from '../../lib/session.jsx';
+import { gravar } from '../../lib/gravar.js';
 
 const DIAS_7 = (() => {
   const arr = [];
@@ -86,7 +87,9 @@ export default function Suplementos() {
     const ja = logs.find(l => l.suplemento_id === s.id && l.data === hoje);
     let err;
     if (ja) {
-      ({ error: err } = await supabase.from('suplementos_logs').delete().eq('id', ja.id));
+      const r = await gravar(supabase.from('suplementos_logs').delete().eq('id', ja.id),
+        { rotulo: 'desmarcar o suplemento' });
+      if (!r.ok) err = r.msg;
     } else {
       ({ error: err } = await supabase.from('suplementos_logs').insert({
         suplemento_id: s.id, paciente_id: pacienteId, data: hoje, tomado: true,

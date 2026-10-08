@@ -7,6 +7,7 @@ import {
   dataLocalISO, horaConsultaBR, partesLocaisISO,
 } from '../../lib/utils.js';
 import { janelasDaVisao } from '../../lib/visaoJanelas.js';
+import { gravar } from '../../lib/gravar.js';
 
 // Nº esperado de consultas por tipo de plano (para alertar planos chegando ao fim).
 // Só entra aqui plano com pacote fechado: 'avulsa' fica de fora de propósito —
@@ -87,11 +88,12 @@ export default function Visao() {
     setLembretes(prev => ordenarLembretes(
       prev.map(l => (l.id === id ? { ...l, concluido_em: valor } : l)),
     ));
-    const { error } = await supabase.from('lembretes_nutri')
-      .update({ concluido_em: valor }).eq('id', id);
-    if (error) {
+    const r = await gravar(supabase.from('lembretes_nutri')
+      .update({ concluido_em: valor }).eq('id', id),
+      { rotulo: concluir ? 'concluir o lembrete' : 'reabrir o lembrete' });
+    if (!r.ok) {
       setLembretes(antes);   // desfaz o otimismo: a linha volta como estava
-      return error.message;
+      return r.msg;
     }
     return null;
   }

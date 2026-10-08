@@ -493,14 +493,14 @@ function ModalEditar({ item, onClose, onSaved }) {
       if (item.storage_path) await supabase.storage.from('ebooks').remove([item.storage_path]);
       storage_path = path;
     }
-    const { error } = await supabase.from('ebooks').update({
+    const r = await gravar(supabase.from('ebooks').update({
       titulo: titulo.trim(),
       descricao: descricao.trim() || null,
       tag,
       storage_path,
-    }).eq('id', item.id);
+    }).eq('id', item.id), { rotulo: 'salvar o material' });
     setBusy(false);
-    if (error) return setErro('Erro: ' + error.message);
+    if (!r.ok) return setErro(r.msg);
     onSaved();
   }
 

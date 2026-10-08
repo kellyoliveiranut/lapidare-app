@@ -5,6 +5,7 @@ import { brl, statusParcela, liquidoParcela, taxaSugerida } from '../../lib/util
 import ListaVendas from '../../components/ListaVendas.jsx';
 import { NovaVendaModal, EditarParcelaModal, EditarVendaModal } from '../../components/VendaModais.jsx';
 import Gastos from './Gastos.jsx';
+import { gravar } from '../../lib/gravar.js';
 
 export default function Financeiro() {
   const { user, profile, refreshProfile } = useSession();
@@ -24,9 +25,12 @@ export default function Financeiro() {
       `Todas as parcelas relacionadas também serão removidas. Essa ação não pode ser desfeita.`
     );
     if (!ok) return;
-    const { error } = await supabase.from('vendas').delete().eq('id', venda.id);
-    if (error) {
-      alert('Erro ao excluir venda: ' + error.message);
+    // esperado 1 conta só a linha de vendas: as parcelas saem por CASCADE e
+    // não entram no retorno.
+    const r = await gravar(supabase.from('vendas').delete().eq('id', venda.id),
+      { rotulo: 'excluir a venda' });
+    if (!r.ok) {
+      alert(r.msg);
       return;
     }
     await carregar();
@@ -348,11 +352,11 @@ function TaxasCartao({ perfil, nutriId, onSalvo }) {
     // O boolean entra só aqui, e não em `valores`, porque a validação acima
     // varre Object.values() esperando percentuais — `true > 100` passaria em
     // silêncio hoje e viraria bug no dia de apertar essa regra.
-    const { error } = await supabase.from('nutris')
+    const r = await gravar(supabase.from('nutris')
       .update({ ...valores, maquininha_antecipa: form.antecipa })
-      .eq('id', nutriId);
+      .eq('id', nutriId), { rotulo: 'salvar as taxas' });
     setBusy(false);
-    if (error) return setErro('Erro ao salvar: ' + error.message);
+    if (!r.ok) return setErro(r.msg);
     setFeedback('Taxas salvas.');
     // Recarrega o profile da sessão: sem isto os modais continuariam
     // sugerindo com os percentuais antigos até um F5.

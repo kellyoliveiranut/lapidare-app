@@ -266,11 +266,11 @@ function ModalEditar({ a, pacienteId, nutriId, pacienteNome, onClose, onSaved })
       });
       if (error) { setBusy(false); return setErro('Erro: ' + error.message); }
     } else {
-      const { error } = await supabase.from('anamneses').update({
+      const r = await gravar(supabase.from('anamneses').update({
         titulo: titulo.trim(), respostas, data,
         updated_at: new Date().toISOString(),
-      }).eq('id', a.id);
-      if (error) { setBusy(false); return setErro('Erro: ' + error.message); }
+      }).eq('id', a.id), { rotulo: 'salvar a anamnese' });
+      if (!r.ok) { setBusy(false); return setErro(r.msg); }
     }
     setBusy(false);
     onSaved();
@@ -645,10 +645,10 @@ function ModalCriarModelo({ contexto, templates, nutriId, onClose, onSaved }) {
 
     setBusy(true);
     if (editandoExistente) {
-      const { error } = await supabase.from('anamnese_templates')
+      const r = await gravar(supabase.from('anamnese_templates')
         .update({ ...payload, updated_at: new Date().toISOString() })
-        .eq('id', contexto.id);
-      if (error) { setBusy(false); return setErro(error.message); }
+        .eq('id', contexto.id), { rotulo: 'salvar o modelo' });
+      if (!r.ok) { setBusy(false); return setErro(r.msg); }
     } else {
       const { error } = await supabase.from('anamnese_templates')
         .insert({ ...payload, nutri_id: nutriId });

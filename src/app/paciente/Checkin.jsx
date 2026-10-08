@@ -5,6 +5,7 @@ import { useSession } from '../../lib/session.jsx';
 import { respostasIniciais } from '../../lib/checkinDefault.js';
 import { iniciarTokenPush, avisarNutri } from '../../lib/push.js';
 import CheckinForm from '../../components/CheckinForm.jsx';
+import { gravar } from '../../lib/gravar.js';
 
 export default function Checkin() {
   const { envioId } = useParams();
@@ -65,15 +66,15 @@ export default function Checkin() {
     setErro(null);
     setBusy(true);
     const tokenPush = iniciarTokenPush();
-    const { error } = await supabase
+    const r = await gravar(supabase
       .from('checkin_envios')
       .update({
         respostas,
         respondido_em: new Date().toISOString(),
       })
-      .eq('id', envio.id);
+      .eq('id', envio.id), { rotulo: 'enviar o check-in' });
     setBusy(false);
-    if (error) return setErro(error.message);
+    if (!r.ok) return setErro(r.msg);
     avisarNutri(tokenPush, 'checkin_respondido');
     setSucesso(true);
     setTimeout(() => navigate('/paciente/inicio', { replace: true }), 2500);

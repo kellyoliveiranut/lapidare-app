@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { ativarNotificacoes, desativarNotificacoes } from '../../lib/push.js';
+import { gravar } from '../../lib/gravar.js';
 
 const TIPOGRAFIAS = [
   { id: 'classica',  nome: 'Clássica',  desc: 'Cormorant + Inter — elegante e atemporal' },
@@ -60,7 +61,7 @@ export default function Personalizacao() {
     setErro(null); setFeedback(null);
     if (!form.marca_nome.trim()) return setErro('Informe o nome da marca.');
     setBusy(true);
-    const { error } = await supabase.from('nutris').update({
+    const r = await gravar(supabase.from('nutris').update({
       marca_nome: form.marca_nome.trim(),
       marca_subtitulo: form.marca_subtitulo.trim() || null,
       logo_url: form.logo_url,
@@ -72,9 +73,9 @@ export default function Personalizacao() {
       tipografia: form.tipografia,
       farmacia_email: form.farmacia_email.trim() || null,
       farmacia_nome:  form.farmacia_nome.trim()  || null,
-    }).eq('id', user.id);
+    }).eq('id', user.id), { rotulo: 'salvar a personalização' });
     setBusy(false);
-    if (error) return setErro('Erro: ' + error.message);
+    if (!r.ok) return setErro(r.msg);
     setFeedback('Personalização salva! Recarregue a página pra ver tudo aplicado.');
   }
 

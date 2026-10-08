@@ -5,6 +5,7 @@ import { useTheme } from '../../lib/theme.jsx';
 import { iniciais, dataBR } from '../../lib/utils.js';
 import { comprimirImagem } from '../../lib/imagem.js';
 import { iniciarTokenPush, avisarNutri } from '../../lib/push.js';
+import { gravar } from '../../lib/gravar.js';
 
 const REFEICOES = ['Café da manhã', 'Lanche da manhã', 'Almoço', 'Lanche da tarde', 'Jantar', 'Ceia', 'Outro'];
 
@@ -197,13 +198,14 @@ export default function FeedPaciente() {
     if (!window.confirm(aviso)) return;
 
     setExcluindo(post.id);
-    const { error } = await supabase.from('feed_pratos').delete().eq('id', post.id);
-    if (error) {
+    const r = await gravar(supabase.from('feed_pratos').delete().eq('id', post.id),
+      { rotulo: 'excluir a foto' });
+    if (!r.ok) {
       setExcluindo(null);
       // alert, e não setErro, mesmo com o bloco de erro agora fora do
       // formulário: ele fica no topo da tela, e o botão que falhou pode estar
       // no décimo card, longe da rolagem. Mesmo recurso do Chat.jsx:179.
-      alert('Não consegui excluir a foto: ' + error.message);
+      alert(r.msg);
       return;
     }
     // Sem await e sem checagem: a linha já foi (e os comentários com ela, por

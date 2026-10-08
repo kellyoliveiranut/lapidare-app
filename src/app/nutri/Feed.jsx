@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { iniciais, dataBR, dataLocalISO, isoLocalDeData } from '../../lib/utils.js';
 import { iniciarTokenPush, avisarPaciente } from '../../lib/push.js';
+import { gravar } from '../../lib/gravar.js';
 
 const PAGINA = 12;
 const TTL = 3600;   // era 300 — evitava a URL expirar antes do loading="lazy" puxar a imagem
@@ -122,11 +123,11 @@ export default function FeedNutri() {
     const texto = (edicao[comentario.id] ?? '').trim();
     if (!texto) return;
     setSalvandoEdicao(s => ({ ...s, [comentario.id]: true }));
-    const { error } = await supabase.from('feed_pratos_comentarios')
+    const r = await gravar(supabase.from('feed_pratos_comentarios')
       .update({ texto })
-      .eq('id', comentario.id);
+      .eq('id', comentario.id), { rotulo: 'editar o comentário' });
     setSalvandoEdicao(s => ({ ...s, [comentario.id]: false }));
-    if (error) { alert('Erro ao editar comentário: ' + error.message); return; }
+    if (!r.ok) { alert(r.msg); return; }
     setEdicao(e => {
       const novo = { ...e };
       delete novo[comentario.id];
@@ -137,10 +138,10 @@ export default function FeedNutri() {
 
   async function apagarComentario(comentario) {
     if (!window.confirm('Apagar este comentário? A paciente deixa de vê-lo.')) return;
-    const { error } = await supabase.from('feed_pratos_comentarios')
+    const r = await gravar(supabase.from('feed_pratos_comentarios')
       .delete()
-      .eq('id', comentario.id);
-    if (error) { alert('Erro ao apagar comentário: ' + error.message); return; }
+      .eq('id', comentario.id), { rotulo: 'apagar o comentário' });
+    if (!r.ok) { alert(r.msg); return; }
     carregar();
   }
 

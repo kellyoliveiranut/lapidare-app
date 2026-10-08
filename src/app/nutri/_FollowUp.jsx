@@ -221,10 +221,10 @@ function ModalEditarFollowup({ fu, pacienteId, nutriId, onClose, onSaved }) {
       });
       if (error) { setBusy(false); return setErro('Erro: ' + error.message); }
     } else {
-      const { error } = await supabase.from('followups')
+      const r = await gravar(supabase.from('followups')
         .update({ titulo: titulo.trim(), conteudo, data, updated_at: new Date().toISOString() })
-        .eq('id', fu.id);
-      if (error) { setBusy(false); return setErro('Erro: ' + error.message); }
+        .eq('id', fu.id), { rotulo: 'salvar o follow-up' });
+      if (!r.ok) { setBusy(false); return setErro(r.msg); }
     }
     setBusy(false);
     onSaved();
@@ -416,13 +416,13 @@ function EditarTemplate({ t, nutriId, onCancel, onSaved }) {
       });
       if (error) { setBusy(false); return setErro('Erro: ' + error.message); }
     } else {
-      const { error } = await supabase.from('followup_templates').update({
+      const r = await gravar(supabase.from('followup_templates').update({
         nome: nome.trim(),
         descricao: descricao.trim() || null,
         conteudo,
         updated_at: new Date().toISOString(),
-      }).eq('id', t.id);
-      if (error) { setBusy(false); return setErro('Erro: ' + error.message); }
+      }).eq('id', t.id), { rotulo: 'salvar o modelo' });
+      if (!r.ok) { setBusy(false); return setErro(r.msg); }
     }
     setBusy(false);
     onSaved();

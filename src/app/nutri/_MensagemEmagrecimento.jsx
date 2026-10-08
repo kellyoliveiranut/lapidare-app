@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { estaFixada, restanteFixada } from '../../lib/rotacaoMensagens.js';
+import { gravar } from '../../lib/gravar.js';
 
 // Mensagens semanais de Emagrecimento (tabela mensagens_emagrecimento).
 // Lista única, sem categorias. O placeholder {nome} é trocado pelo primeiro
@@ -62,12 +63,12 @@ export default function MensagemEmagrecimento() {
     const texto = editTexto.trim();
     if (!texto || !user) return;
     setBusy(true);
-    const { error } = await supabase
+    const r = await gravar(supabase
       .from('mensagens_emagrecimento')
       .update({ texto })
-      .eq('id', m.id);
+      .eq('id', m.id), { rotulo: 'salvar a mensagem' });
     setBusy(false);
-    if (error) { mostrarFeedback('erro', 'Erro ao salvar: ' + error.message); return; }
+    if (!r.ok) { mostrarFeedback('erro', r.msg); return; }
     setMsgs(prev => prev.map(x => (x.id === m.id ? { ...x, texto } : x)));
     cancelarEdicao();
     mostrarFeedback('ok', 'Mensagem atualizada!');
@@ -78,13 +79,13 @@ export default function MensagemEmagrecimento() {
     const novo = !m.ativa;
     // update otimista — reverte se der erro
     setMsgs(prev => prev.map(x => (x.id === m.id ? { ...x, ativa: novo } : x)));
-    const { error } = await supabase
+    const r = await gravar(supabase
       .from('mensagens_emagrecimento')
       .update({ ativa: novo })
-      .eq('id', m.id);
-    if (error) {
+      .eq('id', m.id), { rotulo: novo ? 'ativar a mensagem' : 'desativar a mensagem' });
+    if (!r.ok) {
       setMsgs(prev => prev.map(x => (x.id === m.id ? { ...x, ativa: !novo } : x)));
-      mostrarFeedback('erro', 'Erro ao atualizar: ' + error.message);
+      mostrarFeedback('erro', r.msg);
     }
   }
 
@@ -93,13 +94,13 @@ export default function MensagemEmagrecimento() {
     if (estaFixada(m)) {
       // Desfixar — volta pra rotação automática.
       setMsgs(prev => prev.map(x => (x.id === m.id ? { ...x, fixada_em: null } : x)));
-      const { error } = await supabase
+      const r = await gravar(supabase
         .from('mensagens_emagrecimento')
         .update({ fixada_em: null })
-        .eq('id', m.id);
-      if (error) {
+        .eq('id', m.id), { rotulo: 'desfixar a mensagem' });
+      if (!r.ok) {
         setMsgs(prev => prev.map(x => (x.id === m.id ? { ...x, fixada_em: m.fixada_em } : x)));
-        mostrarFeedback('erro', 'Erro ao desfixar: ' + error.message);
+        mostrarFeedback('erro', r.msg);
       }
       return;
     }
@@ -108,22 +109,28 @@ export default function MensagemEmagrecimento() {
     setBusy(true);
     const agora = new Date().toISOString();
     // Só UMA fixada por vez: limpa todas as da nutri e fixa esta.
-    const limpa = await supabase
+    // esperado null: pode não haver nenhuma fixada agora (0 linhas é legítimo).
+    const limpa = await gravar(supabase
       .from('mensagens_emagrecimento')
       .update({ fixada_em: null })
       .eq('nutri_id', user.id)
-      .not('fixada_em', 'is', null);
-    if (limpa.error) {
+      .not('fixada_em', 'is', null), { esperado: null, rotulo: 'fixar a mensagem' });
+    if (!limpa.ok) {
       setBusy(false);
-      mostrarFeedback('erro', 'Erro ao fixar: ' + limpa.error.message);
+      mostrarFeedback('erro', limpa.msg);
       return;
     }
-    const { error } = await supabase
+    const r = await gravar(supabase
       .from('mensagens_emagrecimento')
       .update({ fixada_em: agora })
-      .eq('id', m.id);
+      .eq('id', m.id), { rotulo: 'fixar a mensagem' });
     setBusy(false);
-    if (error) { mostrarFeedback('erro', 'Erro ao fixar: ' + error.message); return; }
+    if (!r.ok) {
+      // o limpa já gravou: a tela acompanha o banco (nenhuma fixada)
+      setMsgs(prev => prev.map(x => ({ ...x, fixada_em: null })));
+      mostrarFeedback('erro', r.msg + ' A mensagem que estava fixada antes já foi desfixada; fixe de novo.');
+      return;
+    }
     setMsgs(prev => prev.map(x => ({ ...x, fixada_em: x.id === m.id ? agora : null })));
     mostrarFeedback('ok', 'Mensagem fixada por até 3 dias.');
   }
@@ -132,12 +139,12 @@ export default function MensagemEmagrecimento() {
     if (!user) return;
     if (!window.confirm('Excluir esta mensagem? Essa ação não pode ser desfeita.')) return;
     setBusy(true);
-    const { error } = await supabase
+    const r = await gravar(supabase
       .from('mensagens_emagrecimento')
       .delete()
-      .eq('id', m.id);
+      .eq('id', m.id), { rotulo: 'excluir a mensagem' });
     setBusy(false);
-    if (error) { mostrarFeedback('erro', 'Erro ao excluir: ' + error.message); return; }
+    if (!r.ok) { mostrarFeedback('erro', r.msg); return; }
     setMsgs(prev => prev.filter(x => x.id !== m.id));
     mostrarFeedback('ok', 'Mensagem excluída.');
   }

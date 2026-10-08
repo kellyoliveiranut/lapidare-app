@@ -1352,13 +1352,13 @@ function ProtocoloImunonutricao({ pacienteId, nutriId }) {
       ? [...refeicoes.slice(0, idx), secaoProtocolo, ...refeicoes.slice(idx + 1)]
       : [...refeicoes, secaoProtocolo];
 
-    const { error } = await supabase
+    const r = await gravar(supabase
       .from('planos')
       .update({ dados: { ...planoAtual.dados, refeicoes: novasRefeicoes } })
-      .eq('id', planoAtual.id);
+      .eq('id', planoAtual.id), { rotulo: 'adicionar o protocolo ao plano' });
 
     setSalvando(false);
-    if (error) return setFeedbackPlano({ tipo: 'erro', msg: 'Erro ao salvar: ' + error.message });
+    if (!r.ok) return setFeedbackPlano({ tipo: 'erro', msg: r.msg });
     setFeedbackPlano({ tipo: 'ok', msg: 'Protocolo adicionado ao plano da paciente.' });
   }
 

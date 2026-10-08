@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase.js';
 import { brl, statusParcela, liquidoParcela } from '../../lib/utils.js';
 import ListaVendas from '../../components/ListaVendas.jsx';
 import { NovaVendaModal, EditarParcelaModal, EditarVendaModal } from '../../components/VendaModais.jsx';
+import { gravar } from '../../lib/gravar.js';
 
 /**
  * Aba Financeiro do perfil da paciente — o mesmo histórico de vendas que a
@@ -89,9 +90,12 @@ export default function Financeiro({ pacienteId, nutriId, pacienteNome, paciente
       `Todas as parcelas relacionadas também serão removidas. Essa ação não pode ser desfeita.`
     );
     if (!ok) return;
-    const { error } = await supabase.from('vendas').delete().eq('id', venda.id);
-    if (error) {
-      alert('Erro ao excluir venda: ' + error.message);
+    // esperado 1 conta só a linha de vendas: as parcelas saem por CASCADE e
+    // não entram no retorno.
+    const r = await gravar(supabase.from('vendas').delete().eq('id', venda.id),
+      { rotulo: 'excluir a venda' });
+    if (!r.ok) {
+      alert(r.msg);
       return;
     }
     await carregar();

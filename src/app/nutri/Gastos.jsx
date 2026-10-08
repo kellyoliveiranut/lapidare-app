@@ -489,11 +489,17 @@ function EditorGasto({ gasto, nutriId, onClose, onSaved }) {
       ativo: tipo === 'recorrente' ? ativo : true,
       obs: obs.trim() || null,
     };
-    const { error } = isEdit
-      ? await supabase.from('gastos').update(payload).eq('id', gasto.id)
-      : await supabase.from('gastos').insert(payload);
+    let msgErro = null;
+    if (isEdit) {
+      const r = await gravar(supabase.from('gastos').update(payload).eq('id', gasto.id),
+        { rotulo: 'salvar o gasto' });
+      if (!r.ok) msgErro = r.msg;
+    } else {
+      const { error } = await supabase.from('gastos').insert(payload);
+      if (error) msgErro = error.message;
+    }
     setBusy(false);
-    if (error) return setErro(error.message);
+    if (msgErro) return setErro(msgErro);
     onSaved();
   }
 

@@ -109,12 +109,12 @@ export default function MensagemPorFase({ fase, titulo, descricao, grupos = null
     const mensagem = editTexto.trim();
     if (!mensagem || !user) return;
     setBusy(true);
-    const { error } = await supabase
+    const r = await gravar(supabase
       .from('mensagens_ciclo')
       .update({ mensagem })
-      .eq('id', m.id);
+      .eq('id', m.id), { rotulo: 'salvar a mensagem' });
     setBusy(false);
-    if (error) { mostrarFeedback('erro', 'Erro ao salvar: ' + error.message); return; }
+    if (!r.ok) { mostrarFeedback('erro', r.msg); return; }
     setMsgs(prev => prev.map(x => (x.id === m.id ? { ...x, mensagem } : x)));
     cancelarEdicao();
     mostrarFeedback('ok', 'Mensagem atualizada!');
@@ -125,13 +125,13 @@ export default function MensagemPorFase({ fase, titulo, descricao, grupos = null
     const novo = !m.ativo;
     // update otimista — reverte se der erro
     setMsgs(prev => prev.map(x => (x.id === m.id ? { ...x, ativo: novo } : x)));
-    const { error } = await supabase
+    const r = await gravar(supabase
       .from('mensagens_ciclo')
       .update({ ativo: novo })
-      .eq('id', m.id);
-    if (error) {
+      .eq('id', m.id), { rotulo: novo ? 'ativar a mensagem' : 'desativar a mensagem' });
+    if (!r.ok) {
       setMsgs(prev => prev.map(x => (x.id === m.id ? { ...x, ativo: !novo } : x)));
-      mostrarFeedback('erro', 'Erro ao atualizar: ' + error.message);
+      mostrarFeedback('erro', r.msg);
     }
   }
 
@@ -142,13 +142,13 @@ export default function MensagemPorFase({ fase, titulo, descricao, grupos = null
     if (estaFixada(m)) {
       // Desfixar — volta pra rotação automática.
       setMsgs(prev => prev.map(x => (x.id === m.id ? { ...x, fixada_em: null } : x)));
-      const { error } = await supabase
+      const r = await gravar(supabase
         .from('mensagens_ciclo')
         .update({ fixada_em: null })
-        .eq('id', m.id);
-      if (error) {
+        .eq('id', m.id), { rotulo: 'desfixar a mensagem' });
+      if (!r.ok) {
         setMsgs(prev => prev.map(x => (x.id === m.id ? { ...x, fixada_em: m.fixada_em } : x)));
-        mostrarFeedback('erro', 'Erro ao desfixar: ' + error.message);
+        mostrarFeedback('erro', r.msg);
       }
       return;
     }
@@ -178,12 +178,17 @@ export default function MensagemPorFase({ fase, titulo, descricao, grupos = null
       return;
     }
 
-    const { error } = await supabase
+    const r = await gravar(supabase
       .from('mensagens_ciclo')
       .update({ fixada_em: agora })
-      .eq('id', m.id);
+      .eq('id', m.id), { rotulo: 'fixar a mensagem' });
     setBusy(false);
-    if (error) { mostrarFeedback('erro', 'Erro ao fixar: ' + error.message); return; }
+    if (!r.ok) {
+      // o limpa já gravou: a tela acompanha o banco (nenhuma fixada no grupo)
+      setMsgs(prev => prev.map(x => ((x.grupo_ciclo ?? null) === g ? { ...x, fixada_em: null } : x)));
+      mostrarFeedback('erro', r.msg + ' A mensagem que estava fixada antes já foi desfixada; fixe de novo.');
+      return;
+    }
 
     setMsgs(prev => prev.map(x => {
       if (x.id === m.id) return { ...x, fixada_em: agora };
@@ -197,12 +202,12 @@ export default function MensagemPorFase({ fase, titulo, descricao, grupos = null
     if (!user) return;
     if (!window.confirm('Excluir esta mensagem? Essa ação não pode ser desfeita.')) return;
     setBusy(true);
-    const { error } = await supabase
+    const r = await gravar(supabase
       .from('mensagens_ciclo')
       .delete()
-      .eq('id', m.id);
+      .eq('id', m.id), { rotulo: 'excluir a mensagem' });
     setBusy(false);
-    if (error) { mostrarFeedback('erro', 'Erro ao excluir: ' + error.message); return; }
+    if (!r.ok) { mostrarFeedback('erro', r.msg); return; }
     setMsgs(prev => prev.filter(x => x.id !== m.id));
     mostrarFeedback('ok', 'Mensagem excluída.');
   }

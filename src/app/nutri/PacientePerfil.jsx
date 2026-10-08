@@ -111,11 +111,11 @@ export default function PacientePerfil() {
     if (!consultaAtiva || busyConsulta) return;
     setBusyConsulta(true);
     const agora = new Date().toISOString();
-    const { error } = await supabase.from('consultas')
+    const r = await gravar(supabase.from('consultas')
       .update({ iniciada_em: agora })
-      .eq('id', consultaAtiva.id);
+      .eq('id', consultaAtiva.id), { rotulo: 'iniciar a consulta' });
     setBusyConsulta(false);
-    if (error) { alert('Erro ao iniciar: ' + error.message); return; }
+    if (!r.ok) { alert(r.msg); return; }
     setConsultaAtiva(c => c ? { ...c, iniciada_em: agora } : c);
   }
 
@@ -123,11 +123,11 @@ export default function PacientePerfil() {
     if (!consultaAtiva || busyConsulta) return;
     setBusyConsulta(true);
     const agora = new Date().toISOString();
-    const { error } = await supabase.from('consultas')
+    const r = await gravar(supabase.from('consultas')
       .update({ status: 'realizada', encerrada_em: agora })
-      .eq('id', consultaAtiva.id);
+      .eq('id', consultaAtiva.id), { rotulo: 'encerrar a consulta' });
     setBusyConsulta(false);
-    if (error) { alert('Erro ao encerrar: ' + error.message); return; }
+    if (!r.ok) { alert(r.msg); return; }
     setConsultaAtiva(c => c ? { ...c, status: 'realizada', encerrada_em: agora } : c);
   }
 
@@ -234,15 +234,17 @@ export default function PacientePerfil() {
     const payload = realizada
       ? { status: 'realizada', encerrada_em: new Date().toISOString(), lembrete_ativo: false }
       : { status: 'agendada',  encerrada_em: null,                     lembrete_ativo: true  };
-    const { error } = await supabase.from('consultas').update(payload).eq('id', consultaId);
-    if (error) { setErroAcomp('Erro ao atualizar: ' + error.message); return; }
+    const r = await gravar(supabase.from('consultas').update(payload).eq('id', consultaId),
+      { rotulo: 'atualizar a consulta' });
+    if (!r.ok) { setErroAcomp(r.msg); return; }
     await Promise.all([loadAcompConsultas(), reloadConsultaAtiva()]);
   }
 
   async function excluirAcomp(consultaId) {
     setErroAcomp(null);
-    const { error } = await supabase.from('consultas').delete().eq('id', consultaId);
-    if (error) { setErroAcomp('Erro ao excluir: ' + error.message); return; }
+    const r = await gravar(supabase.from('consultas').delete().eq('id', consultaId),
+      { rotulo: 'excluir a consulta' });
+    if (!r.ok) { setErroAcomp(r.msg); return; }
     await Promise.all([loadAcompConsultas(), reloadConsultaAtiva()]);
   }
 
@@ -426,10 +428,11 @@ export default function PacientePerfil() {
       : `Reativar o acesso de ${primeiro}?\n\nEla volta a ver o app normalmente.`);
     if (!ok) return;
     setPausando(true);
-    const { error } = await supabase.from('pacientes')
-      .update({ acesso_pausado: pausar }).eq('id', paciente.id);
+    const r = await gravar(supabase.from('pacientes')
+      .update({ acesso_pausado: pausar }).eq('id', paciente.id),
+      { rotulo: pausar ? 'pausar o acesso' : 'reativar o acesso' });
     setPausando(false);
-    if (error) { alert('Erro: ' + error.message); return; }
+    if (!r.ok) { alert(r.msg); return; }
     carregar();
   }
 
@@ -443,19 +446,20 @@ export default function PacientePerfil() {
     );
     if (!ok) return;
     setDesarquivando(true);
-    const { error } = await supabase.from('pacientes')
-      .update({ status_paciente: 'ativo', acesso_pausado: false }).eq('id', paciente.id);
+    const r = await gravar(supabase.from('pacientes')
+      .update({ status_paciente: 'ativo', acesso_pausado: false }).eq('id', paciente.id),
+      { rotulo: 'desarquivar a paciente' });
     setDesarquivando(false);
-    if (error) { alert('Erro: ' + error.message); return; }
+    if (!r.ok) { alert(r.msg); return; }
     carregar();
   }
 
   async function salvarCampo() {
     setSalvandoCampo(true);
     try {
-      const { error } = await supabase.from('pacientes')
-        .update({ [editandoCampo]: novoCampo || null }).eq('id', id);
-      if (error) throw error;
+      const r = await gravar(supabase.from('pacientes')
+        .update({ [editandoCampo]: novoCampo || null }).eq('id', id), { rotulo: 'salvar o campo' });
+      if (!r.ok) throw new Error(r.msg);
       setEditandoCampo(null);
       carregar();
     } catch (err) {
@@ -468,9 +472,9 @@ export default function PacientePerfil() {
   async function salvarNascimento() {
     setSalvandoNasc(true);
     try {
-      const { error } = await supabase.from('pacientes')
-        .update({ nascimento: novoNasc || null }).eq('id', id);
-      if (error) throw error;
+      const r = await gravar(supabase.from('pacientes')
+        .update({ nascimento: novoNasc || null }).eq('id', id), { rotulo: 'salvar a data de nascimento' });
+      if (!r.ok) throw new Error(r.msg);
       setEditandoNasc(false);
       carregar();
     } catch (err) {
@@ -1995,10 +1999,10 @@ function ModalArquivar({ paciente, onClose, onArquivado }) {
       return;
     }
     setBusy(true);
-    const { error } = await supabase.from('pacientes')
-      .update({ status_paciente: status }).eq('id', paciente.id);
+    const r = await gravar(supabase.from('pacientes')
+      .update({ status_paciente: status }).eq('id', paciente.id), { rotulo: 'arquivar a paciente' });
     setBusy(false);
-    if (error) { alert('Erro: ' + error.message); return; }
+    if (!r.ok) { alert(r.msg); return; }
     onArquivado();
   }
 
@@ -2366,7 +2370,7 @@ function ModalEditarDados({ paciente, onClose, onSaved }) {
         if (dupErr) throw dupErr;
         if (dup) { setErro('Este e-mail já está em uso por outra paciente.'); setBusy(false); return; }
       }
-      const { error } = await supabase.from('pacientes').update({
+      const r = await gravar(supabase.from('pacientes').update({
         nome:       form.nome.trim()   || null,
         email:      emailVal           || null,
         telefone:   form.telefone.trim() || null,
@@ -2379,8 +2383,8 @@ function ModalEditarDados({ paciente, onClose, onSaved }) {
         modalidade: form.modalidade    || null,
         cpf:        cpfDigitos         || null,
         rg:         form.rg.trim()     || null,
-      }).eq('id', paciente.id);
-      if (error) throw error;
+      }).eq('id', paciente.id), { rotulo: 'salvar os dados da paciente' });
+      if (!r.ok) throw new Error(r.msg);
 
       // Contrato DEPOIS do update, nunca antes: se a gravação do plano falhasse,
       // sobraria um contrato pendente de um plano que não existe. Se o contrato
@@ -2679,11 +2683,11 @@ function CheckinPersonalizado({ pacienteId, nutriId, pacienteNome, paciente }) {
   }
 
   async function reenviarLembrete(envio) {
-    const { error } = await supabase
+    const r = await gravar(supabase
       .from('checkin_envios')
       .update({ lembrete_enviado_em: new Date().toISOString() })
-      .eq('id', envio.id);
-    if (error) return setAviso({ tipo: 'erro', msg: error.message });
+      .eq('id', envio.id), { rotulo: 'reenviar o lembrete' });
+    if (!r.ok) return setAviso({ tipo: 'erro', msg: r.msg });
     setAviso({ tipo: 'ok', msg: 'Lembrete enviado.' });
     carregar();
   }
@@ -4560,8 +4564,9 @@ Estrutura JSON obrigatória:
 
   async function excluirPlano(p) {
     if (!window.confirm(`Excluir plano publicado em ${dataBR(p.publicado_em)}?`)) return;
-    const { error } = await supabase.from('planos').delete().eq('id', p.id);
-    if (error) return setFeedback({ tipo: 'erro', msg: error.message });
+    const r = await gravar(supabase.from('planos').delete().eq('id', p.id),
+      { rotulo: 'excluir o plano' });
+    if (!r.ok) return setFeedback({ tipo: 'erro', msg: r.msg });
     setFeedback({ tipo: 'ok', msg: 'Plano excluído.' });
     carregar();
   }
@@ -5920,8 +5925,9 @@ Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (e
 
   async function excluirLista(l) {
     if (!window.confirm(`Excluir lista publicada em ${dataBR(l.publicado_em)}?`)) return;
-    const { error } = await supabase.from('listas_compras').delete().eq('id', l.id);
-    if (error) return setFeedback({ tipo: 'erro', msg: error.message });
+    const r = await gravar(supabase.from('listas_compras').delete().eq('id', l.id),
+      { rotulo: 'excluir a lista' });
+    if (!r.ok) return setFeedback({ tipo: 'erro', msg: r.msg });
     setFeedback({ tipo: 'ok', msg: 'Lista excluída.' });
     carregar();
   }

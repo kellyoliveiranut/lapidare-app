@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase.js';
 import { dataLocalISO, isoLocalDeData } from '../../lib/utils.js';
 import { useSession } from '../../lib/session.jsx';
 import { HabitosHoje, cumpriuHabito } from './_HabitosHoje.jsx';
+import { gravar } from '../../lib/gravar.js';
 
 const DIAS_7 = (() => {
   const arr = [];
@@ -84,8 +85,9 @@ export default function Habitos() {
         const { data: existente } = await supabase.from('habitos_logs')
           .select('id').eq('habito_id', habito.id).eq('data', hoje).maybeSingle();
         if (existente) {
-          const { error } = await supabase.from('habitos_logs').delete().eq('id', existente.id);
-          if (error) throw error;
+          const r = await gravar(supabase.from('habitos_logs').delete().eq('id', existente.id),
+            { rotulo: 'desmarcar o hábito' });
+          if (!r.ok) throw new Error(r.msg);
         }
       } else {
         const { error } = await supabase.from('habitos_logs').upsert({

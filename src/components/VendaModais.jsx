@@ -417,7 +417,7 @@ export function EditarParcelaModal({ parcela, venda, pacienteNome, onClose, onSa
       return setErro('A taxa não pode ser maior que o valor da parcela.');
     }
     setBusy(true);
-    const { error } = await supabase
+    const r = await gravar(supabase
       .from('parcelas')
       .update({
         status,
@@ -426,9 +426,9 @@ export function EditarParcelaModal({ parcela, venda, pacienteNome, onClose, onSa
         taxa_cartao: taxaNum,
         obs: obs.trim() || null,
       })
-      .eq('id', parcela.id);
+      .eq('id', parcela.id), { rotulo: 'salvar a parcela' });
     setBusy(false);
-    if (error) return setErro(error.message);
+    if (!r.ok) return setErro(r.msg);
     onSaved();
   }
 
@@ -548,7 +548,7 @@ export function EditarVendaModal({ venda, pacientes = [], pacienteFixo, onClose,
     if (!data) return setErro('Informe a data da venda.');
 
     setBusy(true);
-    const { error } = await supabase
+    const r = await gravar(supabase
       .from('vendas')
       .update({
         paciente_id: pacienteId || null,
@@ -557,9 +557,9 @@ export function EditarVendaModal({ venda, pacientes = [], pacienteFixo, onClose,
         obs: obs.trim() || null,
         nf_emitida: nfEmitida,
       })
-      .eq('id', venda.id);
+      .eq('id', venda.id), { rotulo: 'salvar a venda' });
     setBusy(false);
-    if (error) return setErro('Erro ao salvar: ' + error.message);
+    if (!r.ok) return setErro(r.msg);
     onSaved();
   }
 
