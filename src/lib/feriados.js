@@ -1,5 +1,7 @@
 /**
- * Feriados que bloqueiam agendamento de consulta.
+ * Feriados da agenda de consultas. Desde 2026-10-08 (pedido 7) o feriado não
+ * bloqueia mais: verificarAgenda o transforma em aviso com "Agendar mesmo
+ * assim?". A geração automática do pacote de 6 continua pulando feriado.
  *
  * Também é a casa de validarDiaConsulta(), no fim do arquivo, que junta feriado
  * e fim de semana numa resposta só. As duas regras vivem juntas porque as telas
@@ -150,7 +152,7 @@ export function ehFeriado(dataLocal) {
 }
 
 /** 'YYYY-MM-DD' -> 'DD/MM/YYYY', para a mensagem de tela. */
-function formatarBR(dataISO) {
+export function formatarBR(dataISO) {
   const [a, m, d] = dataISO.slice(0, 10).split('-');
   return `${d}/${m}/${a}`;
 }
@@ -163,9 +165,13 @@ function formatarBR(dataISO) {
  * quem chama tiver que escrever o texto, cada tela inventa o seu e a regra volta
  * a ter três versões, que foi exatamente como a avulsa ficou sem trava.
  *
- * Feriado é rígido em toda tela. Fim de semana também, EXCETO no pacote de 6 —
- * a única tela com o checkbox "permitir fim de semana". Por isso permitirFds é
- * parâmetro e não constante.
+ * Fim de semana é rígido em toda tela, EXCETO no pacote de 6 — a única tela
+ * com o checkbox "permitir fim de semana". Por isso permitirFds é parâmetro e
+ * não constante.
+ *
+ * ignorarFeriado: com true, a função não olha feriado e responde só pelo fim de
+ * semana. É como o verificarAgenda a chama desde o pedido 7 — o feriado virou
+ * aviso lá, com texto próprio. O padrão (false) mantém a resposta de antes.
  *
  * dicaFds é acrescentada só à mensagem de fim de semana, e só onde o checkbox
  * existe: apontar um controle que a tela não tem seria pior que não dizer nada.
@@ -173,12 +179,12 @@ function formatarBR(dataISO) {
  * Data vazia devolve null de propósito: "sem data" não é dia inválido, e as três
  * telas já tratam isso antes ("Preencha a data").
  */
-export function validarDiaConsulta(dataISO, { permitirFds = false, dicaFds = '' } = {}) {
+export function validarDiaConsulta(dataISO, { permitirFds = false, dicaFds = '', ignorarFeriado = false } = {}) {
   if (typeof dataISO !== 'string' || dataISO.length < 10) return null;
 
   // Feriado primeiro: quando a data é as duas coisas (o Círio cai sempre num
   // domingo), o nome do feriado diz mais do que "cai num domingo".
-  const feriado = feriadoDe(dataISO);
+  const feriado = ignorarFeriado ? null : feriadoDe(dataISO);
   if (feriado) return `${formatarBR(dataISO)} é feriado (${feriado}). Ajuste a data.`;
 
   if (!permitirFds) {

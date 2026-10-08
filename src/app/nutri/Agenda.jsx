@@ -7,7 +7,7 @@ import DateInput from '../../components/DateInput.jsx';
 import NovaPacienteRapida from './_NovaPacienteRapida.jsx';
 import { linkConvite, mensagemConviteEncoded } from '../../lib/convite.js';
 import {
-  verificarAgenda, textoImpedimentos, textoConfirmacao, bloqueioCobre, impedimentosQueTravam,
+  verificarAgenda, textoImpedimentos, textoConfirmacao, bloqueioCobre, impedimentosQueTravam, avisosQueConfirmam,
   carregarOcupacaoDoDia, horariosLivres, opcoesHorario,
 } from '../../lib/agendaConflitos.js';
 import { tipoColor, tipoColorSoft, MODALIDADES_CONSULTA, modalidadeInfo } from '../../lib/consultaVisual.js';
@@ -2885,14 +2885,18 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
         ignorarIds: isEdit ? [consulta.id] : [],
       });
 
-      // O que perdoar ao EDITAR mora em impedimentosQueTravam: feriado e fds
-      // sem mudar a data, conflito legado sem mudar o horário, e conflito ao
-      // salvar como cancelada. Bloqueio e duração inválida nunca são perdoados.
+      // O que perdoar ao EDITAR mora em impedimentosQueTravam (fds sem mudar a
+      // data, conflito legado sem mudar o horário, conflito ao salvar como
+      // cancelada) e em avisosQueConfirmam (feriado sem mudar a data). Bloqueio
+      // e duração inválida nunca são perdoados.
       const trava = impedimentosQueTravam(impedimentos, {
         isEdit, inicial: initial, atual: { data, hora, duracao, status },
       });
       if (trava.length) { setErro(textoImpedimentos(trava)); return; }
-      if (avisos.length && !window.confirm(textoConfirmacao(avisos))) return;
+      const confirmar = avisosQueConfirmam(avisos, {
+        isEdit, inicial: initial, atual: { data, hora, duracao, status },
+      });
+      if (confirmar.length && !window.confirm(textoConfirmacao(confirmar))) return;
 
       // "14:00" é 14:00 em BELÉM, não no fuso do aparelho de quem agenda —
       // mesmo helper que o PacientePerfil já usa para gravar consulta.

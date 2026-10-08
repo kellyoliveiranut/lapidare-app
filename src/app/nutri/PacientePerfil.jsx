@@ -6929,8 +6929,10 @@ const AlimentoLinha = memo(function AlimentoLinha({ alimento: a, refId, onSetAli
 // ou domingo, qualquer que fosse a data de início. Cada data é ancorada em
 // base + i*intervalo e só depois empurrada para a segunda seguinte — empurrar
 // sem reancorar impede que o desvio se acumule nas consultas seguintes.
-// Feriado é bloqueio RÍGIDO: não existe "permitir feriado", ao contrário do
-// fim de semana. Consultório fechado não é preferência de agenda.
+// Feriado: a GERAÇÃO sempre pula, mesmo com "permitir fim de semana" — o
+// pacote não nasce sugerindo dia de feriado. Uma data de feriado digitada à mão
+// numa linha não trava mais (pedido 7, 2026-10-08): o salvar avisa e pergunta
+// "Agendar mesmo assim?".
 const isoLocal = (d) => {
   const p = (n) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
@@ -7115,7 +7117,8 @@ function ModalAgendarAcompanhamento({ pacienteId, nutriId, consultaAtiva, modali
     setErro(null);
     if (!semData) {
       // A geração já pula fim de semana e feriado; esta trava cobre o campo de
-      // data editado à mão, que aceita qualquer dia. Agora cobre também
+      // data editado à mão, que aceita qualquer dia (feriado ali só avisa e
+      // pede confirmação, desde o pedido 7). Agora cobre também
       // bloqueio e conflito — e as SEIS entre si, que era a colisão invisível:
       // elas entram em bloco num insert só e ninguém comparava uma com a outra.
       try {
@@ -7353,9 +7356,10 @@ function ModalAgendarAvulsa({ pacienteId, nutriId, modalidadePaciente, onClose, 
     setSalvando(true);
     setErro(null);
     if (!semData) {
-      // Fim de semana, feriado e bloqueio: rígidos, sem escape. A avulsa não
-      // tem o checkbox do pacote de 6, e por isso também não recebe dicaFds —
-      // apontar um controle que esta tela não tem só confundiria.
+      // Fim de semana e bloqueio: rígidos, sem escape. Feriado só avisa e
+      // pede confirmação (pedido 7). A avulsa não tem o checkbox do pacote de
+      // 6, e por isso também não recebe dicaFds — apontar um controle que esta
+      // tela não tem só confundiria.
       try {
         const { impedimentos, avisos } = await verificarAgenda(supabase, {
           nutriId,
@@ -7520,8 +7524,9 @@ function ModalDefinirData({
     setErro(null);
     try {
       // Este caminho não tinha NENHUMA validação de dia: dava para pôr uma
-      // consulta "a definir" num feriado ou num domingo por aqui, enquanto os
-      // outros três caminhos travavam. Agora é a mesma regra dos outros.
+      // consulta "a definir" num domingo por aqui, enquanto os outros três
+      // caminhos travavam. Agora é a mesma regra dos outros: fim de semana
+      // trava, feriado avisa e pede confirmação (pedido 7).
       const { impedimentos, avisos } = await verificarAgenda(supabase, {
         nutriId,
         pacienteId,

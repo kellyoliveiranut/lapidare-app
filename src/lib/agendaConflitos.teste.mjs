@@ -160,6 +160,50 @@ t('travas', 'editar sem mudar a data: bloqueio trava',    tv(imp('bloqueio'), tr
 t('travas', 'editar mudando a data para sábado trava',    tv(imp('fds'), true, { data: SAB }), ['fds']);
 t('travas', 'duração inválida trava mesmo sem mudar nada', tv(imp('duracao'), true), ['duracao']);
 
+// ─── feriado vira aviso (pedido 7, 2026-10-08) ───────────────────────
+const { avisosQueConfirmam, textoConfirmacao } = M;
+const FERIADO = '2026-12-08';   // terça, Nossa Senhora da Conceição
+const CIRIO = '2026-10-11';     // domingo, Círio de Nazaré
+const tiposAviso = r => r.avisos.map(a => a.tipo);
+
+r = await va({}, [it('10:00', 45, FERIADO)]);
+t('feriado', '08/12/2026 ao criar: AVISO feriado e zero impedimentos', [tipos(r), tiposAviso(r)], [[], ['feriado']]);
+t('feriado', 'texto do aviso: data, nome, sem "Ajuste a data."',
+  r.avisos[0].texto, '08/12/2026 é feriado (Nossa Senhora da Conceição).');
+t('feriado', 'impedimentos nunca trazem mais o tipo feriado', tipos(r).includes('feriado'), false);
+r = await va({}, [it('10:00', 45, SAB)]);
+t('feriado', 'sábado continua só fds, sem aviso', [tipos(r), tiposAviso(r)], [['fds'], []]);
+r = await va({}, [it('10:00', 45, CIRIO)]);
+t('feriado', 'domingo de feriado (Círio): aviso feriado E impedimento fds', [tipos(r), tiposAviso(r)], [['fds'], ['feriado']]);
+r = await va({}, [it('10:00', 45, CIRIO)], { permitirFds: true });
+t('feriado', 'Círio com permitirFds: só o aviso', [tipos(r), tiposAviso(r)], [[], ['feriado']]);
+r = await va({ consultas: [cons('b', EU, '14:00')] }, [it('14:00')]);
+t('feriado', 'aviso de conflito da mesma paciente segue com tipo conflito', tiposAviso(r), ['conflito']);
+r = await va({}, [it('10:00', 45, FERIADO), it('10:00', 45, '2026-12-25')]);
+t('feriado', 'pacote com dois feriados à mão: um aviso por data', r.avisos.map(a => a.texto),
+  ['08/12/2026 é feriado (Nossa Senhora da Conceição).', '25/12/2026 é feriado (Natal).']);
+
+// avisosQueConfirmam (modal da Agenda)
+const avs = (...ts) => ts.map(tipo => ({ tipo, texto: tipo }));
+const INIF = { ...INI, data: FERIADO };
+const ac = (lista, isEdit, mudanca = {}, inicial = INIF) =>
+  avisosQueConfirmam(lista, { isEdit, inicial, atual: { ...inicial, ...mudanca } }).map(a => a.tipo);
+t('feriado', 'editar consulta em feriado sem mudar a data: nada a confirmar', ac(avs('feriado'), true, { hora: '15:00' }), []);
+t('feriado', 'editar mudando a data para um feriado: confirma', ac(avs('feriado'), true, { data: FERIADO }, INI), ['feriado']);
+t('feriado', 'criar em feriado: confirma', ac(avs('feriado'), false), ['feriado']);
+t('feriado', 'conflito não é afetado pela edição sem mudar a data', ac(avs('conflito', 'feriado'), true), ['conflito']);
+
+// textoConfirmacao: um aviso sai sozinho; vários, um por linha
+t('feriado', 'confirm com só o feriado',
+  textoConfirmacao([{ tipo: 'feriado', texto: '08/12/2026 é feriado (Nossa Senhora da Conceição).' }]),
+  '08/12/2026 é feriado (Nossa Senhora da Conceição).\n\nAgendar mesmo assim?');
+t('feriado', 'confirm com feriado + conflito: título "avisos", um por linha',
+  textoConfirmacao([{ tipo: 'feriado', texto: 'F.' }, { tipo: 'conflito', texto: 'C.' }]),
+  '2 avisos:\n\n• F.\n• C.\n\nAgendar mesmo assim?');
+t('feriado', 'confirm só com conflitos: título de antes',
+  textoConfirmacao([{ tipo: 'conflito', texto: 'A.' }, { tipo: 'conflito', texto: 'B.' }]),
+  '2 conflitos de horário:\n\n• A.\n• B.\n\nAgendar mesmo assim?');
+
 // ─── saída ───────────────────────────────────────────────────────────
 let grupoAtual = '';
 for (const c of casos) {

@@ -8,18 +8,20 @@
  * e nunca foi impedido na gravação.
  *
  * DUAS SEVERIDADES, por quem é a outra consulta (decisão de 2026-09-29):
- *   impedimentos → travam: feriado, fim de semana, bloqueio, duração inválida
- *                  e conflito com OUTRA paciente. Até 2026-09-29 este último
+ *   impedimentos → travam: fim de semana, bloqueio, duração inválida e
+ *                  conflito com OUTRA paciente. Até 2026-09-29 este último
  *                  era aviso, para permitir encaixe; a Kelly decidiu travar,
  *                  sabendo que isso tira o encaixe intencional.
- *   avisos       → pedem confirmação: conflito com a PRÓPRIA paciente, seja
- *                  entre as candidatas (as seis do pacote) ou com uma consulta
- *                  dela já gravada.
+ *   avisos       → pedem confirmação ("Agendar mesmo assim?"): conflito com a
+ *                  PRÓPRIA paciente, seja entre as candidatas (as seis do
+ *                  pacote) ou com uma consulta dela já gravada; e FERIADO,
+ *                  que até 2026-10-08 travava (pedido 7: a Kelly atende em
+ *                  feriado quando quer).
  *
- * IMPEDIMENTO É { tipo, texto }, E AVISO É STRING. tipo em
- * 'feriado' | 'fds' | 'bloqueio' | 'duracao' | 'conflito'. A tela AGE
- * diferente conforme o tipo ao editar (ver impedimentosQueTravam); filtrar
- * pelo texto seria frágil. Aviso só tem um tipo, então não carrega rótulo.
+ * IMPEDIMENTO E AVISO SÃO { tipo, texto }. Impedimento: tipo em
+ * 'fds' | 'bloqueio' | 'duracao' | 'conflito'. Aviso: tipo em
+ * 'conflito' | 'feriado'. A tela AGE diferente conforme o tipo ao editar (ver
+ * impedimentosQueTravam e avisosQueConfirmam); filtrar pelo texto seria frágil.
  *
  * `supabase` VEM POR PARÂMETRO, e não por import no topo como em push.js e
  * imagem.js. Assim este arquivo não arrasta o cliente para quem só quer a
@@ -32,7 +34,7 @@
  */
 
 import { montarDataHoraISO, partesLocaisISO, dataBR, HORARIOS_CONSULTA } from './utils.js';
-import { validarDiaConsulta, ehFeriado } from './feriados.js';
+import { validarDiaConsulta, feriadoDe, formatarBR } from './feriados.js';
 
 const MS_DIA = 24 * 3600 * 1000;
 
@@ -238,13 +240,20 @@ export function textoImpedimentos(impedimentos) {
 }
 
 /**
- * Texto do confirm — UM diálogo só, com todos os avisos.
+ * Texto do confirm — UM diálogo só, com todos os avisos, um por linha.
  * Três diálogos seguidos é onde se clica no automático sem ler.
+ *
+ * O título da lista só fala em "conflitos de horário" quando todos são
+ * conflito; com feriado no meio (pedido 7) ele vira "avisos", senão "2
+ * conflitos de horário" anunciaria um feriado como conflito.
  */
 export function textoConfirmacao(avisos) {
   const corpo = avisos.length === 1
-    ? avisos[0]
-    : `${avisos.length} conflitos de horário:\n\n` + avisos.map(a => `• ${a}`).join('\n');
+    ? avisos[0].texto
+    : (avisos.every(a => a.tipo === 'conflito')
+        ? `${avisos.length} conflitos de horário:\n\n`
+        : `${avisos.length} avisos:\n\n`)
+      + avisos.map(a => `• ${a.texto}`).join('\n');
   return `${corpo}\n\nAgendar mesmo assim?`;
 }
 
@@ -256,8 +265,10 @@ export function textoConfirmacao(avisos) {
  *   consulta sai de 'cancelada'. Editar só a obs ou o local de uma consulta que
  *   já colidia antes da regra não trava: a colisão é legada, não criada agora.
  *   Salvar como 'cancelada' nunca trava por conflito.
- * - feriado/fds: perdoados ao editar sem mudar a data (consulta antiga de
- *   sábado precisa poder trocar de local).
+ * - fds: perdoado ao editar sem mudar a data (consulta antiga de sábado
+ *   precisa poder trocar de local).
+ *
+ * Feriado não passa mais por aqui: virou aviso (ver avisosQueConfirmam).
  */
 export function impedimentosQueTravam(impedimentos, { isEdit, inicial, atual }) {
   const mudouData = !isEdit || atual.data !== inicial.data;
@@ -268,8 +279,21 @@ export function impedimentosQueTravam(impedimentos, { isEdit, inicial, atual }) 
   return impedimentos.filter(i => {
     if (i.tipo === 'bloqueio' || i.tipo === 'duracao') return true;
     if (i.tipo === 'conflito') return atual.status !== 'cancelada' && mudouHorario;
-    return mudouData;
+    return mudouData;   // fds
   });
+}
+
+/**
+ * Dos avisos, quais pedem o "Agendar mesmo assim?" no modal da Agenda.
+ *
+ * - feriado: perdoado ao editar sem mudar a data — mesma regra que o fds tem
+ *   em impedimentosQueTravam. Uma consulta antiga em feriado precisa poder
+ *   trocar de observação ou de local sem perguntar de novo pelo feriado.
+ * - os outros (conflito com a própria paciente): ficam como estão.
+ */
+export function avisosQueConfirmam(avisos, { isEdit, inicial, atual }) {
+  const mudouData = !isEdit || atual.data !== inicial.data;
+  return avisos.filter(a => a.tipo !== 'feriado' || mudouData);
 }
 
 /**
@@ -287,8 +311,9 @@ export function impedimentosQueTravam(impedimentos, { isEdit, inicial, atual }) 
  * paciente (trava) do conflito com a própria (avisa). Sem ele, todo conflito
  * conta como outra paciente: na dúvida, o lado seguro é travar.
  *
- * Devolve { impedimentos: [{ tipo, texto }], avisos: [string] },
- * com tipo em 'feriado' | 'fds' | 'bloqueio' | 'duracao' | 'conflito'.
+ * Devolve { impedimentos: [{ tipo, texto }], avisos: [{ tipo, texto }] }.
+ * Impedimento: 'fds' | 'bloqueio' | 'duracao' | 'conflito'.
+ * Aviso: 'conflito' (mesma paciente) | 'feriado'.
  */
 export async function verificarAgenda(supabase, {
   nutriId,
@@ -304,15 +329,19 @@ export async function verificarAgenda(supabase, {
   const validos = (itens ?? []).filter(i => i?.data && i?.hora);
   if (!validos.length || !nutriId) return { impedimentos, avisos };
 
-  // 1. Dia: feriado e fim de semana. Mesma função que as telas já usavam —
-  //    centralizar aqui é o que impede uma tela nova nascer sem a trava. O
-  //    ehFeriado separa os dois casos que a validarDiaConsulta funde numa
-  //    string só; é o tipo que a Agenda usa para perdoar um sem perdoar o outro.
+  // 1. Dia. Centralizar aqui é o que impede uma tela nova nascer sem a regra.
+  //    Feriado é AVISO (pedido 7, 2026-10-08): pergunta e deixa agendar.
+  //    Fim de semana continua IMPEDIMENTO, pela validarDiaConsulta com
+  //    ignorarFeriado — senão um domingo de feriado (o Círio) responderia só
+  //    "é feriado" e o fim de semana escaparia. Esse domingo gera os dois: o
+  //    aviso e o impedimento, que trava como antes.
   for (const it of validos) {
-    const problema = validarDiaConsulta(it.data, { permitirFds, dicaFds });
-    if (problema) {
-      impedimentos.push({ tipo: ehFeriado(it.data) ? 'feriado' : 'fds', texto: problema });
+    const feriado = feriadoDe(it.data);
+    if (feriado) {
+      avisos.push({ tipo: 'feriado', texto: `${formatarBR(it.data)} é feriado (${feriado}).` });
     }
+    const problema = validarDiaConsulta(it.data, { permitirFds, dicaFds, ignorarFeriado: true });
+    if (problema) impedimentos.push({ tipo: 'fds', texto: problema });
   }
 
   // 1b. Duração. Intervalo de tamanho zero não cruza nada (intervalosSeCruzam
@@ -368,7 +397,7 @@ export async function verificarAgenda(supabase, {
       if (!intervalosSeCruzam(alvo, intervaloConsulta(p.data, p.hora, c.duracao_min))) continue;
       const faixa = `${dataBR(p.data)}, das ${p.hora} às ${horaMais(p.hora, c.duracao_min)}`;
       if (pacienteId && c.paciente_id === pacienteId) {
-        avisos.push(`Esta paciente já tem outra consulta em ${faixa}.`);
+        avisos.push({ tipo: 'conflito', texto: `Esta paciente já tem outra consulta em ${faixa}.` });
       } else {
         impedimentos.push({ tipo: 'conflito', texto:
           `${c.paciente?.nome ?? 'Outra paciente'} já tem consulta em ${faixa}. Escolha outro horário.` });
@@ -387,7 +416,7 @@ export async function verificarAgenda(supabase, {
       )) continue;
       const rotA = a.rotulo ?? `Consulta ${i + 1}`;
       const rotB = b.rotulo ?? `Consulta ${j + 1}`;
-      avisos.push(`${rotA} e ${rotB} estão no mesmo horário (${dataBR(a.data)}, ${a.hora}).`);
+      avisos.push({ tipo: 'conflito', texto: `${rotA} e ${rotB} estão no mesmo horário (${dataBR(a.data)}, ${a.hora}).` });
     }
   }
 
@@ -395,7 +424,7 @@ export async function verificarAgenda(supabase, {
   // duas vezes, e ler a mesma linha repetida não informa nada.
   return {
     impedimentos: semRepetir(impedimentos, i => i.texto),
-    avisos:       semRepetir(avisos, a => a),
+    avisos:       semRepetir(avisos, a => a.texto),
   };
 }
 
