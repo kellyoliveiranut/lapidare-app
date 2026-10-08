@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { iniciais, textoDias } from '../../lib/utils.js';
 import { linkConvite } from '../../lib/convite.js';
+import { gravar } from '../../lib/gravar.js';
 import ImportarCsv from './_ImportarCsv.jsx';
 
 // Seções da lista, na ordem em que aparecem na tela.
@@ -78,19 +79,25 @@ export default function Pacientes() {
     const link = linkConvite(user.id, p);
     await navigator.clipboard.writeText(link);
     alert(`Link copiado! Envie pra ${p.nome.split(' ')[0]} por WhatsApp ou email.`);
-    await supabase.from('pacientes_pendentes').update({ status: 'enviado' }).eq('id', p.id);
+    const r = await gravar(supabase.from('pacientes_pendentes').update({ status: 'enviado' }).eq('id', p.id),
+      { rotulo: 'marcar o convite como enviado' });
+    if (!r.ok) { alert(r.msg); return; }
     carregar();
   }
 
   async function removerPendente(p) {
     if (!window.confirm(`Remover "${p.nome}" da lista de pendentes?`)) return;
-    await supabase.from('pacientes_pendentes').delete().eq('id', p.id);
+    const r = await gravar(supabase.from('pacientes_pendentes').delete().eq('id', p.id),
+      { rotulo: 'remover da lista de pendentes' });
+    if (!r.ok) { alert(r.msg); return; }
     carregar();
   }
 
   async function reativar(id) {
     if (!window.confirm('Deseja reativar esta paciente?')) return;
-    await supabase.from('pacientes').update({ status_paciente: 'ativo' }).eq('id', id);
+    const r = await gravar(supabase.from('pacientes').update({ status_paciente: 'ativo' }).eq('id', id),
+      { rotulo: 'reativar a paciente' });
+    if (!r.ok) { alert(r.msg); return; }
     carregar();
   }
 

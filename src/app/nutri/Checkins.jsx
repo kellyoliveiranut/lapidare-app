@@ -11,6 +11,7 @@ import {
   labelFrequencia,
 } from '../../lib/checkinDefault.js';
 import { perguntasParaPaciente } from '../../lib/checkinVariacao.js';
+import { gravar } from '../../lib/gravar.js';
 import CheckinForm from '../../components/CheckinForm.jsx';
 import DicaJSON from '../../components/DicaJSON.jsx';
 
@@ -443,20 +444,26 @@ export default function Checkins() {
 async function processarAgendamentosVencidos(nutriId, agendamentos, mostraToast) {
   const hoje = dataLocalISO();
   let total = 0;
+  // Falhas de gravação (erro do banco ou da rede) entram no toast do fim, sem
+  // parar o lote: um agendamento que falha não impede os outros.
+  let falhas = 0;
 
   for (const ag of agendamentos) {
     if (!ag.ativo) continue;
     if (ag.proximo_envio > hoje) continue;
     if (!ag.template?.perguntas) continue;
 
-    // Tenta "reservar" o agendamento — só processa se ninguém atualizou primeiro
+    // Tenta "reservar" o agendamento — só processa se ninguém atualizou primeiro.
+    // esperado null: 0 linhas é legítimo (outra aba já reservou); só erro é falha.
     const nova = proximaDataAgendamento(hoje, ag.frequencia);
-    const { data: claim } = await supabase
+    const rClaim = await gravar(supabase
       .from('checkin_agendamentos')
       .update({ proximo_envio: nova, ultimo_envio: new Date().toISOString() })
       .eq('id', ag.id)
-      .lte('proximo_envio', hoje)
-      .select();
+      .lte('proximo_envio', hoje),
+      { esperado: null, rotulo: 'reservar o agendamento' });
+    if (!rClaim.ok) { falhas++; continue; }
+    const claim = rClaim.data;
 
     if (!claim || claim.length === 0) continue; // outra aba já processou
 
@@ -485,11 +492,17 @@ async function processarAgendamentosVencidos(nutriId, agendamentos, mostraToast)
       paciente_id: p.id,
       perguntas: perguntasParaPaciente(ag.template.perguntas, p),
     }));
-    const { error } = await supabase.from('checkin_envios').insert(linhas);
-    if (!error) total += pacientesAlvo.length;
+    const rEnv = await gravar(supabase.from('checkin_envios').insert(linhas),
+      { esperado: linhas.length, rotulo: 'disparar os check-ins' });
+    if (rEnv.ok) total += pacientesAlvo.length;
+    else falhas += pacientesAlvo.length;
   }
 
-  if (total > 0) mostraToast(`${total} check-in${total === 1 ? '' : 's'} disparado${total === 1 ? '' : 's'} automaticamente`);
+  if (total > 0 || falhas > 0) {
+    const ok = total > 0 ? `${total} check-in${total === 1 ? '' : 's'} disparado${total === 1 ? '' : 's'} automaticamente` : '';
+    const ruim = falhas > 0 ? `${falhas} não ${falhas === 1 ? 'foi' : 'foram'} disparado${falhas === 1 ? '' : 's'} (falha ao gravar)` : '';
+    mostraToast([ok, ruim].filter(Boolean).join(' · '));
+  }
   return total;
 }
 
@@ -624,10 +637,15 @@ function TemplatesTab({ templates, pacientes, nutriId, onRecarregar, mostraToast
   }
 
   async function definirPadrao(t) {
-    // remove flag dos outros PRIMEIRO (índice único exige no máximo 1 padrão)
-    await supabase.from('checkin_templates').update({ is_padrao: false })
-      .eq('nutri_id', nutriId).neq('id', t.id);
-    await supabase.from('checkin_templates').update({ is_padrao: true }).eq('id', t.id);
+    // remove flag dos outros PRIMEIRO (índice único exige no máximo 1 padrão).
+    // esperado null: os "outros" podem ser zero (só existe este template).
+    const r1 = await gravar(supabase.from('checkin_templates').update({ is_padrao: false })
+      .eq('nutri_id', nutriId).neq('id', t.id), { esperado: null, rotulo: 'trocar o template padrão' });
+    if (!r1.ok) return mostraToast(r1.msg);
+    const r2 = await gravar(supabase.from('checkin_templates').update({ is_padrao: true }).eq('id', t.id),
+      { rotulo: 'marcar o template como padrão' });
+    // O primeiro passo já tirou o padrão dos outros: avisa e recarrega, sem desfazer.
+    if (!r2.ok) { mostraToast(r2.msg); onRecarregar(); return; }
     mostraToast(`"${t.nome}" agora é o template padrão`);
     onRecarregar();
   }
@@ -892,13 +910,17 @@ function TemplateEditor({ template, nutriId, pacientes, onClose, onSaved }) {
    ============================================================ */
 function ProgramacaoTab({ agendamentos, templates, pacientes, nutriId, onRecarregar, mostraToast, onEditar }) {
   async function toggle(ag) {
-    await supabase.from('checkin_agendamentos').update({ ativo: !ag.ativo }).eq('id', ag.id);
+    const r = await gravar(supabase.from('checkin_agendamentos').update({ ativo: !ag.ativo }).eq('id', ag.id),
+      { rotulo: ag.ativo ? 'pausar o agendamento' : 'ativar o agendamento' });
+    if (!r.ok) return mostraToast(r.msg);
     mostraToast(ag.ativo ? 'Agendamento pausado' : 'Agendamento ativado');
     onRecarregar();
   }
   async function excluir(ag) {
     if (!window.confirm('Excluir este agendamento?')) return;
-    await supabase.from('checkin_agendamentos').delete().eq('id', ag.id);
+    const r = await gravar(supabase.from('checkin_agendamentos').delete().eq('id', ag.id),
+      { rotulo: 'excluir o agendamento' });
+    if (!r.ok) return mostraToast(r.msg);
     mostraToast('Agendamento removido');
     onRecarregar();
   }

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { callAnthropicComRetry, lerPdfBase64 } from '../../lib/anthropic.js';
+import { gravar } from '../../lib/gravar.js';
 import { dataBR } from '../../lib/utils.js';
 import TreinoDias from './_TreinoDias.jsx';
 
@@ -330,7 +331,10 @@ export default function Treinos({ pacienteId, nutriId, pacienteNome }) {
 
   async function desativar(id) {
     if (!window.confirm('Desativar este treino?')) return;
-    await supabase.from('treinos_prescritos').update({ ativo: false }).eq('id', id);
+    setErroLista(null);
+    const r = await gravar(supabase.from('treinos_prescritos').update({ ativo: false }).eq('id', id),
+      { rotulo: 'desativar o treino' });
+    if (!r.ok) { setErroLista(r.msg); return; }
     carregar();
   }
 

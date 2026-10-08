@@ -4,6 +4,7 @@ import { avisarStatus } from '../../lib/realtime.js';
 import { iniciais, dataLocalISO } from '../../lib/utils.js';
 import { comprimirImagem, getAnexoUrl } from '../../lib/imagem.js';
 import { iniciarTokenPush, avisarPaciente } from '../../lib/push.js';
+import { gravar } from '../../lib/gravar.js';
 
 // Uma conversa: histórico, envio, anexo e realtime de UMA paciente.
 //
@@ -74,8 +75,12 @@ export default function ConversaPanel({ paciente, nutriId, onAfterAction, onFech
     if (marcarLidas) {
       const naoLidas = (data ?? []).filter(m => m.de === 'paciente' && !m.lida).map(m => m.id);
       if (naoLidas.length > 0) {
-        await supabase.from('mensagens').update({ lida: true }).in('id', naoLidas);
-        onAfterAction?.();  // atualiza badges na lista
+        // Marcação automática ao abrir a conversa: sem alerta (seria ruído).
+        // esperado null: outra aba pode ter marcado antes, e 0 linhas é legítimo.
+        const r = await gravar(supabase.from('mensagens').update({ lida: true }).in('id', naoLidas),
+          { esperado: null, rotulo: 'marcar as mensagens como lidas' });
+        if (!r.ok) console.warn(r.msg);
+        else onAfterAction?.();  // atualiza badges na lista
       }
     }
   }
@@ -98,8 +103,11 @@ export default function ConversaPanel({ paciente, nutriId, onAfterAction, onFech
           return [...curr, m];
         });
         if (m.de === 'paciente') {
-          await supabase.from('mensagens').update({ lida: true }).eq('id', m.id);
-          onAfterAction?.();
+          // Marcação automática da mensagem que chegou: sem alerta (seria ruído).
+          const r = await gravar(supabase.from('mensagens').update({ lida: true }).eq('id', m.id),
+            { esperado: null, rotulo: 'marcar a mensagem como lida' });
+          if (!r.ok) console.warn(r.msg);
+          else onAfterAction?.();
         }
       })
       .subscribe(avisarStatus('chat-conv'));

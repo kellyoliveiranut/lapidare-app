@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { dataLocalISO } from '../../lib/utils.js';
+import { gravar } from '../../lib/gravar.js';
 
 // Modelos prontos pra nutri adicionar rápido
 const MODELOS = [
@@ -43,41 +44,46 @@ export default function Habitos({ pacienteId, nutriId, pacienteNome }) {
   async function salvar(h) {
     if (!h.nome?.trim()) { alert('Informe o nome do hábito.'); return; }
     setBusy(true);
+    let r;
     if (h.novo) {
       const ordem = (habitos?.length ?? 0);
-      await supabase.from('habitos').insert({
+      r = await gravar(supabase.from('habitos').insert({
         paciente_id: pacienteId, nutri_id: nutriId,
         nome: h.nome.trim(), emoji: h.emoji?.trim() || null,
         tipo: h.tipo, meta: h.meta ?? null, unidade: h.unidade?.trim() || null,
         ordem, ativo: true,
-      });
+      }), { rotulo: 'criar o hábito' });
     } else {
-      await supabase.from('habitos').update({
+      r = await gravar(supabase.from('habitos').update({
         nome: h.nome.trim(), emoji: h.emoji?.trim() || null,
         tipo: h.tipo, meta: h.meta ?? null, unidade: h.unidade?.trim() || null,
         ativo: h.ativo, updated_at: new Date().toISOString(),
-      }).eq('id', h.id);
+      }).eq('id', h.id), { rotulo: 'salvar o hábito' });
     }
     setBusy(false);
+    // Falhou: o editor fica aberto com o que foi digitado.
+    if (!r.ok) { alert(r.msg); return; }
     setEditar(null);
     carregar();
   }
 
   async function adicionarModelo(m) {
     setBusy(true);
-    await supabase.from('habitos').insert({
+    const r = await gravar(supabase.from('habitos').insert({
       paciente_id: pacienteId, nutri_id: nutriId,
       nome: m.nome, emoji: m.emoji,
       tipo: m.tipo, meta: m.meta ?? null, unidade: m.unidade ?? null,
       ordem: (habitos?.length ?? 0), ativo: true,
-    });
+    }), { rotulo: 'adicionar o hábito' });
     setBusy(false);
+    if (!r.ok) { alert(r.msg); return; }
     carregar();
   }
 
   async function excluir(h) {
     if (!window.confirm(`Excluir "${h.nome}"? Os registros da paciente também serão removidos.`)) return;
-    await supabase.from('habitos').delete().eq('id', h.id);
+    const r = await gravar(supabase.from('habitos').delete().eq('id', h.id), { rotulo: 'excluir o hábito' });
+    if (!r.ok) { alert(r.msg); return; }
     carregar();
   }
 

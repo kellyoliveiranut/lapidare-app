@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { dataBR, dataLocalISO } from '../../lib/utils.js';
 import { callAnthropic } from '../../lib/anthropic.js';
+import { gravar } from '../../lib/gravar.js';
 import DateInput from '../../components/DateInput.jsx';
 import CardProtocoloEfeitos from '../../components/CardProtocoloEfeitos.jsx';
 import protocolosEfeitosData from '../../data/protocolos_efeitos.json';
@@ -230,7 +231,8 @@ export default function TratamentoOncologico({ pacienteId, nutriId, pacienteNome
 
   async function removerCiclo(id) {
     if (!window.confirm('Remover este ciclo?')) return;
-    await supabase.from('ciclos_quimio').delete().eq('id', id);
+    const r = await gravar(supabase.from('ciclos_quimio').delete().eq('id', id), { rotulo: 'remover o ciclo' });
+    if (!r.ok) return setFeedback({ tipo: 'erro', msg: r.msg });
     carregar();
   }
 
@@ -253,7 +255,8 @@ export default function TratamentoOncologico({ pacienteId, nutriId, pacienteNome
 
   async function removerExame(id) {
     if (!window.confirm('Remover este exame?')) return;
-    await supabase.from('exames_laboratoriais').delete().eq('id', id);
+    const r = await gravar(supabase.from('exames_laboratoriais').delete().eq('id', id), { rotulo: 'remover o exame' });
+    if (!r.ok) return setFeedback({ tipo: 'erro', msg: r.msg });
     carregar();
   }
 

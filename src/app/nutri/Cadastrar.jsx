@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { dataBR, brl, valorBR, gerarParcelas, distribuirTaxa, taxaSugerida, maxParcelas, clampParcelas, MAX_PARCELAS_ESSENTIA, FORMAS_PGTO_LIST, FORMAS_COM_TAXA, normalizarTelefone, telefoneValido, dataLocalISO } from '../../lib/utils.js';
 import { criarVendaComParcelas } from '../../lib/vendas.js';
+import { gravar } from '../../lib/gravar.js';
 import { criarContratoPendente, parseValorContrato } from '../../lib/contratoEssentia.js';
 import { linkConvite, mensagemConviteEncoded } from '../../lib/convite.js';
 import { OBJETIVOS } from '../../lib/objetivos.js';
@@ -284,10 +285,13 @@ export default function Cadastrar() {
       if (erro) avisoContrato = `Paciente cadastrada. ${erro}`;
     }
 
+    // A ficha já existe: se a pré-consulta falhar, o cadastro continua valendo
+    // e a falha vira um aviso no cartão de sucesso, como o pagamento e o contrato.
+    let avisoPreConsulta = null;
     if (preConsultaId) {
       const tpl = templatesPreConsulta.find(t => t.id === preConsultaId);
       if (tpl) {
-        await supabase.from('checkin_envios').insert({
+        const rPre = await gravar(supabase.from('checkin_envios').insert({
           nutri_id: user.id,
           paciente_id: pacienteData.id,
           nome: tpl.nome,
@@ -296,7 +300,8 @@ export default function Cadastrar() {
           // paciente de volta só para ler sexo/objetivo custaria uma ida ao
           // banco por nada (o insert acima devolve só id, nome, email).
           perguntas: perguntasParaPaciente(tpl.perguntas, { sexo, objetivo }),
-        });
+        }), { rotulo: 'enviar a pré-consulta' });
+        if (!rPre.ok) avisoPreConsulta = `Paciente cadastrada, mas a pré-consulta não foi enviada. ${rPre.msg}`;
       }
     }
 
@@ -316,15 +321,22 @@ export default function Cadastrar() {
       endereco: endereco.trim() || null,
       status: 'pendente',
     };
-    const { data: pData } = await supabase
+    // .select('*') e não gravar(): o cartão usa a linha INTEIRA (token,
+    // telefone) para montar o link e a mensagem do convite. O .single() já dá
+    // erro quando volta zero linhas. Na falha, sem pendente o cartão não monta
+    // link nem WhatsApp, e o aviso diz que o convite não foi gerado.
+    const { data: pData, error: pErr } = await supabase
       .from('pacientes_pendentes')
       .insert(pendentePayload)
       .select('*')
       .single();
-    const pendente = pData ?? null;
+    const pendente = pErr ? null : (pData ?? null);
+    const avisoPendente = pErr
+      ? `Paciente cadastrada, mas o convite não foi gerado — gere o link pelo perfil da paciente. (${pErr.message})`
+      : null;
 
     setBusy(false);
-    setSucesso({ id: pacienteData.id, nome: pacienteData.nome, email: pacienteData.email, pendente, avisoVenda, avisoContrato });
+    setSucesso({ id: pacienteData.id, nome: pacienteData.nome, email: pacienteData.email, pendente, avisoVenda, avisoContrato, avisoPreConsulta, avisoPendente });
     resetForm();
     carregarPendentes();
   }
@@ -345,7 +357,9 @@ export default function Cadastrar() {
 
   async function excluirPendente(pendente) {
     if (!window.confirm(`Excluir cadastro pendente de "${pendente.nome}"?`)) return;
-    await supabase.from('pacientes_pendentes').delete().eq('id', pendente.id);
+    const r = await gravar(supabase.from('pacientes_pendentes').delete().eq('id', pendente.id),
+      { rotulo: 'excluir o cadastro pendente' });
+    if (!r.ok) { alert(r.msg); return; }
     carregarPendentes();
   }
 
@@ -682,6 +696,8 @@ export default function Cadastrar() {
               pendente={sucesso.pendente}
               avisoVenda={sucesso.avisoVenda}
               avisoContrato={sucesso.avisoContrato}
+              avisoPreConsulta={sucesso.avisoPreConsulta}
+              avisoPendente={sucesso.avisoPendente}
               link={sucesso.pendente ? linkDe(sucesso.pendente) : null}
               mensagemWhats={sucesso.pendente ? mensagemWhats(sucesso.pendente) : null}
               onCopiar={sucesso.pendente ? () => copiarLink(sucesso.pendente) : null}
@@ -746,8 +762,10 @@ export default function Cadastrar() {
                         : `https://wa.me/?text=${mensagemWhats(p)}`}
                       target="_blank" rel="noreferrer"
                       onClick={async () => {
-                        await supabase.from('pacientes_pendentes')
-                          .update({ status: 'enviado' }).eq('id', p.id);
+                        const r = await gravar(supabase.from('pacientes_pendentes')
+                          .update({ status: 'enviado' }).eq('id', p.id),
+                          { rotulo: 'marcar o convite como enviado' });
+                        if (!r.ok) { alert(r.msg); return; }
                         carregarPendentes();
                       }}
                       style={{ fontSize: 11, padding: '4px 10px', textDecoration: 'none' }}>
@@ -776,7 +794,7 @@ export default function Cadastrar() {
 }
 
 
-function CartaoSucesso({ pacienteId, nome, pendente, avisoVenda, avisoContrato, link, mensagemWhats, onCopiar, onDispensar, onIrPerfil }) {
+function CartaoSucesso({ pacienteId, nome, pendente, avisoVenda, avisoContrato, avisoPreConsulta, avisoPendente, link, mensagemWhats, onCopiar, onDispensar, onIrPerfil }) {
   const primeiroNome = nome?.split(' ')[0] ?? '';
   return (
     <div style={{
@@ -808,7 +826,7 @@ function CartaoSucesso({ pacienteId, nome, pendente, avisoVenda, avisoContrato, 
 
       {/* Os dois podem cair juntos — venda e contrato falham de forma
           independente, e esconder um dos avisos seria perder informação. */}
-      {[avisoVenda, avisoContrato].filter(Boolean).map((aviso, i) => (
+      {[avisoVenda, avisoContrato, avisoPreConsulta, avisoPendente].filter(Boolean).map((aviso, i) => (
         <div key={i} style={{
           marginTop: 10, padding: '8px 10px', borderRadius: 6,
           background: 'var(--orange-bg, #fff7ed)', color: 'var(--orange, #c2410c)',

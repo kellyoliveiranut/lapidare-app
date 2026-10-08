@@ -23,6 +23,7 @@ import { perguntasParaPaciente } from '../../lib/checkinVariacao.js';
 import { ehFeriado } from '../../lib/feriados.js';
 import { verificarAgenda, textoImpedimentos, textoConfirmacao, opcoesHorario, horariosLivres } from '../../lib/agendaConflitos.js';
 import { useHorariosLivres, useOcupacaoDeDatas } from '../../lib/useHorariosLivres.js';
+import { gravar } from '../../lib/gravar.js';
 import { horariosDoPacote } from '../../lib/horariosDoPacote.js';
 // O gráfico de área saiu daqui para ser usado também pelos exames. O
 // comportamento do gráfico de peso não mudou: o corte de "menos de 2 pontos"
@@ -3316,22 +3317,26 @@ function RegistrarAvaliacao({ pacienteId, nutriId, paciente }) {
       // Fora do throw de propósito: as avaliações JÁ foram salvas: derrubar o
       // salvamento inteiro por causa do banner seria pior que o banner sobrar.
       // O `is('preenchido_em', null)` evita sobrescrever um fechamento anterior.
-      const { error: avaliacaoErro } = await supabase.from('avaliacao_envios')
+      // esperado null: pode não haver pedido de avaliação aberto (0 linhas é
+      // legítimo). Erro de verdade vira um aviso junto do resultado do lote.
+      const rAv = await gravar(supabase.from('avaliacao_envios')
         .update({ preenchido_em: new Date().toISOString(), preenchido_por: 'nutri' })
         .eq('paciente_id', pacienteId)
-        .is('preenchido_em', null);
-      if (avaliacaoErro) console.error('[salvarLote] avaliacao_envios:', avaliacaoErro);
+        .is('preenchido_em', null), { esperado: null, rotulo: 'fechar o pedido de avaliação' });
+      const avisoAvaliacao = rAv.ok ? '' : ` O pedido de avaliação da paciente continua aberto. ${rAv.msg}`;
 
       if (comErro.length > 0) {
         // Mantém só os que falharam na tela, para reprocessar ou remover.
         setRascunhos(comErro);
         setFeedback({
           tipo: 'aviso',
-          msg: `${payloads.length} avaliação(ões) registrada(s).${sufixoDup} ${comErro.length} PDF(s) falharam na leitura e NÃO foram salvos — reprocesse ou remova: ${comErro.map(r => r.arquivo).join(', ')}.`,
+          msg: `${payloads.length} avaliação(ões) registrada(s).${sufixoDup} ${comErro.length} PDF(s) falharam na leitura e NÃO foram salvos — reprocesse ou remova: ${comErro.map(r => r.arquivo).join(', ')}.${avisoAvaliacao}`,
         });
       } else {
         setRascunhos([]);
-        setFeedback({ tipo: 'ok', msg: `${payloads.length} avaliação(ões) registrada(s).${sufixoDup}` });
+        setFeedback(avisoAvaliacao
+          ? { tipo: 'aviso', msg: `${payloads.length} avaliação(ões) registrada(s).${sufixoDup}${avisoAvaliacao}` }
+          : { tipo: 'ok', msg: `${payloads.length} avaliação(ões) registrada(s).${sufixoDup}` });
       }
       carregar();
     } catch (err) {
@@ -3409,7 +3414,8 @@ function RegistrarAvaliacao({ pacienteId, nutriId, paciente }) {
 
   async function remover(id) {
     if (!window.confirm('Remover esta avaliação?')) return;
-    await supabase.from('peso_registros').delete().eq('id', id);
+    const r = await gravar(supabase.from('peso_registros').delete().eq('id', id), { rotulo: 'remover a avaliação' });
+    if (!r.ok) { setFeedback({ tipo: 'erro', msg: r.msg }); return; }
     carregar();
   }
 
@@ -6505,14 +6511,15 @@ function EbooksDaPaciente({ pacienteId, nutriId, pacienteNome }) {
   useEffect(() => { carregar(); }, [pacienteId, nutriId]);
 
   async function toggle(ebookId) {
-    if (atribuidosIds.has(ebookId)) {
-      await supabase.from('ebooks_pacientes').delete()
-        .eq('ebook_id', ebookId).eq('paciente_id', pacienteId);
-    } else {
-      await supabase.from('ebooks_pacientes').insert({
-        ebook_id: ebookId, paciente_id: pacienteId,
-      });
-    }
+    // Liga OU desliga um material: é um passo só, não uma sequência.
+    const r = atribuidosIds.has(ebookId)
+      ? await gravar(supabase.from('ebooks_pacientes').delete()
+          .eq('ebook_id', ebookId).eq('paciente_id', pacienteId), { rotulo: 'remover o material da paciente' })
+      : await gravar(supabase.from('ebooks_pacientes').insert({
+          ebook_id: ebookId, paciente_id: pacienteId,
+        }), { rotulo: 'atribuir o material à paciente' });
+    // Esta lista não tem área de erro: alert, e recarrega para mostrar o estado real.
+    if (!r.ok) window.alert(r.msg);
     carregar();
   }
 
@@ -6721,10 +6728,13 @@ function ModalUploadEbookPaciente({ nutriId, pacienteId, onClose, onSaved }) {
       return setErro('Erro: ' + insErr.message);
     }
     // Já atribui à paciente atual
-    await supabase.from('ebooks_pacientes').insert({
+    const rAtr = await gravar(supabase.from('ebooks_pacientes').insert({
       ebook_id: insData.id, paciente_id: pacienteId,
-    });
+    }), { rotulo: 'atribuir o material à paciente' });
     setBusy(false);
+    // O material JÁ está na Biblioteca: não reenviar aqui (duplicaria). O modal
+    // fica aberto com o aviso, sem fechar como salvo.
+    if (!rAtr.ok) return setErro(`O material foi salvo na Biblioteca, mas não foi atribuído a esta paciente — atribua pela Biblioteca, sem enviar de novo. ${rAtr.msg}`);
     onSaved();
   }
 

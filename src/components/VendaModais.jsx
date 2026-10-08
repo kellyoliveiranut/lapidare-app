@@ -8,6 +8,7 @@ import {
   MAX_PARCELAS_ESSENTIA, FORMAS_PGTO_LIST, FORMAS_COM_TAXA, STATUS_PARCELA_INFO,
 } from '../lib/utils.js';
 import { criarVendaComParcelas } from '../lib/vendas.js';
+import { gravar } from '../lib/gravar.js';
 import { useSession } from '../lib/session.jsx';
 
 /* ============================================================
@@ -434,8 +435,10 @@ export function EditarParcelaModal({ parcela, venda, pacienteNome, onClose, onSa
   async function excluirParcela() {
     if (!window.confirm('Excluir esta parcela?')) return;
     setBusy(true);
-    await supabase.from('parcelas').delete().eq('id', parcela.id);
+    const r = await gravar(supabase.from('parcelas').delete().eq('id', parcela.id),
+      { rotulo: 'excluir a parcela' });
     setBusy(false);
+    if (!r.ok) return setErro(r.msg);
     onSaved();
   }
 

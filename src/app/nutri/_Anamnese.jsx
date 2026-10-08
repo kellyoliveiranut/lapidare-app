@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { dataBR, dataLocalISO } from '../../lib/utils.js';
+import { gravar } from '../../lib/gravar.js';
 import { ANAMNESE_LAPIDARE, QFA_LAPIDARE, RECORDATORIO_LAPIDARE, formatarRespostaAnamnese } from '../../lib/anamneseDefault.js';
 import DicaJSON from '../../components/DicaJSON.jsx';
 import DateInput from '../../components/DateInput.jsx';
@@ -28,7 +29,9 @@ export default function Anamnese({ pacienteId, nutriId, pacienteNome }) {
 
   async function excluir(a) {
     if (!window.confirm(`Excluir anamnese "${a.titulo}"?`)) return;
-    await supabase.from('anamneses').delete().eq('id', a.id);
+    const r = await gravar(supabase.from('anamneses').delete().eq('id', a.id),
+      { rotulo: 'excluir a anamnese' });
+    if (!r.ok) { alert(r.msg); return; }
     carregar();
   }
 
@@ -657,7 +660,9 @@ function ModalCriarModelo({ contexto, templates, nutriId, onClose, onSaved }) {
 
   async function excluirTemplate(t) {
     if (!window.confirm(`Excluir modelo "${t.nome}"?`)) return;
-    await supabase.from('anamnese_templates').delete().eq('id', t.id);
+    const r = await gravar(supabase.from('anamnese_templates').delete().eq('id', t.id),
+      { rotulo: 'excluir o modelo' });
+    if (!r.ok) { alert(r.msg); return; }
     onSaved();
   }
 

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import DateInput from '../../components/DateInput.jsx';
+import { gravar } from '../../lib/gravar.js';
 import {
   brl, valorBR, dataBR, dataLocalISO,
   CATEGORIAS_GASTO, infoCategoria,
@@ -91,12 +92,15 @@ export default function Gastos() {
 
   async function excluir(g) {
     if (!window.confirm(`Excluir "${g.descricao}"?`)) return;
-    await supabase.from('gastos').delete().eq('id', g.id);
+    const r = await gravar(supabase.from('gastos').delete().eq('id', g.id), { rotulo: 'excluir o gasto' });
+    if (!r.ok) { window.alert(r.msg); return; }
     carregar();
   }
 
   async function toggleAtivo(g) {
-    await supabase.from('gastos').update({ ativo: !g.ativo }).eq('id', g.id);
+    const r = await gravar(supabase.from('gastos').update({ ativo: !g.ativo }).eq('id', g.id),
+      { rotulo: g.ativo ? 'pausar o gasto' : 'reativar o gasto' });
+    if (!r.ok) { window.alert(r.msg); return; }
     carregar();
   }
 

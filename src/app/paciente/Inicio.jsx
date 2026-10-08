@@ -8,6 +8,7 @@ import { textoDias, dataConsultaBR, horaConsultaBR, diasAte, gerarGoogleCalendar
 import { cumpriuHabito } from './_HabitosHoje.jsx';
 import { escolherDaSemana } from '../../lib/rotacaoMensagens.js';
 import { iniciarTokenPush, avisarNutri } from '../../lib/push.js';
+import { gravar } from '../../lib/gravar.js';
 import { useJornada, ehEssentia } from '../../lib/useJornada.js';
 import { CardJornadaResumo } from './_Jornada.jsx';
 
@@ -464,6 +465,15 @@ export default function Inicio() {
   // ─── Ações ────────────────────────────────────────────────────────────────
   async function setValorHabito(habito, valor) {
     const hoje = dataLocalISO();
+    // Estado de antes da marcação otimista: volta a ele se a gravação falhar,
+    // como paciente/Habitos.jsx (lá pelo refetch; aqui o load mora no efeito).
+    const antesLogs = habitosLogs;
+    const antesTodos = todosLogs;
+    const desfazer = (msg) => {
+      setHabitosLogs(antesLogs);
+      setTodosLogs(antesTodos);
+      window.alert(msg);
+    };
     setHabitosLogs(prev => ({ ...prev, [habito.id]: valor }));
     setTodosLogs(prev => {
       const sem = prev.filter(l => !(l.habito_id === habito.id && l.data === hoje));
@@ -472,13 +482,18 @@ export default function Inicio() {
     if (valor === 0 && habito.tipo === 'boolean') {
       const { data: existente } = await supabase.from('habitos_logs')
         .select('id').eq('habito_id', habito.id).eq('data', hoje).maybeSingle();
-      if (existente) await supabase.from('habitos_logs').delete().eq('id', existente.id);
+      if (existente) {
+        const r = await gravar(supabase.from('habitos_logs').delete().eq('id', existente.id),
+          { rotulo: 'desmarcar o hábito' });
+        if (!r.ok) { desfazer(r.msg); return; }
+      }
       setHabitosLogs(prev => { const n = { ...prev }; delete n[habito.id]; return n; });
     } else {
-      await supabase.from('habitos_logs').upsert({
+      const r = await gravar(supabase.from('habitos_logs').upsert({
         habito_id: habito.id, paciente_id: pacienteId,
         data: hoje, valor,
-      }, { onConflict: 'habito_id,data' });
+      }, { onConflict: 'habito_id,data' }), { rotulo: 'marcar o hábito' });
+      if (!r.ok) desfazer(r.msg);
     }
   }
 
@@ -490,13 +505,14 @@ export default function Inicio() {
     } else if (profile?.objetivo === 'Oncologia') {
       if (!profile?.nutri_id) return;
       const hoje = dataLocalISO();
-      const { data } = await supabase.from('monitoramento_oncologico')
+      // O estado só muda depois de gravar: na falha, monHoje continua o de antes.
+      const r = await gravar(supabase.from('monitoramento_oncologico')
         .upsert(
           { paciente_id: pacienteId, nutri_id: profile.nutri_id, data: hoje, disposicao: opcao.valMon },
           { onConflict: 'paciente_id,data' }
-        )
-        .select('id, disposicao').maybeSingle();
-      if (data) setMonHoje(data);
+        ), { rotulo: 'salvar como você está hoje' });
+      if (!r.ok) { window.alert(r.msg); return; }
+      setMonHoje({ id: r.data[0].id, disposicao: opcao.valMon });
     }
   }
 

@@ -6,6 +6,7 @@ import { useTheme } from '../../lib/theme.jsx';
 import { iniciais, dataLocalISO } from '../../lib/utils.js';
 import { comprimirImagem, getAnexoUrl } from '../../lib/imagem.js';
 import { iniciarTokenPush, avisarNutri } from '../../lib/push.js';
+import { gravar } from '../../lib/gravar.js';
 
 function fmtHora(iso) {
   if (!iso) return '';
@@ -79,7 +80,11 @@ export default function ChatPaciente() {
       // marca como lidas todas as mensagens da nutri ainda não lidas
       const naoLidas = (data ?? []).filter(m => m.de === 'nutri' && !m.lida).map(m => m.id);
       if (naoLidas.length > 0) {
-        await supabase.from('mensagens').update({ lida: true }).in('id', naoLidas);
+        // Marcação automática ao abrir o chat: sem alerta (seria ruído).
+        // esperado null: outra aba pode ter marcado antes (0 linhas é legítimo).
+        const r = await gravar(supabase.from('mensagens').update({ lida: true }).in('id', naoLidas),
+          { esperado: null, rotulo: 'marcar as mensagens como lidas' });
+        if (!r.ok) console.warn(r.msg);
       }
     }
 
@@ -106,7 +111,10 @@ export default function ChatPaciente() {
         });
         // Se for da nutri, marca como lida imediatamente (paciente está vendo)
         if (m.de === 'nutri') {
-          await supabase.from('mensagens').update({ lida: true }).eq('id', m.id);
+          // Marcação automática da mensagem que chegou: sem alerta (seria ruído).
+          const r = await gravar(supabase.from('mensagens').update({ lida: true }).eq('id', m.id),
+            { esperado: null, rotulo: 'marcar a mensagem como lida' });
+          if (!r.ok) console.warn(r.msg);
         }
       })
       .subscribe(avisarStatus('chat-paciente'));

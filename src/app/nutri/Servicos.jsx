@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { brl, valorBR } from '../../lib/utils.js';
+import { gravar } from '../../lib/gravar.js';
 
 const NIVEIS = [
   { value: 'entrada',        label: 'Entrada',         desc: 'Baixo ticket — porta de entrada' },
@@ -41,12 +42,16 @@ export default function Servicos() {
   }
 
   async function toggleAtivo(s) {
-    await supabase.from('servicos').update({ ativo: !s.ativo }).eq('id', s.id);
+    const r = await gravar(supabase.from('servicos').update({ ativo: !s.ativo }).eq('id', s.id),
+      { rotulo: s.ativo ? 'desativar o serviço' : 'ativar o serviço' });
+    if (!r.ok) { mostraToast(r.msg); return; }
     carregar();
   }
   async function excluir(s) {
     if (!window.confirm(`Excluir "${s.nome}"?`)) return;
-    await supabase.from('servicos').delete().eq('id', s.id);
+    const r = await gravar(supabase.from('servicos').delete().eq('id', s.id),
+      { rotulo: 'excluir o serviço' });
+    if (!r.ok) { mostraToast(r.msg); return; }
     mostraToast('Serviço excluído');
     carregar();
   }

@@ -1,4 +1,5 @@
 import { gerarParcelas, distribuirTaxa } from './utils.js';
+import { gravar } from './gravar.js';
 
 /**
  * Cria uma venda e suas parcelas de forma atômica (com rollback manual da
@@ -65,9 +66,12 @@ export async function criarVendaComParcelas(supabase, {
   }));
   const { error: pErr } = await supabase.from('parcelas').insert(linhas);
   if (pErr) {
-    // rollback da venda para não deixar venda sem parcelas
-    await supabase.from('vendas').delete().eq('id', venda.id);
-    return { venda: null, parcelas: 0, error: 'Erro ao gerar parcelas: ' + pErr.message };
+    // rollback da venda para não deixar venda sem parcelas. Se o próprio
+    // rollback falhar, a mensagem diz que a venda ficou sem parcelas.
+    const rb = await gravar(supabase.from('vendas').delete().eq('id', venda.id),
+      { rotulo: 'desfazer a venda' });
+    const sobra = rb.ok ? '' : ` A venda ficou registrada SEM parcelas e precisa ser removida à mão no Financeiro. (${rb.msg})`;
+    return { venda: null, parcelas: 0, error: 'Erro ao gerar parcelas: ' + pErr.message + sobra };
   }
 
   return { venda, parcelas: linhas.length, error: null };

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { brl, liquidoParcela, isoLocalDeData } from '../../lib/utils.js';
+import { gravar } from '../../lib/gravar.js';
 
 const DEFAULTS = {
   meta_mensal:     15000,
@@ -87,7 +88,9 @@ export default function Previsibilidade() {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
       setSalvando(true);
-      await supabase.from('nutris').update(novo).eq('id', user.id);
+      const r = await gravar(supabase.from('nutris').update(novo).eq('id', user.id),
+        { rotulo: 'salvar a meta' });
+      if (!r.ok) { setSalvando(false); window.alert(r.msg); return; }
       marcarSalvo();
     }, 800);
   }
@@ -98,7 +101,9 @@ export default function Previsibilidade() {
     if (debounceServRef.current[servicoId]) clearTimeout(debounceServRef.current[servicoId]);
     debounceServRef.current[servicoId] = setTimeout(async () => {
       setSalvando(true);
-      await supabase.from('servicos').update({ vendas_planejadas: vendas }).eq('id', servicoId);
+      const r = await gravar(supabase.from('servicos').update({ vendas_planejadas: vendas }).eq('id', servicoId),
+        { rotulo: 'salvar as vendas planejadas' });
+      if (!r.ok) { setSalvando(false); window.alert(r.msg); return; }
       marcarSalvo();
     }, 600);
   }
@@ -107,7 +112,10 @@ export default function Previsibilidade() {
     if (!window.confirm('Zerar o planejamento de todos os serviços?')) return;
     setSalvando(true);
     const ids = servicos.map(s => s.id);
-    await supabase.from('servicos').update({ vendas_planejadas: 0 }).in('id', ids);
+    // esperado = os ids da lista que a tela acabou de ler.
+    const r = await gravar(supabase.from('servicos').update({ vendas_planejadas: 0 }).in('id', ids),
+      { esperado: ids.length, rotulo: 'zerar o planejamento' });
+    if (!r.ok) { setSalvando(false); window.alert(r.msg); return; }
     setServicos(curr => curr.map(s => ({ ...s, vendas_planejadas: 0 })));
     marcarSalvo();
   }

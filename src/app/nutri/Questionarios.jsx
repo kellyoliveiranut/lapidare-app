@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { dataBR } from '../../lib/utils.js';
+import { gravar } from '../../lib/gravar.js';
 import { validarTemplate, formatarResposta } from '../../lib/checkinDefault.js';
 import CheckinForm from '../../components/CheckinForm.jsx';
 import DicaJSON from '../../components/DicaJSON.jsx';
@@ -40,7 +41,9 @@ export default function Questionarios() {
 
   async function excluirTemplate(t) {
     if (!window.confirm(`Excluir modelo "${t.nome}"?`)) return;
-    await supabase.from('checkin_templates').delete().eq('id', t.id);
+    const r = await gravar(supabase.from('checkin_templates').delete().eq('id', t.id),
+      { rotulo: 'excluir o modelo' });
+    if (!r.ok) { showToast(r.msg); return; }
     showToast('Modelo excluído.');
     carregar();
   }

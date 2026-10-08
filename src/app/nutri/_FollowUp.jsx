@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { dataBR, dataLocalISO } from '../../lib/utils.js';
+import { gravar } from '../../lib/gravar.js';
 import DateInput from '../../components/DateInput.jsx';
 
 export default function FollowUp({ pacienteId, nutriId, pacienteNome }) {
@@ -26,7 +27,9 @@ export default function FollowUp({ pacienteId, nutriId, pacienteNome }) {
 
   async function excluir(fu) {
     if (!window.confirm(`Excluir follow-up "${fu.titulo}"?`)) return;
-    await supabase.from('followups').delete().eq('id', fu.id);
+    const r = await gravar(supabase.from('followups').delete().eq('id', fu.id),
+      { rotulo: 'excluir o follow-up' });
+    if (!r.ok) { window.alert(r.msg); return; }
     carregar();
   }
 
@@ -303,7 +306,9 @@ function ModalModelos({ nutriId, templates, onClose, onChanged }) {
 
   async function excluir(t) {
     if (!window.confirm(`Excluir modelo "${t.nome}"?`)) return;
-    await supabase.from('followup_templates').delete().eq('id', t.id);
+    const r = await gravar(supabase.from('followup_templates').delete().eq('id', t.id),
+      { rotulo: 'excluir o modelo' });
+    if (!r.ok) { window.alert(r.msg); return; }
     onChanged();
   }
 

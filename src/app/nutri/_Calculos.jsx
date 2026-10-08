@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { dataLocalISO } from '../../lib/utils.js';
+import { gravar } from '../../lib/gravar.js';
 
 /* ── helpers ─────────────────────────────────────── */
 const r1 = (v) => Math.round(v * 10) / 10;
@@ -130,16 +131,18 @@ function NRS2002({ imc, idade, pacienteId, nutriId }) {
   async function salvar() {
     setSalvando(true);
     setMsgSalvo(null);
-    const { error } = await supabase.from('rastreios_nutricionais').insert({
+    const r = await gravar(supabase.from('rastreios_nutricionais').insert({
       paciente_id: pacienteId,
       nutri_id:    nutriId,
       tipo:        'nrs2002',
       data:        dataLocalISO(),
       respostas:   { step, pre, scoreNutri, scoreDoenca },
       resultado:   { total, emRisco, prePositivo },
-    });
+    }), { rotulo: 'salvar o rastreio' });
     setSalvando(false);
-    if (!error) setMsgSalvo('Salvo!');
+    // Esta tela não tem área de erro: a falha vai no alert, e o "Salvo!" não aparece.
+    if (!r.ok) { window.alert(r.msg); return; }
+    setMsgSalvo('Salvo!');
   }
 
   function reset() {
@@ -474,7 +477,7 @@ function PGSGA({ pacienteId, nutriId }) {
   async function salvar() {
     setSalvando(true);
     setMsgSalvo(null);
-    const { error } = await supabase.from('rastreios_nutricionais').insert({
+    const r = await gravar(supabase.from('rastreios_nutricionais').insert({
       paciente_id: pacienteId,
       nutri_id:    nutriId,
       tipo:        'pgsga',
@@ -483,9 +486,11 @@ function PGSGA({ pacienteId, nutriId }) {
                      box4Idx, scoreDoenca, scoreMetab, scoreExame },
       resultado:   { total, pacienteScore, clinicoScore,
                      categoria: classif.cat, label: classif.label },
-    });
+    }), { rotulo: 'salvar o rastreio' });
     setSalvando(false);
-    if (!error) setMsgSalvo('Salvo!');
+    // Esta tela não tem área de erro: a falha vai no alert, e o "Salvo!" não aparece.
+    if (!r.ok) { window.alert(r.msg); return; }
+    setMsgSalvo('Salvo!');
   }
 
   return (

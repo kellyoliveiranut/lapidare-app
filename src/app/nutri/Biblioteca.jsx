@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { dataBR, iniciais } from '../../lib/utils.js';
 import { iniciarTokenPush, avisarPaciente } from '../../lib/push.js';
+import { gravar } from '../../lib/gravar.js';
 
 const SECOES = [
   { id: 'receitas',    emoji: '📖', label: 'Receitas'    },
@@ -68,8 +69,16 @@ export default function Biblioteca() {
       ? `Excluir "${it.titulo}"? Atribuído a ${nPac} paciente${nPac !== 1 ? 's' : ''} — perderão acesso.`
       : `Excluir "${it.titulo}"?`;
     if (!window.confirm(aviso)) return;
-    if (it.storage_path) await supabase.storage.from('ebooks').remove([it.storage_path]);
-    await supabase.from('ebooks').delete().eq('id', it.id);
+    // Linha primeiro, arquivo depois: se o banco recusar, o arquivo fica e a
+    // linha continua apontando para algo que existe.
+    const r = await gravar(supabase.from('ebooks').delete().eq('id', it.id), { rotulo: 'excluir o material' });
+    if (!r.ok) {
+      window.alert(r.msg);
+    } else if (it.storage_path) {
+      // Falha aqui só deixa um arquivo órfão no Storage (inofensivo).
+      const { error: stErr } = await supabase.storage.from('ebooks').remove([it.storage_path]);
+      if (stErr) console.warn('Material excluído, mas o arquivo ficou no Storage: ' + stErr.message);
+    }
     carregar();
   }
 
@@ -571,17 +580,29 @@ function ModalAtribuir({ item, pacientes, atribuidos, onClose, onSaved }) {
     const adicionar = [...selecionadas].filter(id => !atual.has(id));
     const remover   = [...atual].filter(id => !selecionadas.has(id));
     if (adicionar.length > 0) {
-      const { error: addErr } = await supabase.from('ebooks_pacientes').insert(
+      const rAdd = await gravar(supabase.from('ebooks_pacientes').insert(
         adicionar.map(paciente_id => ({ ebook_id: item.id, paciente_id }))
-      );
-      if (!addErr) {
-        // Uma tokenPush só para as N pacientes — o getSession não se repete.
-        adicionar.forEach(paciente_id => avisarPaciente(tokenPush, paciente_id, 'material'));
-      }
+      ), { esperado: adicionar.length, rotulo: 'atribuir o material' });
+      // Falhou: sem push, sem seguir para a remoção e sem fechar como salvo.
+      if (!rAdd.ok) { setBusy(false); window.alert(rAdd.msg); return; }
+      // Uma tokenPush só para as N pacientes — o getSession não se repete.
+      adicionar.forEach(paciente_id => avisarPaciente(tokenPush, paciente_id, 'material'));
     }
     if (remover.length > 0) {
-      await supabase.from('ebooks_pacientes').delete()
-        .eq('ebook_id', item.id).in('paciente_id', remover);
+      // esperado = quantas a tela acabou de ler como atribuídas e foram desmarcadas.
+      const rDel = await gravar(supabase.from('ebooks_pacientes').delete()
+        .eq('ebook_id', item.id).in('paciente_id', remover),
+        { esperado: remover.length, rotulo: 'remover o material das pacientes desmarcadas' });
+      if (!rDel.ok) {
+        // As atribuições novas (se houve) já foram gravadas: não finge que salvou
+        // tudo, avisa e recarrega a lista.
+        setBusy(false);
+        window.alert(adicionar.length > 0
+          ? `As pacientes marcadas receberam o material, mas as desmarcadas não foram removidas. ${rDel.msg}`
+          : rDel.msg);
+        onSaved();
+        return;
+      }
     }
     setBusy(false);
     onSaved();

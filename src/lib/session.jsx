@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from './supabase.js';
+import { gravar } from './gravar.js';
 
 /**
  * SessionContext expõe:
@@ -54,13 +55,15 @@ export function SessionProvider({ children }) {
         loading: false,
       });
       // Carimba o último acesso da paciente. Fire-and-forget: nunca aguardamos
-      // nem deixamos um erro (rede/RLS) afetar a hidratação da sessão.
+      // nem deixamos um erro (rede/RLS) afetar a hidratação da sessão. Sem
+      // await: o login segue na hora. gravar() nunca rejeita, então nada chega
+      // ao fluxo de login; a falha (inclusive 0 linhas) só vai para o console.
       if (role === 'paciente' && profile?.id) {
-        supabase
+        gravar(supabase
           .from('pacientes')
           .update({ ultimo_acesso: new Date().toISOString() })
-          .eq('id', profile.id)
-          .then(() => {}, () => {});
+          .eq('id', profile.id), { esperado: 1, rotulo: 'registrar o último acesso' })
+          .then(r => { if (!r.ok) console.warn(r.msg); });
       }
     }
 

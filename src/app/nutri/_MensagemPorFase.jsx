@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { escolherDaSemana, estaFixada, restanteFixada } from '../../lib/rotacaoMensagens.js';
+import { gravar } from '../../lib/gravar.js';
 
 // A mecânica de UMA aba de mensagem motivacional guardada em mensagens_ciclo:
 // LISTA de mensagens com rotação semanal e fixação temporária, opcionalmente
@@ -161,7 +162,8 @@ export default function MensagemPorFase({ fase, titulo, descricao, grupos = null
     // nutri inteira: fixar uma de Recuperação não pode desfixar a de Infusão.
     // É o mesmo escopo do índice único mensagens_ciclo_uma_fixada, que estoura
     // 23505 se este limpa errar o alvo.
-    const limpa = await filtrarGrupo(
+    // esperado null: o grupo pode não ter nenhuma fixada agora (0 linhas é legítimo).
+    const limpa = await gravar(filtrarGrupo(
       supabase
         .from('mensagens_ciclo')
         .update({ fixada_em: null })
@@ -169,10 +171,10 @@ export default function MensagemPorFase({ fase, titulo, descricao, grupos = null
         .eq('fase', fase)
         .not('fixada_em', 'is', null),
       g
-    );
-    if (limpa.error) {
+    ), { esperado: null, rotulo: 'fixar a mensagem' });
+    if (!limpa.ok) {
       setBusy(false);
-      mostrarFeedback('erro', 'Erro ao fixar: ' + limpa.error.message);
+      mostrarFeedback('erro', limpa.msg);
       return;
     }
 
