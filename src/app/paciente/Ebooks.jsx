@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { dataBR } from '../../lib/utils.js';
@@ -13,8 +14,29 @@ const TAG_LABEL = {
   outro:       'Outro',
 };
 
+// INICIO filtrarSoNovos
+/**
+ * Lista da tela com o sinal "só novos" (?novos=1, vindo do card do Início).
+ * `idsNovos` é o Set dos ebook_id que estavam SEM visto_em quando a página
+ * abriu — fixado na entrada, para o item não sumir quando o visto_em for
+ * gravado logo em seguida. Sem sinal, sem novos, ou se nenhum novo estiver
+ * entre os itens da lista (ex.: o novo era de suplementação, que esta tela não
+ * mostra): devolve a lista inteira, nunca uma tela vazia.
+ */
+function filtrarSoNovos(lista, idsNovos, soNovos) {
+  if (!soNovos || !idsNovos || idsNovos.size === 0) return lista;
+  const novos = lista.filter(eb => idsNovos.has(eb.id));
+  return novos.length > 0 ? novos : lista;
+}
+// FIM filtrarSoNovos
+
 export default function Ebooks() {
   const { user, profile } = useSession();
+  const [params, setParams] = useSearchParams();
+  const soNovos = params.get('novos') === '1';
+  // Set dos ebook_id sem visto_em NA ENTRADA. null até a primeira leitura; as
+  // leituras seguintes (o efeito roda de novo se o profile mudar) não o trocam.
+  const [novosNaEntrada, setNovosNaEntrada] = useState(null);
   const [ebooks, setEbooks] = useState(null);
   const [urls, setUrls]     = useState({});    // { [eb.id]: string | null }
   const [erros, setErros]   = useState([]);    // títulos que falharam
@@ -47,6 +69,9 @@ export default function Ebooks() {
         .select('ebook_id, visto_em')
         .eq('paciente_id', pacienteId);
       const ids = (links ?? []).map(l => l.ebook_id);
+      // Fotografa os não vistos ANTES do update logo abaixo.
+      setNovosNaEntrada(prev => prev ?? new Set(
+        (links ?? []).filter(l => l.visto_em == null).map(l => l.ebook_id)));
 
       // Abrir a lista conta como "vi os materiais novos": zera o badge do menu
       // e o card do Início. `esperado` = quantas a leitura acima achou sem
@@ -89,6 +114,10 @@ export default function Ebooks() {
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, [gerarUrls]);
 
+  // Com ?novos=1, só o que era novo na entrada; ver filtrarSoNovos.
+  const visiveis = ebooks ? filtrarSoNovos(ebooks, novosNaEntrada, soNovos) : null;
+  const filtroAtivo = !!ebooks && visiveis.length < ebooks.length;
+
   const cardBase = {
     width: '100%', textAlign: 'left',
     background: 'var(--paper)',
@@ -129,7 +158,17 @@ export default function Ebooks() {
         </div>
       ) : (
         <div style={{ padding: '0' }}>
-          {ebooks.map(eb => {
+          {filtroAtivo && (
+            // Tira o ?novos=1 e volta à lista inteira (mesma rota, sem recarregar).
+            <button onClick={() => setParams({}, { replace: true })} style={{
+              background: 'none', border: 'none', padding: '0 0 10px',
+              fontSize: 12, color: 'var(--gold-deep)', cursor: 'pointer',
+              fontFamily: 'var(--font-sans)',
+            }}>
+              Ver todos os materiais
+            </button>
+          )}
+          {visiveis.map(eb => {
             const url       = urls[eb.id];
             const carregando = !(eb.id in urls);
             const falhou    = eb.id in urls && url === null;

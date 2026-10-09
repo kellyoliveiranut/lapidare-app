@@ -744,7 +744,8 @@ export default function Inicio() {
       {/* 4 — Material novo. Discreto: some quando ela abre E-books (Ebooks.jsx
           grava visto_em). Mesma linha do card pequeno do Chat/Progresso. */}
       {materiaisNovos > 0 && (
-        <div className="card" onClick={() => navigate('/paciente/ebooks')}
+        // ?novos=1: E-books abre só o que ainda não foi visto (Ebooks.jsx).
+        <div className="card" onClick={() => navigate('/paciente/ebooks?novos=1')}
           style={{
             margin: '0 0 12px', padding: '12px 14px', cursor: 'pointer',
             display: 'flex', alignItems: 'center', gap: 10,
