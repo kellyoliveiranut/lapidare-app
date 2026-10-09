@@ -671,9 +671,13 @@ function LinhaDoTempoCiclo({ ciclos, intervalo, protocoloNome, standalone, pacie
   // as pontas da régua (aplicação dentro do ciclo × ciclo inteiro). Nada aqui lê
   // d3/d7/d10/d14: as colunas do banco continuam lá, mas um protocolo com marcos
   // próprios (BEP, FLOX, R-CHOP, T-DD) mostraria dias genéricos se as usasse.
-  const { inicio: janInicio, fim: janFim } = janelaRisco(proto);
+  //
+  // Protocolo sem marcos próprios: janela null e doCiclo vazio — sem banner e
+  // sem pontos de piora/pico/fim; a régua fica com a quimio e o próximo ciclo.
+  const janela = janelaRisco(proto);
   const rotuloJanela = rotuloJanelaRisco(proto);
-  const emJanela = hoje >= addDias(uc.data_quimio, janInicio) && hoje <= addDias(uc.data_quimio, janFim);
+  const emJanela = !!janela &&
+    hoje >= addDias(uc.data_quimio, janela.inicio) && hoje <= addDias(uc.data_quimio, janela.fim);
   const doCiclo = marcosEfeitoAplicacao(proto, uc.data_quimio);
   // Bolinha da infusão só quando nenhum marco começa nela; se começa, ele vem
   // verde e com "Quimio" no desc, para a referência do dia da quimio não sumir.

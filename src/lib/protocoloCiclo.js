@@ -2,22 +2,6 @@ import protocolosEfeitosData from '../data/protocolos_efeitos.json';
 import { dataLocalISO } from './utils.js';
 
 /**
- * Marcos de quem não traz `marcosEfeito` próprio no catálogo (+3/+7/+10/+14).
- *
- * `de`/`ate` são deslocamentos em dias a partir da infusão — são eles que geram
- * as datas e que casam com as colunas d3/d7/d10/d14 do banco. O rótulo do dia
- * do ciclo NÃO é escrito aqui nem no catálogo: sai de rotuloMarco(). Não existe
- * campo `label` de propósito, para o rótulo não poder divergir do
- * deslocamento — foi assim que o "D0" nasceu e sobreviveu.
- */
-export const MARCOS_FALLBACK = [
-  { de: 3,  ate: 3,  desc: 'Início da piora', fase: 'alerta' },
-  { de: 7,  ate: 7,  desc: 'Janela de risco', fase: 'risco'  },
-  { de: 10, ate: 10, desc: 'Pico de risco',   fase: 'risco'  },
-  { de: 14, ate: 14, desc: 'Fim da janela',   fase: 'alerta' },
-];
-
-/**
  * Rótulo de um marco em dia do ciclo. Na nomenclatura de enfermagem e medicina
  * a infusão é D1, então o dia do ciclo é o deslocamento + 1. Marco de dia único
  * (de === ate) sai como "D8"; faixa sai como "D7–D14".
@@ -131,16 +115,23 @@ export function temEstruturaCiclo(proto) {
 }
 
 /**
- * Marcos de um protocolo, ordenados por deslocamento: os do catálogo quando
- * existirem, senão MARCOS_FALLBACK. Independe de estruturaCiclo.
+ * Marcos de um protocolo, ordenados por deslocamento: os do catálogo, ou lista
+ * vazia quando não há ficha ou a ficha não traz `marcosEfeito`. Independe de
+ * estruturaCiclo.
+ *
+ * Não existe mais marco genérico (+3/+7/+10/+14): D8–D11 não é período
+ * universal de neutropenia, e exibido como se fosse do protocolo enganava a
+ * paciente. Sem marcos próprios, não há janela de risco nem fase do dia.
+ *
+ * `de`/`ate` são deslocamentos em dias a partir da infusão. O rótulo do dia do
+ * ciclo NÃO vem do catálogo: sai de rotuloMarco(), para não poder divergir do
+ * deslocamento — foi assim que o "D0" nasceu e sobreviveu.
  *
  * Retorna [{ de, ate, fase, desc, label, infusao }].
  */
 export function marcosDoProtocolo(proto) {
-  const src = Array.isArray(proto?.marcosEfeito) && proto.marcosEfeito.length > 0
-    ? proto.marcosEfeito
-    : MARCOS_FALLBACK;
-  return [...src]
+  if (!Array.isArray(proto?.marcosEfeito) || proto.marcosEfeito.length === 0) return [];
+  return [...proto.marcosEfeito]
     .map(m => ({
       de: m.de, ate: m.ate, fase: m.fase,
       label: rotuloMarco(m.de, m.ate),
@@ -194,21 +185,27 @@ export function marcosEfeitoAplicacao(proto, dataAplicacao) {
  * posterior. Isso funcionava para os 4 marcos do fallback, mas estoura em
  * protocolo com faixas sobrepostas: no BEP a faixa de toxicidade cumulativa vai
  * até D21 e arrastava a "janela de risco imunológico" junto, quando o nadir
- * dele é D7–D14. Sem marco de risco, cai no antigo {7, 14}.
+ * dele é D7–D14.
+ *
+ * Sem marco de risco devolve null, e não um par de números: quem compara
+ * `hoje >= addDays(data, inicio)` precisa testar a janela antes, e um
+ * `{ inicio: undefined }` viraria addDays(data, NaN) ou addDays(data, 0) e
+ * poderia pintar o banner no dia da infusão. null quebra alto se alguém
+ * esquecer de testar; um objeto vazio erraria calado.
  */
 export function janelaRisco(proto) {
   const risco = marcosDoProtocolo(proto).filter(m => m.fase === 'risco');
-  if (!risco.length) return { inicio: 7, fim: 14 };
+  if (!risco.length) return null;
   return {
     inicio: Math.min(...risco.map(m => m.de)),
     fim:    Math.max(...risco.map(m => m.ate)),
   };
 }
 
-/** Janela de risco em dia do ciclo, para banner. Ex.: "D8–D11". */
+/** Janela de risco em dia do ciclo, para banner. Ex.: "D7–D14". '' sem janela. */
 export function rotuloJanelaRisco(proto) {
-  const { inicio, fim } = janelaRisco(proto);
-  return rotuloMarco(inicio, fim);
+  const janela = janelaRisco(proto);
+  return janela ? rotuloMarco(janela.inicio, janela.fim) : '';
 }
 
 /** Datas das aplicações de um ciclo, a partir do D1. [{aplicacao, label:'D1/D8/D15', data}] */
@@ -285,9 +282,8 @@ export function datasSerieCiclos(proto, { dataInicial, intervaloDias, quantidade
  * São quatro, e não os seis rótulos da biblioteca de exemplos, porque estes
  * valem para os 73 protocolos do catálogo. "Início da piora" e "Fim da janela"
  * são ambos 'alerta'; "Janela" e "Pico" são ambos 'risco'. Casar mensagem pelo
- * `desc` do marco funcionaria só para quem cai no MARCOS_FALLBACK e falharia
- * calado em BEP, Taxol Semanal, FLOX, R-CHOP, T-DD e FOLFIRINOX, que têm
- * marcos próprios com outras descrições.
+ * `desc` do marco falharia calado em BEP, Taxol Semanal, FLOX, R-CHOP, T-DD e
+ * FOLFIRINOX, que têm marcos próprios com descrições diferentes entre si.
  */
 export const GRUPOS_CICLO = ['infusao', 'risco', 'alerta', 'recuperacao'];
 
@@ -295,9 +291,9 @@ export const GRUPOS_CICLO = ['infusao', 'risco', 'alerta', 'recuperacao'];
  * Em que sub-fase do ciclo a paciente está HOJE.
  *
  * Devolve 'infusao' | 'risco' | 'alerta' | 'recuperacao' | null. null quer
- * dizer "não dá para afirmar" — sem aplicação, data anterior à aplicação ou
- * ciclo velho demais —, e quem chama deve cair na mensagem genérica em vez de
- * arriscar um palpite.
+ * dizer "não dá para afirmar" — protocolo sem marcos próprios, sem aplicação,
+ * data anterior à aplicação ou ciclo velho demais —, e quem chama deve cair na
+ * mensagem genérica em vez de arriscar um palpite.
  *
  * `dataAplicacao` é a ÚLTIMA aplicação que já aconteceu ('YYYY-MM-DD'). Quem
  * chama filtra por data_quimio <= hoje: a nutri cadastra ciclos futuros, e o
@@ -312,10 +308,14 @@ export const GRUPOS_CICLO = ['infusao', 'risco', 'alerta', 'recuperacao'];
  */
 export function faseDoDia(proto, dataAplicacao, { hoje = dataLocalISO(), intervaloDias } = {}) {
   if (!dataAplicacao || !hoje) return null;
+  // Sem marcos próprios não há fase a afirmar — nem 'infusao', para a
+  // mensagem do dia não sair de um protocolo que o app não sabe descrever.
+  const marcos = marcosDoProtocolo(proto);
+  const janela = janelaRisco(proto);
+  if (!marcos.length || !janela) return null;
   if (hoje < dataAplicacao) return null;
   if (hoje === dataAplicacao) return 'infusao';
 
-  const marcos = marcosDoProtocolo(proto);
   const fimMarcos = marcos.reduce((max, m) => Math.max(max, m.ate), 0);
 
   // Até quando esta aplicação ainda "explica" o dia de hoje. Sem este teto, a
@@ -333,10 +333,10 @@ export function faseDoDia(proto, dataAplicacao, { hoje = dataLocalISO(), interva
 
   // ZONAS CONTÍNUAS, não "hoje cai em cima de um marco?".
   //
-  // Os marcos são PONTOS na linha do tempo — no fallback, os dias 3, 7, 10 e
-  // 14. Testar pertencimento a marco deixava 15 dos 22 dias sem fase, caindo
-  // todos em 'recuperacao': a paciente lia "fase boa pra recuperar o pique" em
-  // D+1, no dia seguinte à quimio. Aqui os marcos definem FRONTEIRAS, e cada
+  // Os marcos são PONTOS na linha do tempo. Testar pertencimento a marco
+  // deixava a maior parte do ciclo sem fase, caindo em 'recuperacao': a
+  // paciente lia "fase boa pra recuperar o pique" em D+1, no dia seguinte à
+  // quimio. Aqui os marcos definem FRONTEIRAS, e cada
   // dia do ciclo pertence a alguma faixa:
   //
   //   D+0                              infusao
@@ -348,7 +348,7 @@ export function faseDoDia(proto, dataAplicacao, { hoje = dataLocalISO(), interva
   // A janela vem de janelaRisco() — a mesma que pinta o banner e a linha do
   // tempo —, então a fase nunca discorda do resto do app sobre onde o risco
   // começa e termina.
-  const { inicio, fim } = janelaRisco(proto);
+  const { inicio, fim } = janela;
   if (d < inicio) return 'alerta';
   if (d <= fim) return 'risco';
   if (d <= fimMarcos) return 'alerta';

@@ -334,8 +334,10 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
   const duracaoCiclo = proto?.duracaoCiclo ?? num(dados.intervalo_ciclos) ?? 21;
   // Marcos e rótulos saem do mesmo lugar para todo protocolo, com ou sem
   // estruturaCiclo — ela só governa quantas linhas cada ciclo gera.
+  // Protocolo sem marcos próprios: marcosProto vazio e janela null — sem
+  // banner, sem linha amarela e sem colunas de marco; ficam Quimio e Próximo.
   const marcosProto = marcosDoProtocolo(proto);
-  const { inicio: inicioRisco, fim: fimRisco } = janelaRisco(proto);
+  const janela = janelaRisco(proto);
   const rotuloJanela = rotuloJanelaRisco(proto);
 
   // Protocolo da aba "Ref. Efeitos". Abre já no protocolo da paciente em vez
@@ -358,9 +360,10 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
   // já aconteceu; as tabelas abaixo seguem mostrando a série inteira.
   const ciclosPassados = ciclos.filter(c => c.data_quimio <= hoje);
   const ultimoCiclo = ciclosPassados[0];
-  const emJanelaRisco = ultimoCiclo &&
-    hoje >= addDays(ultimoCiclo.data_quimio, inicioRisco) &&
-    hoje <= addDays(ultimoCiclo.data_quimio, fimRisco);
+  const naJanela = (dataQuimio) => !!janela &&
+    hoje >= addDays(dataQuimio, janela.inicio) &&
+    hoje <= addDays(dataQuimio, janela.fim);
+  const emJanelaRisco = ultimoCiclo && naJanela(ultimoCiclo.data_quimio);
 
   return (
     <div>
@@ -538,7 +541,9 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
               <div className="card-title">📅 Adicionar ciclo</div>
               <div className="card-sub">{estruturado
                 ? `Informe a data do D1: as ${proto.estruturaCiclo.aplicacoes} aplicações (D1/D8/D15) são geradas automaticamente`
-                : `Marcos do protocolo (${marcosProto.map(m => m.label).join(', ')}) são calculados automaticamente`}</div>
+                : marcosProto.length > 0
+                  ? `Marcos do protocolo (${marcosProto.map(m => m.label).join(', ')}) são calculados automaticamente`
+                  : null}</div>
             </div>
             <div className="card-body">
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: 10, alignItems: 'end' }}>
@@ -642,7 +647,7 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
                 </thead>
                 <tbody>
                   {ciclos.map(c => {
-                    const emRisco = hoje >= addDays(c.data_quimio, inicioRisco) && hoje <= addDays(c.data_quimio, fimRisco);
+                    const emRisco = naJanela(c.data_quimio);
                     return (
                       <tr key={c.id} style={{ background: emRisco ? '#fef9c3' : undefined }}>
                         <td><strong>C{c.numero_ciclo}</strong></td>
@@ -742,7 +747,7 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
                   <tbody>
                     {Object.entries(grupos).flatMap(([nc, apps]) =>
                       apps.map(c => {
-                        const emRisco = hoje >= addDays(c.data_quimio, inicioRisco) && hoje <= addDays(c.data_quimio, fimRisco);
+                        const emRisco = naJanela(c.data_quimio);
                         return (
                           <tr key={c.id} style={{ background: emRisco ? '#fef9c3' : undefined }}>
                             <td><strong>C{nc}</strong></td>
