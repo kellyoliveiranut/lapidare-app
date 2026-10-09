@@ -8,6 +8,24 @@ import { PLANOS } from '../../lib/opcoesPaciente.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+// O que a tela mostra, a partir da URL e da resposta de buscar_pendente_por_token.
+// Sem convite válido não há formulário: o cadastro sem token criava uma ficha
+// nova solta na lista da nutri (handle_new_user cai no insert quando o convite
+// não vincula).
+//   'consultar' — URL com formato certo, falta perguntar ao banco
+//   'invalido'  — sem token, token fora do formato, convite inexistente ou já ativado
+//   'erro'      — a consulta falhou (rede), não dá para afirmar nada
+//   'ok'        — convite existe e ainda não foi usado
+function estadoDoConvite(nutriId, token, resposta) {
+  if (!nutriId || !UUID_RE.test(nutriId)) return 'invalido';
+  if (!token || !UUID_RE.test(token)) return 'invalido';
+  if (resposta === undefined) return 'consultar';
+  if (resposta.error) return 'erro';
+  const p = resposta.data?.[0];
+  if (!p || p.status === 'ativado') return 'invalido';
+  return 'ok';
+}
+
 export default function SignupPaciente() {
   const { nutriId, token } = useParams();
   const navigate = useNavigate();
@@ -28,59 +46,52 @@ export default function SignupPaciente() {
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState(null);
   const [aviso, setAviso] = useState(null);
+  const [erroConexao, setErroConexao] = useState(false);
+  const [tentativa, setTentativa] = useState(0);   // muda no "Tentar de novo" e refaz a consulta
 
-  // Valida que o nutri_id existe + busca pendente se vier token
+  // Só abre o formulário com convite válido (ver estadoDoConvite). O fluxo
+  // genérico sem token deixou de existir: link antigo /signup-paciente/:nutriId
+  // cai no "Link inválido".
   useEffect(() => {
     let active = true;
     async function validar() {
-      if (!nutriId || !UUID_RE.test(nutriId)) {
+      if (estadoDoConvite(nutriId, token) === 'invalido') {
         if (active) setNutriValida(false);
         return;
       }
 
-      // Se veio token, busca o pendente pré-cadastrado
-      if (token && UUID_RE.test(token)) {
-        const { data, error } = await supabase
-          .rpc('buscar_pendente_por_token', { p_token: token });
-        if (!active) return;
-        if (!error && data?.length > 0) {
-          const p = data[0];
-          if (p.status === 'ativado') {
-            // Já criou conta antes
-            setNutriValida(false);
-            return;
-          }
-          setNome(p.nome ?? '');
-          setEmail(p.email ?? '');
-          setTelefone(p.telefone ?? '');   // pode vir vazio se a RPC viva não retornar telefone
-          if (p.nascimento) setNascimento(p.nascimento);
-          if (p.objetivo) setObjetivo(p.objetivo);
-          if (p.tipo_plano) setTipoPlano(p.tipo_plano);
-          if (p.modalidade) setModalidade(p.modalidade);
-          setNutriNome(p.nutri_nome ?? '');
-          setTemToken(true);
-          setNutriValida(true);
-          return;
-        }
+      let resposta;
+      try {
+        resposta = await supabase.rpc('buscar_pendente_por_token', { p_token: token });
+      } catch (e) {
+        resposta = { error: e };
       }
-
-      // Sem token: fluxo genérico (busca só o nome da nutri)
-      const { data } = await supabase
-        .from('nutris')
-        .select('nome')
-        .eq('id', nutriId)
-        .maybeSingle();
       if (!active) return;
-      if (data) {
-        setNutriValida(true);
-        setNutriNome(data.nome ?? '');
-      } else {
-        setNutriValida(false);
-      }
+      const estado = estadoDoConvite(nutriId, token, resposta);
+      if (estado === 'erro') { setErroConexao(true); return; }
+      if (estado !== 'ok') { setNutriValida(false); return; }
+
+      const p = resposta.data[0];
+      setNome(p.nome ?? '');
+      setEmail(p.email ?? '');
+      setTelefone(p.telefone ?? '');   // pode vir vazio se a RPC viva não retornar telefone
+      if (p.nascimento) setNascimento(p.nascimento);
+      if (p.objetivo) setObjetivo(p.objetivo);
+      if (p.tipo_plano) setTipoPlano(p.tipo_plano);
+      if (p.modalidade) setModalidade(p.modalidade);
+      setNutriNome(p.nutri_nome ?? '');
+      setTemToken(true);
+      setNutriValida(true);
     }
     validar();
     return () => { active = false; };
-  }, [nutriId, token]);
+  }, [nutriId, token, tentativa]);
+
+  function tentarDeNovo() {
+    setErroConexao(false);
+    setNutriValida(undefined);
+    setTentativa(t => t + 1);
+  }
 
   // Se já está logada como paciente, manda pro app.
   // Se já está logada como nutri, NÃO redireciona — mostra uma mensagem
@@ -93,6 +104,11 @@ export default function SignupPaciente() {
   async function handleSubmit(e) {
     e.preventDefault();
     setErro(null); setAviso(null);
+    // Nunca chama o signUp sem o convite ter sido validado nesta tela: sem isso
+    // o trigger do banco cria uma ficha nova, solta, na lista da nutri.
+    if (!temToken || nutriValida !== true) {
+      return setErro('Este link de cadastro não é válido. Peça à sua nutricionista um novo link.');
+    }
     if (!nome.trim()) return setErro('Informe seu nome completo.');
     if (senha.length < 6) return setErro('A senha precisa de pelo menos 6 caracteres.');
     if (senha !== confirmaSenha) return setErro('As senhas não conferem.');
@@ -131,6 +147,28 @@ export default function SignupPaciente() {
   }
 
   // Telas de estado
+  if (erroConexao) {
+    return (
+      <CenterWrap>
+        <Box>
+          <Brand />
+          <h1 style={H1}>Sem conexão</h1>
+          <p style={P}>
+            Não conseguimos abrir o seu convite agora. Confira a sua internet e tente de novo.
+          </p>
+          <button onClick={tentarDeNovo} style={{
+            width: '100%', padding: '11px 18px', marginTop: 16,
+            background: 'var(--ink)', color: 'var(--bg-soft)',
+            borderRadius: 12, fontSize: 13, fontWeight: 500,
+            border: 'none', cursor: 'pointer',
+          }}>
+            Tentar de novo
+          </button>
+        </Box>
+      </CenterWrap>
+    );
+  }
+
   if (nutriValida === undefined) {
     return <CenterWrap><Loading /></CenterWrap>;
   }
@@ -142,7 +180,7 @@ export default function SignupPaciente() {
           <Brand />
           <h1 style={H1}>Link inválido</h1>
           <p style={P}>
-            Este link de cadastro não está mais ativo ou foi digitado incorretamente.
+            Este convite não é válido ou já foi usado.
             Peça à sua nutricionista um novo link.
           </p>
         </Box>
