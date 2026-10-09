@@ -4,6 +4,7 @@ import { useSession } from '../../lib/session.jsx';
 import { iniciais, dataBR, dataLocalISO, isoLocalDeData } from '../../lib/utils.js';
 import { iniciarTokenPush, avisarPaciente } from '../../lib/push.js';
 import { gravar } from '../../lib/gravar.js';
+import { EVENTO_FEED_RECARREGAR } from '../../lib/avisosNutri.js';
 
 const PAGINA = 12;
 const TTL = 3600;   // era 300 — evitava a URL expirar antes do loading="lazy" puxar a imagem
@@ -48,18 +49,44 @@ export default function FeedNutri() {
   const [todosComentarios, setTodosComentarios] = useState({}); // {postId: true}
   const pedidos = useRef(new Set());                        // ids já solicitados
 
-  async function carregar() {
+  const carga = useRef({ emAndamento: false, iniciadaEm: 0 });
+
+  // `silencioso`: a recarga pedida pelo menu (EVENTO_FEED_RECARREGAR). A lista
+  // nunca volta para "Carregando…" em nenhum modo — posts só é trocado quando
+  // os dados chegam —, mas no silencioso uma falha mantém a lista que está na
+  // tela em vez de esvaziá-la. As chamadas que já existiam seguem iguais.
+  async function carregar({ silencioso = false } = {}) {
     if (!user) return;
-    const { data } = await supabase
+    carga.current = { emAndamento: true, iniciadaEm: Date.now() };
+    const { data, error } = await supabase
       .from('feed_pratos')
       .select('id, refeicao, legenda, storage_path, created_at, paciente:pacientes(id, nome, nutri_id), comentarios:feed_pratos_comentarios(id, autor, texto, created_at)')
       .order('created_at', { ascending: false })
       .limit(300);
+    carga.current.emAndamento = false;
+    if (silencioso && error) return;
     // Filtrar só os das pacientes dessa nutri
     const filtrados = (data ?? []).filter(p => p.paciente?.nutri_id === user.id);
     setPosts(filtrados);
   }
-  useEffect(() => { carregar(); }, [user]);
+  // Carga da entrada + recarga pedida pelo menu, no mesmo efeito.
+  //
+  // O menu zerou as fotos novas: recarrega para a lista mostrar o que o número
+  // contava. Clicar de novo em "Feed de pratos" estando aqui não remonta a
+  // página, então sem isto a foto sumiria do número sem aparecer na tela.
+  // Ignora se já há carga em andamento (a da entrada na página) ou se alguma
+  // começou depois do pedido do menu — essa já traz tudo o que foi zerado.
+  // Os textos em edição moram em outros estados e não são tocados.
+  useEffect(() => {
+    carregar();
+    function onRecarregar(e) {
+      const desde = e?.detail?.desde ?? 0;
+      if (carga.current.emAndamento || carga.current.iniciadaEm >= desde) return;
+      carregar({ silencioso: true });
+    }
+    window.addEventListener(EVENTO_FEED_RECARREGAR, onRecarregar);
+    return () => window.removeEventListener(EVENTO_FEED_RECARREGAR, onRecarregar);
+  }, [user]);
 
   const filtrados = useMemo(() => {
     if (!posts) return [];

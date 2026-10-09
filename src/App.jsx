@@ -42,6 +42,7 @@ const Pacientes = lazy(() => import('./app/nutri/Pacientes.jsx'));
 const PacientePerfil = lazy(() => import('./app/nutri/PacientePerfil.jsx'));
 const Agenda = lazy(() => import('./app/nutri/Agenda.jsx'));
 const ChatNutri = lazy(() => import('./app/nutri/Chat.jsx'));
+const Avisos = lazy(() => import('./app/nutri/Avisos.jsx'));
 const FeedNutri = lazy(() => import('./app/nutri/Feed.jsx'));
 const Checkins = lazy(() => import('./app/nutri/Checkins.jsx'));
 const Questionarios = lazy(() => import('./app/nutri/Questionarios.jsx'));
@@ -98,6 +99,7 @@ export default function App() {
                 <Route path="/nutri/pacientes/:id" element={<PacientePerfil />} />
                 <Route path="/nutri/agenda" element={<Agenda />} />
                 <Route path="/nutri/chat" element={<ChatNutri />} />
+                <Route path="/nutri/avisos" element={<Avisos />} />
                 <Route path="/nutri/feed" element={<FeedNutri />} />
                 <Route path="/nutri/checkins" element={<Checkins />} />
                 <Route path="/nutri/questionarios" element={<Questionarios />} />
