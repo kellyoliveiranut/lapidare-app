@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
-import { useSession } from '../lib/session.jsx';
+import { useSession, signOut } from '../lib/session.jsx';
 import { iniciarTokenPush, avisarNutri } from '../lib/push.js';
 import { formatarCpf } from '../lib/utils.js';
+import { decidirGateContrato, TELAS_LIBERADAS_SEM_CONTRATO } from '../lib/contratoEssentia.js';
 
 /**
  * Gate do contrato de prestação de serviços do plano Essentia.
@@ -22,12 +24,20 @@ import { formatarCpf } from '../lib/utils.js';
  * monta nem envia o corpo do contrato: é a mesma função que a hora do aceite
  * usa para congelar o snapshot, e é isso que garante que o texto lido e o
  * texto gravado são o mesmo.
+ *
+ * ACEITE OBRIGATÓRIO (09/10): para a Essentia ATIVA com contrato pendente, o
+ * app só abre depois do aceite. A decisão mora em decidirGateContrato()
+ * (lib/contratoEssentia.js), que nunca deixa passar enquanto carrega ou com
+ * erro. Sem documento no cadastro ela aceita do mesmo jeito: a prévia do banco
+ * já devolve a linha em branco no lugar do RG/CPF.
  */
 export default function ContratoEssentia({ children }) {
   const { profile, role } = useSession();
+  const { pathname } = useLocation();
 
-  const [contratoId, setContratoId] = useState(null);
-  const [html, setHtml] = useState(null);
+  // { status: 'carregando' | 'erro' | 'ok', pendente, previa, contratoId }
+  const [busca, setBusca] = useState({ status: 'carregando' });
+  const [tentativa, setTentativa] = useState(0);
   const [concordou, setConcordou] = useState(false);
   const [aceitando, setAceitando] = useState(false);
   const [erro, setErro] = useState(null);
@@ -36,6 +46,7 @@ export default function ContratoEssentia({ children }) {
   const ehEssentia = role === 'paciente'
     && !!profile
     && profile.tipo_plano?.trim().toLowerCase() === 'essentia';
+  const ativa = profile?.status_paciente === 'ativo';
 
   // O documento vem do CADASTRO, preenchido pela nutri no perfil da paciente.
   // Ela não digita mais nada aqui: antes, o que ela escrevesse era gravado na
@@ -51,48 +62,47 @@ export default function ContratoEssentia({ children }) {
     ? `RG ${rgCadastro}`
     : (cpfCadastro ? `CPF ${formatarCpf(cpfCadastro)}` : null);
 
-  // 1) Contrato pendente + prévia. Qualquer buraco no caminho (sem contrato,
-  //    sem consulta datada, SEM DOCUMENTO no cadastro, erro de rede) termina em
-  //    children: um contrato não resolvido nunca pode trancar o app inteiro.
+  // 1) Contrato pendente + prévia. Só para quem está no gate (Essentia ativa).
   //
-  //    Sem documento a paciente não vê o contrato e segue usando o app — ela
-  //    não tem como resolver isso sozinha, e uma tela de bloqueio com botão
-  //    morto seria beco sem saída. Quem é avisada é a nutri, pelo StatusContrato
-  //    do perfil, que passa a dizer "sem CPF/RG no cadastro".
+  //    Na volta ao app (visibilitychange) a busca é refeita SEM mostrar o
+  //    carregando (a tela não pisca a cada troca de app) e, se falhar, mantém o
+  //    último resultado bom — um soluço de rede ao voltar não tranca quem já
+  //    estava usando o app. A primeira busca, essa sim, falha fechada.
+  const pacienteId = profile?.id;
   useEffect(() => {
-    if (!ehEssentia || !identificacao) return;
-    let ativo = true;
-    (async () => {
-      // Índice único parcial garante no máximo um pendente por paciente.
-      const { data: contrato } = await supabase
-        .from('contratos_essentia')
-        .select('id')
-        .eq('paciente_id', profile.id)
-        .is('aceito_em', null)
-        .maybeSingle();
-      // Sem pendência (ou erro na busca), contrato vem null — sair AQUI é o que
-      // impede o contrato.id logo abaixo de estourar para toda paciente
-      // Essentia que já aceitou ou ainda não tem contrato.
-      if (!ativo || !contrato) return;
+    if (!ehEssentia || !ativa || !pacienteId) return;
+    let vivo = true;
 
-      // null nos dois: o servidor lê CPF/RG do cadastro e é a única fonte.
-      const { data: texto } = await supabase.rpc('previa_contrato_essentia', {
-        p_contrato_id: contrato.id, p_cpf: null, p_rg: null,
-      });
-      // texto null = ainda não há primeira consulta datada. Sem data para
-      // carimbar, não há contrato para mostrar.
-      if (!ativo || !texto) return;
+    async function checar(recheck) {
+      const r = await buscarContratoPendente(pacienteId);
+      if (!vivo) return;
+      if (r.status === 'erro' && recheck) return;
+      setBusca(r);
+    }
 
-      setContratoId(contrato.id);
-      setHtml(texto);
-    })();
-    return () => { ativo = false; };
-  }, [ehEssentia, identificacao, profile?.id]);
+    checar(false);
+    // Reconfere ao voltar ao app: quem estava com ele aberto na hora em que o
+    // contrato foi publicado passa a ver o gate sem precisar recarregar.
+    function onVisible() {
+      if (document.visibilityState === 'visible') checar(true);
+    }
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      vivo = false;
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [ehEssentia, ativa, pacienteId, tentativa]);
+
+  function tentarDeNovo() {
+    setBusca({ status: 'carregando' });
+    setTentativa(n => n + 1);
+  }
 
   // Marcar a caixa é o ato de assinar; o botão é o envio. Os dois existem de
   // propósito: `aceito_em` é permanente e o pendente some da tela depois, então
   // um toque acidental numa caixa não pode fechar contrato sozinho.
-  const podeAceitar = concordou && !!identificacao;
+  const podeAceitar = concordou;
+  const contratoId = busca.contratoId ?? null;
 
   async function aceitar() {
     setErro(null);
@@ -124,12 +134,48 @@ export default function ContratoEssentia({ children }) {
     // eu não previ, manda o push. Um aviso repetido incomoda; um aceite que
     // nunca avisa some, e o push é o único canal que existe para isto.
     if (data?.[0]?.novo ?? true) avisarNutri(tokenPush, 'contrato_assinado');
-    setHtml(null);   // libera o app
+    // Libera o app NA MESMA URL: quem chegou por um link (push, atalho) cai
+    // onde ia, sem navegação nenhuma.
+    setBusca({ status: 'ok', pendente: false, previa: null, contratoId: null });
   }
 
   // ── DECISÃO, depois de todos os hooks ──
-  if (!html) return children;
+  const estado = decidirGateContrato({
+    ehEssentia, ativa, pathname, liberadas: TELAS_LIBERADAS_SEM_CONTRATO, busca,
+  });
 
+  if (estado === 'app') return children;
+  if (estado === 'carregando') return <Carregando />;
+  if (estado === 'erro') {
+    return (
+      <TelaAviso>
+        <div style={{ fontSize: 16, lineHeight: 1.6, color: 'var(--ink, #2b2b2b)' }}>
+          Sem conexão
+        </div>
+        <button onClick={tentarDeNovo} style={BOTAO_ESCURO}>
+          Tentar de novo
+        </button>
+      </TelaAviso>
+    );
+  }
+  if (estado === 'sem_consulta') {
+    return (
+      <TelaAviso>
+        <div style={{ fontSize: 20, fontWeight: 500, color: 'var(--ink, #2b2b2b)', marginBottom: 10 }}>
+          Seu contrato
+        </div>
+        <div style={{ fontSize: 16, lineHeight: 1.6, color: 'var(--ink, #2b2b2b)' }}>
+          Seu contrato ficará disponível assim que sua primeira consulta for marcada. Fale com sua nutricionista.
+        </div>
+        <button onClick={signOut} style={BOTAO_SAIR}>
+          Sair
+        </button>
+      </TelaAviso>
+    );
+  }
+
+  // estado === 'contrato'
+  const html = busca.previa;
   return (
     <div style={{
       position: 'fixed', inset: 0,
@@ -182,9 +228,11 @@ export default function ContratoEssentia({ children }) {
           padding: '12px 24px 0',
           fontSize: 12, color: 'var(--muted, #999)', lineHeight: 1.5,
         }}>
+          {/* Sem documento no cadastro, sem o trecho: o contrato mostra a
+              linha em branco que a prévia do banco devolve. */}
           Assinando como <strong style={{ color: 'var(--ink, #2b2b2b)' }}>
             {profile?.nome}
-          </strong>, {identificacao}.
+          </strong>{identificacao ? `, ${identificacao}` : ''}.
         </div>
 
         <label style={{
@@ -235,8 +283,7 @@ export default function ContratoEssentia({ children }) {
             fontSize: 11, color: 'var(--muted, #999)',
             textAlign: 'center', marginTop: 8, lineHeight: 1.4,
           }}>
-            {/* O ramo de baixo só existe para a caixa desmarcada: sem documento
-                no cadastro esta tela nem chega a ser montada. */}
+            {/* O ramo de baixo é o da caixa desmarcada. */}
             {podeAceitar
               ? 'Em caso de dúvida, fale com sua nutricionista antes de confirmar.'
               : 'Marque "Li e concordo com os termos" para confirmar.'}
@@ -246,3 +293,97 @@ export default function ContratoEssentia({ children }) {
     </div>
   );
 }
+
+// Busca o pendente e a prévia. Não mexe em estado: devolve o que o gate guarda.
+// { status: 'erro' } em qualquer falha de rede/RPC.
+async function buscarContratoPendente(pacienteId) {
+  // Índice único parcial garante no máximo um pendente por paciente.
+  const { data: contrato, error: errContrato } = await supabase
+    .from('contratos_essentia')
+    .select('id')
+    .eq('paciente_id', pacienteId)
+    .is('aceito_em', null)
+    .maybeSingle();
+  if (errContrato) return { status: 'erro' };
+  // Sem pendência: já aceitou, ou não tem contrato.
+  if (!contrato) return { status: 'ok', pendente: false, previa: null, contratoId: null };
+
+  // null nos dois: o servidor lê CPF/RG do cadastro e é a única fonte.
+  const { data: texto, error: errPrevia } = await supabase.rpc('previa_contrato_essentia', {
+    p_contrato_id: contrato.id, p_cpf: null, p_rg: null,
+  });
+  if (errPrevia) return { status: 'erro' };
+  // texto null = ainda não há primeira consulta datada (decidirGateContrato
+  // transforma isso na tela "sem consulta").
+  return { status: 'ok', pendente: true, previa: texto || null, contratoId: contrato.id };
+}
+
+// Mesmo indicador do LoadingSpinner do App.jsx (o do Suspense das rotas).
+function Carregando() {
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 1000,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: 'var(--bg)',
+    }}>
+      <div style={{
+        width: 32, height: 32, borderRadius: '50%',
+        border: '2.5px solid var(--hair)',
+        borderTopColor: 'var(--gold-deep)',
+        animation: 'essentia-spin 0.75s linear infinite',
+      }} />
+    </div>
+  );
+}
+
+// Moldura do PacienteBloqueio: fundo cheio, cartão branco central, marca no topo.
+function TelaAviso({ children }) {
+  return (
+    <div style={{
+      position: 'fixed', inset: 0,
+      background: 'var(--bg)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      zIndex: 1000, padding: 16,
+      fontFamily: 'var(--font-sans)',
+    }}>
+      <div style={{
+        background: '#ffffff',
+        borderRadius: 16,
+        maxWidth: 420, width: '100%',
+        padding: '32px 24px',
+        textAlign: 'center',
+        boxShadow: '0 10px 40px rgba(0,0,0,.15)',
+      }}>
+        <div style={{
+          fontSize: 10, letterSpacing: '.2em', textTransform: 'uppercase',
+          color: 'var(--gold-deep, #a08456)', fontWeight: 500, marginBottom: 10,
+        }}>
+          Essentia
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// Botão Sair do PacienteBloqueio.
+const BOTAO_SAIR = {
+  marginTop: 24,
+  background: 'none', border: '0.5px solid var(--hair, #e6dfd0)',
+  borderRadius: 8, padding: '8px 16px',
+  fontSize: 12, color: 'var(--muted)', cursor: 'pointer',
+  fontFamily: 'var(--font-sans)',
+  touchAction: 'manipulation',
+  WebkitTapHighlightColor: 'transparent',
+};
+
+// Botão "Tentar de novo" do SignupPaciente.
+const BOTAO_ESCURO = {
+  width: '100%', padding: '11px 18px', marginTop: 16,
+  background: 'var(--ink)', color: 'var(--bg-soft)',
+  borderRadius: 12, fontSize: 13, fontWeight: 500,
+  border: 'none', cursor: 'pointer',
+  fontFamily: 'var(--font-sans)',
+  touchAction: 'manipulation',
+  WebkitTapHighlightColor: 'transparent',
+};

@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { dataBR } from '../../lib/utils.js';
+import { gravar } from '../../lib/gravar.js';
 
 const TAG_LABEL = {
   receitas:    'Receitas',
@@ -43,9 +44,24 @@ export default function Ebooks() {
     (async () => {
       const { data: links } = await supabase
         .from('ebooks_pacientes')
-        .select('ebook_id')
+        .select('ebook_id, visto_em')
         .eq('paciente_id', pacienteId);
       const ids = (links ?? []).map(l => l.ebook_id);
+
+      // Abrir a lista conta como "vi os materiais novos": zera o badge do menu
+      // e o card do Início. `esperado` = quantas a leitura acima achou sem
+      // visto_em — 0 linhas quando havia pendentes é o sinal de update barrado
+      // pela RLS, que sem conferência passaria calado. Falhar aqui não derruba
+      // a tela: o material abre igual, e o badge só continua aceso.
+      const pendentes = (links ?? []).filter(l => l.visto_em == null).length;
+      if (pendentes > 0) {
+        gravar(supabase.from('ebooks_pacientes')
+          .update({ visto_em: new Date().toISOString() })
+          .eq('paciente_id', pacienteId)
+          .is('visto_em', null),
+        { esperado: pendentes, rotulo: 'marcar os materiais como vistos' })
+          .then(r => { if (!r.ok) console.warn(r.msg); });
+      }
       if (ids.length === 0) {
         setEbooks([]);
         return;

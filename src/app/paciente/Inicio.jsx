@@ -115,6 +115,7 @@ export default function Inicio() {
   const [todosLogs, setTodosLogs] = useState([]);      // 30 dias — pra streak
   const [mensagemCiclo, setMensagemCiclo] = useState(null);
   const [monHoje, setMonHoje] = useState(null);        // { id, disposicao } do monitoramento
+  const [materiaisNovos, setMateriaisNovos] = useState(0); // ebooks_pacientes sem visto_em
   // Card da jornada: critério ESTRITO, só tipo_plano 'essentia' (Kelly,
   // 2026-09-25). A tela /paciente/jornada usa o critério negativo do layout;
   // aqui, plano nulo ou inesperado não ganha card. A atualização (volta ao
@@ -127,7 +128,7 @@ export default function Inicio() {
       if (!pacienteId) return;
       const agora = new Date().toISOString();
       const hoje  = dataLocalISO();
-      const [planoRes, dietaPdfRes, comprasRes, consultaRes, checkinRes, avaliacaoRes, habitosRes, logsHojeRes, monRes] = await Promise.all([
+      const [planoRes, dietaPdfRes, comprasRes, consultaRes, checkinRes, avaliacaoRes, habitosRes, logsHojeRes, monRes, materiaisRes] = await Promise.all([
         supabase.from('planos').select('dados, publicado_em')
           .eq('paciente_id', pacienteId).order('publicado_em', { ascending: false }).limit(1).maybeSingle(),
         supabase.from('dietas_pdf').select('id, titulo, created_at')
@@ -163,6 +164,13 @@ export default function Inicio() {
           .eq('paciente_id', pacienteId)
           .eq('data', hoje)
           .maybeSingle(),
+        // Mesma contagem do badge de E-books (PacienteLayout.jsx:121-125). É
+        // uma segunda ida, só de contagem: o layout não repassa o número às
+        // telas, e passar exigiria mexer nele.
+        supabase.from('ebooks_pacientes')
+          .select('id', { count: 'exact', head: true })
+          .eq('paciente_id', pacienteId)
+          .is('visto_em', null),
       ]);
       if (!active) return;
       setPlano(planoRes.data?.dados ?? null);
@@ -172,6 +180,7 @@ export default function Inicio() {
       setCheckinPendente(checkinRes.data ?? null);
       setAvaliacaoPendente(avaliacaoRes.data ?? null);
       setMonHoje(monRes.data ?? null);
+      setMateriaisNovos(materiaisRes.count ?? 0);
 
       const habitosLista = habitosRes.data ?? [];
       const logsHoje = {};
@@ -729,6 +738,22 @@ export default function Inicio() {
             </span>
           </div>
           <i className="ti ti-chevron-right" style={{ fontSize: 18, color: 'var(--muted)', flexShrink: 0 }} aria-hidden="true"></i>
+        </div>
+      )}
+
+      {/* 4 — Material novo. Discreto: some quando ela abre E-books (Ebooks.jsx
+          grava visto_em). Mesma linha do card pequeno do Chat/Progresso. */}
+      {materiaisNovos > 0 && (
+        <div className="card" onClick={() => navigate('/paciente/ebooks')}
+          style={{
+            margin: '0 0 12px', padding: '12px 14px', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: 10,
+          }}>
+          <i className="ti ti-book-2" style={{ fontSize: 18, color: 'var(--gold-deep)', flexShrink: 0 }} aria-hidden="true"></i>
+          <div style={{ flex: 1, minWidth: 0, fontSize: 13, color: 'var(--ink)' }}>
+            Sua nutricionista liberou um material novo
+          </div>
+          <i className="ti ti-chevron-right" style={{ fontSize: 16, color: 'var(--muted)', flexShrink: 0 }} aria-hidden="true"></i>
         </div>
       )}
 

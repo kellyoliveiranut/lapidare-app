@@ -13,6 +13,39 @@
  */
 
 /**
+ * Telas que a paciente Essentia com contrato pendente pode usar ANTES de
+ * aceitar. Vazia por decisão da operação (09/10): o aceite é obrigatório para
+ * o app inteiro. Se um dia for preciso abrir alguma, as candidatas são
+ * '/paciente/monitoramento-oncologico' (registro diário e alerta de febre) e
+ * '/paciente/chat'.
+ */
+export const TELAS_LIBERADAS_SEM_CONTRATO = new Set([]);
+
+/**
+ * Decide o que o gate do contrato mostra. Função pura: o componente busca,
+ * esta função decide — é o que deixa a regra testável sem banco.
+ *
+ * @param p.ehEssentia  plano Essentia (já normalizado)
+ * @param p.ativa       status_paciente === 'ativo'
+ * @param p.pathname    rota atual
+ * @param p.liberadas   Set de rotas que passam sem contrato
+ * @param p.busca       { status: 'carregando' | 'erro' | 'ok', pendente, previa }
+ *
+ * Devolve 'app' | 'carregando' | 'erro' | 'contrato' | 'sem_consulta'.
+ * Nunca 'app' enquanto carrega ou com erro na busca: com o aceite obrigatório,
+ * deixar passar na dúvida é o mesmo que não ter gate.
+ */
+export function decidirGateContrato({ ehEssentia, ativa, pathname, liberadas = TELAS_LIBERADAS_SEM_CONTRATO, busca }) {
+  if (!ehEssentia || !ativa) return 'app';
+  if (liberadas.has(pathname)) return 'app';
+  if (!busca || busca.status === 'carregando') return 'carregando';
+  if (busca.status === 'erro') return 'erro';
+  if (!busca.pendente) return 'app';          // já aceito ou sem linha
+  // previa null = sem consulta datada: o banco não tem data para carimbar.
+  return busca.previa ? 'contrato' : 'sem_consulta';
+}
+
+/**
  * "2.700,00" → 2700. Formato brasileiro: ponto é milhar, vírgula é decimal.
  *
  * Veio do Cadastrar.jsx, onde era uma expressão solta. Está aqui para o perfil

@@ -645,6 +645,24 @@ function ModalAtribuir({ item, pacientes, atribuidos, onClose, onSaved }) {
       <input value={busca} onChange={e => setBusca(e.target.value)}
         placeholder="Buscar paciente…" style={{ marginBottom: 10 }} />
 
+      {/* Valem para a lista VISÍVEL: sem busca, todas as ativas; com busca, só
+          as encontradas. Só mexem na seleção — gravar e avisar continuam no
+          Salvar, uma paciente por vez, como antes. */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+        <button type="button" className="btn-outline" disabled={busy || filtradas.length === 0}
+          onClick={() => setSelecionadas(s => new Set([...s, ...filtradas.map(p => p.id)]))}>
+          Marcar todas
+        </button>
+        <button type="button" className="btn-outline" disabled={busy || filtradas.length === 0}
+          onClick={() => setSelecionadas(s => {
+            const n = new Set(s);
+            for (const p of filtradas) n.delete(p.id);
+            return n;
+          })}>
+          Desmarcar todas
+        </button>
+      </div>
+
       <div style={{ maxHeight: 300, overflow: 'auto', border: '0.5px solid var(--border)', borderRadius: 8 }}>
         {filtradas.length === 0 ? (
           <div style={{ padding: 20, textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>
