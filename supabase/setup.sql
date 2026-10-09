@@ -325,7 +325,7 @@ create table if not exists public.consultas (
   paciente_id   uuid not null references public.pacientes(id) on delete cascade,
   nutri_id      uuid not null references public.nutris(id) on delete cascade,
   data_hora     timestamptz,                     -- NULL = consulta "a definir", sem data
-  duracao_min   integer not null default 45,
+  duracao_min   integer not null default 30,
   tipo          text not null default 'consulta_2',
   status        text not null default 'agendada' check (status in ('agendada', 'realizada', 'cancelada')),
   obs           text,

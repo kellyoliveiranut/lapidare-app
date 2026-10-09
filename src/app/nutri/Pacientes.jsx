@@ -75,12 +75,8 @@ export default function Pacientes() {
     // o único ponto que montava a URL à mão, e foi assim que o token ficou de
     // fora: o link saía só com o nutri_id.
     //
-    // Sem token a paciente cai no "fluxo genérico" do SignupPaciente
-    // (SignupPaciente.jsx:67): ela preenche tudo de novo e NÃO é ligada a este
-    // cadastro pendente — mesmo com o status virando 'enviado' logo abaixo.
-    // Pior para quem foi cadastrada sem e-mail: o sintético é
-    // `${token}@essentia.local` (SignupPaciente.jsx:105), que sem token vira
-    // literalmente `undefined@essentia.local`.
+    // Sem token o SignupPaciente nem abre o formulário (mostra "Link inválido"),
+    // e o token também gera o e-mail sintético de quem não tem e-mail.
     const link = linkConvite(user.id, p);
     await navigator.clipboard.writeText(link);
     alert(`Link copiado! Envie pra ${p.nome.split(' ')[0]} por WhatsApp ou email.`);

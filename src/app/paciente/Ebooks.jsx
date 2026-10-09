@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { dataBR } from '../../lib/utils.js';
 import { gravar } from '../../lib/gravar.js';
+import { EVENTO_EBOOKS_VISTOS } from '../../lib/avisosNutri.js';
 
 const TAG_LABEL = {
   receitas:    'Receitas',
@@ -85,7 +86,11 @@ export default function Ebooks() {
           .eq('paciente_id', pacienteId)
           .is('visto_em', null),
         { esperado: pendentes, rotulo: 'marcar os materiais como vistos' })
-          .then(r => { if (!r.ok) console.warn(r.msg); });
+          .then(r => {
+            if (!r.ok) { console.warn(r.msg); return; }
+            // Gravou: o layout reconta e o número do menu some sem recarregar.
+            window.dispatchEvent(new Event(EVENTO_EBOOKS_VISTOS));
+          });
       }
       if (ids.length === 0) {
         setEbooks([]);

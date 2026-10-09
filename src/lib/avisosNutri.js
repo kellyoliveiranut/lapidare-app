@@ -19,6 +19,11 @@ export const EVENTO_AVISOS_MUDOU = 'avisos-nutri:mudou';
 // evento se já começou uma carga depois disso.
 export const EVENTO_FEED_RECARREGAR = 'feed-nutri:recarregar';
 
+// Mesmo molde, do lado da paciente: o Ebooks.jsx dispara depois de gravar o
+// visto_em com sucesso, e o PacienteLayout reconta o número do menu de E-books
+// (o canal Realtime de ebooks_pacientes não basta para zerar sem recarregar).
+export const EVENTO_EBOOKS_VISTOS = 'ebooks-paciente:vistos';
+
 export const ROTULO_AVISO = {
   contrato_assinado: 'Assinou o contrato',
   foto_prato:        'Enviou foto do prato',

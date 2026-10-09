@@ -9,6 +9,7 @@ import { iniciais, diasAte, horaConsultaBR } from '../lib/utils.js';
 import { ativarNotificacoes } from '../lib/push.js';
 import { bloqueadoNoPlano } from '../lib/planoPaciente.js';
 import { gravar } from '../lib/gravar.js';
+import { EVENTO_EBOOKS_VISTOS } from '../lib/avisosNutri.js';
 import '../styles/paciente.css';
 
 const TABS = [
@@ -134,8 +135,14 @@ export default function PacienteLayout() {
         filter: `paciente_id=eq.${pacienteId}`,
       }, recarregarEbooks)
       .subscribe(avisarStatus('paciente-ebooks'));
+    // O Ebooks.jsx avisa quando gravou o visto_em: reconta pelo banco.
+    window.addEventListener(EVENTO_EBOOKS_VISTOS, recarregarEbooks);
 
-    return () => { active = false; supabase.removeChannel(ch); };
+    return () => {
+      active = false;
+      supabase.removeChannel(ch);
+      window.removeEventListener(EVENTO_EBOOKS_VISTOS, recarregarEbooks);
+    };
   }, [pacienteId]);
 
   // Conta check-ins enviados pela nutri ainda não respondidos
