@@ -111,7 +111,7 @@ exports.handler = async (event) => {
       const PAYLOADS = {
         mensagem:         { title: 'Essentia', body: 'Sua nutri te enviou uma nova mensagem', url: '/paciente/chat' },
         mensagem_foto:    { title: 'Essentia', body: 'Sua nutri te enviou uma foto', url: '/paciente/chat' },
-        material:         { title: 'Essentia', body: 'Sua nutricionista liberou um material novo', url: '/paciente/ebooks' },
+        material:         { title: 'Essentia', body: 'Sua nutricionista liberou um material novo', url: '/paciente/ebooks?novos=1' },
         plano:            { title: 'Essentia', body: 'Seu plano alimentar foi atualizado', url: '/paciente/plano' },
         comentario_prato: { title: 'Essentia', body: 'Sua nutri comentou seu prato', url: '/paciente/feed' },
       };
