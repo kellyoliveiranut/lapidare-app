@@ -53,6 +53,7 @@ const ChatFlutuante        = lazy(() => import('./_ChatFlutuante.jsx'));
 import DicaJSON from '../../components/DicaJSON.jsx';
 import { TERMO_VERSAO } from '../../components/TermoConsentimento.jsx';
 import { criarContratoPendente, parseValorContrato } from '../../lib/contratoEssentia.js';
+import { convitePendenteVencido } from '../../lib/convite.js';
 import PlanoView from '../../components/PlanoView.jsx';
 
 export default function PacientePerfil() {
@@ -93,6 +94,7 @@ export default function PacientePerfil() {
   const [linkConviteCopiado, setLinkConviteCopiado] = useState(false);
   const [linkConviteCompartilhado, setLinkConviteCompartilhado] = useState(false);
   const [conviteEnviado, setConviteEnviado] = useState(false);
+  const [conviteVencido, setConviteVencido] = useState(false);
   // null = paciente não é essentia (contrato não se aplica).
   // []   = é essentia e NÃO tem contrato nenhum — o estado que precisa gritar.
   const [contratos, setContratos] = useState(null);
@@ -163,13 +165,15 @@ export default function PacientePerfil() {
     if (data && !data.user_id && data.email) {
       const { data: pend } = await supabase
         .from('pacientes_pendentes')
-        .select('status')
+        .select('status, valido_ate')
         .eq('nutri_id', data.nutri_id)
         .eq('email', data.email.trim().toLowerCase())
         .maybeSingle();
       setConviteEnviado(pend?.status === 'enviado');
+      setConviteVencido(!!pend && pend.status !== 'ativado' && convitePendenteVencido(pend.valido_ate));
     } else {
       setConviteEnviado(false);
+      setConviteVencido(false);
     }
   }
 
@@ -342,6 +346,8 @@ export default function PacientePerfil() {
     if (error || !pendente?.token) return null;
     // Marca o selo "Acesso enviado" na hora — vale para copiar e para o WhatsApp
     setConviteEnviado(true);
+    // Copiar grava 'enviado', e o banco renova a validade: deixa de estar vencido.
+    setConviteVencido(false);
     return `${window.location.origin}/signup-paciente/${user.id}/${pendente.token}`;
   }
 
@@ -557,6 +563,16 @@ export default function PacientePerfil() {
               }}>
                 <i className="ti ti-circle-check" style={{ fontSize: 12 }} aria-hidden="true" />
                 Acesso ativo
+              </span>
+            ) : conviteVencido ? (
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20,
+                background: 'var(--red-bg)', color: 'var(--red)',
+                border: '0.5px solid var(--red)', fontFamily: 'var(--font-sans)',
+              }}>
+                <i className="ti ti-alert-circle" style={{ fontSize: 12 }} aria-hidden="true" />
+                Convite vencido
               </span>
             ) : conviteEnviado ? (
               <span title="Você já enviou/copiou o link de convite — aguardando a paciente criar o acesso" style={{

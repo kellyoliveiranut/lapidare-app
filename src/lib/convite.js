@@ -30,3 +30,18 @@ export function mensagemConviteEncoded(nutriId, pendente) {
     temConta: false,
   }));
 }
+
+/**
+ * Convite pendente com a validade (`pacientes_pendentes.valido_ate`) já
+ * vencida. Quem decide de verdade é o banco (buscar_pendente_por_token devolve
+ * 'vencido' e o cadastro é recusado); isto só serve para a nutri VER o selo.
+ *
+ * `valido_ate` nulo, ausente ou data inválida → false: sem validade conhecida,
+ * não se afirma vencido. Exatamente no instante da validade ainda vale.
+ */
+export function convitePendenteVencido(valido_ate, agora = Date.now()) {
+  if (valido_ate == null || valido_ate === '') return false;
+  const fim = new Date(valido_ate).getTime();
+  if (Number.isNaN(fim)) return false;
+  return fim < agora;
+}

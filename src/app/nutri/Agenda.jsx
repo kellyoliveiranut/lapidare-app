@@ -1246,6 +1246,13 @@ function FaixaConvite({ convite, nutriId, onDispensar }) {
     } catch {
       prompt('Copie o link abaixo:', link);   // fallback sem permissão (mobile)
     }
+    // Mesmo update dos outros "Copiar link" (Pacientes, Cadastrar): marcar
+    // 'enviado' renova a validade de 7 dias no banco. Depois de copiar, para a
+    // falha não impedir.
+    const r = await gravar(supabase.from('pacientes_pendentes')
+      .update({ status: 'enviado' }).eq('id', pendente.id),
+      { rotulo: 'marcar o convite como enviado' });
+    if (!r.ok) alert(r.msg);
   }
 
   return (

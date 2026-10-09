@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { iniciais, textoDias } from '../../lib/utils.js';
-import { linkConvite } from '../../lib/convite.js';
+import { linkConvite, convitePendenteVencido } from '../../lib/convite.js';
 import { gravar } from '../../lib/gravar.js';
 import ImportarCsv from './_ImportarCsv.jsx';
 
@@ -36,6 +36,8 @@ export default function Pacientes() {
   const [pacientes, setPacientes] = useState(null);
   const [pendentes, setPendentes] = useState([]);
   const [enviadoEmails, setEnviadoEmails] = useState(() => new Set());
+  // E-mails cujo convite (pendente ou enviado) já passou do valido_ate.
+  const [vencidoEmails, setVencidoEmails] = useState(() => new Set());
   const [busca, setBusca] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('ativo');
   const [importerOpen, setImporterOpen] = useState(false);
@@ -55,12 +57,15 @@ export default function Pacientes() {
       // E-mails com convite já enviado — alimenta o selo "Acesso enviado" nos cards
       supabase
         .from('pacientes_pendentes')
-        .select('email')
+        .select('email, valido_ate')
         .eq('status', 'enviado'),
     ]);
     setPacientes(pacRes.data ?? []);
     setPendentes(pendRes.data ?? []);
-    setEnviadoEmails(new Set((enviadosRes.data ?? []).map(r => (r.email ?? '').trim().toLowerCase())));
+    const chave = r => (r.email ?? '').trim().toLowerCase();
+    setEnviadoEmails(new Set((enviadosRes.data ?? []).map(chave)));
+    setVencidoEmails(new Set([...(pendRes.data ?? []), ...(enviadosRes.data ?? [])]
+      .filter(r => convitePendenteVencido(r.valido_ate)).map(chave)));
   }
 
   useEffect(() => { if (user) carregar(); }, [user]);
@@ -231,7 +236,12 @@ export default function Pacientes() {
             <tbody>
               {pendentes.map(p => (
                 <tr key={p.id}>
-                  <td><strong>{p.nome}</strong></td>
+                  <td>
+                    <strong>{p.nome}</strong>
+                    {convitePendenteVencido(p.valido_ate) && (
+                      <span style={SELO_VENCIDO}>Convite vencido</span>
+                    )}
+                  </td>
                   <td>{p.email}</td>
                   <td>{p.objetivo ?? '—'}</td>
                   <td style={{ textAlign: 'right' }}>
@@ -326,7 +336,7 @@ export default function Pacientes() {
                 gap: 14,
               }}>
                 {doGrupo.map(p => (
-                  <PacienteCard key={p.id} paciente={p} enviado={!p.user_id && enviadoEmails.has((p.email ?? '').trim().toLowerCase())} onNavigate={navigate} onReativar={reativar} />
+                  <PacienteCard key={p.id} paciente={p} enviado={!p.user_id && enviadoEmails.has((p.email ?? '').trim().toLowerCase())} vencido={!p.user_id && vencidoEmails.has((p.email ?? '').trim().toLowerCase())} onNavigate={navigate} onReativar={reativar} />
                 ))}
               </div>
             </section>
@@ -337,7 +347,15 @@ export default function Pacientes() {
   );
 }
 
-const PacienteCard = memo(function PacienteCard({ paciente: p, enviado, onNavigate, onReativar }) {
+// Selo de alerta do convite vencido: mesmas cores de erro do app (--red/--red-bg).
+const SELO_VENCIDO = {
+  display: 'inline-flex', alignItems: 'center', gap: 4, marginLeft: 6,
+  fontSize: 10.5, fontWeight: 600, padding: '2px 8px', borderRadius: 20,
+  background: 'var(--red-bg)', color: 'var(--red)',
+  border: '0.5px solid var(--red)',
+};
+
+const PacienteCard = memo(function PacienteCard({ paciente: p, enviado, vencido, onNavigate, onReativar }) {
   return (
     <div
       className="card"
@@ -442,6 +460,11 @@ const PacienteCard = memo(function PacienteCard({ paciente: p, enviado, onNaviga
             }}>
               <i className="ti ti-circle-check" style={{ fontSize: 11 }} aria-hidden="true"></i>
               Acesso ativo
+            </span>
+          ) : vencido ? (
+            <span style={{ ...SELO_VENCIDO, marginLeft: 0 }}>
+              <i className="ti ti-alert-circle" style={{ fontSize: 11 }} aria-hidden="true"></i>
+              Convite vencido
             </span>
           ) : enviado ? (
             <span style={{

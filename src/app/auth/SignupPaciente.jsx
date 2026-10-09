@@ -23,6 +23,9 @@ function estadoDoConvite(nutriId, token, resposta) {
   if (resposta.error) return 'erro';
   const p = resposta.data?.[0];
   if (!p || p.status === 'ativado') return 'invalido';
+  // O banco devolve 'vencido' quando passou o valido_ate (7 dias). O cadastro
+  // também é recusado lá; aqui é para a paciente entender o porquê.
+  if (p.status === 'vencido') return 'vencido';
   return 'ok';
 }
 
@@ -47,6 +50,7 @@ export default function SignupPaciente() {
   const [erro, setErro] = useState(null);
   const [aviso, setAviso] = useState(null);
   const [erroConexao, setErroConexao] = useState(false);
+  const [conviteVencido, setConviteVencido] = useState(false);
   const [tentativa, setTentativa] = useState(0);   // muda no "Tentar de novo" e refaz a consulta
 
   // Só abre o formulário com convite válido (ver estadoDoConvite). O fluxo
@@ -69,6 +73,9 @@ export default function SignupPaciente() {
       if (!active) return;
       const estado = estadoDoConvite(nutriId, token, resposta);
       if (estado === 'erro') { setErroConexao(true); return; }
+      // Vencido: nutriValida fica false (o formulário não abre nem envia) e a
+      // tela troca só o título e o texto.
+      if (estado === 'vencido') { setConviteVencido(true); setNutriValida(false); return; }
       if (estado !== 'ok') { setNutriValida(false); return; }
 
       const p = resposta.data[0];
@@ -178,11 +185,22 @@ export default function SignupPaciente() {
       <CenterWrap>
         <Box>
           <Brand />
-          <h1 style={H1}>Link inválido</h1>
-          <p style={P}>
-            Este convite não é válido ou já foi usado.
-            Peça à sua nutricionista um novo link.
-          </p>
+          {conviteVencido ? (
+            <>
+              <h1 style={H1}>Convite vencido</h1>
+              <p style={P}>
+                Este convite venceu. Peça à sua nutricionista um novo link.
+              </p>
+            </>
+          ) : (
+            <>
+              <h1 style={H1}>Link inválido</h1>
+              <p style={P}>
+                Este convite não é válido ou já foi usado.
+                Peça à sua nutricionista um novo link.
+              </p>
+            </>
+          )}
         </Box>
       </CenterWrap>
     );

@@ -6,7 +6,7 @@ import { dataBR, brl, valorBR, gerarParcelas, distribuirTaxa, taxaSugerida, maxP
 import { criarVendaComParcelas } from '../../lib/vendas.js';
 import { gravar } from '../../lib/gravar.js';
 import { criarContratoPendente, parseValorContrato } from '../../lib/contratoEssentia.js';
-import { linkConvite, mensagemConviteEncoded } from '../../lib/convite.js';
+import { linkConvite, mensagemConviteEncoded, convitePendenteVencido } from '../../lib/convite.js';
 import { OBJETIVOS } from '../../lib/objetivos.js';
 import { SEXOS, PLANOS, MODALIDADES } from '../../lib/opcoesPaciente.js';
 import { perguntasParaPaciente } from '../../lib/checkinVariacao.js';
@@ -353,6 +353,13 @@ export default function Cadastrar() {
     } catch {
       prompt('Copie o link abaixo:', linkDe(p));
     }
+    // Mesmo update do botão WhatsApp ao lado: marcar 'enviado' é o que renova a
+    // validade de 7 dias no banco. Depois de copiar, para a falha não impedir.
+    const r = await gravar(supabase.from('pacientes_pendentes')
+      .update({ status: 'enviado' }).eq('id', p.id),
+      { rotulo: 'marcar o convite como enviado' });
+    if (!r.ok) { alert(r.msg); return; }
+    carregarPendentes();
   }
 
   async function excluirPendente(pendente) {
@@ -742,14 +749,26 @@ export default function Cadastrar() {
                         {p.objetivo} · {p.tipo_plano} · {p.modalidade}
                       </div>
                     </div>
-                    <span style={{
-                      fontSize: 10, padding: '2px 8px', borderRadius: 999,
-                      background: p.status === 'enviado' ? 'var(--green-bg)' : 'var(--orange-bg)',
-                      color:      p.status === 'enviado' ? 'var(--green)'    : 'var(--orange)',
-                      fontWeight: 500,
-                    }}>
-                      {p.status === 'enviado' ? '✓ Link enviado' : 'Aguardando envio'}
-                    </span>
+                    {/* A lista já exclui 'ativado' (carregarPendentes). Vencido
+                        vence os outros dois: o link não abre mais até copiar de novo. */}
+                    {convitePendenteVencido(p.valido_ate) ? (
+                      <span style={{
+                        fontSize: 10, padding: '2px 8px', borderRadius: 999,
+                        background: 'var(--red-bg)', color: 'var(--red)',
+                        fontWeight: 500,
+                      }}>
+                        Convite vencido
+                      </span>
+                    ) : (
+                      <span style={{
+                        fontSize: 10, padding: '2px 8px', borderRadius: 999,
+                        background: p.status === 'enviado' ? 'var(--green-bg)' : 'var(--orange-bg)',
+                        color:      p.status === 'enviado' ? 'var(--green)'    : 'var(--orange)',
+                        fontWeight: 500,
+                      }}>
+                        {p.status === 'enviado' ? '✓ Link enviado' : 'Aguardando envio'}
+                      </span>
+                    )}
                   </div>
                   <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
                     <button className="btn-outline" onClick={() => copiarLink(p)}
