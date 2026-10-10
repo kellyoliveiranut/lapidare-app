@@ -192,6 +192,7 @@ export default function CardProtocoloEfeitos({
                     <div style={{
                       fontSize: 12.5, color: 'var(--text2)', lineHeight: 1.55,
                       fontFamily: 'var(--font-sans)', paddingLeft: 19,
+                      whiteSpace: 'pre-line',
                     }}>
                       {ef.manejo}
                     </div>

@@ -75,7 +75,6 @@ const TROCADAS = COM_AVISO_NO_BASE.filter(n => !PENDENTES_B.includes(n));
 const SUNI_FRASE = 'Siga os dias de uso e de pausa indicados na sua prescrição médica.';
 const TMZ150_FRASE = 'Tome a medicação somente nos dias indicados na sua prescrição médica. Não altere o esquema por conta própria.';
 const CAPE_TMZ_FRASE = 'Utilize cada medicamento somente nos dias e horários indicados na sua prescrição médica. Não altere o calendário por conta própria.';
-const PCV_FRASE_A = 'Durante o tratamento com PCV, confirme com sua equipe oncológica quais alimentos, bebidas alcoólicas e suplementos devem ser evitados. Não faça mudanças por conta própria.';
 const PCV_FRASE_B = 'Antes de iniciar dietas restritivas, suplementos ou produtos naturais, converse com sua equipe oncológica.';
 const TMZ150_JEJUM = 'Siga a orientação da equipe médica sobre tomar a temozolomida em jejum e sobre os horários dos medicamentos contra náuseas.';
 const TROCAS_ADMIN = {
@@ -88,19 +87,38 @@ const TROCAS_ADMIN = {
   'Vorsidenibe': ['VERIFICAR protocolo e perfil institucional. ', ''],
   'Lenalidomida': [' — vale confirmar com a equipe médica se é o caso da paciente.', '.'],
 };
-// bloco-81: trocas no manejo de um efeito, [nome, efeito, trecho antigo, texto novo].
-// Itens 7 (antiemese) e 8 (analgésico do BEP) ficaram parados: não mudam.
-const TROCAS_MANEJO = [
-  ['PCV', 'Interações alimentares', 'VERIFICAR orientação institucional sobre alimentos ricos em tiramina e álcool.', PCV_FRASE_A],
-  ['PCV', 'Interações alimentares', 'Não liberar dietas ou suplementos sem checar protocolo.', PCV_FRASE_B],
-  ['Temozolomida 150mg Isolado', 'Náuseas', 'Quando prescrito em jejum, alinhar horários com antiemético e tolerância.', TMZ150_JEJUM],
+// Texto da Kelly (10/10/2026, bloco-85): 6 parágrafos separados por \n.
+const PCV_PARAGRAFOS = [
+  'A procarbazina pode interagir com bebidas alcoólicas e alimentos ricos em tiramina, provocando reações indesejadas.',
+  'Não consuma bebidas alcoólicas, incluindo cervejas e vinhos sem álcool, durante o uso da procarbazina e por 14 dias após a última dose.',
+  'Evite alimentos muito ricos em tiramina, como queijos maturados, salame, pepperoni, carnes curadas, extratos concentrados de levedura e alimentos excessivamente fermentados ou envelhecidos, durante o uso da medicação e por 14 dias após a última dose.',
+  'Caso apresente dor de cabeça intensa, palpitações, sudorese importante ou mal-estar após consumir algum alimento, procure avaliação médica.',
+  'Sua equipe oncológica poderá orientar restrições específicas conforme o tratamento prescrito.',
+  PCV_FRASE_B,
 ];
+const PCV_MANEJO = PCV_PARAGRAFOS.join('\n');
+const PCV_EFEITO_NOVO = 'Cuidados alimentares durante o uso de procarbazina';
+const ANTIEMESE_NOVO = 'Utilize os medicamentos para prevenir ou controlar náuseas e vômitos conforme a prescrição médica. Fracione as refeições, experimente alimentos secos ou frios, conforme sua tolerância, e beba líquidos em pequenos goles ao longo do dia.';
+const BEP_DOR_VELHA = 'Manejo com analgésico prescrito/liberado pela equipe, hidratação, compressa morna e repouso relativo.';
+const BEP_DOR_NOVA = 'Para aliviar a dor, utilize apenas analgésicos prescritos ou autorizados pela equipe médica. Mantenha a hidratação conforme sua orientação clínica, utilize compressas mornas se não houver vermelhidão ou inchaço no local e respeite os períodos de descanso, mantendo movimentos leves conforme sua tolerância.';
+const NAUSEA_ALTO = 'Nausea e vomito (alto potencial emetogenico)';
+// Trocas no manejo de um efeito, [nome, efeito, trecho antigo, texto novo]
+// (bloco-81: TMZ 150; bloco-85: itens 7 e 8 e o PCV, que troca o manejo inteiro).
+const TROCAS_MANEJO = [
+  ['PCV', 'Interações alimentares', 'VERIFICAR orientação institucional sobre alimentos ricos em tiramina e álcool. Não liberar dietas ou suplementos sem checar protocolo.', PCV_MANEJO],
+  ['Temozolomida 150mg Isolado', 'Náuseas', 'Quando prescrito em jejum, alinhar horários com antiemético e tolerância.', TMZ150_JEJUM],
+  ['AC', NAUSEA_ALTO, 'Antiemese conforme prescricao; fracionar; alimentos secos e frios; hidratacao em pequenos goles', ANTIEMESE_NOVO],
+  ['Cisplatina', NAUSEA_ALTO, 'Antiemese conforme prescricao; fracionar; alimentos secos/frios; hidratacao em pequenos goles', ANTIEMESE_NOVO],
+  ['BEP', 'Dor óssea / dor no corpo', BEP_DOR_VELHA, BEP_DOR_NOVA],
+];
+// Nome de efeito trocado (bloco-85), [nome, efeito antigo, efeito novo].
+const NOMES_EFEITO = [['PCV', 'Interações alimentares', PCV_EFEITO_NOVO]];
 const SUNITINIBES = ['Sunitinibe 37,5mg', 'Sunitinibe 50mg'];
 const PENDENCIA_SUNI = 'Pendente: confirmar na prescrição os dias de uso e de pausa. Enquanto não confirmados, não indicar calendário à paciente.';
 const PENDENCIA_TMZ150 = ' Pendente: confirmar na prescrição os dias de tomada. Enquanto não confirmados, não indicar calendário à paciente.';
 // bloco-81: pendências que saíram da Lâmina, criadas como último campo.
 const NOTAS_ADMIN = {
-  'PCV': 'Pendente: confirmar as restrições do serviço. Verificar orientação institucional sobre alimentos ricos em tiramina e álcool. Pendente: conferir a orientação alimentar completa do PCV (evitar bebidas alcoólicas e alimentos ricos em tiramina, como queijos maturados e embutidos, no período indicado pela equipe) e confirmar a duração das restrições, que pode se estender após o término da procarbazina. A Lâmina traz apenas a orientação geral de confirmar com a equipe oncológica.',
+  'PCV': 'Pendente: confirmar as restrições do serviço. Verificar orientação institucional sobre alimentos ricos em tiramina e álcool. Orientação alimentar da procarbazina (álcool e tiramina, inclusive 14 dias após a última dose) publicada na Lâmina conforme texto da Kelly de 10/10/2026. O aviso de dor de cabeça intensa, palpitações e sudorese está só no texto do manejo, não na lista de sinais de alerta.',
   'Vorsidenibe': 'Pendente: verificar protocolo e perfil institucional.',
   'Lenalidomida': 'Pendente: confirmar com a equipe médica se é o caso da paciente. Trecho retirado da Lâmina: "Frequentemente combinado com dexametasona, o que pode adicionar efeitos próprios do corticoide (aumento de apetite, retenção de líquido) — vale confirmar com a equipe médica se é o caso da paciente."',
 };
@@ -114,7 +132,9 @@ const condutaEsperada = (nome, texto) => {
 const efeitosEsperados = (nome, efeitos) => efeitos.map(e => {
   let m = e.manejo;
   for (const [n, ef, velho, novo] of TROCAS_MANEJO) if (n === nome && ef === e.efeito) m = m.replace(velho, novo);
-  return m === e.manejo ? e : { ...e, manejo: m };
+  const novoNome = NOMES_EFEITO.find(([n, velho]) => n === nome && velho === e.efeito)?.[2];
+  if (m === e.manejo && !novoNome) return e;
+  return novoNome ? { ...e, efeito: novoNome, manejo: m } : { ...e, manejo: m };
 });
 
 const agora = nome => catalogo.protocolos.find(p => p.nome === nome);
@@ -255,17 +275,45 @@ for (const s of RETIRADOS) t(`"${s}" fora de todo campo que a Lâmina lê`, emCa
 t('trechos retirados: só "vale confirmar…" sobra, 1 vez, citado na nota_interna da Lenalidomida',
   [RETIRADOS.map(vezes), catalogo.protocolos.filter(p => p.nota_interna?.includes(RETIRADOS[3])).map(p => p.nome)],
   [[0, 0, 0, 1, 0, 0, 0], ['Lenalidomida']]);
-// Itens 7 e 8 parados (pontuação da lista com ";" e frase do BEP com outras orientações): seguem como no 2ef22d0.
-t('itens parados: "Antiemese conforme prescricao" 2 vezes (AC e Cisplatina) e "Manejo com analgésico prescrito/liberado" 1 vez (BEP)',
-  [vezes('Antiemese conforme prescricao'), vezes('Manejo com analgésico prescrito/liberado')], [2, 1]);
-for (const [frase, nome] of [[CAPE_TMZ_FRASE, 'Capecitabina + Temozolomida'], [PCV_FRASE_A, 'PCV'], [PCV_FRASE_B, 'PCV'], [TMZ150_JEJUM, 'Temozolomida 150mg Isolado']]) {
+for (const [frase, nome] of [[CAPE_TMZ_FRASE, 'Capecitabina + Temozolomida'], [PCV_FRASE_B, 'PCV'], [TMZ150_JEJUM, 'Temozolomida 150mg Isolado']]) {
   t(`frase nova 1 vez, em ${nome}: "${frase.slice(0, 40)}…"`,
     [vezes(frase), catalogo.protocolos.filter(p => JSON.stringify(p).includes(frase)).map(p => p.nome)], [1, [nome]]);
 }
 t('nenhuma pendência ("Pendente:" ou "Verificar orientação institucional") em campo que a Lâmina lê',
   [emCampoLamina('Pendente:'), emCampoLamina('Verificar orientação institucional')], [[], []]);
-t('PCV: nenhuma lista de alimentos em campo da Lâmina ("queijo", "embutido" só na nota_interna)',
-  CAMPOS_LAMINA.filter(k => /queijo|embutido/i.test(JSON.stringify(agora('PCV')?.[k] ?? ''))), []);
+// bloco-85 (decisão da Kelly, 10/10/2026): itens 7 e 8 e a orientação do PCV.
+const efeitoDe = (nome, ef) => agora(nome)?.efeitos.find(e => e.efeito === ef);
+t('"Antiemese conforme prescricao" e "Manejo com analgésico prescrito/liberado" = 0 no catálogo',
+  [vezes('Antiemese conforme prescricao'), vezes('Manejo com analgésico prescrito/liberado')], [0, 0]);
+t('texto novo do item 7: 2 vezes, no manejo de AC e Cisplatina',
+  [vezes(ANTIEMESE_NOVO), ['AC', 'Cisplatina'].map(n => efeitoDe(n, NAUSEA_ALTO)?.manejo === ANTIEMESE_NOVO)], [2, [true, true]]);
+t('texto novo do item 8: 1 vez, no BEP', [vezes(BEP_DOR_NOVA), efeitoDe('BEP', 'Dor óssea / dor no corpo')?.manejo.includes(BEP_DOR_NOVA)], [1, true]);
+t('BEP: as outras 3 frases do manejo continuam (aviso de anti-inflamatório 1 vez; Lonquex como no 2ef22d0)',
+  [vezes('Evitar anti-inflamatório por conta própria, principalmente pelo risco renal/plaquetas.'), vezes('Muito comum com lipegfilgrastim/Lonquex')],
+  [1, JSON.stringify(base).split('Muito comum com lipegfilgrastim/Lonquex').length - 1]);
+t('manejo novo de AC e Cisplatina sem ";"',
+  ['AC', 'Cisplatina'].map(n => efeitoDe(n, NAUSEA_ALTO)?.manejo.includes(';')), [false, false]);
+const comLF = [];
+for (const p of catalogo.protocolos) JSON.stringify(p, (k, v) => {
+  if (typeof v === 'string' && v.includes('\n')) comLF.push([p.nome, k, v.split('\n').length - 1]);
+  return v;
+});
+t('LF dentro de textos: 5, todos no manejo do PCV', comLF, [['PCV', 'manejo', 5]]);
+t('PCV: manejo = os 6 parágrafos da Kelly, literal', efeitoDe('PCV', PCV_EFEITO_NOVO)?.manejo, PCV_MANEJO);
+// A nota_interna nova também cita "14 dias após a última dose": 2 no manejo + 1 nela.
+t('"14 dias após a última dose": 2 no manejo do PCV, 3 no catálogo (a 3ª na nota_interna)',
+  [efeitoDe('PCV', PCV_EFEITO_NOVO)?.manejo.split('14 dias após a última dose').length - 1, vezes('14 dias após a última dose')], [2, 3]);
+t('"Interações alimentares" não é mais nome de efeito no PCV; "Durante o tratamento com PCV, confirme…" = 0',
+  [agora('PCV')?.efeitos.some(e => e.efeito === 'Interações alimentares'), vezes('Durante o tratamento com PCV, confirme com sua equipe oncológica')], [false, 0]);
+t('PCV: ordem dos efeitos e relacionado_a mantidos (só o nome do 4º muda)',
+  agora('PCV')?.efeitos.map(e => [e.efeito, e.relacionado_a]),
+  antes('PCV').efeitos.map(e => [e.efeito === 'Interações alimentares' ? PCV_EFEITO_NOVO : e.efeito, e.relacionado_a]));
+const conta = (txt, s) => txt.toLowerCase().split(s).length - 1;
+t('PCV: "queijo" só em "queijos maturados" (1 vez, no manejo) e "embutido" = 0',
+  [conta(JSON.stringify(agora('PCV')), 'queijo'), conta(efeitoDe('PCV', PCV_EFEITO_NOVO)?.manejo ?? '', 'queijos maturados'), conta(JSON.stringify(agora('PCV')), 'embutido')], [1, 1, 0]);
+t('outras fichas: listas com "queijo"/"embutido" iguais ao 2ef22d0',
+  catalogo.protocolos.filter(p => p.nome !== 'PCV').map(p => [conta(JSON.stringify(p), 'queijo'), conta(JSON.stringify(p), 'embutido')]),
+  base.protocolos.filter(p => p.nome !== 'PCV').map(p => [conta(JSON.stringify(p), 'queijo'), conta(JSON.stringify(p), 'embutido')]));
 for (const nome of Object.keys(NOTAS_ADMIN)) {
   t(`${nome}: nota_interna literal e último campo; ordem = 2ef22d0 + nota_interna`,
     [agora(nome)?.nota_interna, Object.keys(agora(nome) ?? {})], [NOTAS_ADMIN[nome], [...Object.keys(antes(nome)), 'nota_interna']]);

@@ -55,7 +55,7 @@
       "efeitos": [
         {
           "efeito": "Nausea e vomito (alto potencial emetogenico)",
-          "manejo": "Antiemese conforme prescricao; fracionar; alimentos secos e frios; hidratacao em pequenos goles"
+          "manejo": "Utilize os medicamentos para prevenir ou controlar náuseas e vômitos conforme a prescrição médica. Fracione as refeições, experimente alimentos secos ou frios, conforme sua tolerância, e beba líquidos em pequenos goles ao longo do dia."
         },
         {
           "efeito": "Mucosite / estomatite",
@@ -318,7 +318,7 @@
       "efeitos": [
         {
           "efeito": "Nausea e vomito (alto potencial emetogenico)",
-          "manejo": "Antiemese conforme prescricao; fracionar; alimentos secos/frios; hidratacao em pequenos goles"
+          "manejo": "Utilize os medicamentos para prevenir ou controlar náuseas e vômitos conforme a prescrição médica. Fracione as refeições, experimente alimentos secos ou frios, conforme sua tolerância, e beba líquidos em pequenos goles ao longo do dia."
         },
         {
           "efeito": "Nefrotoxicidade / disturbios eletroliticos (Mg, K)",
@@ -552,7 +552,7 @@
         {
           "efeito": "Dor óssea / dor no corpo",
           "relacionado_a": "Lonquex (D6)",
-          "manejo": "Muito comum com lipegfilgrastim/Lonquex, por estímulo da medula óssea. Pode causar dor óssea, muscular e lombar. Manejo com analgésico prescrito/liberado pela equipe, hidratação, compressa morna e repouso relativo. Evitar anti-inflamatório por conta própria, principalmente pelo risco renal/plaquetas."
+          "manejo": "Muito comum com lipegfilgrastim/Lonquex, por estímulo da medula óssea. Pode causar dor óssea, muscular e lombar. Para aliviar a dor, utilize apenas analgésicos prescritos ou autorizados pela equipe médica. Mantenha a hidratação conforme sua orientação clínica, utilize compressas mornas se não houver vermelhidão ou inchaço no local e respeite os períodos de descanso, mantendo movimentos leves conforme sua tolerância. Evitar anti-inflamatório por conta própria, principalmente pelo risco renal/plaquetas."
         },
         {
           "efeito": "Toxicidade renal",
@@ -2071,9 +2071,9 @@
           "manejo": "Monitorar formigamento, marcha, força nas mãos e segurança para cozinhar. Facilitar refeições prontas, sopas e proteínas já preparadas."
         },
         {
-          "efeito": "Interações alimentares",
+          "efeito": "Cuidados alimentares durante o uso de procarbazina",
           "relacionado_a": "Procarbazina",
-          "manejo": "Durante o tratamento com PCV, confirme com sua equipe oncológica quais alimentos, bebidas alcoólicas e suplementos devem ser evitados. Não faça mudanças por conta própria. Antes de iniciar dietas restritivas, suplementos ou produtos naturais, converse com sua equipe oncológica."
+          "manejo": "A procarbazina pode interagir com bebidas alcoólicas e alimentos ricos em tiramina, provocando reações indesejadas.\nNão consuma bebidas alcoólicas, incluindo cervejas e vinhos sem álcool, durante o uso da procarbazina e por 14 dias após a última dose.\nEvite alimentos muito ricos em tiramina, como queijos maturados, salame, pepperoni, carnes curadas, extratos concentrados de levedura e alimentos excessivamente fermentados ou envelhecidos, durante o uso da medicação e por 14 dias após a última dose.\nCaso apresente dor de cabeça intensa, palpitações, sudorese importante ou mal-estar após consumir algum alimento, procure avaliação médica.\nSua equipe oncológica poderá orientar restrições específicas conforme o tratamento prescrito.\nAntes de iniciar dietas restritivas, suplementos ou produtos naturais, converse com sua equipe oncológica."
         },
         {
           "efeito": "Baixa imunidade",
@@ -2090,7 +2090,7 @@
         "Vômitos persistentes",
         "Formigamento progressivo"
       ],
-      "nota_interna": "Pendente: confirmar as restrições do serviço. Verificar orientação institucional sobre alimentos ricos em tiramina e álcool. Pendente: conferir a orientação alimentar completa do PCV (evitar bebidas alcoólicas e alimentos ricos em tiramina, como queijos maturados e embutidos, no período indicado pela equipe) e confirmar a duração das restrições, que pode se estender após o término da procarbazina. A Lâmina traz apenas a orientação geral de confirmar com a equipe oncológica."
+      "nota_interna": "Pendente: confirmar as restrições do serviço. Verificar orientação institucional sobre alimentos ricos em tiramina e álcool. Orientação alimentar da procarbazina (álcool e tiramina, inclusive 14 dias após a última dose) publicada na Lâmina conforme texto da Kelly de 10/10/2026. O aviso de dor de cabeça intensa, palpitações e sudorese está só no texto do manejo, não na lista de sinais de alerta."
     },
     {
       "nome": "Pembrolizumabe (a cada 3 semanas)",
