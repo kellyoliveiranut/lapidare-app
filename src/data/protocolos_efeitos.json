@@ -601,7 +601,7 @@
       "nome": "Avelumabe",
       "indicacao": "Imunoterapia; verificar sítio tumoral",
       "duracaoCiclo": 14,
-      "conduta_base": "Manter boa hidratação, proteína em todas as refeições e registro de diarreia, dor abdominal, apetite, peso, fadiga, tosse e falta de ar. Perfil de imunoterapia: atenção a efeitos imunomediados. (duração a confirmar)",
+      "conduta_base": "Manter boa hidratação, proteína em todas as refeições e registro de diarreia, dor abdominal, apetite, peso, fadiga, tosse e falta de ar. Perfil de imunoterapia: atenção a efeitos imunomediados. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
       "efeitos": [
         {
           "efeito": "Diarreia/colite imunomediada",
@@ -632,7 +632,7 @@
       "nome": "Bevacizumabe + Irinotecano",
       "indicacao": "Colorretal, TGI, SNC ou outros; verificar indicação",
       "duracaoCiclo": 14,
-      "conduta_base": "Priorizar prevenção de desidratação, controle de diarreia, proteína diária e segurança alimentar. Acompanhar peso, evacuações e ingestão hídrica. (duração a confirmar)",
+      "conduta_base": "Priorizar prevenção de desidratação, controle de diarreia, proteína diária e segurança alimentar. Acompanhar peso, evacuações e ingestão hídrica. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
       "efeitos": [
         {
           "efeito": "Diarreia",
@@ -664,7 +664,7 @@
       "nome": "Bevacizumabe + Lomustina",
       "indicacao": "SNC/glioma; verificar indicação",
       "duracaoCiclo": 42,
-      "conduta_base": "A lomustina pode ter queda de medula mais tardia. Manter segurança alimentar, proteína diária, hidratação e atenção a náuseas, baixa ingestão, sangramentos e infecção. (duração a confirmar)",
+      "conduta_base": "A lomustina pode ter queda de medula mais tardia. Manter segurança alimentar, proteína diária, hidratação e atenção a náuseas, baixa ingestão, sangramentos e infecção. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
       "efeitos": [
         {
           "efeito": "Náuseas",
@@ -695,7 +695,7 @@
       "nome": "Cabozantinibe",
       "indicacao": "Terapia-alvo oral; rim, fígado, tireoide ou outros; verificar indicação",
       "duracaoCiclo": 28,
-      "conduta_base": "Terapia oral contínua exige rotina alimentar estável, monitoramento de diarreia, mucosite, peso, pressão, hidratação e síndrome mão-pé. (duração a confirmar)",
+      "conduta_base": "Terapia oral contínua exige rotina alimentar estável, monitoramento de diarreia, mucosite, peso, pressão, hidratação e síndrome mão-pé. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
       "efeitos": [
         {
           "efeito": "Diarreia",
@@ -767,7 +767,7 @@
       "nome": "CARBO + PACLITAXEL",
       "indicacao": "Ovário, pulmão, endométrio, mama ou outros; verificar indicação",
       "duracaoCiclo": 21,
-      "conduta_base": "Foco em náusea moderada, constipação, fadiga, neuropatia, dor muscular e preservação de massa magra. Reforçar segurança alimentar se houver queda de imunidade. (duração a confirmar)",
+      "conduta_base": "Foco em náusea moderada, constipação, fadiga, neuropatia, dor muscular e preservação de massa magra. Reforçar segurança alimentar se houver queda de imunidade. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
       "efeitos": [
         {
           "efeito": "Náuseas",
@@ -803,7 +803,7 @@
       "nome": "Carboplatina + Docetaxel semanal",
       "indicacao": "Mama, pulmão, próstata ou outros; verificar indicação",
       "duracaoCiclo": 21,
-      "conduta_base": "Por ser semanal, evitar queda progressiva da ingestão. Manter proteína diária, hidratação, manejo de mucosite e controle de constipação/diarreia. (duração a confirmar)",
+      "conduta_base": "Por ser semanal, evitar queda progressiva da ingestão. Manter proteína diária, hidratação, manejo de mucosite e controle de constipação/diarreia. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
       "efeitos": [
         {
           "efeito": "Mucosite",
@@ -875,7 +875,7 @@
       "nome": "Cemiplimabe",
       "indicacao": "Imunoterapia; pele, pulmão ou outros; verificar indicação",
       "duracaoCiclo": 21,
-      "conduta_base": "Perfil de imunoterapia. Monitorar intestino, apetite, peso, fadiga, pele, respiração e sinais de tireoidite, hepatite, colite ou pneumonite. Manter hidratação e proteína diária. (duração a confirmar)",
+      "conduta_base": "Perfil de imunoterapia. Monitorar intestino, apetite, peso, fadiga, pele, respiração e sinais de tireoidite, hepatite, colite ou pneumonite. Manter hidratação e proteína diária. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
       "efeitos": [
         {
           "efeito": "Diarreia/colite imunomediada",
@@ -911,7 +911,7 @@
       "nome": "Cetuximabe (Ataque)",
       "indicacao": "Colorretal, cabeça e pescoço ou outros; verificar indicação",
       "duracaoCiclo": 7,
-      "conduta_base": "Foco em pele, mucosite, diarreia, hidratação e manutenção da ingestão. Garantir proteína diária para integridade de pele e mucosas. (duração a confirmar)",
+      "conduta_base": "Foco em pele, mucosite, diarreia, hidratação e manutenção da ingestão. Garantir proteína diária para integridade de pele e mucosas. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
       "efeitos": [
         {
           "efeito": "Rash/acneiforme e pele seca",
@@ -947,7 +947,7 @@
       "nome": "Cetuximabe (Manutenção)",
       "indicacao": "Colorretal, cabeça e pescoço ou outros; verificar indicação",
       "duracaoCiclo": 7,
-      "conduta_base": "Acompanhar semanalmente ingestão, peso, diarreia, mucosite e lesões de pele. Priorizar hidratação, proteína diária e refeições de fácil aceitação. (duração a confirmar)",
+      "conduta_base": "Acompanhar semanalmente ingestão, peso, diarreia, mucosite e lesões de pele. Priorizar hidratação, proteína diária e refeições de fácil aceitação. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
       "efeitos": [
         {
           "efeito": "Pele seca/rash",
@@ -983,7 +983,7 @@
       "nome": "Cisplatina + Etoposideo",
       "indicacao": "Pulmão pequenas células, tumores germinativos ou outros; verificar indicação",
       "duracaoCiclo": 21,
-      "conduta_base": "Priorizar hidratação, controle de náusea, proteção renal, manutenção de eletrólitos conforme exames e proteína diária. Reforçar segurança alimentar na janela de queda de imunidade. (duração a confirmar)",
+      "conduta_base": "Priorizar hidratação, controle de náusea, proteção renal, manutenção de eletrólitos conforme exames e proteína diária. Reforçar segurança alimentar na janela de queda de imunidade. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
       "efeitos": [
         {
           "efeito": "Náuseas/vômitos",
@@ -1025,7 +1025,7 @@
       "nome": "Cisplatina + Irinotecano",
       "indicacao": "Pulmão, TGI, ginecológico ou outros; verificar indicação",
       "duracaoCiclo": 21,
-      "conduta_base": "Combinação com foco em náusea, proteção renal, diarreia e risco de desidratação. Reforçar hidratação fracionada e plano alimentar antidiarreico. (duração a confirmar)",
+      "conduta_base": "Combinação com foco em náusea, proteção renal, diarreia e risco de desidratação. Reforçar hidratação fracionada e plano alimentar antidiarreico. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
       "efeitos": [
         {
           "efeito": "Náuseas/vômitos",
@@ -1067,7 +1067,7 @@
       "nome": "Dabrafenibe + Trametinibe",
       "indicacao": "Terapia-alvo; melanoma, pulmão, tireoide ou outros BRAF; verificar indicação",
       "duracaoCiclo": 28,
-      "conduta_base": "Monitorar febre, hidratação, ingestão, peso, diarreia, náusea e fadiga. Terapias-alvo orais podem gerar sintomas flutuantes. (duração a confirmar)",
+      "conduta_base": "Monitorar febre, hidratação, ingestão, peso, diarreia, náusea e fadiga. Terapias-alvo orais podem gerar sintomas flutuantes. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
       "efeitos": [
         {
           "efeito": "Febre e mal-estar",
@@ -1104,7 +1104,7 @@
       "nome": "Dacarbazina",
       "indicacao": "Melanoma, sarcoma, linfoma ou outros; verificar indicação",
       "duracaoCiclo": 21,
-      "conduta_base": "Foco em náuseas, vômitos, anorexia, hidratação e segurança alimentar na janela de queda imune. (duração a confirmar)",
+      "conduta_base": "Foco em náuseas, vômitos, anorexia, hidratação e segurança alimentar na janela de queda imune. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
       "efeitos": [
         {
           "efeito": "Náuseas/vômitos",
@@ -1140,7 +1140,7 @@
       "nome": "Docetaxel + Gencitabina",
       "indicacao": "Sarcoma, mama, pulmão ou outros; verificar indicação",
       "duracaoCiclo": 21,
-      "conduta_base": "Foco em proteína, hidratação, manejo de fadiga, mucosite, retenção de líquidos, diarreia e segurança alimentar. (duração a confirmar)",
+      "conduta_base": "Foco em proteína, hidratação, manejo de fadiga, mucosite, retenção de líquidos, diarreia e segurança alimentar. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
       "efeitos": [
         {
           "efeito": "Fadiga",
@@ -1181,7 +1181,7 @@
       "nome": "Dostarlimabe (Ruby trial)",
       "indicacao": "Imunoterapia; endométrio ou outros; verificar indicação",
       "duracaoCiclo": 21,
-      "conduta_base": "Perfil de imunoterapia. Monitorar intestino, fígado, tireoide, pulmão, apetite, peso e fadiga. Toxicidades podem ser imunomediadas e não devem ser tratadas como sintomas comuns persistentes. (duração a confirmar)",
+      "conduta_base": "Perfil de imunoterapia. Monitorar intestino, fígado, tireoide, pulmão, apetite, peso e fadiga. Toxicidades podem ser imunomediadas e não devem ser tratadas como sintomas comuns persistentes. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
       "efeitos": [
         {
           "efeito": "Diarreia/colite imunomediada",
@@ -1217,7 +1217,7 @@
       "nome": "DOXOPEG + DACARBAZINA",
       "indicacao": "Sarcoma, ginecológico ou outros; verificar indicação",
       "duracaoCiclo": 28,
-      "conduta_base": "Foco em náuseas, mucosite, síndrome mão-pé, fadiga, hidratação e manutenção proteica. (duração a confirmar)",
+      "conduta_base": "Foco em náuseas, mucosite, síndrome mão-pé, fadiga, hidratação e manutenção proteica. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
       "efeitos": [
         {
           "efeito": "Náuseas/vômitos",
@@ -1253,7 +1253,7 @@
       "nome": "Doxorrubicina + Cisplatina",
       "indicacao": "Sarcoma, ginecológico ou outros; verificar indicação",
       "duracaoCiclo": 21,
-      "conduta_base": "Combinação com alta demanda de controle de náusea, hidratação, mucosite, proteção renal e manutenção de massa magra. (duração a confirmar)",
+      "conduta_base": "Combinação com alta demanda de controle de náusea, hidratação, mucosite, proteção renal e manutenção de massa magra. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
       "efeitos": [
         {
           "efeito": "Náuseas/vômitos",
@@ -1295,7 +1295,7 @@
       "nome": "Doxorrubicina + Ifosfamida",
       "indicacao": "Sarcoma; verificar indicação",
       "duracaoCiclo": 21,
-      "conduta_base": "Foco em hidratação, mucosite, segurança alimentar, manutenção proteica e vigilância de sintomas urinários/neurológicos. (duração a confirmar)",
+      "conduta_base": "Foco em hidratação, mucosite, segurança alimentar, manutenção proteica e vigilância de sintomas urinários/neurológicos. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
       "efeitos": [
         {
           "efeito": "Mucosite",
@@ -1337,7 +1337,7 @@
       "nome": "Doxorrubicina Lipossomal",
       "indicacao": "Ovário, mama, sarcoma ou outros; verificar indicação",
       "duracaoCiclo": 28,
-      "conduta_base": "Foco em mucosite, síndrome mão-pé, fadiga, hidratação e manutenção do peso. (duração a confirmar)",
+      "conduta_base": "Foco em mucosite, síndrome mão-pé, fadiga, hidratação e manutenção do peso. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
       "efeitos": [
         {
           "efeito": "Mucosite",
@@ -1373,7 +1373,7 @@
       "nome": "DTIC",
       "indicacao": "Melanoma, sarcoma, linfoma ou outros; verificar indicação",
       "duracaoCiclo": 21,
-      "conduta_base": "Foco em náusea, vômitos, anorexia, hidratação e segurança alimentar. (duração a confirmar)",
+      "conduta_base": "Foco em náusea, vômitos, anorexia, hidratação e segurança alimentar. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
       "efeitos": [
         {
           "efeito": "Náuseas/vômitos",
@@ -1409,7 +1409,7 @@
       "nome": "Encorafenibe + Binimetinibe",
       "indicacao": "Terapia-alvo; melanoma/colorretal BRAF ou outros; verificar indicação",
       "duracaoCiclo": 28,
-      "conduta_base": "Monitorar diarreia, náuseas, fadiga, apetite, peso, pele e sintomas visuais. Manter hidratação e proteína diária. (duração a confirmar)",
+      "conduta_base": "Monitorar diarreia, náuseas, fadiga, apetite, peso, pele e sintomas visuais. Manter hidratação e proteína diária. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
       "efeitos": [
         {
           "efeito": "Náuseas",
@@ -1488,7 +1488,7 @@
       "nome": "Eribulina",
       "indicacao": "Mama, sarcoma ou outros; verificar indicação",
       "duracaoCiclo": 21,
-      "conduta_base": "Foco em fadiga, neutropenia, constipação, náusea leve/moderada, neuropatia e manutenção de proteína. (duração a confirmar)",
+      "conduta_base": "Foco em fadiga, neutropenia, constipação, náusea leve/moderada, neuropatia e manutenção de proteína. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
       "efeitos": [
         {
           "efeito": "Fadiga",
@@ -1529,7 +1529,7 @@
       "nome": "Everolimo",
       "indicacao": "Terapia-alvo oral; mama, rim, neuroendócrino ou outros; verificar indicação",
       "duracaoCiclo": 28,
-      "conduta_base": "Atenção a mucosite, hiperglicemia, alteração de apetite, diarreia, fadiga e risco infeccioso. Manter proteína diária e monitorar peso. (duração a confirmar)",
+      "conduta_base": "Atenção a mucosite, hiperglicemia, alteração de apetite, diarreia, fadiga e risco infeccioso. Manter proteína diária e monitorar peso. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
       "efeitos": [
         {
           "efeito": "Mucosite",
@@ -1571,7 +1571,7 @@
       "nome": "GEMOX",
       "indicacao": "TGI, vias biliares, pâncreas, linfoma ou outros; verificar indicação",
       "duracaoCiclo": 14,
-      "conduta_base": "Evitar alimentos e líquidos gelados por sensibilidade ao frio da oxaliplatina. Manter hidratação em temperatura ambiente ou morna, proteína diária e segurança alimentar. (duração a confirmar)",
+      "conduta_base": "Evitar alimentos e líquidos gelados por sensibilidade ao frio da oxaliplatina. Manter hidratação em temperatura ambiente ou morna, proteína diária e segurança alimentar. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
       "efeitos": [
         {
           "efeito": "Neuropatia/sensibilidade ao frio",
@@ -1613,7 +1613,7 @@
       "nome": "IFOSFAMIDA",
       "indicacao": "Sarcoma, linfoma, germinativo ou outros; verificar indicação",
       "duracaoCiclo": 21,
-      "conduta_base": "Foco em hidratação, náusea, segurança alimentar, preservação de proteína e sinais urinários ou neurológicos. (duração a confirmar)",
+      "conduta_base": "Foco em hidratação, náusea, segurança alimentar, preservação de proteína e sinais urinários ou neurológicos. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
       "efeitos": [
         {
           "efeito": "Náuseas",
@@ -1655,7 +1655,7 @@
       "nome": "Imatinibe",
       "indicacao": "Terapia-alvo oral; GIST, LMC ou outros; verificar indicação",
       "duracaoCiclo": 28,
-      "conduta_base": "Tomar conforme prescrição, geralmente com alimento e água quando orientado. Monitorar náusea, edema, diarreia, cãibras, peso e apetite. (duração a confirmar)",
+      "conduta_base": "Tomar conforme prescrição, geralmente com alimento e água quando orientado. Monitorar náusea, edema, diarreia, cãibras, peso e apetite. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
       "efeitos": [
         {
           "efeito": "Náuseas",
@@ -1697,7 +1697,7 @@
       "nome": "Lenvatinibe",
       "indicacao": "Terapia-alvo oral; tireoide, rim, fígado, endométrio ou outros; verificar indicação",
       "duracaoCiclo": 28,
-      "conduta_base": "Monitorar peso, apetite, diarreia, mucosite, pressão, ingestão hídrica e perda de massa magra. (duração a confirmar)",
+      "conduta_base": "Monitorar peso, apetite, diarreia, mucosite, pressão, ingestão hídrica e perda de massa magra. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
       "efeitos": [
         {
           "efeito": "Diarreia",
@@ -1739,7 +1739,7 @@
       "nome": "Lomustina",
       "indicacao": "SNC/glioma, linfoma ou outros; verificar indicação",
       "duracaoCiclo": 42,
-      "conduta_base": "Atenção ao nadir tardio. Manter segurança alimentar, controle de náusea, ingestão proteica e monitoramento de sangramentos, febre e baixa ingestão. (duração a confirmar)",
+      "conduta_base": "Atenção ao nadir tardio. Manter segurança alimentar, controle de náusea, ingestão proteica e monitoramento de sangramentos, febre e baixa ingestão. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
       "efeitos": [
         {
           "efeito": "Náuseas",
@@ -1781,7 +1781,7 @@
       "nome": "Nivolumabe + Ipilimumabe",
       "indicacao": "Imunoterapia combinada; melanoma, rim, pulmão, colorretal ou outros; verificar indicação",
       "duracaoCiclo": 21,
-      "conduta_base": "Maior risco de toxicidade imunomediada em combinação. Monitorar diarreia, dor abdominal, apetite, fadiga, pele, respiração, fígado e sinais endócrinos. (duração a confirmar)",
+      "conduta_base": "Maior risco de toxicidade imunomediada em combinação. Monitorar diarreia, dor abdominal, apetite, fadiga, pele, respiração, fígado e sinais endócrinos. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
       "efeitos": [
         {
           "efeito": "Colite/diarreia imunomediada",
@@ -1823,7 +1823,7 @@
       "nome": "Nivolumabe + Relatlimabe",
       "indicacao": "Imunoterapia; melanoma ou outros; verificar indicação",
       "duracaoCiclo": 28,
-      "conduta_base": "Monitorar diarreia, fadiga, apetite, pele, tireoide, fígado e sintomas respiratórios. Perfil de imunoterapia, com risco de toxicidades imunomediadas. (duração a confirmar)",
+      "conduta_base": "Monitorar diarreia, fadiga, apetite, pele, tireoide, fígado e sintomas respiratórios. Perfil de imunoterapia, com risco de toxicidades imunomediadas. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
       "efeitos": [
         {
           "efeito": "Diarreia/colite imunomediada",
@@ -1950,7 +1950,7 @@
       "nome": "Paclitaxel",
       "indicacao": "Mama, ovário, pulmão, endométrio ou outros; verificar indicação",
       "duracaoCiclo": 7,
-      "conduta_base": "Pode ser semanal ou a cada 21 dias. Foco em neuropatia, dor muscular, constipação, náusea, fadiga e preservação de massa magra. (duração a confirmar)",
+      "conduta_base": "Pode ser semanal ou a cada 21 dias. Foco em neuropatia, dor muscular, constipação, náusea, fadiga e preservação de massa magra. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
       "efeitos": [
         {
           "efeito": "Neuropatia periférica",
@@ -2053,7 +2053,7 @@
       "nome": "PCV",
       "indicacao": "SNC/glioma; verificar indicação",
       "duracaoCiclo": 42,
-      "conduta_base": "Procarbazina, lomustina e vincristina exigem atenção a náusea, constipação, neuropatia, baixa imunidade e possíveis interações alimentares específicas. Confirmar restrições do serviço. (duração a confirmar)",
+      "conduta_base": "Procarbazina, lomustina e vincristina exigem atenção a náusea, constipação, neuropatia, baixa imunidade e possíveis interações alimentares específicas. Confirmar restrições do serviço. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
       "efeitos": [
         {
           "efeito": "Náuseas",
@@ -2169,7 +2169,7 @@
       "nome": "Ramucirumabe + Docetaxel",
       "indicacao": "Pulmão, gástrico ou outros; verificar indicação",
       "duracaoCiclo": 21,
-      "conduta_base": "Foco em proteína, mucosite, diarreia, fadiga, retenção de líquidos, pressão e risco de sangramento/cicatrização. (duração a confirmar)",
+      "conduta_base": "Foco em proteína, mucosite, diarreia, fadiga, retenção de líquidos, pressão e risco de sangramento/cicatrização. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
       "efeitos": [
         {
           "efeito": "Mucosite",
@@ -2211,7 +2211,7 @@
       "nome": "Sandostatin Lar 20mg",
       "indicacao": "Análogo de somatostatina; neuroendócrino/acromegalia; verificar indicação",
       "duracaoCiclo": 28,
-      "conduta_base": "Não é quimioterapia citotóxica clássica. Foco em diarreia/esteatorreia, dor abdominal, controle glicêmico, apetite e manutenção de peso. (duração a confirmar)",
+      "conduta_base": "Não é quimioterapia citotóxica clássica. Foco em diarreia/esteatorreia, dor abdominal, controle glicêmico, apetite e manutenção de peso. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
       "efeitos": [
         {
           "efeito": "Diarreia/esteatorreia",
@@ -2247,7 +2247,7 @@
       "nome": "Sandostatin Lar 30mg",
       "indicacao": "Análogo de somatostatina; neuroendócrino/acromegalia; verificar indicação",
       "duracaoCiclo": 28,
-      "conduta_base": "Não é quimioterapia citotóxica clássica. Foco em controle de diarreia, gordura nas fezes, dor abdominal, glicemia e manutenção do estado nutricional. (duração a confirmar)",
+      "conduta_base": "Não é quimioterapia citotóxica clássica. Foco em controle de diarreia, gordura nas fezes, dor abdominal, glicemia e manutenção do estado nutricional. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
       "efeitos": [
         {
           "efeito": "Diarreia/esteatorreia",
@@ -2283,7 +2283,7 @@
       "nome": "Somatuline Autogel",
       "indicacao": "Análogo de somatostatina; neuroendócrino/acromegalia; verificar indicação",
       "duracaoCiclo": 28,
-      "conduta_base": "Não é quimioterapia citotóxica clássica. Monitorar diarreia, gordura nas fezes, dor abdominal, glicemia, apetite e peso. (duração a confirmar)",
+      "conduta_base": "Não é quimioterapia citotóxica clássica. Monitorar diarreia, gordura nas fezes, dor abdominal, glicemia, apetite e peso. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
       "efeitos": [
         {
           "efeito": "Diarreia/esteatorreia",
@@ -2319,7 +2319,7 @@
       "nome": "Sunitinibe 37,5mg",
       "indicacao": "Terapia-alvo oral; rim, GIST, neuroendócrino ou outros; verificar indicação",
       "duracaoCiclo": 28,
-      "conduta_base": "Monitorar diarreia, mucosite, alteração de paladar, peso, pressão e síndrome mão-pé. Esquema pode ser contínuo ou intermitente; VERIFICAR prescrição. (duração a confirmar)",
+      "conduta_base": "Monitorar diarreia, mucosite, alteração de paladar, peso, pressão e síndrome mão-pé. Esquema pode ser contínuo ou intermitente; VERIFICAR prescrição. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
       "efeitos": [
         {
           "efeito": "Diarreia",
@@ -2361,7 +2361,7 @@
       "nome": "Sunitinibe 50mg",
       "indicacao": "Terapia-alvo oral; rim, GIST, neuroendócrino ou outros; verificar indicação",
       "duracaoCiclo": 42,
-      "conduta_base": "Esquema 4 semanas on/2 off é comum, mas VERIFICAR prescrição. Monitorar diarreia, mucosite, paladar, peso, pressão e síndrome mão-pé. (duração a confirmar)",
+      "conduta_base": "Esquema 4 semanas on/2 off é comum, mas VERIFICAR prescrição. Monitorar diarreia, mucosite, paladar, peso, pressão e síndrome mão-pé. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
       "efeitos": [
         {
           "efeito": "Diarreia",
@@ -2403,7 +2403,7 @@
       "nome": "Temozolomida 150mg Isolado",
       "indicacao": "SNC/glioma ou outros; verificar indicação",
       "duracaoCiclo": 28,
-      "conduta_base": "Foco em náusea, constipação, apetite, segurança alimentar, proteína diária e monitoramento de hemograma. Confirmar dias de tomada na prescrição. (duração a confirmar)",
+      "conduta_base": "Foco em náusea, constipação, apetite, segurança alimentar, proteína diária e monitoramento de hemograma. Confirmar dias de tomada na prescrição. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
       "efeitos": [
         {
           "efeito": "Náuseas",
@@ -2440,7 +2440,7 @@
         "Falta de ar ou dificuldade para respirar.",
         "Vômitos persistentes ou incapacidade de manter líquidos.",
         "Sinais de desidratação, como urina muito reduzida, tontura intensa ou fraqueza importante.",
-        "Dor de cabeça intensa"
+        "Dor de cabeça intensa."
       ],
       "alerta_titulo": "Procure atendimento médico imediatamente se apresentar:",
       "alerta_rodape": "Não espere o próximo atendimento nutricional para comunicar esses sintomas. Procure a equipe oncológica ou um serviço de urgência.",
@@ -2488,7 +2488,7 @@
         "Falta de ar ou dificuldade para respirar.",
         "Vômitos persistentes ou incapacidade de manter líquidos.",
         "Sinais de desidratação, como urina muito reduzida, tontura intensa ou fraqueza importante.",
-        "Dor de cabeça intensa"
+        "Dor de cabeça intensa."
       ],
       "alerta_titulo": "Procure atendimento médico imediatamente se apresentar:",
       "alerta_rodape": "Não espere o próximo atendimento nutricional para comunicar esses sintomas. Procure a equipe oncológica ou um serviço de urgência.",
@@ -2499,7 +2499,7 @@
       "nome": "VAC",
       "indicacao": "Sarcoma, tumores pediátricos/adulto jovem ou outros; verificar indicação",
       "duracaoCiclo": 21,
-      "conduta_base": "Foco em constipação por vincristina, mucosite, náusea, hidratação, segurança alimentar e preservação de massa magra. (duração a confirmar)",
+      "conduta_base": "Foco em constipação por vincristina, mucosite, náusea, hidratação, segurança alimentar e preservação de massa magra. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
       "efeitos": [
         {
           "efeito": "Constipação",
@@ -2541,7 +2541,7 @@
       "nome": "Vemurafenibe+ Cobimetinibe",
       "indicacao": "Terapia-alvo; melanoma BRAF ou outros; verificar indicação",
       "duracaoCiclo": 28,
-      "conduta_base": "Monitorar diarreia, náusea, perda de apetite, pele/fotossensibilidade, fadiga, febre e sintomas visuais. (duração a confirmar)",
+      "conduta_base": "Monitorar diarreia, náusea, perda de apetite, pele/fotossensibilidade, fadiga, febre e sintomas visuais. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
       "efeitos": [
         {
           "efeito": "Diarreia",
@@ -2583,7 +2583,7 @@
       "nome": "Vorsidenibe",
       "indicacao": "Terapia-alvo oral; glioma IDH ou outros; verificar indicação",
       "duracaoCiclo": 28,
-      "conduta_base": "VERIFICAR protocolo e perfil institucional. Monitorar náusea, fadiga, apetite, peso, evacuação e sinais hepáticos. (duração a confirmar)",
+      "conduta_base": "VERIFICAR protocolo e perfil institucional. Monitorar náusea, fadiga, apetite, peso, evacuação e sinais hepáticos. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
       "efeitos": [
         {
           "efeito": "Náusea",
@@ -2620,7 +2620,7 @@
       "nome": "YONDELIS",
       "indicacao": "Sarcoma ou ovário; verificar indicação",
       "duracaoCiclo": 21,
-      "conduta_base": "Foco em náusea, fadiga, manutenção proteica, segurança alimentar e vigilância de sinais hepáticos. (duração a confirmar)",
+      "conduta_base": "Foco em náusea, fadiga, manutenção proteica, segurança alimentar e vigilância de sinais hepáticos. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
       "efeitos": [
         {
           "efeito": "Náuseas",
@@ -2662,7 +2662,7 @@
       "nome": "YONDELIS + DOXORRUBICINA",
       "indicacao": "Sarcoma ou outros; verificar indicação",
       "duracaoCiclo": 21,
-      "conduta_base": "Foco em mucosite, náusea, fadiga, manutenção proteica, segurança alimentar e vigilância hepática/cardiopulmonar. (duração a confirmar)",
+      "conduta_base": "Foco em mucosite, náusea, fadiga, manutenção proteica, segurança alimentar e vigilância hepática/cardiopulmonar. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
       "efeitos": [
         {
           "efeito": "Náuseas/vômitos",
@@ -2704,7 +2704,7 @@
       "nome": "ZOLADEX 10.8MG",
       "indicacao": "Hormonioterapia/análogo de GnRH; mama, próstata ou ginecológico; verificar indicação",
       "duracaoCiclo": 84,
-      "conduta_base": "Não é quimioterapia citotóxica. Foco em manejo de menopausa induzida ou bloqueio hormonal: fogachos, sono, composição corporal, massa muscular, saúde óssea e sintomas metabólicos. (duração a confirmar)",
+      "conduta_base": "Não é quimioterapia citotóxica. Foco em manejo de menopausa induzida ou bloqueio hormonal: fogachos, sono, composição corporal, massa muscular, saúde óssea e sintomas metabólicos. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
       "efeitos": [
         {
           "efeito": "Fogachos/ondas de calor",
@@ -2745,7 +2745,7 @@
       "nome": "ZOLADEX 3,6MG",
       "indicacao": "Hormonioterapia/análogo de GnRH; mama, próstata ou ginecológico; verificar indicação",
       "duracaoCiclo": 28,
-      "conduta_base": "Não é quimioterapia citotóxica. Foco em manejo de menopausa induzida ou bloqueio hormonal: fogachos, sono, composição corporal, massa muscular, saúde óssea e sintomas metabólicos. (duração a confirmar)",
+      "conduta_base": "Não é quimioterapia citotóxica. Foco em manejo de menopausa induzida ou bloqueio hormonal: fogachos, sono, composição corporal, massa muscular, saúde óssea e sintomas metabólicos. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
       "efeitos": [
         {
           "efeito": "Fogachos/ondas de calor",
@@ -2873,13 +2873,13 @@
           "fase": "alerta"
         },
         {
-          "de": 6,
-          "ate": 13,
+          "de": 7,
+          "ate": 14,
           "desc": "Neutropenia, maior risco de infecções",
           "fase": "risco"
         }
       ],
-      "conduta_base": "Protocolo com cinco drogas combinadas — atenção especial a náuseas nos primeiros dias, imunossupressão na janela de neutropenia (D+7 a D+14) e ao apetite aumentado pela prednisona nos dias de corticoide. Priorizar fracionamento das refeições e hidratação constante.",
+      "conduta_base": "Protocolo com cinco drogas combinadas — atenção especial a náuseas nos primeiros dias, imunossupressão na janela de neutropenia (Dia 8 ao Dia 15) e ao apetite aumentado pela prednisona nos dias de corticoide. Priorizar fracionamento das refeições e hidratação constante.",
       "efeitos": [
         {
           "efeito": "Náuseas e vômitos",

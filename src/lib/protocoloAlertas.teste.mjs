@@ -49,11 +49,26 @@ const ALERTAS_TMZ = [
   'Falta de ar ou dificuldade para respirar.',
   'Vômitos persistentes ou incapacidade de manter líquidos.',
   'Sinais de desidratação, como urina muito reduzida, tontura intensa ou fraqueza importante.',
-  'Dor de cabeça intensa',
+  'Dor de cabeça intensa.',
 ];
 const TITULO_TMZ = 'Procure atendimento médico imediatamente se apresentar:';
 const RODAPE_TMZ = 'Não espere o próximo atendimento nutricional para comunicar esses sintomas. Procure a equipe oncológica ou um serviço de urgência.';
 const DURACAO_NOVA = 'A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.';
+
+// "(duração a confirmar)" (decisão da Kelly, 10/10/2026): o aviso no fim da
+// conduta_base vira a frase padrão em todas as fichas. A conduta_base sai na
+// Lâmina impressa, e o aviso nunca pode chegar a ela. Em Paclitaxel e
+// Sunitinibe 50mg o número junto do aviso é intervalo/esquema de tomada, não
+// duração do tratamento, então também foram trocados (bloco-76).
+const AVISO = '(duração a confirmar)';
+const PENDENTES_B = [];
+const comFrasePadrao = texto => {
+  let antes = texto.slice(0, texto.lastIndexOf(AVISO)).trimEnd();
+  if (!/[.!?]$/.test(antes)) antes += '.';
+  return `${antes} ${DURACAO_NOVA}`;
+};
+const COM_AVISO_NO_BASE = base.protocolos.filter(p => p.conduta_base?.includes(AVISO)).map(p => p.nome);
+const TROCADAS = COM_AVISO_NO_BASE.filter(n => !PENDENTES_B.includes(n));
 
 const agora = nome => catalogo.protocolos.find(p => p.nome === nome);
 const antes = nome => base.protocolos.find(p => p.nome === nome);
@@ -83,13 +98,10 @@ for (const nome of TMZ) {
   for (const campo of Object.keys(b).filter(k => k !== 'sinais_alerta' && k !== 'conduta_base')) {
     t(`${nome}: ${campo} idêntico ao 2ef22d0`, a[campo], b[campo]);
   }
-  const condutaEsperada = nome === 'Temozolomida 75mg + RDT'
-    ? b.conduta_base.replace('(duração a confirmar)', DURACAO_NOVA)
-    : b.conduta_base;
-  t(`${nome}: conduta_base ${nome.includes('RDT') ? '= 2ef22d0 com a frase da duração' : 'idêntico ao 2ef22d0'}`, a.conduta_base, condutaEsperada);
+  t(`${nome}: conduta_base = 2ef22d0 com a frase padrão da duração`, a.conduta_base, comFrasePadrao(b.conduta_base));
   t(`${nome}: sinais_alerta = lista consolidada da Kelly, literal`, a.sinais_alerta, ALERTAS_TMZ);
-  t(`${nome}: "Dor de cabeça intensa" presente com o texto antigo`,
-    [b.sinais_alerta.includes('Dor de cabeça intensa'), a.sinais_alerta.includes('Dor de cabeça intensa')], [true, true]);
+  t(`${nome}: "Dor de cabeça intensa." (com ponto) é o último alerta, vindo do antigo sem ponto`,
+    [b.sinais_alerta.includes('Dor de cabeça intensa'), a.sinais_alerta.at(-1)], [true, 'Dor de cabeça intensa.']);
   t(`${nome}: alerta_titulo literal`, a.alerta_titulo, TITULO_TMZ);
   t(`${nome}: alerta_rodape literal`, a.alerta_rodape, RODAPE_TMZ);
   t(`${nome}: equipe_medica literal`, a.equipe_medica,
@@ -99,7 +111,20 @@ for (const nome of TMZ) {
   t(`${nome}: ordem dos campos`, Object.keys(a),
     [...Object.keys(b), 'alerta_titulo', 'alerta_rodape', 'equipe_medica', 'nota_interna']);
 }
-t('a 150mg mantém o "(duração a confirmar)"', agora(TMZ[0])?.conduta_base.includes('(duração a confirmar)'), true);
+
+// Duração: frase padrão em todas as 47, aviso em lugar nenhum.
+t('47 fichas tinham o aviso no 2ef22d0, todas na conduta_base', COM_AVISO_NO_BASE.length, 47);
+t('47 trocadas (44 no bloco-75 + 2 no bloco-76 + a Temozolomida 75mg + RDT do bloco-72)', TROCADAS.length, 47);
+t('aviso não existe em nenhum outro campo no 2ef22d0',
+  base.protocolos.filter(p => Object.entries(p).some(([k, v]) => k !== 'conduta_base' && JSON.stringify(v).includes(AVISO))).map(p => p.nome), []);
+t('47 fichas trocadas = conduta_base do 2ef22d0 com a frase padrão',
+  TROCADAS.filter(n => agora(n)?.conduta_base !== comFrasePadrao(antes(n).conduta_base)), []);
+t('frase padrão aparece exatamente nas 47 trocadas',
+  catalogo.protocolos.filter(p => JSON.stringify(p).includes(DURACAO_NOVA)).map(p => p.nome), TROCADAS);
+t('nenhuma ficha com "(duração a confirmar)" em nenhum campo',
+  catalogo.protocolos.filter(p => JSON.stringify(p).includes(AVISO)).map(p => p.nome), []);
+t('"Dor de cabeça intensa." só muda nas 2 de temozolomida',
+  catalogo.protocolos.filter(p => (p.sinais_alerta ?? []).includes('Dor de cabeça intensa.')).map(p => p.nome), TMZ);
 
 const ar = agora(AROMATASE);
 t('aromatase: 4 alertas', ar?.sinais_alerta?.length, 4);
@@ -120,10 +145,25 @@ t('nenhuma ficha com rascunho_revisao ou rascunho',
 t('meta idêntico ao 2ef22d0', catalogo.meta, base.meta);
 t('catálogo com 80 protocolos', catalogo.protocolos.length, 80);
 t('mesma ordem de nomes do 2ef22d0', catalogo.protocolos.map(p => p.nome), base.protocolos.map(p => p.nome));
-t('as outras 77 fichas idênticas ao 2ef22d0',
+// R-CHOP (decisão da Kelly, 10/10/2026, provisória): janela de risco do Dia 8
+// ao Dia 15 com a aplicação como Dia 1 — marco guardado 6/13 vira 7/14 e o
+// texto "D+7 a D+14" da conduta_base vira "Dia 8 ao Dia 15". Nada mais muda nele.
+const rchopEsperado = p => ({
+  ...p,
+  marcosEfeito: p.marcosEfeito.map(m => (m.fase === 'risco' && m.de === 6 && m.ate === 13 ? { ...m, de: 7, ate: 14 } : m)),
+  conduta_base: p.conduta_base.replace('D+7 a D+14', 'Dia 8 ao Dia 15'),
+});
+const esperadoAgora = p => {
+  let e = TROCADAS.includes(p.nome) ? { ...p, conduta_base: comFrasePadrao(p.conduta_base) } : p;
+  if (p.nome === 'R-CHOP') e = rchopEsperado(e);
+  return e;
+};
+t('as outras 77 fichas idênticas ao 2ef22d0 (exceto a conduta_base das trocadas pela duração e o R-CHOP)',
   catalogo.protocolos.filter(p => !TRES.includes(p.nome)),
-  base.protocolos.filter(p => !TRES.includes(p.nome)));
-for (const nome of ['R-CHOP', 'Kisqali (ribociclibe)', 'Kisqali + Femara (ribociclibe + letrozol)', 'Capecitabina + Temozolomida']) {
+  base.protocolos.filter(p => !TRES.includes(p.nome)).map(esperadoAgora));
+t('R-CHOP = 2ef22d0 com só o marco de risco 7/14 e "Dia 8 ao Dia 15" na conduta_base', agora('R-CHOP'), rchopEsperado(antes('R-CHOP')));
+t('R-CHOP: "D+7 a D+14" não existe mais no catálogo', JSON.stringify(catalogo).includes('D+7 a D+14'), false);
+for (const nome of ['Kisqali (ribociclibe)', 'Kisqali + Femara (ribociclibe + letrozol)', 'Capecitabina + Temozolomida']) {
   t(`${nome} idêntica ao 2ef22d0`, agora(nome), antes(nome));
 }
 

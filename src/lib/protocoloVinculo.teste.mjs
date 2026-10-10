@@ -73,14 +73,15 @@ for (const s of ['R-CHOP', 'R-MINI-CHOP', 'AC-T dose densa']) {
   t(`${s} não está pendente de prescrição`, protocoloPendentePrescricao(s), false);
 }
 
-// 5. R-CHOP e R-mini-CHOP sem mudança.
+// 5. R-mini-CHOP sem mudança. R-CHOP: janela de risco passou de D7–D14 para
+// D8–D15 (decisão da Kelly em 10/10/2026, provisória; não valida o nadir).
 t('R-MINI-CHOP -> R-mini-CHOP, sem mudança', resumo(getProtocolo('R-MINI-CHOP')), {
   nome: 'R-mini-CHOP', duracaoCiclo: 21,
   marcos: ['D1–D5 alerta', 'D2–D4 alerta', 'D7–D14 risco'], janela: 'D7–D14',
 });
-t('R-CHOP -> R-CHOP, sem mudança', resumo(getProtocolo('R-CHOP')), {
+t('R-CHOP -> R-CHOP, janela D8–D15', resumo(getProtocolo('R-CHOP')), {
   nome: 'R-CHOP', duracaoCiclo: 21,
-  marcos: ['D1–D5 alerta', 'D2–D4 alerta', 'D7–D14 risco'], janela: 'D7–D14',
+  marcos: ['D1–D5 alerta', 'D2–D4 alerta', 'D8–D15 risco'], janela: 'D8–D15',
 });
 t('R-CHOP longo continua sem ficha', getProtocolo('PROTOCOLO R- CHOP A CADA 21 DIAS POR 6 CICLOS'), null);
 
