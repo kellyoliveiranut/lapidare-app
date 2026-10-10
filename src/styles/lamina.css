@@ -159,6 +159,11 @@
 
 .la-efeito:last-child { border-bottom: none; }
 
+/* "Equipe médica" é um .la-efeito solto, sem lista em volta, logo antes
+   do rodapé: o :last-child acima não o pega, e a borda dele somava com a
+   borda de cima do rodapé (linha dupla). */
+.la-efeito:has(+ .la-rodape) { border-bottom: none; }
+
 .la-efeito-nome {
   font-weight: 600;
   font-size: 11.5pt;
@@ -172,7 +177,12 @@
 }
 
 /* ── Sinais de alerta ──
-   Mesma regra: o bloco pode fragmentar, cada linha é que fica inteira.
+   Ao contrário dos efeitos, a caixa vai INTEIRA para uma página: partida,
+   a metade de baixo ficava sem o título "Procure a equipe se aparecer"
+   (Temozolomida 75mg + RDT, 14 alertas, em 10/10/2026). Aqui o avoid
+   tudo-ou-nada é o certo: a maior caixa do catálogo (BEP, 9 alertas
+   longos) cabe com folga em meia folha. Se um dia não couber numa folha,
+   o navegador ignora o avoid e fragmenta, como antes.
    A borda completa aqui não é decoração — é o que mantém a caixa
    legível como "atenção" quando o fundo não imprime. */
 .la-alerta {
@@ -182,6 +192,8 @@
   padding: 11pt 13pt;
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
+  page-break-inside: avoid;
+  break-inside: avoid;
 }
 
 .la-alerta-titulo {

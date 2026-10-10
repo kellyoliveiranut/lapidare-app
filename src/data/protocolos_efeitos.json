@@ -2432,21 +2432,18 @@
         }
       ],
       "sinais_alerta": [
-        "Febre",
-        "Vômitos persistentes",
-        "Sangramento",
-        "Manchas roxas",
-        "Sonolência ou confusão",
-        "Dor de cabeça intensa",
-        "Convulsão",
-        "Febre ≥ 38 °C",
-        "Calafrios",
-        "Sangramento incomum",
-        "Incapacidade de hidratação",
-        "Desidratação",
-        "Falta de ar",
-        "Alterações neurológicas importantes, incluindo convulsões"
+        "Febre de 38 °C ou mais, ou calafrios.",
+        "Sangramento incomum, sangramento que não para ou manchas roxas sem causa aparente.",
+        "Convulsões.",
+        "Sonolência excessiva, confusão ou dificuldade para despertar.",
+        "Fraqueza nova em um lado do corpo, dificuldade para falar ou andar.",
+        "Falta de ar ou dificuldade para respirar.",
+        "Vômitos persistentes ou incapacidade de manter líquidos.",
+        "Sinais de desidratação, como urina muito reduzida, tontura intensa ou fraqueza importante.",
+        "Dor de cabeça intensa"
       ],
+      "alerta_titulo": "Procure atendimento médico imediatamente se apresentar:",
+      "alerta_rodape": "Não espere o próximo atendimento nutricional para comunicar esses sintomas. Procure a equipe oncológica ou um serviço de urgência.",
       "equipe_medica": "Hemograma e profilaxia para pneumonia por Pneumocystis: responsabilidade da equipe médica, conforme o esquema prescrito.",
       "nota_interna": "Não vincular a dias fixos da timeline. Não recomendar suspensão ou alteração de medicamento por iniciativa da paciente."
     },
@@ -2454,7 +2451,7 @@
       "nome": "Temozolomida 75mg + RDT",
       "indicacao": "SNC/glioma com radioterapia; verificar indicação",
       "duracaoCiclo": 42,
-      "conduta_base": "Durante RDT, acompanhar fadiga, náusea, constipação, apetite, peso, segurança alimentar e sintomas neurológicos. (duração a confirmar)",
+      "conduta_base": "Durante RDT, acompanhar fadiga, náusea, constipação, apetite, peso, segurança alimentar e sintomas neurológicos. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
       "efeitos": [
         {
           "efeito": "Náuseas",
@@ -2483,21 +2480,18 @@
         }
       ],
       "sinais_alerta": [
-        "Febre",
-        "Sangramento",
-        "Vômitos persistentes",
-        "Sonolência ou confusão",
-        "Dor de cabeça intensa",
-        "Convulsão",
-        "Fraqueza neurológica nova",
-        "Febre ≥ 38 °C",
-        "Calafrios",
-        "Sangramento incomum",
-        "Incapacidade de hidratação",
-        "Desidratação",
-        "Falta de ar",
-        "Alterações neurológicas importantes, incluindo convulsões"
+        "Febre de 38 °C ou mais, ou calafrios.",
+        "Sangramento incomum, sangramento que não para ou manchas roxas sem causa aparente.",
+        "Convulsões.",
+        "Sonolência excessiva, confusão ou dificuldade para despertar.",
+        "Fraqueza nova em um lado do corpo, dificuldade para falar ou andar.",
+        "Falta de ar ou dificuldade para respirar.",
+        "Vômitos persistentes ou incapacidade de manter líquidos.",
+        "Sinais de desidratação, como urina muito reduzida, tontura intensa ou fraqueza importante.",
+        "Dor de cabeça intensa"
       ],
+      "alerta_titulo": "Procure atendimento médico imediatamente se apresentar:",
+      "alerta_rodape": "Não espere o próximo atendimento nutricional para comunicar esses sintomas. Procure a equipe oncológica ou um serviço de urgência.",
       "equipe_medica": "Hemograma e profilaxia para pneumonia por Pneumocystis: responsabilidade da equipe médica, conforme o esquema prescrito.",
       "nota_interna": "Não vincular a dias fixos da timeline. Não recomendar suspensão ou alteração de medicamento por iniciativa da paciente."
     },

@@ -215,7 +215,7 @@ export default function CardProtocoloEfeitos({
                 display: 'flex', alignItems: 'center', gap: 5,
               }}>
                 <i className="ti ti-alert-triangle" style={{ fontSize: 13 }} aria-hidden="true" />
-                Sinais de alerta — contato com a equipe
+                {proto.alerta_titulo ?? 'Sinais de alerta — contato com a equipe'}
               </div>
               <ul style={{ margin: 0, padding: '0 0 0 4px', listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 5 }}>
                 {proto.sinais_alerta.map((s, i) => (
@@ -228,6 +228,11 @@ export default function CardProtocoloEfeitos({
                   </li>
                 ))}
               </ul>
+              {proto.alerta_rodape && (
+                <div style={{ fontSize: 12.5, color: '#991b1b', lineHeight: 1.5, fontFamily: 'var(--font-sans)', marginTop: 8 }}>
+                  {proto.alerta_rodape}
+                </div>
+              )}
             </div>
           )}
 

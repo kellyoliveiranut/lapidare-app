@@ -90,12 +90,16 @@ export default function LaminaProtocolo() {
 
         {alertas.length > 0 && (
           <div className="la-alerta">
-            <div className="la-alerta-titulo">Procure a equipe se aparecer</div>
+            <div className="la-alerta-titulo">{proto.alerta_titulo ?? 'Procure a equipe se aparecer'}</div>
             <ul className="la-alerta-lista">
               {alertas.map((s, i) => (
                 <li className="la-alerta-item" key={i}>{s}</li>
               ))}
             </ul>
+            {/* Em linha para não mexer no lamina.css: mesmo corpo dos itens. */}
+            {proto.alerta_rodape && (
+              <p style={{ fontSize: '10.5pt', lineHeight: 1.5, marginTop: '7pt' }}>{proto.alerta_rodape}</p>
+            )}
           </div>
         )}
 
