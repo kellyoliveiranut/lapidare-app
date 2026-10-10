@@ -2319,7 +2319,7 @@
       "nome": "Sunitinibe 37,5mg",
       "indicacao": "Terapia-alvo oral; rim, GIST, neuroendócrino ou outros; verificar indicação",
       "duracaoCiclo": 28,
-      "conduta_base": "Monitorar diarreia, mucosite, alteração de paladar, peso, pressão e síndrome mão-pé. Esquema pode ser contínuo ou intermitente; VERIFICAR prescrição. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
+      "conduta_base": "Monitorar diarreia, mucosite, alteração de paladar, peso, pressão e síndrome mão-pé. Esquema pode ser contínuo ou intermitente. Siga os dias de uso e de pausa indicados na sua prescrição médica. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
       "efeitos": [
         {
           "efeito": "Diarreia",
@@ -2355,13 +2355,14 @@
         "Dor no peito",
         "Falta de ar",
         "Descamação dolorosa nas mãos/pés"
-      ]
+      ],
+      "nota_interna": "Pendente: confirmar na prescrição os dias de uso e de pausa. Enquanto não confirmados, não indicar calendário à paciente."
     },
     {
       "nome": "Sunitinibe 50mg",
       "indicacao": "Terapia-alvo oral; rim, GIST, neuroendócrino ou outros; verificar indicação",
       "duracaoCiclo": 42,
-      "conduta_base": "Esquema 4 semanas on/2 off é comum, mas VERIFICAR prescrição. Monitorar diarreia, mucosite, paladar, peso, pressão e síndrome mão-pé. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
+      "conduta_base": "Esquema 4 semanas on/2 off é comum. Siga os dias de uso e de pausa indicados na sua prescrição médica. Monitorar diarreia, mucosite, paladar, peso, pressão e síndrome mão-pé. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
       "efeitos": [
         {
           "efeito": "Diarreia",
@@ -2397,13 +2398,14 @@
         "Dor no peito",
         "Feridas graves na boca",
         "Descamação dolorosa nas mãos/pés"
-      ]
+      ],
+      "nota_interna": "Pendente: confirmar na prescrição os dias de uso e de pausa. Enquanto não confirmados, não indicar calendário à paciente."
     },
     {
       "nome": "Temozolomida 150mg Isolado",
       "indicacao": "SNC/glioma ou outros; verificar indicação",
       "duracaoCiclo": 28,
-      "conduta_base": "Foco em náusea, constipação, apetite, segurança alimentar, proteína diária e monitoramento de hemograma. Confirmar dias de tomada na prescrição. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
+      "conduta_base": "Foco em náusea, constipação, apetite, segurança alimentar, proteína diária e monitoramento de hemograma. Tome a medicação somente nos dias indicados na sua prescrição médica. Não altere o esquema por conta própria. A duração do tratamento será definida conforme o planejamento da sua equipe oncológica.",
       "efeitos": [
         {
           "efeito": "Náuseas",
@@ -2445,7 +2447,7 @@
       "alerta_titulo": "Procure atendimento médico imediatamente se apresentar:",
       "alerta_rodape": "Não espere o próximo atendimento nutricional para comunicar esses sintomas. Procure a equipe oncológica ou um serviço de urgência.",
       "equipe_medica": "Hemograma e profilaxia para pneumonia por Pneumocystis: responsabilidade da equipe médica, conforme o esquema prescrito.",
-      "nota_interna": "Não vincular a dias fixos da timeline. Não recomendar suspensão ou alteração de medicamento por iniciativa da paciente."
+      "nota_interna": "Não vincular a dias fixos da timeline. Não recomendar suspensão ou alteração de medicamento por iniciativa da paciente. Pendente: confirmar na prescrição os dias de tomada. Enquanto não confirmados, não indicar calendário à paciente."
     },
     {
       "nome": "Temozolomida 75mg + RDT",

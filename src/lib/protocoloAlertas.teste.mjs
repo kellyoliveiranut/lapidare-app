@@ -70,6 +70,26 @@ const comFrasePadrao = texto => {
 const COM_AVISO_NO_BASE = base.protocolos.filter(p => p.conduta_base?.includes(AVISO)).map(p => p.nome);
 const TROCADAS = COM_AVISO_NO_BASE.filter(n => !PENDENTES_B.includes(n));
 
+// Textos da Kelly (10/10/2026): a Lâmina não imprime anotação administrativa.
+// A pendência continua visível só para a nutri, no nota_interna (Card).
+const SUNI_FRASE = 'Siga os dias de uso e de pausa indicados na sua prescrição médica.';
+const TMZ150_FRASE = 'Tome a medicação somente nos dias indicados na sua prescrição médica. Não altere o esquema por conta própria.';
+const TROCAS_ADMIN = {
+  'Sunitinibe 37,5mg': ['Esquema pode ser contínuo ou intermitente; VERIFICAR prescrição.', `Esquema pode ser contínuo ou intermitente. ${SUNI_FRASE}`],
+  'Sunitinibe 50mg': ['Esquema 4 semanas on/2 off é comum, mas VERIFICAR prescrição.', `Esquema 4 semanas on/2 off é comum. ${SUNI_FRASE}`],
+  'Temozolomida 150mg Isolado': ['Confirmar dias de tomada na prescrição.', TMZ150_FRASE],
+};
+const SUNITINIBES = ['Sunitinibe 37,5mg', 'Sunitinibe 50mg'];
+const PENDENCIA_SUNI = 'Pendente: confirmar na prescrição os dias de uso e de pausa. Enquanto não confirmados, não indicar calendário à paciente.';
+const PENDENCIA_TMZ150 = ' Pendente: confirmar na prescrição os dias de tomada. Enquanto não confirmados, não indicar calendário à paciente.';
+// conduta_base esperada hoje, gerada a partir do 2ef22d0: frase padrão da
+// duração e, nas 3 fichas acima, a troca exata do texto administrativo.
+const condutaEsperada = (nome, texto) => {
+  let c = TROCADAS.includes(nome) ? comFrasePadrao(texto) : texto;
+  if (TROCAS_ADMIN[nome]) c = c.replace(...TROCAS_ADMIN[nome]);
+  return c;
+};
+
 const agora = nome => catalogo.protocolos.find(p => p.nome === nome);
 const antes = nome => base.protocolos.find(p => p.nome === nome);
 
@@ -98,7 +118,8 @@ for (const nome of TMZ) {
   for (const campo of Object.keys(b).filter(k => k !== 'sinais_alerta' && k !== 'conduta_base')) {
     t(`${nome}: ${campo} idêntico ao 2ef22d0`, a[campo], b[campo]);
   }
-  t(`${nome}: conduta_base = 2ef22d0 com a frase padrão da duração`, a.conduta_base, comFrasePadrao(b.conduta_base));
+  t(`${nome}: conduta_base = 2ef22d0 com a frase padrão da duração${TROCAS_ADMIN[nome] ? ' e o texto da Kelly no lugar da anotação' : ''}`,
+    a.conduta_base, condutaEsperada(nome, b.conduta_base));
   t(`${nome}: sinais_alerta = lista consolidada da Kelly, literal`, a.sinais_alerta, ALERTAS_TMZ);
   t(`${nome}: "Dor de cabeça intensa." (com ponto) é o último alerta, vindo do antigo sem ponto`,
     [b.sinais_alerta.includes('Dor de cabeça intensa'), a.sinais_alerta.at(-1)], [true, 'Dor de cabeça intensa.']);
@@ -106,7 +127,7 @@ for (const nome of TMZ) {
   t(`${nome}: alerta_rodape literal`, a.alerta_rodape, RODAPE_TMZ);
   t(`${nome}: equipe_medica literal`, a.equipe_medica,
     'Hemograma e profilaxia para pneumonia por Pneumocystis: responsabilidade da equipe médica, conforme o esquema prescrito.');
-  t(`${nome}: nota_interna literal`, a.nota_interna, NOTA_TMZ);
+  t(`${nome}: nota_interna literal`, a.nota_interna, nome === 'Temozolomida 150mg Isolado' ? NOTA_TMZ + PENDENCIA_TMZ150 : NOTA_TMZ);
   t(`${nome}: sem monitoramento_periodico`, a.monitoramento_periodico, undefined);
   t(`${nome}: ordem dos campos`, Object.keys(a),
     [...Object.keys(b), 'alerta_titulo', 'alerta_rodape', 'equipe_medica', 'nota_interna']);
@@ -118,7 +139,7 @@ t('47 trocadas (44 no bloco-75 + 2 no bloco-76 + a Temozolomida 75mg + RDT do bl
 t('aviso não existe em nenhum outro campo no 2ef22d0',
   base.protocolos.filter(p => Object.entries(p).some(([k, v]) => k !== 'conduta_base' && JSON.stringify(v).includes(AVISO))).map(p => p.nome), []);
 t('47 fichas trocadas = conduta_base do 2ef22d0 com a frase padrão',
-  TROCADAS.filter(n => agora(n)?.conduta_base !== comFrasePadrao(antes(n).conduta_base)), []);
+  TROCADAS.filter(n => agora(n)?.conduta_base !== condutaEsperada(n, antes(n).conduta_base)), []);
 t('frase padrão aparece exatamente nas 47 trocadas',
   catalogo.protocolos.filter(p => JSON.stringify(p).includes(DURACAO_NOVA)).map(p => p.nome), TROCADAS);
 t('nenhuma ficha com "(duração a confirmar)" em nenhum campo',
@@ -135,8 +156,10 @@ t('aromatase: sem equipe_medica', ar?.equipe_medica, undefined);
 t('"Febre de 38 °C" em bytes (espaço comum, ° U+00B0)',
   Buffer.from('Febre de 38 °C').toString('hex'), '466562726520646520333820c2b043');
 
-t('campos monitoramento/equipe/nota só nas 3 fichas',
-  catalogo.protocolos.filter(p => CAMPOS_NOVOS.some(k => k in p)).map(p => p.nome), TRES);
+t('campos monitoramento/equipe só nas 3 fichas',
+  catalogo.protocolos.filter(p => CAMPOS_NOVOS.filter(k => k !== 'nota_interna').some(k => k in p)).map(p => p.nome), TRES);
+t('nota_interna só nas 3 fichas e nos 2 Sunitinibes',
+  catalogo.protocolos.filter(p => 'nota_interna' in p).map(p => p.nome).sort(), [...TRES, ...SUNITINIBES].sort());
 t('alerta_titulo e alerta_rodape só nas 2 de temozolomida',
   catalogo.protocolos.filter(p => 'alerta_titulo' in p || 'alerta_rodape' in p).map(p => p.nome), TMZ);
 t('nenhuma ficha com rascunho_revisao ou rascunho',
@@ -154,11 +177,12 @@ const rchopEsperado = p => ({
   conduta_base: p.conduta_base.replace('D+7 a D+14', 'Dia 8 ao Dia 15'),
 });
 const esperadoAgora = p => {
-  let e = TROCADAS.includes(p.nome) ? { ...p, conduta_base: comFrasePadrao(p.conduta_base) } : p;
+  let e = (TROCADAS.includes(p.nome) || TROCAS_ADMIN[p.nome]) ? { ...p, conduta_base: condutaEsperada(p.nome, p.conduta_base) } : p;
   if (p.nome === 'R-CHOP') e = rchopEsperado(e);
+  if (SUNITINIBES.includes(p.nome)) e = { ...e, nota_interna: PENDENCIA_SUNI };
   return e;
 };
-t('as outras 77 fichas idênticas ao 2ef22d0 (exceto a conduta_base das trocadas pela duração e o R-CHOP)',
+t('as outras 77 fichas idênticas ao 2ef22d0 (exceto conduta_base das trocadas, R-CHOP e nota_interna dos Sunitinibes)',
   catalogo.protocolos.filter(p => !TRES.includes(p.nome)),
   base.protocolos.filter(p => !TRES.includes(p.nome)).map(esperadoAgora));
 t('R-CHOP = 2ef22d0 com só o marco de risco 7/14 e "Dia 8 ao Dia 15" na conduta_base', agora('R-CHOP'), rchopEsperado(antes('R-CHOP')));
@@ -166,6 +190,27 @@ t('R-CHOP: "D+7 a D+14" não existe mais no catálogo', JSON.stringify(catalogo)
 for (const nome of ['Kisqali (ribociclibe)', 'Kisqali + Femara (ribociclibe + letrozol)', 'Capecitabina + Temozolomida']) {
   t(`${nome} idêntica ao 2ef22d0`, agora(nome), antes(nome));
 }
+
+// Anotação administrativa fora da Lâmina (textos da Kelly, 10/10/2026).
+const txtCat = JSON.stringify(catalogo);
+const vezes = s => txtCat.split(s).length - 1;
+t('"VERIFICAR prescrição" e "Confirmar dias de tomada na prescrição" = 0 no catálogo',
+  [vezes('VERIFICAR prescrição'), vezes('Confirmar dias de tomada na prescrição')], [0, 0]);
+t('frase do Sunitinibe 2 vezes, ambas na conduta_base dos 2 Sunitinibes',
+  [vezes(SUNI_FRASE), catalogo.protocolos.filter(p => p.conduta_base?.includes(SUNI_FRASE)).map(p => p.nome)], [2, SUNITINIBES]);
+t('frase da Temozolomida 150mg 1 vez, na conduta_base dela',
+  [vezes(TMZ150_FRASE), catalogo.protocolos.filter(p => p.conduta_base?.includes(TMZ150_FRASE)).map(p => p.nome)], [1, ['Temozolomida 150mg Isolado']]);
+for (const nome of SUNITINIBES) {
+  t(`${nome}: nota_interna literal e último campo; ordem = 2ef22d0 + nota_interna`,
+    [agora(nome)?.nota_interna, Object.keys(agora(nome) ?? {})], [PENDENCIA_SUNI, [...Object.keys(antes(nome)), 'nota_interna']]);
+}
+// Campos que a Lâmina lê (LaminaProtocolo.jsx); nota_interna não está entre eles.
+const CAMPOS_LAMINA = ['nome', 'conduta_base', 'efeitos', 'sinais_alerta', 'alerta_titulo', 'alerta_rodape', 'monitoramento_periodico', 'equipe_medica'];
+t('"Pendente: confirmar na prescrição" em nenhum campo que a Lâmina lê',
+  catalogo.protocolos.filter(p => CAMPOS_LAMINA.some(k => JSON.stringify(p[k] ?? '').includes('Pendente: confirmar na prescrição'))).map(p => p.nome), []);
+const anteriorCommit = JSON.parse(execSync('git show 01c2901:src/data/protocolos_efeitos.json', { maxBuffer: 1e8 }).toString('utf8'));
+t('R-mini-CHOP idêntico ao 01c2901 (marcos incluídos; continua Dia 7 ao Dia 14)',
+  agora('R-mini-CHOP'), anteriorCommit.protocolos.find(p => p.nome === 'R-mini-CHOP'));
 
 // Quem lê os campos.
 const src = new URL('../', import.meta.url);
