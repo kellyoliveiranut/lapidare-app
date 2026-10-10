@@ -42,6 +42,7 @@ export default function LaminaProtocolo() {
 
   const efeitos = proto.efeitos ?? [];
   const alertas = proto.sinais_alerta ?? [];
+  const monitoramento = proto.monitoramento_periodico ?? [];
 
   return (
     <div className="lamina-pagina">
@@ -96,6 +97,31 @@ export default function LaminaProtocolo() {
               ))}
             </ul>
           </div>
+        )}
+
+        {/* Mesmas classes de seção e item dos efeitos, para herdar as regras
+            de quebra de página. A nota interna da ficha é só da nutri e
+            NUNCA entra aqui. */}
+        {monitoramento.length > 0 && (
+          <>
+            <div className="la-secao">Monitoramento periódico</div>
+            <div>
+              {monitoramento.map((s, i) => (
+                <div className="la-efeito" key={i}>
+                  <div className="la-efeito-manejo">{s}</div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {proto.equipe_medica && (
+          <>
+            <div className="la-secao">Equipe médica</div>
+            <div className="la-efeito">
+              <div className="la-efeito-manejo">{proto.equipe_medica}</div>
+            </div>
+          </>
         )}
 
         <div className="la-rodape">

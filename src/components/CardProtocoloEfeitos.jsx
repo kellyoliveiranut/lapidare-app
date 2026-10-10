@@ -1,5 +1,18 @@
 import protocolosEfeitosData from '../data/protocolos_efeitos.json';
 
+// Blocos neutros (monitoramento, equipe médica, nota interna): mesmo padrão
+// dos cartões de efeito e do título "Efeitos colaterais e manejo".
+const blocoNeutro = {
+  padding: '11px 14px', borderRadius: 8,
+  border: '0.5px solid var(--border)', background: 'var(--bg2)',
+};
+const tituloNeutro = {
+  fontSize: 11, fontWeight: 700, color: 'var(--text3)',
+  textTransform: 'uppercase', letterSpacing: '.05em',
+  marginBottom: 6, fontFamily: 'var(--font-sans)',
+};
+const textoNeutro = { fontSize: 12.5, color: 'var(--text2)', lineHeight: 1.55, fontFamily: 'var(--font-sans)' };
+
 /**
  * Card de referência de efeitos colaterais de UM protocolo do catálogo.
  *
@@ -215,6 +228,38 @@ export default function CardProtocoloEfeitos({
                   </li>
                 ))}
               </ul>
+            </div>
+          )}
+
+          {/* Monitoramento periódico */}
+          {proto.monitoramento_periodico?.length > 0 && (
+            <div style={blocoNeutro}>
+              <div style={tituloNeutro}>Monitoramento periódico</div>
+              <ul style={{ margin: 0, padding: '0 0 0 4px', listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 5 }}>
+                {proto.monitoramento_periodico.map((s, i) => (
+                  <li key={i} style={{ ...textoNeutro, display: 'flex', gap: 7, alignItems: 'flex-start' }}>
+                    <span style={{ flexShrink: 0, fontWeight: 700, color: 'var(--text3)' }}>·</span>
+                    {s}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Equipe médica */}
+          {proto.equipe_medica && (
+            <div style={blocoNeutro}>
+              <div style={tituloNeutro}>Equipe médica</div>
+              <div style={textoNeutro}>{proto.equipe_medica}</div>
+            </div>
+          )}
+
+          {/* Nota interna: só neste card. A Lâmina e as telas da paciente não
+              leem `nota_interna`. */}
+          {proto.nota_interna && (
+            <div style={blocoNeutro}>
+              <div style={tituloNeutro}>Nota interna (não vai para a paciente)</div>
+              <div style={textoNeutro}>{proto.nota_interna}</div>
             </div>
           )}
 

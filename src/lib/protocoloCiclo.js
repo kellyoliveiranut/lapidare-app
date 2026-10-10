@@ -33,6 +33,30 @@ export function chaveProtocolo(s) {
 }
 
 /**
+ * Grafias do cadastro que NÃO se vinculam sozinhas a uma ficha (decisão da
+ * Kelly em 10/10/2026): 'T—AC DD'/'T-AC DD' (alias de "AC-T dose densa"),
+ * 'Ac DD' e '(T-ddAC),'/'T-ddAC'. Ficam sem timeline até a prescrição ser
+ * conferida; para usar a ficha, a nutri escolhe pelo nome exato. O alias
+ * continua no catálogo para a busca digitada (buscarProtocolos).
+ */
+export const CHAVES_AGUARDANDO_CONFERENCIA = new Set(['tacdd', 'acdd', 'tddac']);
+
+/**
+ * Protocolos que continuam vinculados à ficha, mas com esquema, número de
+ * ciclos e intervalo ainda não confirmados com a prescrição. Só sinaliza na
+ * tela da nutri; não muda cálculo.
+ */
+export const CHAVES_PENDENTE_PRESCRICAO = new Set(['folfirinox']);
+
+export function protocoloAguardandoConferencia(nome) {
+  return CHAVES_AGUARDANDO_CONFERENCIA.has(chaveProtocolo(nome));
+}
+
+export function protocoloPendentePrescricao(nome) {
+  return CHAVES_PENDENTE_PRESCRICAO.has(chaveProtocolo(nome));
+}
+
+/**
  * Protocolo do catálogo por nome. Tenta igualdade exata primeiro; se não achar,
  * compara por chave normalizada.
  *
@@ -44,9 +68,13 @@ export function chaveProtocolo(s) {
  *
  * Grafia que não vira a mesma chave (ex.: 'T-DXd' para 'T-DD') não é caso de
  * normalização: precisa de `aliases` explícito no catálogo.
+ *
+ * Chave em CHAVES_AGUARDANDO_CONFERENCIA devolve null antes de qualquer
+ * casamento: a equivalência com a ficha depende da prescrição.
  */
 export function getProtocolo(nome) {
   if (!nome) return null;
+  if (protocoloAguardandoConferencia(nome)) return null;
   const exato = protocolosEfeitosData.protocolos.find(p => p.nome === nome);
   if (exato) return exato;
   const chave = chaveProtocolo(nome);

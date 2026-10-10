@@ -420,7 +420,19 @@
           "efeito": "Fogachos e fadiga",
           "manejo": "Reduzir gatilhos; refeições práticas e equilibradas"
         }
-      ]
+      ],
+      "sinais_alerta": [
+        "Dor óssea nova e intensa",
+        "Piora funcional importante",
+        "Suspeita de fratura",
+        "Reação alérgica grave"
+      ],
+      "monitoramento_periodico": [
+        "Saúde óssea",
+        "Perfil lipídico",
+        "Peso e composição corporal"
+      ],
+      "nota_interna": "Dores articulares habituais e alterações isoladas do colesterol não são classificadas como emergência. Não vincular a dias fixos da timeline. Não recomendar suspensão ou alteração de medicamento por iniciativa da paciente."
     },
     {
       "nome": "BEP",
@@ -2426,8 +2438,17 @@
         "Manchas roxas",
         "Sonolência ou confusão",
         "Dor de cabeça intensa",
-        "Convulsão"
-      ]
+        "Convulsão",
+        "Febre ≥ 38 °C",
+        "Calafrios",
+        "Sangramento incomum",
+        "Incapacidade de hidratação",
+        "Desidratação",
+        "Falta de ar",
+        "Alterações neurológicas importantes, incluindo convulsões"
+      ],
+      "equipe_medica": "Hemograma e profilaxia para pneumonia por Pneumocystis: responsabilidade da equipe médica, conforme o esquema prescrito.",
+      "nota_interna": "Não vincular a dias fixos da timeline. Não recomendar suspensão ou alteração de medicamento por iniciativa da paciente."
     },
     {
       "nome": "Temozolomida 75mg + RDT",
@@ -2468,8 +2489,17 @@
         "Sonolência ou confusão",
         "Dor de cabeça intensa",
         "Convulsão",
-        "Fraqueza neurológica nova"
-      ]
+        "Fraqueza neurológica nova",
+        "Febre ≥ 38 °C",
+        "Calafrios",
+        "Sangramento incomum",
+        "Incapacidade de hidratação",
+        "Desidratação",
+        "Falta de ar",
+        "Alterações neurológicas importantes, incluindo convulsões"
+      ],
+      "equipe_medica": "Hemograma e profilaxia para pneumonia por Pneumocystis: responsabilidade da equipe médica, conforme o esquema prescrito.",
+      "nota_interna": "Não vincular a dias fixos da timeline. Não recomendar suspensão ou alteração de medicamento por iniciativa da paciente."
     },
     {
       "nome": "VAC",

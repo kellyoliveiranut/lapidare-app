@@ -9,7 +9,7 @@ import protocolosEfeitosData from '../../data/protocolos_efeitos.json';
 import { CAMPOS_EXAME, CHAVES_EXAME, textoRef } from '../../data/exames_referencia.js';
 import ValorExame, { LegendaExames } from '../../components/ValorExame.jsx';
 import GraficosExames from '../../components/GraficosExames.jsx';
-import { getProtocolo, chaveProtocolo, temEstruturaCiclo, janelaRisco, rotuloJanelaRisco, marcosDoProtocolo, marcosEfeitoAplicacao, datasAplicacoesCiclo, datasSerieCiclos, intervaloMinimoSerie, linhasDoCiclo } from '../../lib/protocoloCiclo.js';
+import { getProtocolo, chaveProtocolo, temEstruturaCiclo, janelaRisco, rotuloJanelaRisco, marcosDoProtocolo, marcosEfeitoAplicacao, datasAplicacoesCiclo, datasSerieCiclos, intervaloMinimoSerie, linhasDoCiclo, protocoloPendentePrescricao, protocoloAguardandoConferencia } from '../../lib/protocoloCiclo.js';
 
 const GRUPOS_EFEITOS = (() => {
   const groups = {};
@@ -491,7 +491,29 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
                   {TIPO_TRAT.map(t => <option key={t.v} value={t.v}>{t.l}</option>)}
                 </select>
               </div>
-              <F label="Protocolo" value={dados.protocolo} onChange={set('protocolo')} placeholder="ex: AC-T, FOLFOX, BEP" />
+              <div>
+                <F label="Protocolo" value={dados.protocolo} onChange={set('protocolo')} placeholder="ex: AC-T, FOLFOX, BEP" />
+                {/* Só na tela da nutri. Não muda cálculo: quem decide a ficha
+                    continua sendo getProtocolo(). */}
+                {(protocoloPendentePrescricao(dados.protocolo) || protocoloAguardandoConferencia(dados.protocolo)) && (
+                  <div style={{
+                    marginTop: 6, padding: '7px 10px', borderRadius: 6, fontSize: 12,
+                    background: '#fffbeb', color: '#92400e', border: '1px solid #fde68a',
+                  }}>
+                    {protocoloPendentePrescricao(dados.protocolo) ? (
+                      <>
+                        <strong>Pendente de conferência da prescrição</strong>
+                        <div>Esquema, número de ciclos e intervalo ainda não confirmados com a prescrição.</div>
+                      </>
+                    ) : (
+                      <>
+                        <strong>Aguardando conferência da equivalência com a ficha</strong>
+                        <div>Nenhuma linha do tempo individual é aplicada até a confirmação da prescrição. Para usar uma ficha, escolha-a pelo nome exato.</div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
             <div style={{ marginBottom: 10 }}>
               <F label="Medicamentos (separados por vírgula)" value={dados.medicamentos} onChange={set('medicamentos')} placeholder="Doxorrubicina, Ciclofosfamida, Paclitaxel" />
