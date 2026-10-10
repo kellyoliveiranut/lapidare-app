@@ -74,21 +74,48 @@ const TROCADAS = COM_AVISO_NO_BASE.filter(n => !PENDENTES_B.includes(n));
 // A pendência continua visível só para a nutri, no nota_interna (Card).
 const SUNI_FRASE = 'Siga os dias de uso e de pausa indicados na sua prescrição médica.';
 const TMZ150_FRASE = 'Tome a medicação somente nos dias indicados na sua prescrição médica. Não altere o esquema por conta própria.';
+const CAPE_TMZ_FRASE = 'Utilize cada medicamento somente nos dias e horários indicados na sua prescrição médica. Não altere o calendário por conta própria.';
+const PCV_FRASE_A = 'Durante o tratamento com PCV, confirme com sua equipe oncológica quais alimentos, bebidas alcoólicas e suplementos devem ser evitados. Não faça mudanças por conta própria.';
+const PCV_FRASE_B = 'Antes de iniciar dietas restritivas, suplementos ou produtos naturais, converse com sua equipe oncológica.';
+const TMZ150_JEJUM = 'Siga a orientação da equipe médica sobre tomar a temozolomida em jejum e sobre os horários dos medicamentos contra náuseas.';
 const TROCAS_ADMIN = {
   'Sunitinibe 37,5mg': ['Esquema pode ser contínuo ou intermitente; VERIFICAR prescrição.', `Esquema pode ser contínuo ou intermitente. ${SUNI_FRASE}`],
   'Sunitinibe 50mg': ['Esquema 4 semanas on/2 off é comum, mas VERIFICAR prescrição.', `Esquema 4 semanas on/2 off é comum. ${SUNI_FRASE}`],
   'Temozolomida 150mg Isolado': ['Confirmar dias de tomada na prescrição.', TMZ150_FRASE],
+  // bloco-81 (decisão da Kelly, 10/10/2026): itens 1 a 4.
+  'Capecitabina + Temozolomida': ['Confirmar dias exatos de uso de cada medicação.', CAPE_TMZ_FRASE],
+  'PCV': ['Confirmar restrições do serviço. ', ''],
+  'Vorsidenibe': ['VERIFICAR protocolo e perfil institucional. ', ''],
+  'Lenalidomida': [' — vale confirmar com a equipe médica se é o caso da paciente.', '.'],
 };
+// bloco-81: trocas no manejo de um efeito, [nome, efeito, trecho antigo, texto novo].
+// Itens 7 (antiemese) e 8 (analgésico do BEP) ficaram parados: não mudam.
+const TROCAS_MANEJO = [
+  ['PCV', 'Interações alimentares', 'VERIFICAR orientação institucional sobre alimentos ricos em tiramina e álcool.', PCV_FRASE_A],
+  ['PCV', 'Interações alimentares', 'Não liberar dietas ou suplementos sem checar protocolo.', PCV_FRASE_B],
+  ['Temozolomida 150mg Isolado', 'Náuseas', 'Quando prescrito em jejum, alinhar horários com antiemético e tolerância.', TMZ150_JEJUM],
+];
 const SUNITINIBES = ['Sunitinibe 37,5mg', 'Sunitinibe 50mg'];
 const PENDENCIA_SUNI = 'Pendente: confirmar na prescrição os dias de uso e de pausa. Enquanto não confirmados, não indicar calendário à paciente.';
 const PENDENCIA_TMZ150 = ' Pendente: confirmar na prescrição os dias de tomada. Enquanto não confirmados, não indicar calendário à paciente.';
+// bloco-81: pendências que saíram da Lâmina, criadas como último campo.
+const NOTAS_ADMIN = {
+  'PCV': 'Pendente: confirmar as restrições do serviço. Verificar orientação institucional sobre alimentos ricos em tiramina e álcool. Pendente: conferir a orientação alimentar completa do PCV (evitar bebidas alcoólicas e alimentos ricos em tiramina, como queijos maturados e embutidos, no período indicado pela equipe) e confirmar a duração das restrições, que pode se estender após o término da procarbazina. A Lâmina traz apenas a orientação geral de confirmar com a equipe oncológica.',
+  'Vorsidenibe': 'Pendente: verificar protocolo e perfil institucional.',
+  'Lenalidomida': 'Pendente: confirmar com a equipe médica se é o caso da paciente. Trecho retirado da Lâmina: "Frequentemente combinado com dexametasona, o que pode adicionar efeitos próprios do corticoide (aumento de apetite, retenção de líquido) — vale confirmar com a equipe médica se é o caso da paciente."',
+};
 // conduta_base esperada hoje, gerada a partir do 2ef22d0: frase padrão da
-// duração e, nas 3 fichas acima, a troca exata do texto administrativo.
+// duração e, nas fichas acima, a troca exata do texto administrativo.
 const condutaEsperada = (nome, texto) => {
   let c = TROCADAS.includes(nome) ? comFrasePadrao(texto) : texto;
   if (TROCAS_ADMIN[nome]) c = c.replace(...TROCAS_ADMIN[nome]);
   return c;
 };
+const efeitosEsperados = (nome, efeitos) => efeitos.map(e => {
+  let m = e.manejo;
+  for (const [n, ef, velho, novo] of TROCAS_MANEJO) if (n === nome && ef === e.efeito) m = m.replace(velho, novo);
+  return m === e.manejo ? e : { ...e, manejo: m };
+});
 
 const agora = nome => catalogo.protocolos.find(p => p.nome === nome);
 const antes = nome => base.protocolos.find(p => p.nome === nome);
@@ -115,9 +142,11 @@ for (const nome of TMZ) {
   const a = agora(nome), b = antes(nome);
   t(`${nome}: existe`, !!a && !!b, true);
   if (!a || !b) continue;
-  for (const campo of Object.keys(b).filter(k => k !== 'sinais_alerta' && k !== 'conduta_base')) {
+  for (const campo of Object.keys(b).filter(k => k !== 'sinais_alerta' && k !== 'conduta_base' && k !== 'efeitos')) {
     t(`${nome}: ${campo} idêntico ao 2ef22d0`, a[campo], b[campo]);
   }
+  t(`${nome}: efeitos = 2ef22d0${TROCAS_MANEJO.some(([n]) => n === nome) ? ' com a troca do manejo da Kelly' : ''}`,
+    a.efeitos, efeitosEsperados(nome, b.efeitos));
   t(`${nome}: conduta_base = 2ef22d0 com a frase padrão da duração${TROCAS_ADMIN[nome] ? ' e o texto da Kelly no lugar da anotação' : ''}`,
     a.conduta_base, condutaEsperada(nome, b.conduta_base));
   t(`${nome}: sinais_alerta = lista consolidada da Kelly, literal`, a.sinais_alerta, ALERTAS_TMZ);
@@ -158,8 +187,8 @@ t('"Febre de 38 °C" em bytes (espaço comum, ° U+00B0)',
 
 t('campos monitoramento/equipe só nas 3 fichas',
   catalogo.protocolos.filter(p => CAMPOS_NOVOS.filter(k => k !== 'nota_interna').some(k => k in p)).map(p => p.nome), TRES);
-t('nota_interna só nas 3 fichas e nos 2 Sunitinibes',
-  catalogo.protocolos.filter(p => 'nota_interna' in p).map(p => p.nome).sort(), [...TRES, ...SUNITINIBES].sort());
+t('nota_interna só nas 3 fichas, nos 2 Sunitinibes e em PCV, Vorsidenibe e Lenalidomida',
+  catalogo.protocolos.filter(p => 'nota_interna' in p).map(p => p.nome).sort(), [...TRES, ...SUNITINIBES, ...Object.keys(NOTAS_ADMIN)].sort());
 t('alerta_titulo e alerta_rodape só nas 2 de temozolomida',
   catalogo.protocolos.filter(p => 'alerta_titulo' in p || 'alerta_rodape' in p).map(p => p.nome), TMZ);
 t('nenhuma ficha com rascunho_revisao ou rascunho',
@@ -178,18 +207,22 @@ const rchopEsperado = p => ({
 });
 const esperadoAgora = p => {
   let e = (TROCADAS.includes(p.nome) || TROCAS_ADMIN[p.nome]) ? { ...p, conduta_base: condutaEsperada(p.nome, p.conduta_base) } : p;
+  if (TROCAS_MANEJO.some(([n]) => n === p.nome)) e = { ...e, efeitos: efeitosEsperados(p.nome, p.efeitos) };
   if (p.nome === 'R-CHOP') e = rchopEsperado(e);
   if (SUNITINIBES.includes(p.nome)) e = { ...e, nota_interna: PENDENCIA_SUNI };
+  if (NOTAS_ADMIN[p.nome]) e = { ...e, nota_interna: NOTAS_ADMIN[p.nome] };
   return e;
 };
-t('as outras 77 fichas idênticas ao 2ef22d0 (exceto conduta_base das trocadas, R-CHOP e nota_interna dos Sunitinibes)',
-  catalogo.protocolos.filter(p => !TRES.includes(p.nome)),
-  base.protocolos.filter(p => !TRES.includes(p.nome)).map(esperadoAgora));
+t('as outras 77 fichas idênticas ao 2ef22d0 (exceto conduta_base das trocadas, manejo do PCV, R-CHOP e nota_interna novas), inclusive a ordem dos campos',
+  catalogo.protocolos.filter(p => !TRES.includes(p.nome)).map(p => [Object.keys(p), p]),
+  base.protocolos.filter(p => !TRES.includes(p.nome)).map(esperadoAgora).map(p => [Object.keys(p), p]));
 t('R-CHOP = 2ef22d0 com só o marco de risco 7/14 e "Dia 8 ao Dia 15" na conduta_base', agora('R-CHOP'), rchopEsperado(antes('R-CHOP')));
 t('R-CHOP: "D+7 a D+14" não existe mais no catálogo', JSON.stringify(catalogo).includes('D+7 a D+14'), false);
-for (const nome of ['Kisqali (ribociclibe)', 'Kisqali + Femara (ribociclibe + letrozol)', 'Capecitabina + Temozolomida']) {
+for (const nome of ['Kisqali (ribociclibe)', 'Kisqali + Femara (ribociclibe + letrozol)']) {
   t(`${nome} idêntica ao 2ef22d0`, agora(nome), antes(nome));
 }
+t('Capecitabina + Temozolomida = 2ef22d0 com só a troca da conduta_base',
+  agora('Capecitabina + Temozolomida'), { ...antes('Capecitabina + Temozolomida'), conduta_base: condutaEsperada('Capecitabina + Temozolomida', antes('Capecitabina + Temozolomida').conduta_base) });
 
 // Anotação administrativa fora da Lâmina (textos da Kelly, 10/10/2026).
 const txtCat = JSON.stringify(catalogo);
@@ -211,6 +244,34 @@ t('"Pendente: confirmar na prescrição" em nenhum campo que a Lâmina lê',
 const anteriorCommit = JSON.parse(execSync('git show 01c2901:src/data/protocolos_efeitos.json', { maxBuffer: 1e8 }).toString('utf8'));
 t('R-mini-CHOP idêntico ao 01c2901 (marcos incluídos; continua Dia 7 ao Dia 14)',
   agora('R-mini-CHOP'), anteriorCommit.protocolos.find(p => p.nome === 'R-mini-CHOP'));
+
+// bloco-81 (decisão da Kelly, 10/10/2026): anotações retiradas da Lâmina.
+const RETIRADOS = ['Confirmar dias exatos de uso de cada medicação', 'Confirmar restrições do serviço',
+  'VERIFICAR protocolo e perfil institucional', 'vale confirmar com a equipe médica se é o caso da paciente',
+  'VERIFICAR orientação institucional', 'Não liberar dietas ou suplementos sem checar protocolo',
+  'Quando prescrito em jejum, alinhar horários com antiemético e tolerância'];
+const emCampoLamina = s => catalogo.protocolos.filter(p => CAMPOS_LAMINA.some(k => JSON.stringify(p[k] ?? '').toLowerCase().includes(s.toLowerCase()))).map(p => p.nome);
+for (const s of RETIRADOS) t(`"${s}" fora de todo campo que a Lâmina lê`, emCampoLamina(s), []);
+t('trechos retirados: só "vale confirmar…" sobra, 1 vez, citado na nota_interna da Lenalidomida',
+  [RETIRADOS.map(vezes), catalogo.protocolos.filter(p => p.nota_interna?.includes(RETIRADOS[3])).map(p => p.nome)],
+  [[0, 0, 0, 1, 0, 0, 0], ['Lenalidomida']]);
+// Itens 7 e 8 parados (pontuação da lista com ";" e frase do BEP com outras orientações): seguem como no 2ef22d0.
+t('itens parados: "Antiemese conforme prescricao" 2 vezes (AC e Cisplatina) e "Manejo com analgésico prescrito/liberado" 1 vez (BEP)',
+  [vezes('Antiemese conforme prescricao'), vezes('Manejo com analgésico prescrito/liberado')], [2, 1]);
+for (const [frase, nome] of [[CAPE_TMZ_FRASE, 'Capecitabina + Temozolomida'], [PCV_FRASE_A, 'PCV'], [PCV_FRASE_B, 'PCV'], [TMZ150_JEJUM, 'Temozolomida 150mg Isolado']]) {
+  t(`frase nova 1 vez, em ${nome}: "${frase.slice(0, 40)}…"`,
+    [vezes(frase), catalogo.protocolos.filter(p => JSON.stringify(p).includes(frase)).map(p => p.nome)], [1, [nome]]);
+}
+t('nenhuma pendência ("Pendente:" ou "Verificar orientação institucional") em campo que a Lâmina lê',
+  [emCampoLamina('Pendente:'), emCampoLamina('Verificar orientação institucional')], [[], []]);
+t('PCV: nenhuma lista de alimentos em campo da Lâmina ("queijo", "embutido" só na nota_interna)',
+  CAMPOS_LAMINA.filter(k => /queijo|embutido/i.test(JSON.stringify(agora('PCV')?.[k] ?? ''))), []);
+for (const nome of Object.keys(NOTAS_ADMIN)) {
+  t(`${nome}: nota_interna literal e último campo; ordem = 2ef22d0 + nota_interna`,
+    [agora(nome)?.nota_interna, Object.keys(agora(nome) ?? {})], [NOTAS_ADMIN[nome], [...Object.keys(antes(nome)), 'nota_interna']]);
+}
+t('todos os marcos idênticos ao 01c2901',
+  catalogo.protocolos.map(p => [p.nome, p.marcosEfeito]), anteriorCommit.protocolos.map(p => [p.nome, p.marcosEfeito]));
 
 // Quem lê os campos.
 const src = new URL('../', import.meta.url);
