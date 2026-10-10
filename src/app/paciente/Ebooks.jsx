@@ -5,6 +5,7 @@ import { useSession } from '../../lib/session.jsx';
 import { dataBR } from '../../lib/utils.js';
 import { gravar } from '../../lib/gravar.js';
 import { EVENTO_EBOOKS_VISTOS } from '../../lib/avisosNutri.js';
+import { combinarNovos } from '../../lib/ebooksNovos.js';
 
 const TAG_LABEL = {
   receitas:    'Receitas',
@@ -38,6 +39,11 @@ export default function Ebooks() {
   // Set dos ebook_id sem visto_em NA ENTRADA. null até a primeira leitura; as
   // leituras seguintes (o efeito roda de novo se o profile mudar) não o trocam.
   const [novosNaEntrada, setNovosNaEntrada] = useState(null);
+  // soNovos lido dentro do efeito de carga sem entrar nas dependências dele
+  // (reexecutaria a carga e a gravação do visto_em).
+  // Atualizado num efeito declarado antes do de carga (efeitos rodam na ordem).
+  const soNovosRef = useRef(soNovos);
+  useEffect(() => { soNovosRef.current = soNovos; }, [soNovos]);
   const [ebooks, setEbooks] = useState(null);
   const [urls, setUrls]     = useState({});    // { [eb.id]: string | null }
   const [erros, setErros]   = useState([]);    // títulos que falharam
@@ -71,8 +77,25 @@ export default function Ebooks() {
         .eq('paciente_id', pacienteId);
       const ids = (links ?? []).map(l => l.ebook_id);
       // Fotografa os não vistos ANTES do update logo abaixo.
-      setNovosNaEntrada(prev => prev ?? new Set(
-        (links ?? []).filter(l => l.visto_em == null).map(l => l.ebook_id)));
+      const atuais = new Set(
+        (links ?? []).filter(l => l.visto_em == null).map(l => l.ebook_id));
+      let novos = atuais;
+      // Com ?novos=1 a fotografia vai para o sessionStorage: no Android o toque
+      // na notificação pode recarregar a tela depois do visto_em já gravado, e
+      // a segunda montagem reaproveita o que era novo na primeira (ebooksNovos.js).
+      if (soNovosRef.current) {
+        const chave = `ebooks-novos:${pacienteId}`;
+        let guardado = null;
+        try { guardado = JSON.parse(sessionStorage.getItem(chave)); } catch { /* inválido: ignora */ }
+        const comb = combinarNovos(guardado, atuais);
+        novos = comb.ids;
+        if (comb.gravar) {
+          try {
+            sessionStorage.setItem(chave, JSON.stringify({ ids: [...comb.ids], t: comb.t }));
+          } catch { /* storage bloqueado: a tela segue sem a memória do reload */ }
+        }
+      }
+      setNovosNaEntrada(prev => prev ?? novos);
 
       // Abrir a lista conta como "vi os materiais novos": zera o badge do menu
       // e o card do Início. `esperado` = quantas a leitura acima achou sem
