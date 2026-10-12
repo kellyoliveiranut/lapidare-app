@@ -116,9 +116,13 @@ const NOMES_EFEITO = [['PCV', 'Interações alimentares', PCV_EFEITO_NOVO]];
 const SUNITINIBES = ['Sunitinibe 37,5mg', 'Sunitinibe 50mg'];
 const PENDENCIA_SUNI = 'Pendente: confirmar na prescrição os dias de uso e de pausa. Enquanto não confirmados, não indicar calendário à paciente.';
 const PENDENCIA_TMZ150 = ' Pendente: confirmar na prescrição os dias de tomada. Enquanto não confirmados, não indicar calendário à paciente.';
+// bloco-90 (decisão da Kelly, 12/10/2026): o aviso do manejo também como último sinal de alerta do PCV.
+const PCV_SINAL_NOVO = 'Dor de cabeça intensa, palpitações, sudorese importante ou mal-estar após consumir algum alimento.';
+const PCV_NOTA_VELHA = 'O aviso de dor de cabeça intensa, palpitações e sudorese está só no texto do manejo, não na lista de sinais de alerta.';
+const PCV_NOTA_NOVA = 'O aviso de dor de cabeça intensa, palpitações, sudorese importante ou mal-estar após consumir algum alimento está no texto do manejo e na lista de sinais de alerta (decisão da Kelly de 12/10/2026): orienta contato médico imediato, especialmente se intenso ou repentino.';
 // bloco-81: pendências que saíram da Lâmina, criadas como último campo.
 const NOTAS_ADMIN = {
-  'PCV': 'Pendente: confirmar as restrições do serviço. Verificar orientação institucional sobre alimentos ricos em tiramina e álcool. Orientação alimentar da procarbazina (álcool e tiramina, inclusive 14 dias após a última dose) publicada na Lâmina conforme texto da Kelly de 10/10/2026. O aviso de dor de cabeça intensa, palpitações e sudorese está só no texto do manejo, não na lista de sinais de alerta.',
+  'PCV': 'Pendente: confirmar as restrições do serviço. Verificar orientação institucional sobre alimentos ricos em tiramina e álcool. Orientação alimentar da procarbazina (álcool e tiramina, inclusive 14 dias após a última dose) publicada na Lâmina conforme texto da Kelly de 10/10/2026. ' + PCV_NOTA_NOVA,
   'Vorsidenibe': 'Pendente: verificar protocolo e perfil institucional.',
   'Lenalidomida': 'Pendente: confirmar com a equipe médica se é o caso da paciente. Trecho retirado da Lâmina: "Frequentemente combinado com dexametasona, o que pode adicionar efeitos próprios do corticoide (aumento de apetite, retenção de líquido) — vale confirmar com a equipe médica se é o caso da paciente."',
 };
@@ -231,6 +235,7 @@ const esperadoAgora = p => {
   if (p.nome === 'R-CHOP') e = rchopEsperado(e);
   if (SUNITINIBES.includes(p.nome)) e = { ...e, nota_interna: PENDENCIA_SUNI };
   if (NOTAS_ADMIN[p.nome]) e = { ...e, nota_interna: NOTAS_ADMIN[p.nome] };
+  if (p.nome === 'PCV') e = { ...e, sinais_alerta: [...p.sinais_alerta, PCV_SINAL_NOVO] };
   return e;
 };
 t('as outras 77 fichas idênticas ao 2ef22d0 (exceto conduta_base das trocadas, manejo do PCV, R-CHOP e nota_interna novas), inclusive a ordem dos campos',
@@ -318,6 +323,15 @@ for (const nome of Object.keys(NOTAS_ADMIN)) {
   t(`${nome}: nota_interna literal e último campo; ordem = 2ef22d0 + nota_interna`,
     [agora(nome)?.nota_interna, Object.keys(agora(nome) ?? {})], [NOTAS_ADMIN[nome], [...Object.keys(antes(nome)), 'nota_interna']]);
 }
+// bloco-90 (decisão da Kelly, 12/10/2026): +1 sinal de alerta só no PCV.
+t('PCV: 8 sinais de alerta, o último = texto novo da Kelly',
+  [agora('PCV')?.sinais_alerta.length, agora('PCV')?.sinais_alerta.at(-1)], [8, PCV_SINAL_NOVO]);
+t('PCV: os 7 sinais antigos idênticos ao 2ef22d0 e na mesma ordem',
+  agora('PCV')?.sinais_alerta.slice(0, 7), antes('PCV').sinais_alerta);
+t('PCV: nota_interna com a frase nova e sem a antiga',
+  [agora('PCV')?.nota_interna.includes(PCV_NOTA_NOVA), agora('PCV')?.nota_interna.includes(PCV_NOTA_VELHA)], [true, false]);
+t('sinal novo 1 vez no catálogo, só nos sinais_alerta do PCV',
+  [vezes(PCV_SINAL_NOVO), catalogo.protocolos.filter(p => (p.sinais_alerta ?? []).includes(PCV_SINAL_NOVO)).map(p => p.nome)], [1, ['PCV']]);
 t('todos os marcos idênticos ao 01c2901',
   catalogo.protocolos.map(p => [p.nome, p.marcosEfeito]), anteriorCommit.protocolos.map(p => [p.nome, p.marcosEfeito]));
 

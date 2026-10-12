@@ -2088,9 +2088,10 @@
         "Constipação intensa com dor",
         "Confusão ou sonolência",
         "Vômitos persistentes",
-        "Formigamento progressivo"
+        "Formigamento progressivo",
+        "Dor de cabeça intensa, palpitações, sudorese importante ou mal-estar após consumir algum alimento."
       ],
-      "nota_interna": "Pendente: confirmar as restrições do serviço. Verificar orientação institucional sobre alimentos ricos em tiramina e álcool. Orientação alimentar da procarbazina (álcool e tiramina, inclusive 14 dias após a última dose) publicada na Lâmina conforme texto da Kelly de 10/10/2026. O aviso de dor de cabeça intensa, palpitações e sudorese está só no texto do manejo, não na lista de sinais de alerta."
+      "nota_interna": "Pendente: confirmar as restrições do serviço. Verificar orientação institucional sobre alimentos ricos em tiramina e álcool. Orientação alimentar da procarbazina (álcool e tiramina, inclusive 14 dias após a última dose) publicada na Lâmina conforme texto da Kelly de 10/10/2026. O aviso de dor de cabeça intensa, palpitações, sudorese importante ou mal-estar após consumir algum alimento está no texto do manejo e na lista de sinais de alerta (decisão da Kelly de 12/10/2026): orienta contato médico imediato, especialmente se intenso ou repentino."
     },
     {
       "nome": "Pembrolizumabe (a cada 3 semanas)",
