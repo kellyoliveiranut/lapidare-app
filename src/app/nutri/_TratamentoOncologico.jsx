@@ -4,12 +4,13 @@ import { dataBR, dataLocalISO } from '../../lib/utils.js';
 import { callAnthropic } from '../../lib/anthropic.js';
 import { gravar } from '../../lib/gravar.js';
 import DateInput from '../../components/DateInput.jsx';
+import ModalShell from '../../components/ModalShell.jsx';
 import CardProtocoloEfeitos from '../../components/CardProtocoloEfeitos.jsx';
 import protocolosEfeitosData from '../../data/protocolos_efeitos.json';
 import { CAMPOS_EXAME, CHAVES_EXAME, textoRef } from '../../data/exames_referencia.js';
 import ValorExame, { LegendaExames } from '../../components/ValorExame.jsx';
 import GraficosExames from '../../components/GraficosExames.jsx';
-import { getProtocolo, chaveProtocolo, temEstruturaCiclo, janelaRisco, rotuloJanelaRisco, marcosDoProtocolo, marcosEfeitoAplicacao, datasAplicacoesCiclo, datasSerieCiclos, intervaloMinimoSerie, linhasDoCiclo, protocoloPendentePrescricao, protocoloAguardandoConferencia } from '../../lib/protocoloCiclo.js';
+import { getProtocolo, chaveProtocolo, temEstruturaCiclo, janelaRisco, rotuloJanelaRisco, marcosDoProtocolo, marcosEfeitoAplicacao, datasAplicacoesCiclo, datasSerieCiclos, intervaloMinimoSerie, linhasDoCiclo, protocoloPendentePrescricao, protocoloAguardandoConferencia, registroPendente } from '../../lib/protocoloCiclo.js';
 
 const GRUPOS_EFEITOS = (() => {
   const groups = {};
@@ -104,6 +105,12 @@ export default function TratamentoOncologico({ pacienteId, nutriId, pacienteNome
   const [gerarSerie, setGerarSerie] = useState(false);
   const [lendoPdf, setLendoPdf] = useState(false);
   const [efeitoEscolhido, setEfeitoEscolhido] = useState(null);
+  // registro_pendente fica FORA de `dados`: o formulário nunca o envia, e só o
+  // botão de confirmar muda o status. null = sem tratamento salvo.
+  const [pendenteRegistro, setPendenteRegistro] = useState(null);
+  const [modalRegistro, setModalRegistro] = useState(null); // 'confirmar' | 'pendente'
+  const [erroRegistro, setErroRegistro] = useState(null);
+  const [gravandoRegistro, setGravandoRegistro] = useState(false);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -149,6 +156,33 @@ export default function TratamentoOncologico({ pacienteId, nutriId, pacienteNome
     setCiclos(cic ?? []);
     setExames(ex ?? []);
     if (cic?.length) setNovoCiclo(prev => ({ ...prev, numero_ciclo: (cic[0].numero_ciclo ?? 0) + 1 }));
+    await carregarStatusRegistro(signal);
+  }
+
+  // Leitura à parte do select grande: com a coluna registro_pendente ainda
+  // inexistente no banco, só este aviso cai — o formulário continua abrindo.
+  // Erro conta como pendente ({} não tem registro_pendente).
+  async function carregarStatusRegistro(signal = { cancelled: false }) {
+    const { data, error } = await supabase.from('tratamentos_oncologicos')
+      .select('id,registro_pendente').eq('paciente_id', pacienteId).maybeSingle();
+    if (signal.cancelled) return;
+    if (!error && !data) return setPendenteRegistro(null);
+    setPendenteRegistro(registroPendente(error ? {} : data));
+  }
+
+  // Grava SÓ registro_pendente, e só pelo botão. Se falhar (inclusive coluna
+  // inexistente), a tela não muda de estado.
+  async function gravarStatusRegistro(pendente) {
+    if (!tratamentoId) return;
+    setGravandoRegistro(true); setErroRegistro(null);
+    const r = await gravar(
+      supabase.from('tratamentos_oncologicos').update({ registro_pendente: pendente }).eq('id', tratamentoId),
+      { rotulo: pendente ? 'marcar o registro como pendente' : 'confirmar o registro' },
+    );
+    setGravandoRegistro(false);
+    if (!r.ok) return setErroRegistro(r.msg);
+    setPendenteRegistro(pendente);
+    setModalRegistro(null);
   }
 
   const set = (k) => (e) => {
@@ -205,6 +239,9 @@ export default function TratamentoOncologico({ pacienteId, nutriId, pacienteNome
     if (error) return setFeedback({ tipo: 'erro', msg: error.message });
     if (data) setTratamentoId(data.id);
     setFeedback({ tipo: 'ok', msg: 'Dados salvos com sucesso.' });
+    // Tratamento novo nasce pendente pelo default do banco; salvar um
+    // existente não muda o status. Relê para a tela mostrar o que o banco tem.
+    carregarStatusRegistro();
   }
 
   async function adicionarCiclo() {
@@ -378,6 +415,55 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
           ⚠️ Paciente em <strong>janela de risco imunológico</strong> ({rotuloJanela} do ciclo {ultimoCiclo.numero_ciclo}).
           Monitorar febre, neutropenia e sintomas.
         </div>
+      )}
+
+      {/* Status do registro. Pendente: a paciente não vê janela de risco,
+          marcos nem próximo ciclo calculados (MonitoramentoOncologico.jsx e
+          Inicio.jsx). Mesmo âmbar dos avisos do campo Protocolo. */}
+      {pendenteRegistro === true && (
+        <div style={{
+          padding: '9px 12px', borderRadius: 8, marginBottom: 14, fontSize: 13,
+          background: '#fffbeb', color: '#92400e', border: '1px solid #fde68a',
+          display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+        }}>
+          <i className="ti ti-alert-circle" style={{ fontSize: 16 }} />
+          <strong style={{ flex: 1 }}>Registro pendente de confirmação</strong>
+          <button className="btn" onClick={() => { setErroRegistro(null); setModalRegistro('confirmar'); }}>
+            Confirmar registro
+          </button>
+        </div>
+      )}
+      {pendenteRegistro === false && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginBottom: 10, fontSize: 12, color: 'var(--text3)' }}>
+          Registro confirmado
+          <button onClick={() => { setErroRegistro(null); setModalRegistro('pendente'); }} style={{
+            background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+            fontSize: 12, color: 'var(--text3)', textDecoration: 'underline', fontFamily: 'var(--font-sans)',
+          }}>
+            Marcar como pendente
+          </button>
+        </div>
+      )}
+      {modalRegistro && (
+        <ModalShell
+          title={modalRegistro === 'confirmar' ? 'Confirmar registro' : 'Marcar como pendente'}
+          subtitle={modalRegistro === 'confirmar'
+            ? 'Confirme depois de conferir protocolo, intervalo, data da última aplicação e ciclos cadastrados. A paciente passa a ver a janela de risco e o próximo ciclo calculados.'
+            : 'A paciente deixa de ver a janela de risco e o próximo ciclo calculados até o registro ser confirmado de novo.'}
+          onClose={() => { if (!gravandoRegistro) setModalRegistro(null); }}
+        >
+          {erroRegistro && (
+            <div style={{ padding: '8px 12px', borderRadius: 6, marginBottom: 12, fontSize: 13, background: 'var(--red-bg)', color: 'var(--red)' }}>
+              {erroRegistro}
+            </div>
+          )}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <button className="btn-outline" onClick={() => setModalRegistro(null)} disabled={gravandoRegistro}>Cancelar</button>
+            <button className="btn" onClick={() => gravarStatusRegistro(modalRegistro !== 'confirmar')} disabled={gravandoRegistro}>
+              {gravandoRegistro ? 'Gravando…' : (modalRegistro === 'confirmar' ? 'Confirmar registro' : 'Marcar como pendente')}
+            </button>
+          </div>
+        </ModalShell>
       )}
 
       {/* Tabs de seção */}

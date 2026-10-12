@@ -383,3 +383,80 @@ export function faseDoDia(proto, dataAplicacao, { hoje = dataLocalISO(), interva
 
   return 'recuperacao';
 }
+
+/**
+ * O registro do tratamento ainda não foi conferido pela nutri
+ * (tratamentos_oncologicos.registro_pendente, default true no banco).
+ *
+ * Só `false` exato conta como confirmado. `true`, `null` e ausente contam como
+ * pendente: o código vai ao ar podendo encontrar a coluna ainda inexistente, e
+ * nesse caso a paciente não pode ver dia de ciclo calculado como se a nutri
+ * tivesse conferido. Sem tratamento nenhum devolve false — não há registro a
+ * conferir, e o que a paciente vê nesse caso não muda.
+ */
+export function registroPendente(tratamento) {
+  if (!tratamento) return false;
+  return tratamento.registro_pendente !== false;
+}
+
+/**
+ * faseDoDia() da paciente: a sub-fase que escolhe a mensagem do dia, ou null
+ * (mensagem genérica) enquanto o registro do tratamento estiver pendente.
+ * Confirmado, é exatamente a chamada que a tela Início fazia antes.
+ */
+export function faseDoDiaPaciente(tratamento, dataAplicacao, { hoje } = {}) {
+  if (registroPendente(tratamento)) return null;
+  return faseDoDia(getProtocolo(tratamento?.protocolo), dataAplicacao, {
+    hoje, intervaloDias: tratamento?.intervalo_ciclos,
+  });
+}
+
+/**
+ * O que a linha do tempo da paciente desenha a partir do último ciclo
+ * aplicado: banner da janela de risco, marcos datados e a ponta "Próximo
+ * ciclo"/"Próxima aplicação". Era a conta de dentro de LinhaDoTempoCiclo
+ * (MonitoramentoOncologico.jsx), trazida para cá sem mudança para poder ser
+ * testada.
+ *
+ * Com o registro pendente, tudo o que é CALCULADO some: sem banner, sem marcos
+ * e sem próxima data. Fica só a bolinha da aplicação, que é a data que a nutri
+ * digitou no ciclo.
+ *
+ * `fase` de cada marco só escolhe a cor na tela; 'quimio' é a bolinha verde da
+ * aplicação (inclusive marco que começa no dia da infusão).
+ */
+export function linhaDoTempoPaciente({ ultimoCiclo, intervalo, protocoloNome, hoje = dataLocalISO(), pendente = false } = {}) {
+  if (!ultimoCiclo) return null;
+  const uc = ultimoCiclo;
+  const iv = intervalo || 21;
+  const proto = getProtocolo(protocoloNome);
+  const estruturado = temEstruturaCiclo(proto);
+  const aplicacao = {
+    d: uc.data_quimio,
+    label: estruturado ? 'Aplicação' : 'D1',
+    desc:  estruturado ? 'Dia da infusão' : 'Quimio',
+    fase:  'quimio',
+  };
+  if (pendente) return { emJanela: false, rotuloJanela: '', marcos: [aplicacao] };
+
+  const janela = janelaRisco(proto);
+  const emJanela = !!janela &&
+    hoje >= addDaysISO(uc.data_quimio, janela.inicio) && hoje <= addDaysISO(uc.data_quimio, janela.fim);
+  const doCiclo = marcosEfeitoAplicacao(proto, uc.data_quimio);
+  // Bolinha da infusão só quando nenhum marco começa nela; se começa, ele vem
+  // verde e com "Quimio" no desc, para a referência do dia da quimio não sumir.
+  const pontaInicial = doCiclo.some(m => m.infusao) ? [] : [aplicacao];
+  const pontaFinal = estruturado
+    ? { d: addDaysISO(uc.data_quimio, proto.estruturaCiclo.cadenciaDias), label: 'Próxima', desc: 'Próxima aplicação', fase: 'quimio' }
+    // Esse dia é o D1 do ciclo seguinte, não um dia do atual — sem número.
+    : { d: addDaysISO(uc.data_quimio, iv), label: 'Próximo', desc: 'Próximo ciclo', fase: 'quimio' };
+  return {
+    emJanela,
+    rotuloJanela: rotuloJanelaRisco(proto),
+    marcos: [
+      ...pontaInicial,
+      ...doCiclo.map(m => ({ d: m.data, label: m.label, desc: m.desc, fase: m.infusao ? 'quimio' : m.fase })),
+      pontaFinal,
+    ],
+  };
+}

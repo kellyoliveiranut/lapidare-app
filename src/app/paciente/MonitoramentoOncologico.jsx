@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { dataBR, dataLocalISO } from '../../lib/utils.js';
-import { getProtocolo, temEstruturaCiclo, janelaRisco, rotuloJanelaRisco, marcosEfeitoAplicacao } from '../../lib/protocoloCiclo.js';
+import { linhaDoTempoPaciente, registroPendente } from '../../lib/protocoloCiclo.js';
 import ExamesLaboratoriais from './_ExamesLaboratoriais.jsx';
 
 const TOTAL_STEPS = 11;
@@ -56,12 +56,6 @@ const OPCOES_REF = [
   { v: 0, l: 'Não consegui', cor: '#dc2626', bg: '#fee2e2' },
 ];
 
-function addDias(dateStr, n) {
-  const d = new Date(dateStr + 'T12:00:00');
-  d.setDate(d.getDate() + n);
-  return d.toISOString().slice(0, 10);
-}
-
 export default function MonitoramentoOncologico() {
   const { user, profile } = useSession();
   const pacienteId = profile?.id ?? user?.id;
@@ -75,6 +69,8 @@ export default function MonitoramentoOncologico() {
   const [ciclos,    setCiclos]    = useState([]);
   const [intervalo, setIntervalo] = useState(21);
   const [protocoloNome, setProtocoloNome] = useState(null);
+  // Começa pendente: enquanto não se sabe, nada calculado aparece.
+  const [pendente, setPendente] = useState(true);
 
   // Estado do formulário
   const [apetite,     setApetite]     = useState(null);
@@ -128,13 +124,16 @@ export default function MonitoramentoOncologico() {
         .order('data_quimio', { ascending: false })
         .limit(5),
       supabase.from('tratamentos_oncologicos')
-        .select('intervalo_ciclos,protocolo')
+        .select('intervalo_ciclos,protocolo,registro_pendente')
         .eq('paciente_id', pacienteId)
         .maybeSingle(),
-    ]).then(([{ data: cic }, { data: trat }]) => {
+    ]).then(([{ data: cic }, { data: trat, error: erroTrat }]) => {
       setCiclos(cic ?? []);
       setIntervalo(trat?.intervalo_ciclos ?? 21);
       setProtocoloNome(trat?.protocolo ?? null);
+      // Erro na leitura (inclusive coluna registro_pendente ainda inexistente)
+      // conta como pendente: {} não tem registro_pendente.
+      setPendente(registroPendente(erroTrat ? {} : trat));
     });
   }, [pacienteId]);
 
@@ -218,7 +217,7 @@ export default function MonitoramentoOncologico() {
   if (step === null) {
     return (
       <Wrap>
-        <LinhaDoTempoCiclo ciclos={ciclos} intervalo={intervalo} protocoloNome={protocoloNome} pacienteId={pacienteId} sexo={profile?.sexo} />
+        <LinhaDoTempoCiclo ciclos={ciclos} intervalo={intervalo} protocoloNome={protocoloNome} pendente={pendente} pacienteId={pacienteId} sexo={profile?.sexo} />
         <div style={{ textAlign: 'center', color: 'var(--muted)', padding: 40 }}>Carregando…</div>
       </Wrap>
     );
@@ -227,7 +226,7 @@ export default function MonitoramentoOncologico() {
   if (salvo) {
     return (
       <>
-        <LinhaDoTempoCiclo ciclos={ciclos} intervalo={intervalo} protocoloNome={protocoloNome} pacienteId={pacienteId} sexo={profile?.sexo} standalone />
+        <LinhaDoTempoCiclo ciclos={ciclos} intervalo={intervalo} protocoloNome={protocoloNome} pendente={pendente} pacienteId={pacienteId} sexo={profile?.sexo} standalone />
         <Concluido />
       </>
     );
@@ -236,7 +235,7 @@ export default function MonitoramentoOncologico() {
   if (step === 0 && registroHoje) {
     return (
       <>
-        <LinhaDoTempoCiclo ciclos={ciclos} intervalo={intervalo} protocoloNome={protocoloNome} pacienteId={pacienteId} sexo={profile?.sexo} standalone />
+        <LinhaDoTempoCiclo ciclos={ciclos} intervalo={intervalo} protocoloNome={protocoloNome} pendente={pendente} pacienteId={pacienteId} sexo={profile?.sexo} standalone />
         <JaPreenchidoHoje
           registro={registroHoje}
           onEditar={() => { preencherForm(registroHoje); setStep(1); }}
@@ -250,7 +249,7 @@ export default function MonitoramentoOncologico() {
 
   return (
     <Wrap>
-      <LinhaDoTempoCiclo ciclos={ciclos} intervalo={intervalo} protocoloNome={protocoloNome} pacienteId={pacienteId} sexo={profile?.sexo} />
+      <LinhaDoTempoCiclo ciclos={ciclos} intervalo={intervalo} protocoloNome={protocoloNome} pendente={pendente} pacienteId={pacienteId} sexo={profile?.sexo} />
 
       {/* Barra de progresso */}
       <div style={{ marginBottom: 28 }}>
@@ -636,7 +635,7 @@ export default function MonitoramentoOncologico() {
 }
 
 // ── Linha do tempo de ciclo (somente leitura) ─────────────────────
-function LinhaDoTempoCiclo({ ciclos, intervalo, protocoloNome, standalone, pacienteId, sexo }) {
+function LinhaDoTempoCiclo({ ciclos, intervalo, protocoloNome, pendente, standalone, pacienteId, sexo }) {
   const hoje = dataLocalISO();
 
   // standalone = usado fora do <Wrap>, precisa do próprio centramento
@@ -663,9 +662,6 @@ function LinhaDoTempoCiclo({ ciclos, intervalo, protocoloNome, standalone, pacie
   }
 
   const uc = ciclos[0];
-  const iv = intervalo || 21;
-  const proto = getProtocolo(protocoloNome);
-  const estruturado = temEstruturaCiclo(proto);
 
   // Marcos e rótulos vêm da mesma fonte com ou sem estruturaCiclo — ela só muda
   // as pontas da régua (aplicação dentro do ciclo × ciclo inteiro). Nada aqui lê
@@ -674,31 +670,11 @@ function LinhaDoTempoCiclo({ ciclos, intervalo, protocoloNome, standalone, pacie
   //
   // Protocolo sem marcos próprios: janela null e doCiclo vazio — sem banner e
   // sem pontos de piora/pico/fim; a régua fica com a quimio e o próximo ciclo.
-  const janela = janelaRisco(proto);
-  const rotuloJanela = rotuloJanelaRisco(proto);
-  const emJanela = !!janela &&
-    hoje >= addDias(uc.data_quimio, janela.inicio) && hoje <= addDias(uc.data_quimio, janela.fim);
-  const doCiclo = marcosEfeitoAplicacao(proto, uc.data_quimio);
-  // Bolinha da infusão só quando nenhum marco começa nela; se começa, ele vem
-  // verde e com "Quimio" no desc, para a referência do dia da quimio não sumir.
-  const pontaInicial = doCiclo.some(m => m.infusao) ? [] : [{
-    d: uc.data_quimio,
-    label: estruturado ? 'Aplicação' : 'D1',
-    desc:  estruturado ? 'Dia da infusão' : 'Quimio',
-    cor:   '#16a34a',
-  }];
-  const pontaFinal = estruturado
-    ? { d: addDias(uc.data_quimio, proto.estruturaCiclo.cadenciaDias), label: 'Próxima', desc: 'Próxima aplicação', cor: '#16a34a' }
-    // Esse dia é o D1 do ciclo seguinte, não um dia do atual — sem número.
-    : { d: addDias(uc.data_quimio, iv), label: 'Próximo', desc: 'Próximo ciclo', cor: '#16a34a' };
-  const marcos = [
-    ...pontaInicial,
-    ...doCiclo.map(m => ({
-      d: m.data, label: m.label, desc: m.desc,
-      cor: m.infusao ? '#16a34a' : (COR_FASE_PAC[m.fase] ?? '#6b7280'),
-    })),
-    pontaFinal,
-  ];
+  // Registro pendente: sem banner, sem marcos e sem próximo ciclo.
+  const { emJanela, rotuloJanela, marcos: pontos } = linhaDoTempoPaciente({
+    ultimoCiclo: uc, intervalo, protocoloNome, hoje, pendente,
+  });
+  const marcos = pontos.map(m => ({ ...m, cor: COR_FASE_PAC[m.fase] ?? '#6b7280' }));
 
   return (
     <div style={wrapStyle}>

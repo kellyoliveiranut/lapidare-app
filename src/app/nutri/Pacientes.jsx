@@ -5,6 +5,7 @@ import { useSession } from '../../lib/session.jsx';
 import { iniciais, textoDias } from '../../lib/utils.js';
 import { linkConvite, convitePendenteVencido } from '../../lib/convite.js';
 import { gravar } from '../../lib/gravar.js';
+import { idsComRegistroPendente, contarRegistroPendente } from '../../lib/registroPendente.js';
 import ImportarCsv from './_ImportarCsv.jsx';
 
 // Seções da lista, na ordem em que aparecem na tela.
@@ -42,9 +43,13 @@ export default function Pacientes() {
   const [filtroStatus, setFiltroStatus] = useState('ativo');
   const [importerOpen, setImporterOpen] = useState(false);
   const [showPendentes, setShowPendentes] = useState(false);
+  // Pacientes com o registro do tratamento oncológico ainda não confirmado
+  // (tratamentos_oncologicos.registro_pendente). Só leitura: quem confirma é
+  // o botão da tela do tratamento.
+  const [registroPendenteIds, setRegistroPendenteIds] = useState(() => new Set());
 
   async function carregar() {
-    const [pacRes, pendRes, enviadosRes] = await Promise.all([
+    const [pacRes, pendRes, enviadosRes, tratRes] = await Promise.all([
       supabase
         .from('pacientes')
         .select('id, nome, email, objetivo, tipo_plano, modalidade, avatar_url, created_at, status_paciente, ultimo_acesso, user_id')
@@ -59,7 +64,12 @@ export default function Pacientes() {
         .from('pacientes_pendentes')
         .select('email, valido_ate')
         .eq('status', 'enviado'),
+      // Erro aqui não derruba a lista: idsComRegistroPendente devolve vazio.
+      supabase
+        .from('tratamentos_oncologicos')
+        .select('paciente_id,registro_pendente'),
     ]);
+    setRegistroPendenteIds(idsComRegistroPendente(tratRes));
     setPacientes(pacRes.data ?? []);
     setPendentes(pendRes.data ?? []);
     const chave = r => (r.email ?? '').trim().toLowerCase();
@@ -309,6 +319,8 @@ export default function Pacientes() {
           // paciente" seriam só ruído. O caso "tudo vazio" já é tratado acima,
           // pelo empty state de filtradas.length === 0.
           if (doGrupo.length === 0) return null;
+          // Conta só quem está na tela (busca e aba de status aplicadas), como o (N).
+          const nPendentes = secao.id === 'onco' ? contarRegistroPendente(doGrupo, registroPendenteIds) : 0;
           return (
             <section key={secao.id} style={{ marginBottom: 26 }}>
               <div style={{
@@ -325,6 +337,11 @@ export default function Pacientes() {
                 <span style={{ fontSize: 12, color: 'var(--text3)' }}>
                   ({doGrupo.length})
                 </span>
+                {nPendentes > 0 && (
+                  <span title="Registro pendente de confirmação" style={{ ...SELO_REGISTRO, alignSelf: 'center' }}>
+                    {nPendentes} com registro pendente
+                  </span>
+                )}
               </div>
               <div style={{
                 display: 'grid',
@@ -332,7 +349,7 @@ export default function Pacientes() {
                 gap: 14,
               }}>
                 {doGrupo.map(p => (
-                  <PacienteCard key={p.id} paciente={p} enviado={!p.user_id && enviadoEmails.has((p.email ?? '').trim().toLowerCase())} vencido={!p.user_id && vencidoEmails.has((p.email ?? '').trim().toLowerCase())} onNavigate={navigate} onReativar={reativar} />
+                  <PacienteCard key={p.id} paciente={p} enviado={!p.user_id && enviadoEmails.has((p.email ?? '').trim().toLowerCase())} vencido={!p.user_id && vencidoEmails.has((p.email ?? '').trim().toLowerCase())} registroPendente={registroPendenteIds.has(p.id)} onNavigate={navigate} onReativar={reativar} />
                 ))}
               </div>
             </section>
@@ -351,7 +368,14 @@ const SELO_VENCIDO = {
   border: '0.5px solid var(--red)',
 };
 
-const PacienteCard = memo(function PacienteCard({ paciente: p, enviado, vencido, onNavigate, onReativar }) {
+// Selo do registro pendente: âmbar dos avisos de _TratamentoOncologico.jsx.
+const SELO_REGISTRO = {
+  display: 'inline-flex', alignItems: 'center',
+  fontSize: 10.5, fontWeight: 600, padding: '2px 8px', borderRadius: 20,
+  background: '#fffbeb', color: '#92400e', border: '0.5px solid #fde68a',
+};
+
+const PacienteCard = memo(function PacienteCard({ paciente: p, enviado, vencido, registroPendente, onNavigate, onReativar }) {
   return (
     <div
       className="card"
@@ -484,6 +508,12 @@ const PacienteCard = memo(function PacienteCard({ paciente: p, enviado, vencido,
             </span>
           )}
         </div>
+        {/* Só aviso: o clique continua sendo o do card (abre a paciente). */}
+        {registroPendente && (
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <span title="Registro pendente de confirmação" style={SELO_REGISTRO}>Registro pendente</span>
+          </div>
+        )}
       </div>
     </div>
   );

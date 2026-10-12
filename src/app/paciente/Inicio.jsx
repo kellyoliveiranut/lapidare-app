@@ -291,7 +291,7 @@ export default function Inicio() {
       // O catálogo dos 73 protocolos é um chunk de ~100 KB e só interessa
       // aqui — vai por import dinâmico, em paralelo com as consultas, para
       // não pesar a tela inicial de quem não é oncologia.
-      const [{ data: ciclo }, { data: trat }, proto] = await Promise.all([
+      const [{ data: ciclo }, { data: trat, error: erroTrat }, proto] = await Promise.all([
         // Só ciclo já aplicado: a nutri cadastra ciclos futuros, e o mais
         // recente da tabela não é necessariamente o último que aconteceu.
         supabase.from('ciclos_quimio')
@@ -302,7 +302,7 @@ export default function Inicio() {
           .limit(1)
           .maybeSingle(),
         supabase.from('tratamentos_oncologicos')
-          .select('protocolo, intervalo_ciclos')
+          .select('protocolo, intervalo_ciclos, registro_pendente')
           .eq('paciente_id', pacienteId)
           .maybeSingle(),
         import('../../lib/protocoloCiclo.js'),
@@ -310,13 +310,12 @@ export default function Inicio() {
       if (!active) return;
 
       // null = não dá para afirmar em que fase ela está: sem ciclo aplicado,
-      // ou o último é velho demais. Cai na genérica — mesmo destino de um
-      // grupo que exista mas esteja sem mensagem ativa.
-      const grupo = proto.faseDoDia(
-        proto.getProtocolo(trat?.protocolo),
-        ciclo?.data_quimio,
-        { hoje, intervaloDias: trat?.intervalo_ciclos }
-      );
+      // o último é velho demais, ou o registro do tratamento ainda não foi
+      // confirmado pela nutri. Cai na genérica — mesmo destino de um grupo que
+      // exista mas esteja sem mensagem ativa. Erro na leitura (inclusive a
+      // coluna registro_pendente ainda inexistente) conta como pendente: {}
+      // não tem registro_pendente.
+      const grupo = proto.faseDoDiaPaciente(erroTrat ? {} : trat, ciclo?.data_quimio, { hoje });
 
       // Uma consulta traz o grupo do dia E as genéricas; a separação é no
       // cliente. Duas idas ao banco para escolher entre elas custariam mais
