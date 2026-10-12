@@ -87,7 +87,8 @@ const TROCAS_ADMIN = {
   'Vorsidenibe': ['VERIFICAR protocolo e perfil institucional. ', ''],
   'Lenalidomida': [' — vale confirmar com a equipe médica se é o caso da paciente.', '.'],
 };
-// Texto da Kelly (10/10/2026, bloco-85): 6 parágrafos separados por \n.
+// Texto da Kelly (10/10/2026, bloco-85): 6 parágrafos; desde o bloco-92
+// (12/10/2026) separados por linha em branco (\n\n).
 const PCV_PARAGRAFOS = [
   'A procarbazina pode interagir com bebidas alcoólicas e alimentos ricos em tiramina, provocando reações indesejadas.',
   'Não consuma bebidas alcoólicas, incluindo cervejas e vinhos sem álcool, durante o uso da procarbazina e por 14 dias após a última dose.',
@@ -96,7 +97,7 @@ const PCV_PARAGRAFOS = [
   'Sua equipe oncológica poderá orientar restrições específicas conforme o tratamento prescrito.',
   PCV_FRASE_B,
 ];
-const PCV_MANEJO = PCV_PARAGRAFOS.join('\n');
+const PCV_MANEJO = PCV_PARAGRAFOS.join('\n\n');
 const PCV_EFEITO_NOVO = 'Cuidados alimentares durante o uso de procarbazina';
 const ANTIEMESE_NOVO = 'Utilize os medicamentos para prevenir ou controlar náuseas e vômitos conforme a prescrição médica. Fracione as refeições, experimente alimentos secos ou frios, conforme sua tolerância, e beba líquidos em pequenos goles ao longo do dia.';
 const BEP_DOR_VELHA = 'Manejo com analgésico prescrito/liberado pela equipe, hidratação, compressa morna e repouso relativo.';
@@ -303,7 +304,7 @@ for (const p of catalogo.protocolos) JSON.stringify(p, (k, v) => {
   if (typeof v === 'string' && v.includes('\n')) comLF.push([p.nome, k, v.split('\n').length - 1]);
   return v;
 });
-t('LF dentro de textos: 5, todos no manejo do PCV', comLF, [['PCV', 'manejo', 5]]);
+t('LF dentro de textos: 10, todos no manejo do PCV', comLF, [['PCV', 'manejo', 10]]);
 t('PCV: manejo = os 6 parágrafos da Kelly, literal', efeitoDe('PCV', PCV_EFEITO_NOVO)?.manejo, PCV_MANEJO);
 // A nota_interna nova também cita "14 dias após a última dose": 2 no manejo + 1 nela.
 t('"14 dias após a última dose": 2 no manejo do PCV, 3 no catálogo (a 3ª na nota_interna)',
