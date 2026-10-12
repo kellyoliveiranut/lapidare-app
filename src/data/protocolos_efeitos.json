@@ -2073,7 +2073,7 @@
         {
           "efeito": "Cuidados alimentares durante o uso de procarbazina",
           "relacionado_a": "Procarbazina",
-          "manejo": "A procarbazina pode interagir com bebidas alcoólicas e alimentos ricos em tiramina, provocando reações indesejadas.\n\nNão consuma bebidas alcoólicas, incluindo cervejas e vinhos sem álcool, durante o uso da procarbazina e por 14 dias após a última dose.\n\nEvite alimentos muito ricos em tiramina, como queijos maturados, salame, pepperoni, carnes curadas, extratos concentrados de levedura e alimentos excessivamente fermentados ou envelhecidos, durante o uso da medicação e por 14 dias após a última dose.\n\nCaso apresente dor de cabeça intensa, palpitações, sudorese importante ou mal-estar após consumir algum alimento, procure avaliação médica.\n\nSua equipe oncológica poderá orientar restrições específicas conforme o tratamento prescrito.\n\nAntes de iniciar dietas restritivas, suplementos ou produtos naturais, converse com sua equipe oncológica."
+          "manejo": "A procarbazina pode interagir com bebidas alcoólicas e alimentos ricos em tiramina, provocando reações indesejadas.\n\nNão consuma bebidas alcoólicas, incluindo cervejas e vinhos sem álcool, durante o uso da procarbazina e por 14 dias após a última dose.\n\nEvite alimentos muito ricos em tiramina, como queijos maturados, salame, pepperoni, carnes curadas, extratos concentrados de levedura e alimentos excessivamente fermentados ou envelhecidos, durante o uso da medicação e por 14 dias após a última dose.\n\nCaso apresente dor de cabeça intensa, palpitações, sudorese importante ou mal-estar importante após consumir algum alimento, procure atendimento médico imediatamente.\n\nSua equipe oncológica poderá orientar restrições específicas conforme o tratamento prescrito.\n\nAntes de iniciar dietas restritivas, suplementos ou produtos naturais, converse com sua equipe oncológica."
         },
         {
           "efeito": "Baixa imunidade",
@@ -2089,7 +2089,7 @@
         "Confusão ou sonolência",
         "Vômitos persistentes",
         "Formigamento progressivo",
-        "Dor de cabeça intensa, palpitações, sudorese importante ou mal-estar após consumir algum alimento."
+        "Dor de cabeça intensa, palpitações, sudorese importante ou mal-estar após consumir algum alimento. Procure atendimento médico imediatamente."
       ],
       "nota_interna": "Pendente: confirmar as restrições do serviço. Verificar orientação institucional sobre alimentos ricos em tiramina e álcool. Orientação alimentar da procarbazina (álcool e tiramina, inclusive 14 dias após a última dose) publicada na Lâmina conforme texto da Kelly de 10/10/2026. O aviso de dor de cabeça intensa, palpitações, sudorese importante ou mal-estar após consumir algum alimento está no texto do manejo e na lista de sinais de alerta (decisão da Kelly de 12/10/2026): orienta contato médico imediato, especialmente se intenso ou repentino."
     },
@@ -3539,7 +3539,8 @@
           "fase": "risco"
         }
       ],
-      "conduta_base": "Versão atenuada do R-CHOP: o rituximabe vai em dose plena, mas doxorrubicina, ciclofosfamida, vincristina e o corticoide vão em meia dose. Desenhado para pacientes acima de 80 anos. Dose menor NÃO significa risco menor de infecção — a neutropenia grave permanece frequente nesta faixa etária, e a janela de D7 a D14 exige o mesmo rigor de higiene alimentar do R-CHOP cheio. O que muda em relação ao R-CHOP é a prioridade nutricional: aqui o inimigo principal não é a intensidade dos efeitos, é a fragilidade de base — sarcopenia, ingestão habitualmente baixa, menos percepção de sede e risco alto de desidratação e perda de peso. Garantir proteína distribuída ao longo do dia, adaptar textura quando houver prótese dentária ou dificuldade de mastigação, e vigiar hidratação ativamente, sem esperar a paciente pedir água.",
+      "marcos_provisorios": true,
+      "conduta_base": "Versão atenuada do R-CHOP: o rituximabe vai em dose plena, mas doxorrubicina, ciclofosfamida, vincristina e o corticoide vão em meia dose. Desenhado para pacientes acima de 80 anos. Dose menor NÃO significa risco menor de infecção — a neutropenia grave permanece frequente nesta faixa etária. Mantenha os cuidados de higiene e segurança dos alimentos durante o tratamento. Caso os exames indiquem redução das defesas do organismo, siga as orientações específicas da equipe oncológica. O que muda em relação ao R-CHOP é a prioridade nutricional: aqui o inimigo principal não é a intensidade dos efeitos, é a fragilidade de base — sarcopenia, ingestão habitualmente baixa, menos percepção de sede e risco alto de desidratação e perda de peso. Garantir proteína distribuída ao longo do dia, adaptar textura quando houver prótese dentária ou dificuldade de mastigação, e vigiar hidratação ativamente, sem esperar a paciente pedir água.",
       "efeitos": [
         {
           "efeito": "Perda de massa muscular (sarcopenia)",
@@ -3564,7 +3565,7 @@
         {
           "efeito": "Neutropenia (imunossupressão)",
           "relacionado_a": "Conjunto do protocolo",
-          "manejo": "Reforçar higiene alimentar entre D7 e D14 — evitar crus ou mal cozidos, priorizar bem lavados e bem cozidos. A dose reduzida não dispensa este cuidado."
+          "manejo": "Mantenha os cuidados de higiene e segurança dos alimentos durante o tratamento. Caso os exames indiquem redução das defesas do organismo, siga as orientações específicas da equipe oncológica. Evitar crus ou mal cozidos, priorizar bem lavados e bem cozidos. A dose reduzida não dispensa este cuidado."
         },
         {
           "efeito": "Constipação",

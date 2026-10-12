@@ -93,7 +93,8 @@ const PCV_PARAGRAFOS = [
   'A procarbazina pode interagir com bebidas alcoólicas e alimentos ricos em tiramina, provocando reações indesejadas.',
   'Não consuma bebidas alcoólicas, incluindo cervejas e vinhos sem álcool, durante o uso da procarbazina e por 14 dias após a última dose.',
   'Evite alimentos muito ricos em tiramina, como queijos maturados, salame, pepperoni, carnes curadas, extratos concentrados de levedura e alimentos excessivamente fermentados ou envelhecidos, durante o uso da medicação e por 14 dias após a última dose.',
-  'Caso apresente dor de cabeça intensa, palpitações, sudorese importante ou mal-estar após consumir algum alimento, procure avaliação médica.',
+  // bloco-96 (decisão da Kelly, 12/10/2026): atendimento médico imediato.
+  'Caso apresente dor de cabeça intensa, palpitações, sudorese importante ou mal-estar importante após consumir algum alimento, procure atendimento médico imediatamente.',
   'Sua equipe oncológica poderá orientar restrições específicas conforme o tratamento prescrito.',
   PCV_FRASE_B,
 ];
@@ -118,7 +119,9 @@ const SUNITINIBES = ['Sunitinibe 37,5mg', 'Sunitinibe 50mg'];
 const PENDENCIA_SUNI = 'Pendente: confirmar na prescrição os dias de uso e de pausa. Enquanto não confirmados, não indicar calendário à paciente.';
 const PENDENCIA_TMZ150 = ' Pendente: confirmar na prescrição os dias de tomada. Enquanto não confirmados, não indicar calendário à paciente.';
 // bloco-90 (decisão da Kelly, 12/10/2026): o aviso do manejo também como último sinal de alerta do PCV.
-const PCV_SINAL_NOVO = 'Dor de cabeça intensa, palpitações, sudorese importante ou mal-estar após consumir algum alimento.';
+// bloco-96: a mesma descrição + a frase da Kelly do atendimento imediato.
+const PCV_SINAL_NOVO = 'Dor de cabeça intensa, palpitações, sudorese importante ou mal-estar após consumir algum alimento. Procure atendimento médico imediatamente.';
+const PCV_P4_VELHO = 'Caso apresente dor de cabeça intensa, palpitações, sudorese importante ou mal-estar após consumir algum alimento, procure avaliação médica.';
 const PCV_NOTA_VELHA = 'O aviso de dor de cabeça intensa, palpitações e sudorese está só no texto do manejo, não na lista de sinais de alerta.';
 const PCV_NOTA_NOVA = 'O aviso de dor de cabeça intensa, palpitações, sudorese importante ou mal-estar após consumir algum alimento está no texto do manejo e na lista de sinais de alerta (decisão da Kelly de 12/10/2026): orienta contato médico imediato, especialmente se intenso ou repentino.';
 // bloco-81: pendências que saíram da Lâmina, criadas como último campo.
@@ -230,6 +233,25 @@ const rchopEsperado = p => ({
   marcosEfeito: p.marcosEfeito.map(m => (m.fase === 'risco' && m.de === 6 && m.ate === 13 ? { ...m, de: 7, ate: 14 } : m)),
   conduta_base: p.conduta_base.replace('D+7 a D+14', 'Dia 8 ao Dia 15'),
 });
+// bloco-96 (decisão da Kelly, 12/10/2026): R-mini-CHOP ganha
+// "marcos_provisorios": true logo depois do marcosEfeito; nada mais muda nele.
+const comMarcosProvisorios = p => Object.fromEntries(Object.entries(p).flatMap(([k, v]) =>
+  k === 'marcosEfeito' ? [[k, v], ['marcos_provisorios', true]] : [[k, v]]));
+// bloco-97 (decisão de 12/10/2026): sai só o trecho da janela D7–D14 dos dois
+// textos do R-mini-CHOP e entra a frase da Kelly; o resto fica. Substituição
+// literal: se o trecho antigo não existir exatamente 1 vez, o texto esperado
+// vira um marcador e a comparação falha.
+const FRASE_KELLY_RMINI = 'Mantenha os cuidados de higiene e segurança dos alimentos durante o tratamento. Caso os exames indiquem redução das defesas do organismo, siga as orientações específicas da equipe oncológica.';
+const RMINI_TROCA_A = ['Dose menor NÃO significa risco menor de infecção — a neutropenia grave permanece frequente nesta faixa etária, e a janela de D7 a D14 exige o mesmo rigor de higiene alimentar do R-CHOP cheio.',
+  'Dose menor NÃO significa risco menor de infecção — a neutropenia grave permanece frequente nesta faixa etária. ' + FRASE_KELLY_RMINI];
+const RMINI_TROCA_B = ['Reforçar higiene alimentar entre D7 e D14 — evitar crus ou mal cozidos, priorizar bem lavados e bem cozidos. A dose reduzida não dispensa este cuidado.',
+  FRASE_KELLY_RMINI + ' Evitar crus ou mal cozidos, priorizar bem lavados e bem cozidos. A dose reduzida não dispensa este cuidado.'];
+const trocaUnica = (s, [velho, novo]) => (s.split(velho).length === 2 ? s.replace(velho, () => novo) : '<<trecho antigo não está exatamente 1 vez>>');
+const rminiEsperado = p => comMarcosProvisorios({
+  ...p,
+  conduta_base: trocaUnica(p.conduta_base, RMINI_TROCA_A),
+  efeitos: p.efeitos.map(e => (e.efeito === 'Neutropenia (imunossupressão)' ? { ...e, manejo: trocaUnica(e.manejo, RMINI_TROCA_B) } : e)),
+});
 const esperadoAgora = p => {
   let e = (TROCADAS.includes(p.nome) || TROCAS_ADMIN[p.nome]) ? { ...p, conduta_base: condutaEsperada(p.nome, p.conduta_base) } : p;
   if (TROCAS_MANEJO.some(([n]) => n === p.nome)) e = { ...e, efeitos: efeitosEsperados(p.nome, p.efeitos) };
@@ -237,9 +259,10 @@ const esperadoAgora = p => {
   if (SUNITINIBES.includes(p.nome)) e = { ...e, nota_interna: PENDENCIA_SUNI };
   if (NOTAS_ADMIN[p.nome]) e = { ...e, nota_interna: NOTAS_ADMIN[p.nome] };
   if (p.nome === 'PCV') e = { ...e, sinais_alerta: [...p.sinais_alerta, PCV_SINAL_NOVO] };
+  if (p.nome === 'R-mini-CHOP') e = rminiEsperado(e);
   return e;
 };
-t('as outras 77 fichas idênticas ao 2ef22d0 (exceto conduta_base das trocadas, manejo do PCV, R-CHOP e nota_interna novas), inclusive a ordem dos campos',
+t('as outras 77 fichas idênticas ao 2ef22d0 (exceto conduta_base das trocadas, manejo do PCV, R-CHOP, nota_interna novas, marcos_provisorios e trocas A/B do R-mini-CHOP), inclusive a ordem dos campos',
   catalogo.protocolos.filter(p => !TRES.includes(p.nome)).map(p => [Object.keys(p), p]),
   base.protocolos.filter(p => !TRES.includes(p.nome)).map(esperadoAgora).map(p => [Object.keys(p), p]));
 t('R-CHOP = 2ef22d0 com só o marco de risco 7/14 e "Dia 8 ao Dia 15" na conduta_base', agora('R-CHOP'), rchopEsperado(antes('R-CHOP')));
@@ -268,8 +291,13 @@ const CAMPOS_LAMINA = ['nome', 'conduta_base', 'efeitos', 'sinais_alerta', 'aler
 t('"Pendente: confirmar na prescrição" em nenhum campo que a Lâmina lê',
   catalogo.protocolos.filter(p => CAMPOS_LAMINA.some(k => JSON.stringify(p[k] ?? '').includes('Pendente: confirmar na prescrição'))).map(p => p.nome), []);
 const anteriorCommit = JSON.parse(execSync('git show 01c2901:src/data/protocolos_efeitos.json', { maxBuffer: 1e8 }).toString('utf8'));
-t('R-mini-CHOP idêntico ao 01c2901 (marcos incluídos; continua Dia 7 ao Dia 14)',
-  agora('R-mini-CHOP'), anteriorCommit.protocolos.find(p => p.nome === 'R-mini-CHOP'));
+const rminiAnterior = anteriorCommit.protocolos.find(p => p.nome === 'R-mini-CHOP');
+t('R-mini-CHOP no 01c2901: cada trecho antigo das trocas A e B existe exatamente 1 vez',
+  [rminiAnterior.conduta_base.split(RMINI_TROCA_A[0]).length - 1, rminiAnterior.efeitos.map(e => e.manejo.split(RMINI_TROCA_B[0]).length - 1)],
+  [1, rminiAnterior.efeitos.map(e => (e.efeito === 'Neutropenia (imunossupressão)' ? 1 : 0))]);
+t('R-mini-CHOP = 01c2901 com só "marcos_provisorios": true depois do marcosEfeito e as trocas A e B (marcos incluídos; continua Dia 7 ao Dia 14)',
+  agora('R-mini-CHOP'), rminiEsperado(rminiAnterior));
+t('"marcos_provisorios" só no R-mini-CHOP', catalogo.protocolos.filter(p => 'marcos_provisorios' in p).map(p => p.nome), ['R-mini-CHOP']);
 
 // bloco-81 (decisão da Kelly, 10/10/2026): anotações retiradas da Lâmina.
 const RETIRADOS = ['Confirmar dias exatos de uso de cada medicação', 'Confirmar restrições do serviço',
@@ -306,6 +334,8 @@ for (const p of catalogo.protocolos) JSON.stringify(p, (k, v) => {
 });
 t('LF dentro de textos: 10, todos no manejo do PCV', comLF, [['PCV', 'manejo', 10]]);
 t('PCV: manejo = os 6 parágrafos da Kelly, literal', efeitoDe('PCV', PCV_EFEITO_NOVO)?.manejo, PCV_MANEJO);
+t('PCV: parágrafo 4 antigo ("procure avaliação médica") = 0 no catálogo; "procure avaliação médica" = 0',
+  [vezes(PCV_P4_VELHO), vezes('procure avaliação médica')], [0, 0]);
 // A nota_interna nova também cita "14 dias após a última dose": 2 no manejo + 1 nela.
 t('"14 dias após a última dose": 2 no manejo do PCV, 3 no catálogo (a 3ª na nota_interna)',
   [efeitoDe('PCV', PCV_EFEITO_NOVO)?.manejo.split('14 dias após a última dose').length - 1, vezes('14 dias após a última dose')], [2, 3]);

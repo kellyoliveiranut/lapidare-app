@@ -10,7 +10,7 @@ import protocolosEfeitosData from '../../data/protocolos_efeitos.json';
 import { CAMPOS_EXAME, CHAVES_EXAME, textoRef } from '../../data/exames_referencia.js';
 import ValorExame, { LegendaExames } from '../../components/ValorExame.jsx';
 import GraficosExames from '../../components/GraficosExames.jsx';
-import { getProtocolo, chaveProtocolo, temEstruturaCiclo, janelaRisco, rotuloJanelaRisco, marcosDoProtocolo, marcosEfeitoAplicacao, datasAplicacoesCiclo, datasSerieCiclos, intervaloMinimoSerie, linhasDoCiclo, protocoloPendentePrescricao, protocoloAguardandoConferencia, registroPendente } from '../../lib/protocoloCiclo.js';
+import { getProtocolo, chaveProtocolo, temEstruturaCiclo, janelaRisco, rotuloJanelaRisco, marcosDoProtocolo, marcosEfeitoAplicacao, datasAplicacoesCiclo, datasSerieCiclos, intervaloMinimoSerie, linhasDoCiclo, protocoloPendentePrescricao, protocoloAguardandoConferencia, registroPendente, marcosProvisorios } from '../../lib/protocoloCiclo.js';
 import { validarConferencia, gravacaoConfirmar, gravacaoPendente, textoConfirmacao } from '../../lib/registroConferencia.js';
 
 const GRUPOS_EFEITOS = (() => {
@@ -437,6 +437,11 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
           <i className="ti ti-alert-triangle" style={{ fontSize: 16 }} />
           ⚠️ Paciente em <strong>janela de risco imunológico</strong> ({rotuloJanela} do ciclo {ultimoCiclo.numero_ciclo}).
           Monitorar febre, neutropenia e sintomas.
+        </div>
+      )}
+      {marcosProvisorios(proto) && (
+        <div style={{ marginBottom: 10, fontSize: 12, color: 'var(--text3)' }}>
+          Janela provisória (D7–D14): a paciente não vê estes marcos até a validação clínica.
         </div>
       )}
 

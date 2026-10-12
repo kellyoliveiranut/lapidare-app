@@ -400,13 +400,24 @@ export function registroPendente(tratamento) {
 }
 
 /**
+ * Ficha cujos marcos (marcosEfeito/janela) são referência interna provisória,
+ * ainda sem validação clínica: a nutri vê, a paciente não. Só `true` exato.
+ */
+export function marcosProvisorios(proto) {
+  return proto?.marcos_provisorios === true;
+}
+
+/**
  * faseDoDia() da paciente: a sub-fase que escolhe a mensagem do dia, ou null
- * (mensagem genérica) enquanto o registro do tratamento estiver pendente.
- * Confirmado, é exatamente a chamada que a tela Início fazia antes.
+ * (mensagem genérica) enquanto o registro do tratamento estiver pendente ou
+ * a ficha tiver marcos provisórios. Fora isso, é exatamente a chamada que a
+ * tela Início fazia antes.
  */
 export function faseDoDiaPaciente(tratamento, dataAplicacao, { hoje } = {}) {
   if (registroPendente(tratamento)) return null;
-  return faseDoDia(getProtocolo(tratamento?.protocolo), dataAplicacao, {
+  const proto = getProtocolo(tratamento?.protocolo);
+  if (marcosProvisorios(proto)) return null;
+  return faseDoDia(proto, dataAplicacao, {
     hoje, intervaloDias: tratamento?.intervalo_ciclos,
   });
 }
@@ -421,6 +432,9 @@ export function faseDoDiaPaciente(tratamento, dataAplicacao, { hoje } = {}) {
  * Com o registro pendente, tudo o que é CALCULADO some: sem banner, sem marcos
  * e sem próxima data. Fica só a bolinha da aplicação, que é a data que a nutri
  * digitou no ciclo.
+ *
+ * Com marcos provisórios (e registro confirmado): sem banner e sem marcos do
+ * catálogo, mas com a bolinha da aplicação e a próxima data.
  *
  * `fase` de cada marco só escolhe a cor na tela; 'quimio' é a bolinha verde da
  * aplicação (inclusive marco que começa no dia da infusão).
@@ -439,10 +453,11 @@ export function linhaDoTempoPaciente({ ultimoCiclo, intervalo, protocoloNome, ho
   };
   if (pendente) return { emJanela: false, rotuloJanela: '', marcos: [aplicacao] };
 
-  const janela = janelaRisco(proto);
+  const provisorio = marcosProvisorios(proto);
+  const janela = provisorio ? null : janelaRisco(proto);
   const emJanela = !!janela &&
     hoje >= addDaysISO(uc.data_quimio, janela.inicio) && hoje <= addDaysISO(uc.data_quimio, janela.fim);
-  const doCiclo = marcosEfeitoAplicacao(proto, uc.data_quimio);
+  const doCiclo = provisorio ? [] : marcosEfeitoAplicacao(proto, uc.data_quimio);
   // Bolinha da infusão só quando nenhum marco começa nela; se começa, ele vem
   // verde e com "Quimio" no desc, para a referência do dia da quimio não sumir.
   const pontaInicial = doCiclo.some(m => m.infusao) ? [] : [aplicacao];
@@ -452,7 +467,7 @@ export function linhaDoTempoPaciente({ ultimoCiclo, intervalo, protocoloNome, ho
     : { d: addDaysISO(uc.data_quimio, iv), label: 'Próximo', desc: 'Próximo ciclo', fase: 'quimio' };
   return {
     emJanela,
-    rotuloJanela: rotuloJanelaRisco(proto),
+    rotuloJanela: provisorio ? '' : rotuloJanelaRisco(proto),
     marcos: [
       ...pontaInicial,
       ...doCiclo.map(m => ({ d: m.data, label: m.label, desc: m.desc, fase: m.infusao ? 'quimio' : m.fase })),
