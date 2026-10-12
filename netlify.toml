@@ -11,6 +11,9 @@
 [functions."aniversarios"]
   schedule = "0 12 * * *"
 
+[functions."avisos-checkin-push"]
+  schedule = "*/2 * * * *"
+
 # Garante que o React Router funcione em qualquer rota direta
 [[redirects]]
   from = "/*"

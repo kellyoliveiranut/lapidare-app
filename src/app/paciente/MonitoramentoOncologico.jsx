@@ -4,6 +4,7 @@ import { useSession } from '../../lib/session.jsx';
 import { dataBR, dataLocalISO } from '../../lib/utils.js';
 import { linhaDoTempoPaciente, registroPendente } from '../../lib/protocoloCiclo.js';
 import ExamesLaboratoriais from './_ExamesLaboratoriais.jsx';
+import CardPanoramaLink from '../../components/CardPanoramaLink.jsx';
 
 const TOTAL_STEPS = 11;
 
@@ -217,6 +218,7 @@ export default function MonitoramentoOncologico() {
   if (step === null) {
     return (
       <Wrap>
+        <CardPanoramaLink />
         <LinhaDoTempoCiclo ciclos={ciclos} intervalo={intervalo} protocoloNome={protocoloNome} pendente={pendente} pacienteId={pacienteId} sexo={profile?.sexo} />
         <div style={{ textAlign: 'center', color: 'var(--muted)', padding: 40 }}>Carregando…</div>
       </Wrap>
@@ -226,6 +228,7 @@ export default function MonitoramentoOncologico() {
   if (salvo) {
     return (
       <>
+        <CardPanoramaLink />
         <LinhaDoTempoCiclo ciclos={ciclos} intervalo={intervalo} protocoloNome={protocoloNome} pendente={pendente} pacienteId={pacienteId} sexo={profile?.sexo} standalone />
         <Concluido />
       </>
@@ -235,6 +238,7 @@ export default function MonitoramentoOncologico() {
   if (step === 0 && registroHoje) {
     return (
       <>
+        <CardPanoramaLink />
         <LinhaDoTempoCiclo ciclos={ciclos} intervalo={intervalo} protocoloNome={protocoloNome} pendente={pendente} pacienteId={pacienteId} sexo={profile?.sexo} standalone />
         <JaPreenchidoHoje
           registro={registroHoje}
@@ -249,6 +253,7 @@ export default function MonitoramentoOncologico() {
 
   return (
     <Wrap>
+      <CardPanoramaLink />
       <LinhaDoTempoCiclo ciclos={ciclos} intervalo={intervalo} protocoloNome={protocoloNome} pendente={pendente} pacienteId={pacienteId} sexo={profile?.sexo} />
 
       {/* Barra de progresso */}

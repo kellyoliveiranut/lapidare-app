@@ -11,6 +11,8 @@ import { iniciarTokenPush, avisarNutri } from '../../lib/push.js';
 import { gravar } from '../../lib/gravar.js';
 import { useJornada, ehEssentia } from '../../lib/useJornada.js';
 import { CardJornadaResumo } from './_Jornada.jsx';
+import CardPanoramaLink from '../../components/CardPanoramaLink.jsx';
+import { bloqueadoNoPlano } from '../../lib/planoPaciente.js';
 
 
 const DIAS_SEG = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
@@ -671,6 +673,10 @@ export default function Inicio() {
           ela acompanha. Some sozinho sem jornada (não Essentia, carregando,
           erro ou pacote vazio) — ver CardJornadaResumo. */}
       <CardJornadaResumo jornada={jornada} onAbrir={() => navigate('/paciente/jornada')} />
+
+      {/* 1d — Panorama do tratamento: só Oncologia, logo depois da Jornada.
+          Some para quem o plano bloqueia a rota (Avulsa), como o Tratamento. */}
+      {isOnco && !bloqueadoNoPlano(profile, '/paciente/panorama') && <CardPanoramaLink />}
 
       {/* 2 — Banner motivacional */}
       {mensagemCiclo && (

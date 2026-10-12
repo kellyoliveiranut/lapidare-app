@@ -30,9 +30,10 @@ export default defineConfig([
 
   // Funcoes Netlify sao CommonJS rodando em Node — require, exports e
   // process nao sao globais do browser. Confere com netlify/functions/
-  // package.json, que declara { "type": "commonjs" }.
+  // package.json, que declara { "type": "commonjs" }. Inclui subpastas (função com
+  // módulo auxiliar, como avisos-checkin-push/).
   {
-    files: ['netlify/functions/*.js'],
+    files: ['netlify/functions/**/*.js'],
     languageOptions: {
       globals: { ...globals.node },
     },

@@ -1,0 +1,67 @@
+/* Panorama do tratamento — estrada em SVG (PanoramaEstrada.jsx).
+   Só variáveis que existem fora de .nutri-panel (tokens.css / .paciente-app). */
+
+.panorama-estrada {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.panorama-estacao { cursor: pointer; outline: none; }
+.panorama-estacao .panorama-foco { opacity: 0; }
+.panorama-estacao:focus-visible .panorama-foco { opacity: 1; }
+
+.panorama-painel {
+  margin-top: 8px;
+  padding: 16px 18px;
+  background: var(--paper);
+  border: 0.5px solid var(--hair);
+  border-radius: var(--radius-lg, 16px);
+  box-shadow: var(--shadow-sm, none);
+}
+.panorama-painel-eyebrow {
+  font-family: var(--font-sans);
+  font-size: 10px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.panorama-painel-titulo {
+  font-family: var(--font-serif);
+  font-size: 22px;
+  line-height: 1.15;
+  color: var(--ink);
+  margin-bottom: 10px;
+}
+.panorama-painel ul { list-style: none; padding: 0; margin: 0; }
+.panorama-painel li {
+  position: relative;
+  padding: 6px 0 6px 18px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--ink);
+  border-top: 0.5px solid var(--hair-soft, var(--hair));
+}
+.panorama-painel li:first-child { border-top: none; }
+.panorama-painel li::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 13px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--gold);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .panorama-anel-atual { animation: panorama-pulso 2.4s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
+}
+@keyframes panorama-pulso {
+  0%, 100% { opacity: .9; }
+  50%      { opacity: .45; }
+}

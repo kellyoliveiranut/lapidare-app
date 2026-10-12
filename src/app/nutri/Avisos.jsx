@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { dataConsultaBR } from '../../lib/utils.js';
-import { montarAvisos, LIMITE_AVISOS, EVENTO_AVISOS_MUDOU } from '../../lib/avisosNutri.js';
+import { montarAvisos, LIMITE_AVISOS, EVENTO_AVISOS_MUDOU, TIPOS_AVISOS_LISTA } from '../../lib/avisosNutri.js';
 
 /**
  * Avisos da nutri (avisos_nutri). A tabela é só-leitura para o cliente: quem
@@ -24,16 +24,21 @@ export default function Avisos() {
     if (!user) return;
     let vivo = true;
     (async () => {
-      // A RLS já devolve só os avisos desta nutri.
-      let q = supabase
-        .from('avisos_nutri')
-        .select('id, paciente_id, tipo, criado_em, visto_em')
-        // Só contrato: foto do prato tem o número dela no item Feed de pratos.
-        .eq('tipo', 'contrato_assinado')
-        .order('criado_em', { ascending: false })
-        .limit(LIMITE_AVISOS);
-      q = aba === 'novos' ? q.is('visto_em', null) : q.not('visto_em', 'is', null);
-      const { data, error } = await q;
+      // A RLS já devolve só os avisos desta nutri. foto_prato fica fora: tem o
+      // número dela no item Feed de pratos.
+      const consulta = tipos => {
+        const q = supabase
+          .from('avisos_nutri')
+          .select('id, paciente_id, tipo, criado_em, visto_em')
+          .in('tipo', tipos)
+          .order('criado_em', { ascending: false })
+          .limit(LIMITE_AVISOS);
+        return aba === 'novos' ? q.is('visto_em', null) : q.not('visto_em', 'is', null);
+      };
+      let { data, error } = await consulta(TIPOS_AVISOS_LISTA);
+      // Se a lista com os tipos novos falhar, mostra o que vier só com o contrato
+      // (o que a tela mostrava antes), sem erro na tela.
+      if (error) ({ data, error } = await consulta(['contrato_assinado']));
       if (!vivo) return;
       if (error) { setErroCarga(true); return; }
 
@@ -137,10 +142,13 @@ export default function Avisos() {
               display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
               padding: '12px 16px',
               borderTop: i === 0 ? 'none' : '0.5px solid var(--border)',
+              // Alerta: só destaque (mesmo vermelho dos avisos de erro); a ordem é a cronológica.
+              ...(a.alerta ? { background: 'var(--red-bg)', boxShadow: 'inset 3px 0 0 var(--red)' } : null),
             }}>
               <div style={{ flex: 1, minWidth: 180 }}>
                 <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--dark)' }}>{a.paciente}</div>
-                <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>
+                <div style={{ fontSize: 12, color: a.alerta ? 'var(--red)' : 'var(--text3)', fontWeight: a.alerta ? 600 : 400, marginTop: 2 }}>
+                  {a.alerta && <i className="ti ti-alert-triangle" aria-hidden="true" style={{ marginRight: 4 }}></i>}
                   {a.rotulo} · {dataConsultaBR(a.criado_em)}
                 </div>
               </div>

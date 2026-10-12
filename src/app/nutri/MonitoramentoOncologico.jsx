@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { iniciais, isoLocalDeData } from '../../lib/utils.js';
+import { alertaOncologicoCheckin } from '../../lib/alertaOncologico.js';
 
 const HIDRATACAO_LABEL = ['0–2 copos (até 400ml)', '3–4 copos (600–800ml)', '5–6 copos (1000–1200ml)', '7+ copos (1400ml+)'];
 const SUPLEMENTO_LABEL = { todos: 'Todos ✓', parcialmente: 'Parcial', nao: 'Não tomou' };
@@ -9,13 +10,9 @@ const SUPLEMENTO_LABEL = { todos: 'Todos ✓', parcialmente: 'Parcial', nao: 'N�
 // ── Lógica de semáforo ────────────────────────────────────────────
 function calcSemaforo(r) {
   if (!r) return 'gray';
-  if (
-    (r.nausea    != null && r.nausea    >= 7) ||
-    (r.diarreia  != null && r.diarreia  >= 7) ||
-    (r.apetite   != null && r.apetite   <= 2) ||
-    r.hidratacao === 0 ||
-    r.suplemento === 'nao'
-  ) return 'red';
+  // Vermelho = alerta oncológico (a mesma regra do aviso do banco): os
+  // critérios vermelhos de antes mais a febre.
+  if (alertaOncologicoCheckin(r)) return 'red';
   if (
     (r.nausea    != null && r.nausea    >= 4) ||
     (r.diarreia  != null && r.diarreia  >= 4) ||
@@ -39,6 +36,7 @@ const ORDEM_SEM = { red: 0, yellow: 1, green: 2, gray: 3 };
 function gerarAlertas(r) {
   if (!r) return [];
   const al = [];
+  if (r.febre === true) al.push({ icon: 'temperature', msg: 'Febre informada no check-in.', nivel: 'red' });
   if (r.nausea   >= 7) al.push({ icon: 'mood-sick',      msg: 'Náusea acima de 7',                    nivel: 'red'    });
   if (r.diarreia >= 7) al.push({ icon: 'droplet',         msg: 'Diarreia acima de 7',                   nivel: 'red'    });
   if (r.apetite  <= 2) al.push({ icon: 'soup-off',        msg: `Apetite muito baixo (${r.apetite}/10)`, nivel: 'red'    });
@@ -443,6 +441,7 @@ export default function MonitoramentoOncologico() {
                     <IndRow label="Energia"     value={ultR.energia   != null ? `${ultR.energia}/10`   : '—'} />
                     <IndRow label="Náusea"      value={ultR.nausea    != null ? `${ultR.nausea}/10`    : '—'} />
                     <IndRow label="Diarreia"    value={ultR.diarreia  != null ? `${ultR.diarreia}/10`  : '—'} />
+                    {ultR.febre === true && <IndRow label="Febre" value="sim" />}
                     <IndRow label="Hidratação"  value={ultR.hidratacao != null ? HIDRATACAO_LABEL[ultR.hidratacao] : '—'} />
                     <IndRow label="Suplemento"  value={SUPLEMENTO_LABEL[ultR.suplemento] ?? '—'} last />
                   </div>

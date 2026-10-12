@@ -7,7 +7,7 @@ import { avisarStatus } from '../lib/realtime.js';
 import BrandFooter from './BrandFooter.jsx';
 import BannerNovidades from './BannerNovidades.jsx';
 import { iniciais, mesAno } from '../lib/utils.js';
-import { EVENTO_AVISOS_MUDOU, EVENTO_FEED_RECARREGAR } from '../lib/avisosNutri.js';
+import { EVENTO_AVISOS_MUDOU, EVENTO_FEED_RECARREGAR, TIPOS_AVISOS_LISTA } from '../lib/avisosNutri.js';
 import '../styles/nutri.css';
 
 const NAV_CONFIG = [
@@ -98,7 +98,8 @@ export default function NutriLayout() {
   }, [user]);
 
   // Conta avisos não vistos (avisos_nutri; a RLS já filtra pela nutri), em
-  // dois números: contrato (item Avisos) e foto do prato (item Feed de pratos).
+  // dois números: os tipos da página Avisos (item Avisos) e foto do prato (item
+  // Feed de pratos).
   // Mesmo molde do contador do chat, com dois reforços: a recontagem ao voltar
   // à aba (o websocket costuma cair no celular em segundo plano) e o evento
   // disparado depois de marcar como visto (página Avisos e, aqui embaixo, a
@@ -108,16 +109,18 @@ export default function NutriLayout() {
     if (!user) return;
     let active = true;
 
-    const naoVistos = tipo => supabase
+    const naoVistos = tipos => supabase
       .from('avisos_nutri')
       .select('id', { count: 'exact', head: true })
       .is('visto_em', null)
-      .eq('tipo', tipo);
+      .in('tipo', tipos);
 
     async function recarregar() {
+      // Item Avisos: os tipos da página Avisos (contrato, check-in diário,
+      // alerta e formulário respondido); foto do prato tem o número dela.
       const [contratos, fotos] = await Promise.all([
-        naoVistos('contrato_assinado'),
-        naoVistos('foto_prato'),
+        naoVistos(TIPOS_AVISOS_LISTA),
+        naoVistos(['foto_prato']),
       ]);
       if (!active) return;
       // Cada número só muda se a SUA consulta voltou sem erro.

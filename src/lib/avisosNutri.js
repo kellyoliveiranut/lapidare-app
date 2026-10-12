@@ -25,22 +25,42 @@ export const EVENTO_FEED_RECARREGAR = 'feed-nutri:recarregar';
 export const EVENTO_EBOOKS_VISTOS = 'ebooks-paciente:vistos';
 
 export const ROTULO_AVISO = {
-  contrato_assinado: 'Assinou o contrato',
-  foto_prato:        'Enviou foto do prato',
+  contrato_assinado:  'Assinou o contrato',
+  foto_prato:         'Enviou foto do prato',
+  checkin_diario:     'Respondeu o check-in de hoje',
+  alerta_oncologico:  'Alerta no check-in: confira',
+  checkin_respondido: 'Respondeu um formulário de check-in',
 };
+
+// Tipos da página Avisos e do número do item Avisos no menu. foto_prato fica
+// de fora: tem o número dela no item Feed de pratos.
+export const TIPOS_AVISOS_LISTA = ['contrato_assinado', 'checkin_diario', 'alerta_oncologico', 'checkin_respondido'];
+
+// Tela de acompanhamento oncológico da nutri. Ela não recebe a paciente por
+// parâmetro: o link abre a tela, e a nutri escolhe a paciente na lista.
+export const ROTA_ONCOLOGIA_NUTRI = '/nutri/monitoramento-oncologico';
 
 // Por aba. A consulta já pede só isso; acima disso a lista mostra os mais
 // recentes, e "Marcar todos como vistos" continua valendo para todos (a função
 // do banco não depende do que está na tela).
 export const LIMITE_AVISOS = 100;
 
-/** Link da linha: ficha da paciente para contrato, feed para foto. */
+/**
+ * Link da linha: ficha da paciente para contrato, feed para foto, tela de
+ * oncologia para check-in diário e alerta, lista de check-ins para formulário.
+ */
 export function linkDoAviso(aviso) {
   if (aviso?.tipo === 'contrato_assinado' && aviso.paciente_id) {
     return { to: `/nutri/pacientes/${aviso.paciente_id}`, texto: 'Abrir ficha' };
   }
   if (aviso?.tipo === 'foto_prato') {
     return { to: '/nutri/feed', texto: 'Ver no feed' };
+  }
+  if (aviso?.tipo === 'checkin_diario' || aviso?.tipo === 'alerta_oncologico') {
+    return { to: ROTA_ONCOLOGIA_NUTRI, texto: 'Abrir acompanhamento' };
+  }
+  if (aviso?.tipo === 'checkin_respondido') {
+    return { to: '/nutri/checkins', texto: 'Ver check-ins' };
   }
   return null;
 }
@@ -63,5 +83,7 @@ export function montarAvisos(linhas, nomes = {}) {
       link:      linkDoAviso(a),
       criado_em: a.criado_em,
       visto:     a.visto_em != null,
+      // Só destaque visual: a ordem continua a cronológica.
+      alerta:    a.tipo === 'alerta_oncologico',
     }));
 }
