@@ -11,6 +11,7 @@ import { CAMPOS_EXAME, CHAVES_EXAME, textoRef } from '../../data/exames_referenc
 import ValorExame, { LegendaExames } from '../../components/ValorExame.jsx';
 import GraficosExames from '../../components/GraficosExames.jsx';
 import { getProtocolo, chaveProtocolo, temEstruturaCiclo, janelaRisco, rotuloJanelaRisco, marcosDoProtocolo, marcosEfeitoAplicacao, datasAplicacoesCiclo, datasSerieCiclos, intervaloMinimoSerie, linhasDoCiclo, protocoloPendentePrescricao, protocoloAguardandoConferencia, registroPendente } from '../../lib/protocoloCiclo.js';
+import { validarConferencia, gravacaoConfirmar, gravacaoPendente, textoConfirmacao } from '../../lib/registroConferencia.js';
 
 const GRUPOS_EFEITOS = (() => {
   const groups = {};
@@ -111,6 +112,12 @@ export default function TratamentoOncologico({ pacienteId, nutriId, pacienteNome
   const [modalRegistro, setModalRegistro] = useState(null); // 'confirmar' | 'pendente'
   const [erroRegistro, setErroRegistro] = useState(null);
   const [gravandoRegistro, setGravandoRegistro] = useState(false);
+  // Linha lida do banco junto com o status: o que está sendo confirmado e a
+  // conferência já registrada. Quem conferiu e a fonte são digitados a cada
+  // confirmação (a conta de login é compartilhada) e não ficam guardados.
+  const [registroLinha, setRegistroLinha] = useState(null);
+  const [conferencia, setConferencia] = useState({ por: '', fonte: '' });
+  const [conferenciaTocada, setConferenciaTocada] = useState({ por: false, fonte: false });
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -162,27 +169,43 @@ export default function TratamentoOncologico({ pacienteId, nutriId, pacienteNome
   // Leitura à parte do select grande: com a coluna registro_pendente ainda
   // inexistente no banco, só este aviso cai — o formulário continua abrindo.
   // Erro conta como pendente ({} não tem registro_pendente).
+  // Também traz, do banco, o que o modal mostra antes de confirmar (protocolo,
+  // ciclo, intervalo, última quimio do cadastro) e a conferência registrada.
   async function carregarStatusRegistro(signal = { cancelled: false }) {
     const { data, error } = await supabase.from('tratamentos_oncologicos')
-      .select('id,registro_pendente').eq('paciente_id', pacienteId).maybeSingle();
+      .select('id,registro_pendente,registro_confirmado_em,registro_confirmado_por,registro_confirmado_fonte,protocolo,ciclo_atual,total_ciclos,intervalo_ciclos,data_ultima_quimio')
+      .eq('paciente_id', pacienteId).maybeSingle();
     if (signal.cancelled) return;
-    if (!error && !data) return setPendenteRegistro(null);
+    if (!error && !data) { setRegistroLinha(null); return setPendenteRegistro(null); }
+    setRegistroLinha(error ? null : data);
     setPendenteRegistro(registroPendente(error ? {} : data));
   }
 
-  // Grava SÓ registro_pendente, e só pelo botão. Se falhar (inclusive coluna
-  // inexistente), a tela não muda de estado.
+  function abrirModalRegistro(tipo) {
+    setErroRegistro(null);
+    setConferencia({ por: '', fonte: '' });
+    setConferenciaTocada({ por: false, fonte: false });
+    setModalRegistro(tipo);
+  }
+
+  // Grava só o status do registro e a conferência, só deste tratamento e só
+  // pelo botão. A data/hora da confirmação é do gatilho do banco. Se falhar
+  // (inclusive coluna inexistente), a tela não muda de estado.
   async function gravarStatusRegistro(pendente) {
     if (!tratamentoId) return;
+    if (!pendente && !validarConferencia(conferencia).ok) return;
     setGravandoRegistro(true); setErroRegistro(null);
     const r = await gravar(
-      supabase.from('tratamentos_oncologicos').update({ registro_pendente: pendente }).eq('id', tratamentoId),
+      supabase.from('tratamentos_oncologicos')
+        .update(pendente ? gravacaoPendente() : gravacaoConfirmar(conferencia))
+        .eq('id', tratamentoId),
       { rotulo: pendente ? 'marcar o registro como pendente' : 'confirmar o registro' },
     );
     setGravandoRegistro(false);
-    if (!r.ok) return setErroRegistro(r.msg);
+    if (!r.ok) return setErroRegistro(pendente ? r.msg : 'Não foi possível confirmar agora. Tente de novo.');
     setPendenteRegistro(pendente);
     setModalRegistro(null);
+    carregarStatusRegistro();
   }
 
   const set = (k) => (e) => {
@@ -428,7 +451,7 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
         }}>
           <i className="ti ti-alert-circle" style={{ fontSize: 16 }} />
           <strong style={{ flex: 1 }}>Registro pendente de confirmação</strong>
-          <button className="btn" onClick={() => { setErroRegistro(null); setModalRegistro('confirmar'); }}>
+          <button className="btn" onClick={() => abrirModalRegistro('confirmar')}>
             Confirmar registro
           </button>
         </div>
@@ -436,7 +459,7 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
       {pendenteRegistro === false && (
         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginBottom: 10, fontSize: 12, color: 'var(--text3)' }}>
           Registro confirmado
-          <button onClick={() => { setErroRegistro(null); setModalRegistro('pendente'); }} style={{
+          <button onClick={() => abrirModalRegistro('pendente')} style={{
             background: 'none', border: 'none', padding: 0, cursor: 'pointer',
             fontSize: 12, color: 'var(--text3)', textDecoration: 'underline', fontFamily: 'var(--font-sans)',
           }}>
@@ -449,9 +472,53 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
           title={modalRegistro === 'confirmar' ? 'Confirmar registro' : 'Marcar como pendente'}
           subtitle={modalRegistro === 'confirmar'
             ? 'Confirme depois de conferir protocolo, intervalo, data da última aplicação e ciclos cadastrados. A paciente passa a ver a janela de risco e o próximo ciclo calculados.'
-            : 'A paciente deixa de ver a janela de risco e o próximo ciclo calculados até o registro ser confirmado de novo.'}
+            : 'A paciente deixa de ver a janela de risco e o próximo ciclo calculados até o registro ser confirmado de novo. A confirmação registrada será apagada.'}
           onClose={() => { if (!gravandoRegistro) setModalRegistro(null); }}
         >
+          {modalRegistro === 'confirmar' && (() => {
+            const v = validarConferencia(conferencia);
+            const tocar = campo => () => setConferenciaTocada(t => ({ ...t, [campo]: true }));
+            const mudar = campo => e => setConferencia(c => ({ ...c, [campo]: e.target.value }));
+            const ciclo = registroLinha?.ciclo_atual != null || registroLinha?.total_ciclos != null
+              ? `${registroLinha?.ciclo_atual ?? '—'} de ${registroLinha?.total_ciclos ?? '—'}` : '—';
+            return (
+              <>
+                {/* O que está sendo confirmado, como está gravado no banco. */}
+                <div style={{ fontSize: 12, lineHeight: 1.6, padding: '8px 12px', borderRadius: 6, marginBottom: 12, background: 'var(--bg2)', color: 'var(--text2)' }}>
+                  <div>Protocolo: <strong>{registroLinha?.protocolo || '—'}</strong></div>
+                  <div>Ciclo atual: <strong>{ciclo}</strong></div>
+                  <div>Intervalo: <strong>{registroLinha?.intervalo_ciclos != null ? `${registroLinha.intervalo_ciclos} dias` : '—'}</strong></div>
+                  <div>Última quimio (cadastro): <strong>{dataBR(registroLinha?.data_ultima_quimio)}</strong></div>
+                  <div>Última aplicação (ciclos cadastrados): <strong>{ultimoCiclo ? `${dataBR(ultimoCiclo.data_quimio)} — ciclo ${ultimoCiclo.numero_ciclo ?? '—'}` : '—'}</strong></div>
+                </div>
+                <div style={{ fontSize: 12, padding: '8px 12px', borderRadius: 6, marginBottom: 12, background: '#fffbeb', color: '#92400e', border: '1px solid #fde68a' }}>
+                  Confirme só depois de conferir o prontuário ou a prescrição. A confirmação fica registrada com data, hora, nome e fonte e não pode ser editada: para corrigir, marque como pendente e confirme de novo.
+                </div>
+                <div style={{ marginBottom: 10 }}>
+                  <label className="field-label">Conferido por (nome e registro profissional)</label>
+                  <input type="text" value={conferencia.por} onChange={mudar('por')} onBlur={tocar('por')}
+                    placeholder="Nome completo e registro profissional" autoComplete="off" disabled={gravandoRegistro} />
+                  {conferenciaTocada.por && v.erros.por && (
+                    <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 4 }}>{v.erros.por}</div>
+                  )}
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <label className="field-label">Fonte da conferência</label>
+                  <textarea rows={3} value={conferencia.fonte} onChange={mudar('fonte')} onBlur={tocar('fonte')}
+                    placeholder="Ex.: prontuário do hospital, prescrição, contato com a equipe — com a data do documento"
+                    autoComplete="off" disabled={gravandoRegistro} />
+                  {conferenciaTocada.fonte && v.erros.fonte && (
+                    <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 4 }}>{v.erros.fonte}</div>
+                  )}
+                </div>
+              </>
+            );
+          })()}
+          {modalRegistro === 'pendente' && (
+            <div style={{ fontSize: 12, lineHeight: 1.5, padding: '8px 12px', borderRadius: 6, marginBottom: 12, background: 'var(--bg2)', color: 'var(--text2)' }}>
+              {textoConfirmacao(registroLinha ?? { registro_pendente: false })}
+            </div>
+          )}
           {erroRegistro && (
             <div style={{ padding: '8px 12px', borderRadius: 6, marginBottom: 12, fontSize: 13, background: 'var(--red-bg)', color: 'var(--red)' }}>
               {erroRegistro}
@@ -459,7 +526,8 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
           )}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
             <button className="btn-outline" onClick={() => setModalRegistro(null)} disabled={gravandoRegistro}>Cancelar</button>
-            <button className="btn" onClick={() => gravarStatusRegistro(modalRegistro !== 'confirmar')} disabled={gravandoRegistro}>
+            <button className="btn" onClick={() => gravarStatusRegistro(modalRegistro !== 'confirmar')}
+              disabled={gravandoRegistro || (modalRegistro === 'confirmar' && !validarConferencia(conferencia).ok)}>
               {gravandoRegistro ? 'Gravando…' : (modalRegistro === 'confirmar' ? 'Confirmar registro' : 'Marcar como pendente')}
             </button>
           </div>

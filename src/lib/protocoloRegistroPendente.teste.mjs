@@ -144,8 +144,11 @@ const salvar = nutri.slice(nutri.indexOf('async function salvarTratamento()'), n
 t('salvarTratamento (upsert do formulário) não envia registro_pendente', salvar.includes('registro_pendente'), false);
 t('select grande do formulário não lê registro_pendente (fica fora de `dados`)',
   /select\('id,tipo_cancer[^']*registro_pendente/.test(nutri), false);
-const updates = [...nutri.matchAll(/\.update\(\{([^}]*)\}\)/g)].map(m => m[1].trim());
-t('o único update do tratamento grava só registro_pendente', updates, ['registro_pendente: pendente']);
+// bloco-94: o update passou a usar os objetos de registroConferencia.js
+// (status + conferência; a data/hora é do gatilho do banco).
+const updates = [...nutri.matchAll(/\.update\(([^\n]*)\)\s*\n?\s*\.eq\('id', tratamentoId\)/g)].map(m => m[1].trim());
+t('o único update do tratamento grava só o status do registro e a conferência, por id',
+  [nutri.split(/from\('tratamentos_oncologicos'\)\s*\.update\(/).length - 1, updates], [1, ['pendente ? gravacaoPendente() : gravacaoConfirmar(conferencia)']]);
 t('nutri: sem window.confirm/alert/prompt no fluxo do registro',
   /window\.(confirm|alert|prompt)/.test(nutri.slice(nutri.indexOf('async function carregarStatusRegistro'), nutri.indexOf('async function salvarTratamento()'))), false);
 t('telas da paciente leem registro_pendente e usam as funções da lib',
