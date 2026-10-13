@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { dataBR, dataLocalISO } from '../../lib/utils.js';
-import { linhaDoTempoPaciente, registroPendente } from '../../lib/protocoloCiclo.js';
+import { linhaDoTempoPaciente, proximaAplicacao, registroPendente } from '../../lib/protocoloCiclo.js';
 import ExamesLaboratoriais from './_ExamesLaboratoriais.jsx';
 import CardPanoramaLink from '../../components/CardPanoramaLink.jsx';
 
@@ -68,7 +68,10 @@ export default function MonitoramentoOncologico() {
 
   // Estado da linha do tempo de ciclo
   const [ciclos,    setCiclos]    = useState([]);
-  const [intervalo, setIntervalo] = useState(21);
+  // Próxima linha cadastrada (data > hoje). null = não lida ou leitura falhou:
+  // a régua mostra "aguardando confirmação", nunca uma data.
+  const [futuros,     setFuturos]     = useState(null);
+  const [totalCiclos, setTotalCiclos] = useState(null);
   const [protocoloNome, setProtocoloNome] = useState(null);
   // Começa pendente: enquanto não se sabe, nada calculado aparece.
   const [pendente, setPendente] = useState(true);
@@ -110,7 +113,7 @@ export default function MonitoramentoOncologico() {
       });
   }, [user]);
 
-  // Busca ciclos de quimio e intervalo (somente leitura)
+  // Busca ciclos de quimio e tratamento (somente leitura)
   useEffect(() => {
     if (!pacienteId) return;
     // Só ciclos já aplicados: a nutri cadastra ciclos futuros, e sem o filtro
@@ -119,18 +122,27 @@ export default function MonitoramentoOncologico() {
     const hoje = dataLocalISO();
     Promise.all([
       supabase.from('ciclos_quimio')
-        .select('id,numero_ciclo,data_quimio,d3,d7,d10,d14')
+        .select('id,numero_ciclo,aplicacao_no_ciclo,data_quimio,d3,d7,d10,d14')
         .eq('paciente_id', pacienteId)
         .lte('data_quimio', hoje)
         .order('data_quimio', { ascending: false })
         .limit(5),
       supabase.from('tratamentos_oncologicos')
-        .select('intervalo_ciclos,protocolo,registro_pendente')
+        .select('total_ciclos,protocolo,registro_pendente')
         .eq('paciente_id', pacienteId)
         .maybeSingle(),
-    ]).then(([{ data: cic }, { data: trat, error: erroTrat }]) => {
+      // A próxima linha cadastrada. A data dela só aparece se estiver
+      // confirmada (proximaAplicacao); sem confirmação, "aguardando".
+      supabase.from('ciclos_quimio')
+        .select('numero_ciclo,aplicacao_no_ciclo,data_quimio,agendamento_confirmado_em')
+        .eq('paciente_id', pacienteId)
+        .gt('data_quimio', hoje)
+        .order('data_quimio', { ascending: true })
+        .limit(1),
+    ]).then(([{ data: cic }, { data: trat, error: erroTrat }, { data: fut, error: erroFut }]) => {
       setCiclos(cic ?? []);
-      setIntervalo(trat?.intervalo_ciclos ?? 21);
+      setFuturos(erroFut ? null : (fut ?? []));
+      setTotalCiclos(erroTrat ? null : (trat?.total_ciclos ?? null));
       setProtocoloNome(trat?.protocolo ?? null);
       // Erro na leitura (inclusive coluna registro_pendente ainda inexistente)
       // conta como pendente: {} não tem registro_pendente.
@@ -219,7 +231,7 @@ export default function MonitoramentoOncologico() {
     return (
       <Wrap>
         <CardPanoramaLink />
-        <LinhaDoTempoCiclo ciclos={ciclos} intervalo={intervalo} protocoloNome={protocoloNome} pendente={pendente} pacienteId={pacienteId} sexo={profile?.sexo} />
+        <LinhaDoTempoCiclo ciclos={ciclos} futuros={futuros} totalCiclos={totalCiclos} protocoloNome={protocoloNome} pendente={pendente} pacienteId={pacienteId} sexo={profile?.sexo} />
         <div style={{ textAlign: 'center', color: 'var(--muted)', padding: 40 }}>Carregando…</div>
       </Wrap>
     );
@@ -229,7 +241,7 @@ export default function MonitoramentoOncologico() {
     return (
       <>
         <CardPanoramaLink />
-        <LinhaDoTempoCiclo ciclos={ciclos} intervalo={intervalo} protocoloNome={protocoloNome} pendente={pendente} pacienteId={pacienteId} sexo={profile?.sexo} standalone />
+        <LinhaDoTempoCiclo ciclos={ciclos} futuros={futuros} totalCiclos={totalCiclos} protocoloNome={protocoloNome} pendente={pendente} pacienteId={pacienteId} sexo={profile?.sexo} standalone />
         <Concluido />
       </>
     );
@@ -239,7 +251,7 @@ export default function MonitoramentoOncologico() {
     return (
       <>
         <CardPanoramaLink />
-        <LinhaDoTempoCiclo ciclos={ciclos} intervalo={intervalo} protocoloNome={protocoloNome} pendente={pendente} pacienteId={pacienteId} sexo={profile?.sexo} standalone />
+        <LinhaDoTempoCiclo ciclos={ciclos} futuros={futuros} totalCiclos={totalCiclos} protocoloNome={protocoloNome} pendente={pendente} pacienteId={pacienteId} sexo={profile?.sexo} standalone />
         <JaPreenchidoHoje
           registro={registroHoje}
           onEditar={() => { preencherForm(registroHoje); setStep(1); }}
@@ -254,7 +266,7 @@ export default function MonitoramentoOncologico() {
   return (
     <Wrap>
       <CardPanoramaLink />
-      <LinhaDoTempoCiclo ciclos={ciclos} intervalo={intervalo} protocoloNome={protocoloNome} pendente={pendente} pacienteId={pacienteId} sexo={profile?.sexo} />
+      <LinhaDoTempoCiclo ciclos={ciclos} futuros={futuros} totalCiclos={totalCiclos} protocoloNome={protocoloNome} pendente={pendente} pacienteId={pacienteId} sexo={profile?.sexo} />
 
       {/* Barra de progresso */}
       <div style={{ marginBottom: 28 }}>
@@ -640,7 +652,7 @@ export default function MonitoramentoOncologico() {
 }
 
 // ── Linha do tempo de ciclo (somente leitura) ─────────────────────
-function LinhaDoTempoCiclo({ ciclos, intervalo, protocoloNome, pendente, standalone, pacienteId, sexo }) {
+function LinhaDoTempoCiclo({ ciclos, futuros, totalCiclos, protocoloNome, pendente, standalone, pacienteId, sexo }) {
   const hoje = dataLocalISO();
 
   // standalone = usado fora do <Wrap>, precisa do próprio centramento
@@ -676,10 +688,15 @@ function LinhaDoTempoCiclo({ ciclos, intervalo, protocoloNome, pendente, standal
   // Protocolo sem marcos próprios: janela null e doCiclo vazio — sem banner e
   // sem pontos de piora/pico/fim; a régua fica com a quimio e o próximo ciclo.
   // Registro pendente: sem banner, sem marcos e sem próximo ciclo.
+  // Ponta final: só data cadastrada E confirmada; leitura falha → aguardando.
+  const proxima = futuros == null
+    ? undefined
+    : proximaAplicacao({ ciclos: [...futuros, ...ciclos], hoje, totalCiclos });
   const { emJanela, rotuloJanela, marcos: pontos } = linhaDoTempoPaciente({
-    ultimoCiclo: uc, intervalo, protocoloNome, hoje, pendente,
+    ultimoCiclo: uc, protocoloNome, hoje, pendente, proxima,
   });
   const marcos = pontos.map(m => ({ ...m, cor: COR_FASE_PAC[m.fase] ?? '#6b7280' }));
+  const aguardando = marcos.some(m => m.semData);
 
   return (
     <div style={wrapStyle}>
@@ -716,24 +733,32 @@ function LinhaDoTempoCiclo({ ciclos, intervalo, protocoloNome, pendente, standal
           }} />
           <div style={{ display: 'flex', justifyContent: 'space-between', position: 'relative' }}>
             {marcos.map((m, i) => {
-              const passado = m.d <= hoje;
-              const isHoje  = m.d === hoje;
+              // Sem data (aguardando confirmação): conta como futuro.
+              const passado = !m.semData && m.d <= hoje;
+              const isHoje  = !m.semData && m.d === hoje;
               return (
                 <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
                   <div style={{
                     width: 20, height: 20, borderRadius: '50%', zIndex: 1, marginBottom: 6,
-                    background: passado ? m.cor : m.cor + '30',
-                    border: `2px solid ${m.cor}`,
+                    background: m.semData ? 'var(--paper)' : passado ? m.cor : m.cor + '30',
+                    border: m.semData ? '2px dashed var(--muted)' : `2px solid ${m.cor}`,
                     boxShadow: isHoje ? `0 0 0 3px ${m.cor}55` : 'none',
                   }} />
-                  <div style={{ fontSize: 10, fontWeight: 700, color: m.cor, textAlign: 'center', lineHeight: 1.3 }}>{m.label}</div>
-                  <div style={{ fontSize: 9, color: 'var(--muted)', textAlign: 'center', lineHeight: 1.3 }}>{dataBR(m.d)}</div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: m.semData ? 'var(--muted)' : m.cor, textAlign: 'center', lineHeight: 1.3 }}>{m.label}</div>
+                  {!m.semData && (
+                    <div style={{ fontSize: 9, color: 'var(--muted)', textAlign: 'center', lineHeight: 1.3 }}>{dataBR(m.d)}</div>
+                  )}
                   <div style={{ fontSize: 9, color: 'var(--muted)', textAlign: 'center', lineHeight: 1.3, maxWidth: 56 }}>{m.desc}</div>
                 </div>
               );
             })}
           </div>
         </div>
+        {aguardando && (
+          <div style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center' }}>
+            Próxima aplicação: aguardando confirmação
+          </div>
+        )}
       </div>
 
       <ExamesLaboratoriais pacienteId={pacienteId} sexo={sexo} />

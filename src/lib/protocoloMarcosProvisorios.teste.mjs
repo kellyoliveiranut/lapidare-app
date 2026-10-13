@@ -85,14 +85,25 @@ const addDias = (iso, n) => { const d = new Date(iso + 'T12:00:00'); d.setDate(d
 const DIAS = Array.from({ length: 23 }, (_, i) => addDias(D1, i)); // D1..D23
 const ciclo = { numero_ciclo: 2, data_quimio: D1 };
 const APLICACAO = { d: D1, label: 'D1', desc: 'Quimio', fase: 'quimio' };
-const PROXIMO = { d: addDias(D1, 21), label: 'Próximo', desc: 'Próximo ciclo', fase: 'quimio' };
+// bloco-112: a ponta final deixou de ser D1+21 calculado. Sem data confirmada
+// ela é "aguardando confirmação", sem data; com data confirmada, é a cadastrada.
+const AGUARDANDO = { d: null, label: 'Próxima aplicação', desc: 'aguardando confirmação', fase: 'quimio', semData: true };
+const CONFIRMADA = { tipo: 'confirmada', d: addDias(D1, 22), numero_ciclo: 3, aplicacao: 1 };
+const PROXIMO_CONFIRMADO = { d: addDias(D1, 22), label: 'Próximo', desc: 'Próximo ciclo', fase: 'quimio' };
+// Comparação com a referência ANTES: tudo igual menos a última ponta, que
+// passa a ser conferida à parte (sempre AGUARDANDO quando não há confirmação).
+const semPonta = r => r && { ...r, marcos: r.marcos.slice(0, -1) };
+const ultima = r => r && r.marcos[r.marcos.length - 1];
 
 for (const nome of [RMINI, ...ALIASES]) {
   const conf = { protocolo: nome, intervalo_ciclos: 21, registro_pendente: false };
   t(`${nome} confirmado: faseDoDiaPaciente = null de D1 a D23`, DIAS.map(h => faseDoDiaPaciente(conf, D1, { hoje: h })), DIAS.map(() => null));
   const linhas = DIAS.map(h => linhaDoTempoPaciente({ ultimoCiclo: ciclo, intervalo: 21, protocoloNome: nome, hoje: h }));
-  t(`${nome} confirmado: linha do tempo de D1 a D23 = sem banner, rótulo vazio, só aplicação + "Próximo ciclo" (D22)`,
-    linhas, DIAS.map(() => ({ emJanela: false, rotuloJanela: '', marcos: [APLICACAO, PROXIMO] })));
+  t(`${nome} confirmado: linha do tempo de D1 a D23 = sem banner, rótulo vazio, só aplicação + "aguardando confirmação" (sem data)`,
+    linhas, DIAS.map(() => ({ emJanela: false, rotuloJanela: '', marcos: [APLICACAO, AGUARDANDO] })));
+  t(`${nome} confirmado com data agendada: só aplicação + "Próximo ciclo" na data CADASTRADA`,
+    linhaDoTempoPaciente({ ultimoCiclo: ciclo, protocoloNome: nome, hoje: '2026-10-09', proxima: CONFIRMADA }),
+    { emJanela: false, rotuloJanela: '', marcos: [APLICACAO, PROXIMO_CONFIRMADO] });
   t(`${nome} pendente: só a bolinha da aplicação (sem "Próximo ciclo")`,
     linhaDoTempoPaciente({ ultimoCiclo: ciclo, intervalo: 21, protocoloNome: nome, hoje: '2026-10-09', pendente: true }),
     { emJanela: false, rotuloJanela: '', marcos: [APLICACAO] });
@@ -111,9 +122,12 @@ for (const [nome, iv] of [['R-CHOP', 21], ['BEP', 21]]) {
   t(`${nome}: marcos_provisorios ausente`, marcosProvisorios(getProtocolo(nome)), false);
   t(`${nome} confirmado: faseDoDiaPaciente idêntica ao ${ANTES} em todos os dias`,
     intervalo.map(h => faseDoDiaPaciente(conf, D1, { hoje: h })), intervalo.map(h => A.faseDoDiaPaciente(conf, D1, { hoje: h })));
-  t(`${nome} confirmado: linhaDoTempoPaciente idêntica ao ${ANTES} em todos os dias`,
-    intervalo.map(h => linhaDoTempoPaciente({ ultimoCiclo: ciclo, intervalo: iv, protocoloNome: nome, hoje: h })),
-    intervalo.map(h => A.linhaDoTempoPaciente({ ultimoCiclo: ciclo, intervalo: iv, protocoloNome: nome, hoje: h })));
+  t(`${nome} confirmado: linhaDoTempoPaciente idêntica ao ${ANTES} em todos os dias, menos a ponta final`,
+    intervalo.map(h => semPonta(linhaDoTempoPaciente({ ultimoCiclo: ciclo, intervalo: iv, protocoloNome: nome, hoje: h }))),
+    intervalo.map(h => semPonta(A.linhaDoTempoPaciente({ ultimoCiclo: ciclo, intervalo: iv, protocoloNome: nome, hoje: h }))));
+  t(`${nome} confirmado: ponta final = "aguardando confirmação" sem data em todos os dias`,
+    intervalo.map(h => ultima(linhaDoTempoPaciente({ ultimoCiclo: ciclo, intervalo: iv, protocoloNome: nome, hoje: h }))),
+    intervalo.map(() => AGUARDANDO));
   const r = linhaDoTempoPaciente({ ultimoCiclo: ciclo, intervalo: iv, protocoloNome: nome, hoje: '2026-10-09' });
   t(`${nome} confirmado em D9: tem banner/rótulo e marcos de efeito (a referência não é vazia)`,
     [r.rotuloJanela !== '', r.marcos.length > 2], [true, true]);
@@ -137,11 +151,14 @@ t('R-CHOP: "Dia 8 ao Dia 15" 1 vez no catálogo, na conduta_base do R-CHOP',
 
 // ── Todas as outras fichas: idênticas ao 37f9906 ──
 const outras = NOMES.filter(n => n !== RMINI);
-t(`as outras ${outras.length} fichas: linha do tempo e fase em D9 idênticas ao ${ANTES}`,
-  outras.map(n => [linhaDoTempoPaciente({ ultimoCiclo: ciclo, intervalo: 21, protocoloNome: n, hoje: '2026-10-09' }),
+t(`as outras ${outras.length} fichas: linha do tempo (menos a ponta final) e fase em D9 idênticas ao ${ANTES}`,
+  outras.map(n => [semPonta(linhaDoTempoPaciente({ ultimoCiclo: ciclo, intervalo: 21, protocoloNome: n, hoje: '2026-10-09' })),
     faseDoDiaPaciente({ protocolo: n, intervalo_ciclos: 21, registro_pendente: false }, D1, { hoje: '2026-10-09' })]),
-  outras.map(n => [A.linhaDoTempoPaciente({ ultimoCiclo: ciclo, intervalo: 21, protocoloNome: n, hoje: '2026-10-09' }),
+  outras.map(n => [semPonta(A.linhaDoTempoPaciente({ ultimoCiclo: ciclo, intervalo: 21, protocoloNome: n, hoje: '2026-10-09' })),
     A.faseDoDiaPaciente({ protocolo: n, intervalo_ciclos: 21, registro_pendente: false }, D1, { hoje: '2026-10-09' })]));
+t(`as outras ${outras.length} fichas: ponta final = "aguardando confirmação" sem data`,
+  outras.map(n => ultima(linhaDoTempoPaciente({ ultimoCiclo: ciclo, intervalo: 21, protocoloNome: n, hoje: '2026-10-09' }))),
+  outras.map(() => AGUARDANDO));
 
 console.log(`\nTZ = ${process.env.TZ}`);
 console.log(`\n${ok} PASS, ${falhou} FALHA`);

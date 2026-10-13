@@ -10,7 +10,7 @@ import protocolosEfeitosData from '../../data/protocolos_efeitos.json';
 import { CAMPOS_EXAME, CHAVES_EXAME, textoRef } from '../../data/exames_referencia.js';
 import ValorExame, { LegendaExames } from '../../components/ValorExame.jsx';
 import GraficosExames from '../../components/GraficosExames.jsx';
-import { getProtocolo, chaveProtocolo, temEstruturaCiclo, janelaRisco, rotuloJanelaRisco, marcosDoProtocolo, marcosEfeitoAplicacao, datasAplicacoesCiclo, datasSerieCiclos, intervaloMinimoSerie, linhasDoCiclo, protocoloPendentePrescricao, protocoloAguardandoConferencia, registroPendente, marcosProvisorios } from '../../lib/protocoloCiclo.js';
+import { getProtocolo, chaveProtocolo, temEstruturaCiclo, janelaRisco, rotuloJanelaRisco, marcosDoProtocolo, marcosEfeitoAplicacao, datasAplicacoesCiclo, datasSerieCiclos, intervaloMinimoSerie, linhasDoCiclo, protocoloPendentePrescricao, protocoloAguardandoConferencia, registroPendente, marcosProvisorios, proximaAplicacao, pontaFinalProxima } from '../../lib/protocoloCiclo.js';
 import { validarConferencia, gravacaoConfirmar, gravacaoPendente, textoConfirmacao } from '../../lib/registroConferencia.js';
 
 const GRUPOS_EFEITOS = (() => {
@@ -118,6 +118,13 @@ export default function TratamentoOncologico({ pacienteId, nutriId, pacienteNome
   const [registroLinha, setRegistroLinha] = useState(null);
   const [conferencia, setConferencia] = useState({ por: '', fonte: '' });
   const [conferenciaTocada, setConferenciaTocada] = useState({ por: false, fonte: false });
+  // Confirmação da data de uma aplicação futura (linha de ciclos_quimio).
+  // A data/hora é do gatilho do banco; o app grava só quem conferiu e a fonte.
+  const [cicloConfirmar, setCicloConfirmar] = useState(null);
+  const [confCiclo, setConfCiclo] = useState({ por: '', fonte: '' });
+  const [confCicloTocada, setConfCicloTocada] = useState({ por: false, fonte: false });
+  const [erroCiclo, setErroCiclo] = useState(null);
+  const [gravandoCiclo, setGravandoCiclo] = useState(false);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -129,7 +136,7 @@ export default function TratamentoOncologico({ pacienteId, nutriId, pacienteNome
   async function carregar(signal = { cancelled: false }) {
     const [{ data: trat }, { data: cic }, { data: ex }] = await Promise.all([
       supabase.from('tratamentos_oncologicos').select('id,tipo_cancer,estadiamento,medico,hospital,data_diagnostico,data_inicio_acompanhamento,intencao,metastatico,locais_metastase,doenca_atividade,tipo_trat_sistemico,protocolo,medicamentos,total_ciclos,ciclo_atual,intervalo_ciclos,data_ultima_quimio,usa_corticoide,atraso_ciclo,radio_ativa,radio_area,radio_sessao_atual,radio_total_sessoes,radio_inicio,radio_termino,cirurgia_status,cirurgia_tipo,cirurgia_indicada,cirurgia_realizada,cirurgia_data,cirurgia_complicacoes,cirurgia_preparo_nutricional,acao_semana').eq('paciente_id', pacienteId).maybeSingle(),
-      supabase.from('ciclos_quimio').select('id,numero_ciclo,data_quimio,d3,d7,d10,d14,obs,aplicacao_no_ciclo').eq('paciente_id', pacienteId).order('data_quimio', { ascending: false }),
+      supabase.from('ciclos_quimio').select('id,numero_ciclo,data_quimio,d3,d7,d10,d14,obs,aplicacao_no_ciclo,agendamento_confirmado_em,agendamento_confirmado_por,agendamento_confirmado_fonte').eq('paciente_id', pacienteId).order('data_quimio', { ascending: false }),
       supabase.from('exames_laboratoriais').select('id,data_exame,hemoglobina,leucocitos,neutrofilos,linfocitos,plaquetas,pcr,albumina,glicemia,obs').eq('paciente_id', pacienteId).order('data_exame', { ascending: false }),
     ]);
     if (signal.cancelled) return;
@@ -296,6 +303,43 @@ export default function TratamentoOncologico({ pacienteId, nutriId, pacienteNome
     carregar();
   }
 
+  function abrirConfirmarCiclo(linha) {
+    setErroCiclo(null);
+    setConfCiclo({ por: '', fonte: '' });
+    setConfCicloTocada({ por: false, fonte: false });
+    setCicloConfirmar(linha);
+  }
+
+  // Só quem conferiu e a fonte; nunca _em (gatilho) e nunca data_quimio.
+  async function gravarConfirmacaoCiclo() {
+    if (!cicloConfirmar) return;
+    const v = validarConferencia(confCiclo);
+    if (!v.ok) return;
+    setGravandoCiclo(true); setErroCiclo(null);
+    const r = await gravar(
+      supabase.from('ciclos_quimio')
+        .update({ agendamento_confirmado_por: v.valores.por, agendamento_confirmado_fonte: v.valores.fonte })
+        .eq('id', cicloConfirmar.id),
+      { rotulo: 'confirmar a data da aplicação' },
+    );
+    setGravandoCiclo(false);
+    if (!r.ok) return setErroCiclo(r.msg);
+    setCicloConfirmar(null);
+    carregar();
+  }
+
+  async function desfazerConfirmacaoCiclo(linha) {
+    setFeedback(null);
+    const r = await gravar(
+      supabase.from('ciclos_quimio')
+        .update({ agendamento_confirmado_por: null, agendamento_confirmado_fonte: null })
+        .eq('id', linha.id),
+      { rotulo: 'desfazer a confirmação da data' },
+    );
+    if (!r.ok) return setFeedback({ tipo: 'erro', msg: r.msg });
+    carregar();
+  }
+
   async function adicionarExame() {
     if (!novoExame.data_exame) return setFeedback({ tipo: 'erro', msg: 'Informe a data do exame.' });
     setBusy(true);
@@ -387,11 +431,11 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
   const proto = getProtocolo(dados.protocolo);
   const estruturado = temEstruturaCiclo(proto);
   // Protocolo SEM duracaoCiclo cai no intervalo do cadastro da paciente, e só
-  // depois no 21. O FLOX é assim de propósito — decisão final da Kelly em
+  // depois no 21 (hoje só no "Gerar série…"; a linha do tempo não soma mais).
+  // O FLOX é assim de propósito — decisão final da Kelly em
   // 2026-08-07, não pendência: o intervalo dele varia por paciente e quem manda
   // é o que a nutri registrou. Não preencher duracaoCiclo no catálogo para ele.
   // (O catálogo é JSON e não aceita comentário; por isso a nota mora aqui.)
-  const duracaoCiclo = proto?.duracaoCiclo ?? num(dados.intervalo_ciclos) ?? 21;
   // Marcos e rótulos saem do mesmo lugar para todo protocolo, com ou sem
   // estruturaCiclo — ela só governa quantas linhas cada ciclo gera.
   // Protocolo sem marcos próprios: marcosProto vazio e janela null — sem
@@ -420,6 +464,12 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
   // já aconteceu; as tabelas abaixo seguem mostrando a série inteira.
   const ciclosPassados = ciclos.filter(c => c.data_quimio <= hoje);
   const ultimoCiclo = ciclosPassados[0];
+  // Ponta final das duas linhas do tempo: a mesma regra da paciente. Só data
+  // cadastrada E confirmada; nunca uma soma a partir da última aplicação.
+  const pontaProxima = pontaFinalProxima(
+    proximaAplicacao({ ciclos, hoje, totalCiclos: num(dados.total_ciclos) }), estruturado,
+  ).map(m => ({ ...m, cor: COR_FASE.quimio }));
+  const aguardandoProxima = pontaProxima.some(m => m.semData);
   const naJanela = (dataQuimio) => !!janela &&
     hoje >= addDays(dataQuimio, janela.inicio) &&
     hoje <= addDays(dataQuimio, janela.fim);
@@ -767,14 +817,7 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
                 desc:  m.desc,
                 cor:   m.infusao ? COR_FASE.quimio : (COR_FASE[m.fase] ?? '#6b7280'),
               })),
-              {
-                d:     addDays(uc.data_quimio, duracaoCiclo),
-                // Esse dia é o D1 do ciclo seguinte, não um dia do atual — por
-                // isso não leva número.
-                label: 'Próximo',
-                desc:  'Próximo ciclo',
-                cor:   COR_FASE.quimio,
-              },
+              ...pontaProxima,
             ];
             return (
               <div className="card" style={{ padding: 16, marginBottom: 12, overflow: 'hidden' }}>
@@ -785,24 +828,32 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
                   <div style={{ position: 'absolute', top: 10, left: 6, right: 6, height: 2, background: 'var(--bg3, #e8e2d8)', borderRadius: 1 }} />
                   <div style={{ display: 'flex', justifyContent: 'space-between', position: 'relative' }}>
                     {marcos.map((m, i) => {
-                      const passado = m.d <= hoje;
-                      const isHoje  = m.d === hoje;
+                      // Sem data (aguardando confirmação): conta como futuro.
+                      const passado = !m.semData && m.d <= hoje;
+                      const isHoje  = !m.semData && m.d === hoje;
                       return (
                         <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
                           <div style={{
                             width: 20, height: 20, borderRadius: '50%', zIndex: 1, marginBottom: 6,
-                            background: passado ? m.cor : m.cor + '30',
-                            border: `2px solid ${m.cor}`,
+                            background: m.semData ? 'var(--white)' : passado ? m.cor : m.cor + '30',
+                            border: m.semData ? '2px dashed var(--text3)' : `2px solid ${m.cor}`,
                             boxShadow: isHoje ? `0 0 0 3px ${m.cor}55` : 'none',
                           }} />
-                          <div style={{ fontSize: 10, fontWeight: 700, color: m.cor, textAlign: 'center', lineHeight: 1.3 }}>{m.label}</div>
-                          <div style={{ fontSize: 9, color: 'var(--text3)', textAlign: 'center', lineHeight: 1.3 }}>{dataBR(m.d)}</div>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: m.semData ? 'var(--text3)' : m.cor, textAlign: 'center', lineHeight: 1.3 }}>{m.label}</div>
+                          {!m.semData && (
+                            <div style={{ fontSize: 9, color: 'var(--text3)', textAlign: 'center', lineHeight: 1.3 }}>{dataBR(m.d)}</div>
+                          )}
                           <div style={{ fontSize: 9, color: 'var(--text3)', textAlign: 'center', lineHeight: 1.3, maxWidth: 56 }}>{m.desc}</div>
                         </div>
                       );
                     })}
                   </div>
                 </div>
+                {aguardandoProxima && (
+                  <div style={{ fontSize: 12, color: 'var(--text3)', textAlign: 'center' }}>
+                    Próxima aplicação: aguardando confirmação
+                  </div>
+                )}
               </div>
             );
           })()}
@@ -822,6 +873,7 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
                     {marcosProto.map(m => (
                       <th key={`${m.de}-${m.ate}`} title={m.desc}>{m.label}</th>
                     ))}
+                    <th>Agendamento</th>
                     <th>Obs</th>
                     <th></th>
                   </tr>
@@ -839,6 +891,7 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
                             fontWeight: emRisco && m.fase === 'risco' ? 600 : undefined,
                           }}>{dataBR(m.data)}</td>
                         ))}
+                        <td><CelulaAgendamento c={c} hoje={hoje} onConfirmar={abrirConfirmarCiclo} onDesfazer={desfazerConfirmacaoCiclo} /></td>
                         <td style={{ color: 'var(--text3)' }}>{c.obs ?? '—'}</td>
                         <td>
                           <button onClick={() => removerCiclo(c.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--red)' }}>
@@ -866,7 +919,7 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
                 d: m.data, label: m.label, desc: m.desc,
                 cor: m.infusao ? COR_FASE.quimio : (COR_FASE[m.fase] ?? '#6b7280'),
               })),
-              { d: addDays(ucApp.data_quimio, proto.estruturaCiclo.cadenciaDias), label: 'Próx.', desc: 'Próxima aplicação', cor: COR_FASE.quimio },
+              ...pontaProxima,
             ];
             return (
               <div className="card" style={{ padding: 16, marginBottom: 12, overflow: 'hidden' }}>
@@ -877,24 +930,32 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
                   <div style={{ position: 'absolute', top: 10, left: 6, right: 6, height: 2, background: 'var(--bg3, #e8e2d8)', borderRadius: 1 }} />
                   <div style={{ display: 'flex', justifyContent: 'space-between', position: 'relative' }}>
                     {marcos.map((m, i) => {
-                      const passado = m.d <= hoje;
-                      const isHoje  = m.d === hoje;
+                      // Sem data (aguardando confirmação): conta como futuro.
+                      const passado = !m.semData && m.d <= hoje;
+                      const isHoje  = !m.semData && m.d === hoje;
                       return (
                         <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
                           <div style={{
                             width: 20, height: 20, borderRadius: '50%', zIndex: 1, marginBottom: 6,
-                            background: passado ? m.cor : m.cor + '30',
-                            border: `2px solid ${m.cor}`,
+                            background: m.semData ? 'var(--white)' : passado ? m.cor : m.cor + '30',
+                            border: m.semData ? '2px dashed var(--text3)' : `2px solid ${m.cor}`,
                             boxShadow: isHoje ? `0 0 0 3px ${m.cor}55` : 'none',
                           }} />
-                          <div style={{ fontSize: 10, fontWeight: 700, color: m.cor, textAlign: 'center', lineHeight: 1.3 }}>{m.label}</div>
-                          <div style={{ fontSize: 9, color: 'var(--text3)', textAlign: 'center', lineHeight: 1.3 }}>{dataBR(m.d)}</div>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: m.semData ? 'var(--text3)' : m.cor, textAlign: 'center', lineHeight: 1.3 }}>{m.label}</div>
+                          {!m.semData && (
+                            <div style={{ fontSize: 9, color: 'var(--text3)', textAlign: 'center', lineHeight: 1.3 }}>{dataBR(m.d)}</div>
+                          )}
                           <div style={{ fontSize: 9, color: 'var(--text3)', textAlign: 'center', lineHeight: 1.3, maxWidth: 56 }}>{m.desc}</div>
                         </div>
                       );
                     })}
                   </div>
                 </div>
+                {aguardandoProxima && (
+                  <div style={{ fontSize: 12, color: 'var(--text3)', textAlign: 'center' }}>
+                    Próxima aplicação: aguardando confirmação
+                  </div>
+                )}
               </div>
             );
           })()}
@@ -921,6 +982,7 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
                       {marcosProto.map(m => (
                         <th key={`${m.de}-${m.ate}`} title={m.desc}>{m.label}</th>
                       ))}
+                      <th>Agendamento</th>
                       <th>Obs</th>
                       <th></th>
                     </tr>
@@ -940,6 +1002,7 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
                                 fontWeight: emRisco && m.fase === 'risco' ? 600 : undefined,
                               }}>{dataBR(m.data)}</td>
                             ))}
+                            <td><CelulaAgendamento c={c} hoje={hoje} onConfirmar={abrirConfirmarCiclo} onDesfazer={desfazerConfirmacaoCiclo} /></td>
                             <td style={{ color: 'var(--text3)' }}>{c.obs ?? '—'}</td>
                             <td>
                               <button onClick={() => removerCiclo(c.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--red)' }}>
@@ -965,6 +1028,57 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
               onSalvo={() => { setGerarSerie(false); carregar(); }}
             />
           )}
+          {cicloConfirmar && (() => {
+            const v = validarConferencia(confCiclo);
+            const tocar = campo => () => setConfCicloTocada(t => ({ ...t, [campo]: true }));
+            const mudar = campo => e => setConfCiclo(c => ({ ...c, [campo]: e.target.value }));
+            const ident = [
+              `Ciclo ${cicloConfirmar.numero_ciclo ?? '—'}`,
+              estruturado ? `aplicação ${cicloConfirmar.aplicacao_no_ciclo ?? '—'}` : null,
+              dataBR(cicloConfirmar.data_quimio),
+            ].filter(Boolean).join(' · ');
+            return (
+              <ModalShell
+                title="Confirmar data da aplicação"
+                onClose={() => { if (!gravandoCiclo) setCicloConfirmar(null); }}
+              >
+                <div style={{ fontSize: 12, lineHeight: 1.6, padding: '8px 12px', borderRadius: 6, marginBottom: 12, background: 'var(--bg2)', color: 'var(--text2)' }}>
+                  <strong>{ident}</strong>
+                </div>
+                <div style={{ fontSize: 12, padding: '8px 12px', borderRadius: 6, marginBottom: 12, background: '#fffbeb', color: '#92400e', border: '1px solid #fde68a' }}>
+                  Confirme só depois de conferir esta data com a equipe ou o hospital. A data confirmada passa a aparecer para a paciente como próxima aplicação.
+                </div>
+                <div style={{ marginBottom: 10 }}>
+                  <label className="field-label">Conferido por</label>
+                  <input type="text" value={confCiclo.por} onChange={mudar('por')} onBlur={tocar('por')}
+                    placeholder="Nome completo e registro profissional" autoComplete="off" disabled={gravandoCiclo} />
+                  {confCicloTocada.por && v.erros.por && (
+                    <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 4 }}>{v.erros.por}</div>
+                  )}
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <label className="field-label">Fonte da confirmação</label>
+                  <textarea rows={3} value={confCiclo.fonte} onChange={mudar('fonte')} onBlur={tocar('fonte')}
+                    placeholder="Ex.: contato com a equipe, agendamento do hospital — com a data do contato"
+                    autoComplete="off" disabled={gravandoCiclo} />
+                  {confCicloTocada.fonte && v.erros.fonte && (
+                    <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 4 }}>{v.erros.fonte}</div>
+                  )}
+                </div>
+                {erroCiclo && (
+                  <div style={{ padding: '8px 12px', borderRadius: 6, marginBottom: 12, fontSize: 13, background: 'var(--red-bg)', color: 'var(--red)' }}>
+                    {erroCiclo}
+                  </div>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                  <button className="btn-outline" onClick={() => setCicloConfirmar(null)} disabled={gravandoCiclo}>Cancelar</button>
+                  <button className="btn" onClick={gravarConfirmacaoCiclo} disabled={gravandoCiclo || !v.ok}>
+                    {gravandoCiclo ? 'Gravando…' : 'Confirmar data'}
+                  </button>
+                </div>
+              </ModalShell>
+            );
+          })()}
         </>
       )}
 
@@ -1227,6 +1341,33 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
 
 // Exibe valor de exame com cor por faixa de referência
 // Campo de input simples
+/**
+ * Situação da data de uma aplicação FUTURA na tabela de ciclos: prevista
+ * (cadastrada, não confirmada) ou agendada (confirmada com a equipe/hospital).
+ * Aplicação com data até hoje é realizada: sem selo e sem botão.
+ */
+function CelulaAgendamento({ c, hoje, onConfirmar, onDesfazer }) {
+  if (!c?.data_quimio || c.data_quimio <= hoje) return null;
+  const selo = { fontSize: 11, padding: '2px 8px', borderRadius: 20, fontWeight: 500, whiteSpace: 'nowrap' };
+  const botao = { fontSize: 12, padding: '3px 8px', marginLeft: 6 };
+  if (c.agendamento_confirmado_em) {
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap', gap: 4 }}>
+        <span style={{ ...selo, background: 'var(--green-bg)', color: 'var(--green)' }}>
+          Agendada · confirmada em {dataBR(c.agendamento_confirmado_em)} por {c.agendamento_confirmado_por}
+        </span>
+        <button className="btn-outline" style={botao} onClick={() => onDesfazer(c)}>Desfazer confirmação</button>
+      </span>
+    );
+  }
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap', gap: 4 }}>
+      <span style={{ ...selo, background: 'var(--bg2)', color: 'var(--text3)' }}>Prevista</span>
+      <button className="btn" style={botao} onClick={() => onConfirmar(c)}>Confirmar data</button>
+    </span>
+  );
+}
+
 function F({ label, value, onChange, type = 'text', placeholder }) {
   return (
     <div>

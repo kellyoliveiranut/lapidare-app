@@ -423,26 +423,63 @@ export function faseDoDiaPaciente(tratamento, dataAplicacao, { hoje } = {}) {
 }
 
 /**
+ * A próxima aplicação, como a linha do tempo deve mostrá-la (decisão da Kelly
+ * em 13/10/2026). Só uma data cadastrada E confirmada com a equipe/hospital
+ * vira "próximo"; nunca uma data calculada.
+ *
+ * A próxima linha é a de menor data_quimio estritamente depois de hoje. Uma
+ * linha não confirmada NÃO é pulada para chegar a uma confirmada mais adiante:
+ * se a próxima aplicação de fato ainda está em aberto, a seguinte não é a
+ * próxima.
+ *
+ *   { tipo: 'confirmada', d, numero_ciclo, aplicacao } — data agendada
+ *   { tipo: 'aguardando' }  — próxima linha não confirmada, ou nenhuma linha
+ *                             futura com o tratamento ainda em curso
+ *   { tipo: 'encerrado' }   — nenhuma linha futura e o último ciclo realizado
+ *                             já é o último do tratamento (sem ponta final)
+ *
+ * Só compara strings 'YYYY-MM-DD': sem Date, sem fuso, sem efeito colateral.
+ */
+export function proximaAplicacao({ ciclos, hoje, totalCiclos } = {}) {
+  const linhas = (ciclos ?? []).filter(c => typeof c?.data_quimio === 'string');
+  const futuras = linhas.filter(c => c.data_quimio > hoje)
+    .sort((a, b) => (a.data_quimio < b.data_quimio ? -1 : a.data_quimio > b.data_quimio ? 1 : 0));
+  const prox = futuras[0];
+  if (prox) {
+    return prox.agendamento_confirmado_em
+      ? { tipo: 'confirmada', d: prox.data_quimio, numero_ciclo: prox.numero_ciclo, aplicacao: prox.aplicacao_no_ciclo }
+      : { tipo: 'aguardando' };
+  }
+  const realizados = linhas.filter(c => c.data_quimio <= hoje).map(c => Number(c.numero_ciclo)).filter(Number.isFinite);
+  const total = typeof totalCiclos === 'number' && Number.isFinite(totalCiclos) ? totalCiclos : null;
+  if (total != null && realizados.length && Math.max(...realizados) >= total) return { tipo: 'encerrado' };
+  return { tipo: 'aguardando' };
+}
+
+/**
  * O que a linha do tempo da paciente desenha a partir do último ciclo
  * aplicado: banner da janela de risco, marcos datados e a ponta "Próximo
  * ciclo"/"Próxima aplicação". Era a conta de dentro de LinhaDoTempoCiclo
- * (MonitoramentoOncologico.jsx), trazida para cá sem mudança para poder ser
- * testada.
+ * (MonitoramentoOncologico.jsx), trazida para cá para poder ser testada.
  *
  * Com o registro pendente, tudo o que é CALCULADO some: sem banner, sem marcos
  * e sem próxima data. Fica só a bolinha da aplicação, que é a data que a nutri
  * digitou no ciclo.
  *
  * Com marcos provisórios (e registro confirmado): sem banner e sem marcos do
- * catálogo, mas com a bolinha da aplicação e a próxima data.
+ * catálogo, mas com a bolinha da aplicação e a ponta final.
+ *
+ * A ponta final vem de `proxima` (resultado de proximaAplicacao), nunca de
+ * uma soma: confirmada → a data cadastrada; encerrado → sem ponta; qualquer
+ * outro caso, inclusive `proxima` ausente → ponta SEM data, "aguardando
+ * confirmação" (`semData: true`).
  *
  * `fase` de cada marco só escolhe a cor na tela; 'quimio' é a bolinha verde da
  * aplicação (inclusive marco que começa no dia da infusão).
  */
-export function linhaDoTempoPaciente({ ultimoCiclo, intervalo, protocoloNome, hoje = dataLocalISO(), pendente = false } = {}) {
+export function linhaDoTempoPaciente({ ultimoCiclo, protocoloNome, hoje = dataLocalISO(), pendente = false, proxima } = {}) {
   if (!ultimoCiclo) return null;
   const uc = ultimoCiclo;
-  const iv = intervalo || 21;
   const proto = getProtocolo(protocoloNome);
   const estruturado = temEstruturaCiclo(proto);
   const aplicacao = {
@@ -461,17 +498,31 @@ export function linhaDoTempoPaciente({ ultimoCiclo, intervalo, protocoloNome, ho
   // Bolinha da infusão só quando nenhum marco começa nela; se começa, ele vem
   // verde e com "Quimio" no desc, para a referência do dia da quimio não sumir.
   const pontaInicial = doCiclo.some(m => m.infusao) ? [] : [aplicacao];
-  const pontaFinal = estruturado
-    ? { d: addDaysISO(uc.data_quimio, proto.estruturaCiclo.cadenciaDias), label: 'Próxima', desc: 'Próxima aplicação', fase: 'quimio' }
-    // Esse dia é o D1 do ciclo seguinte, não um dia do atual — sem número.
-    : { d: addDaysISO(uc.data_quimio, iv), label: 'Próximo', desc: 'Próximo ciclo', fase: 'quimio' };
   return {
     emJanela,
     rotuloJanela: provisorio ? '' : rotuloJanelaRisco(proto),
     marcos: [
       ...pontaInicial,
       ...doCiclo.map(m => ({ d: m.data, label: m.label, desc: m.desc, fase: m.infusao ? 'quimio' : m.fase })),
-      pontaFinal,
+      ...pontaFinalProxima(proxima, estruturado),
     ],
   };
+}
+
+/**
+ * Ponta final da régua a partir de proximaAplicacao(), em lista (0 ou 1
+ * marco) para quem monta a régua espalhar. Usada pela paciente e pela nutri,
+ * com os mesmos rótulos de antes para a data confirmada.
+ */
+export function pontaFinalProxima(proxima, estruturado) {
+  if (proxima?.tipo === 'encerrado') return [];
+  if (proxima?.tipo === 'confirmada') {
+    return [{
+      d: proxima.d,
+      label: estruturado ? 'Próxima' : 'Próximo',
+      desc:  estruturado ? 'Próxima aplicação' : 'Próximo ciclo',
+      fase:  'quimio',
+    }];
+  }
+  return [{ d: null, label: 'Próxima aplicação', desc: 'aguardando confirmação', fase: 'quimio', semData: true }];
 }

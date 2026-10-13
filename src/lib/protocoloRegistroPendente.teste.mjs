@@ -88,11 +88,18 @@ for (const c of CASOS) {
   t(`${c.nome}: referência do d1392e9 tem marcos calculados e "Próximo"`,
     [ref.marcos.length > 1, ref.marcos.some(m => m.label === 'Próximo')], [true, true]);
 
-  // Confirmado: idêntico ao d1392e9, em cada dia de -2 a +25.
+  // Confirmado: idêntico ao d1392e9, em cada dia de -2 a +25, menos a ponta
+  // final — que no bloco-112 deixou de ser a soma (aplicação + intervalo) e,
+  // sem data confirmada, é "aguardando confirmação" sem data (conferida abaixo).
   const dias = Array.from({ length: 28 }, (_, i) => addDias(c.ciclo.data_quimio, i - 2));
-  t(`${c.nome}: confirmado → linha do tempo = d1392e9 em 28 dias seguidos`,
-    dias.filter(h => JSON.stringify(comoTela(linhaDoTempoPaciente({ ultimoCiclo: c.ciclo, intervalo: c.intervalo, protocoloNome: c.nome, hoje: h, pendente: registroPendente(confirmado) })))
-      !== JSON.stringify(antes(c.ciclo, c.intervalo, c.nome, h))), []);
+  const semPonta = r => r && { ...r, marcos: r.marcos.slice(0, -1) };
+  const linhaHoje = h => linhaDoTempoPaciente({ ultimoCiclo: c.ciclo, intervalo: c.intervalo, protocoloNome: c.nome, hoje: h, pendente: registroPendente(confirmado) });
+  t(`${c.nome}: confirmado → linha do tempo = d1392e9 em 28 dias seguidos (menos a ponta final)`,
+    dias.filter(h => JSON.stringify(semPonta(comoTela(linhaHoje(h))))
+      !== JSON.stringify(semPonta(antes(c.ciclo, c.intervalo, c.nome, h)))), []);
+  t(`${c.nome}: confirmado sem data agendada → ponta final "aguardando confirmação" sem data em 28 dias`,
+    dias.filter(h => JSON.stringify(linhaHoje(h).marcos.at(-1))
+      !== JSON.stringify({ d: null, label: 'Próxima aplicação', desc: 'aguardando confirmação', fase: 'quimio', semData: true })), []);
   t(`${c.nome}: confirmado → mensagem do dia = d1392e9 em 28 dias seguidos`,
     dias.map(h => faseDoDiaPaciente(confirmado, c.ciclo.data_quimio, { hoje: h })),
     dias.map(h => faseAntes(confirmado, c.ciclo.data_quimio, h)));
