@@ -28,5 +28,27 @@
     "data": "2026-08-31",
     "rota": "/nutri/visao",
     "texto": "Quem nunca ativou as notificações agora tem um item fixo em Mais, no app da paciente, para ligar quando quiser — antes o convite aparecia uma vez só e não tinha caminho de volta."
+  },
+  {
+    "id": 6,
+    "data": "2026-10-12",
+    "rota": null,
+    "rotulo": "NOVIDADE NA SUA ÁREA",
+    "titulo": "Novo: **Panorama do tratamento** da paciente",
+    "texto": "Novo: Panorama do tratamento da paciente",
+    "apoio": "Defina a etapa (1 a 6) na aba Oncologia da ficha e a paciente vê a estrada do acompanhamento — clica aqui pra abrir as pacientes",
+    "icone": "road",
+    "destino": "/nutri/pacientes"
+  },
+  {
+    "id": 7,
+    "data": "2026-10-12",
+    "rota": null,
+    "rotulo": "NOVIDADE NA SUA ÁREA",
+    "titulo": "Novo: **avisos de check-in** e de alerta oncológico",
+    "texto": "Novo: avisos de check-in e de alerta oncológico",
+    "apoio": "Você recebe aviso (e push, se estiver ativado) quando a paciente responde o check-in e quando há sinal de alerta — clica aqui pra ver os avisos",
+    "icone": "bell",
+    "destino": "/nutri/avisos"
   }
 ]

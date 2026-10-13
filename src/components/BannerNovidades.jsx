@@ -1,123 +1,165 @@
-import { useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import novidades from '../data/novidades.json';
+import { ativarNotificacoes } from '../lib/push.js';
+import {
+  selecionarNovidades, mostrarConviteNotificacoes, partesDoTitulo, marcarDispensada,
+  ROTULO_PADRAO, ICONE_PADRAO,
+} from '../lib/novidadesNutri.js';
+import '../styles/novidades.css';
 
 /**
- * Banner de novidades do painel da nutri.
+ * Novidades do painel da nutri — pilha de cartões (bloco-103).
  *
- * A fonte é o `src/data/novidades.json`, editado à mão a cada mudança que
- * valha contar. Import estático: entra no bundle, não custa requisição.
+ * A fonte continua sendo o `src/data/novidades.json`, editado à mão a cada
+ * mudança que valha contar; as regras (quais aparecem, "já visto", convite)
+ * estão em lib/novidadesNutri.js. Só o painel da nutri monta este componente
+ * (NutriLayout): a paciente nunca vê.
  *
- * Cada tela mostra a novidade mais recente DELA — não a mais recente do app.
- * Assim a nutri vai encontrando uma novidade por tela, conforme visita cada
- * uma ao longo dos dias, em vez de uma só engolir todas as outras.
+ * Em primeiro lugar, quando cabe, o convite para ativar as notificações neste
+ * aparelho (a mesma ativarNotificacoes() do card de Personalização). Depois,
+ * até 3 novidades não dispensadas, da mais nova para a mais antiga.
  *
- * Só o painel da nutri monta este componente (NutriLayout), então "toda tela"
- * aqui quer dizer toda tela da nutri. A paciente nunca vê banner.
- *
- * O "já visto" é por dispositivo, de propósito — a alternativa era uma coluna
- * em `nutris` e um update no banco a cada X clicado.
+ * O "já visto" é por dispositivo, de propósito (localStorage), como antes.
  */
 
-const CHAVE = 'novidades_vistas';        // objeto: um id por balde
-const CHAVE_ANTIGA = 'novidades_vista';  // formato anterior: um id solto
-const GLOBAL = '*';
+const CHAVE = 'novidades_vistas';                 // objeto: balde → id (antigo) e '#id' → id (novo)
+const CHAVE_ANTIGA = 'novidades_vista';           // formato anterior ao objeto: não é mais lido
+const CHAVE_SONECA = 'novidades_convite_soneca_ate';
+const SONECA_MS = 14 * 86_400_000;
+const ROTA_PERSONALIZACAO = '/nutri/personalizacao';
 
-/**
- * O balde de uma novidade no localStorage: a rota dela, ou '*' se for global.
- *
- * É a ROTA DA NOVIDADE, nunca a rota onde a nutri está. Para as novidades de
- * tela as duas coincidem; para as globais, não — e chavear pela tela atual
- * faria a mesma novidade global reaparecer em cada uma das outras telas,
- * exigindo dispensá-la uma vez por tela.
- */
-const balde = n => n.rota ?? GLOBAL;
-
-/**
- * Esta novidade vale para esta tela?
- *
- * `rota` nula OU ausente → toda tela do painel; o `== null` cobre as duas, então
- * esquecer o campo faz a novidade aparecer demais, nunca sumir.
- *
- * Senão, igualdade exata ou prefixo seguido de '/', para cobrir as rotas com id
- * embutido: /nutri/pacientes pega /nutri/pacientes/<uuid>. O '/' é o que impede
- * /nutri/chat de casar com um futuro /nutri/chatbot.
- */
-function valeAqui(n, pathname) {
-  if (n.rota == null) return true;
-  return pathname === n.rota || pathname.startsWith(n.rota + '/');
-}
-
-/** Tolerante a lixo: formato antigo, JSON quebrado ou modo privado viram {}. */
-function lerVistas() {
+function lerJSON(chave, padrao) {
   try {
-    const cru = JSON.parse(localStorage.getItem(CHAVE) ?? '{}');
-    return cru && typeof cru === 'object' && !Array.isArray(cru) ? cru : {};
-  } catch { return {}; }
+    const cru = JSON.parse(localStorage.getItem(chave) ?? 'null');
+    return cru ?? padrao;
+  } catch { return padrao; }
+}
+function gravar(chave, valor) {
+  try { localStorage.setItem(chave, JSON.stringify(valor)); } catch { /* modo privado: vale só nesta sessão */ }
 }
 
-/**
- * "2026-08-20" → "20/08". Recortado na mão porque `new Date('2026-08-20')` é
- * lido como UTC e, no fuso de São Paulo, voltaria para o dia 19.
- */
-function fmtData(iso) {
-  const [, mes, dia] = String(iso ?? '').split('-');
-  return mes && dia ? `${dia}/${mes}` : '';
+// Mesmo critério do convite da paciente (PacienteLayout): no iPhone o push só
+// funciona com o app instalado na tela de início; fora dele, sem suporte.
+function suporteNotificacoes() {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
+  const temApi = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+  const standalone = window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  const ehIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  return temApi && (standalone || !ehIOS);
+}
+
+function Cartao({ icone, rotulo, titulo, apoio, erro, onAbrir, onFechar, rotuloFechar = 'Dispensar' }) {
+  const clicavel = typeof onAbrir === 'function';
+  return (
+    <div
+      className={`novidade-cartao${clicavel ? ' clicavel' : ''}`}
+      role={clicavel ? 'link' : undefined}
+      tabIndex={clicavel ? 0 : undefined}
+      onClick={clicavel ? onAbrir : undefined}
+      onKeyDown={clicavel ? e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onAbrir(); } } : undefined}
+    >
+      <div className="novidade-icone"><i className={`ti ti-${icone}`} aria-hidden="true"></i></div>
+      <div className="novidade-corpo">
+        <div className="novidade-rotulo">{rotulo}</div>
+        <div className="novidade-titulo">
+          {partesDoTitulo(titulo).map((p, i) => (p.forte ? <strong key={i}>{p.texto}</strong> : <span key={i}>{p.texto}</span>))}
+        </div>
+        {apoio && <div className="novidade-apoio">{apoio}</div>}
+        {erro && <div className="novidade-erro" role="status">{erro}</div>}
+      </div>
+      <button type="button" className="novidade-fechar" aria-label={rotuloFechar}
+        onClick={e => { e.stopPropagation(); onFechar(); }}
+        onKeyDown={e => e.stopPropagation()}>
+        <i className="ti ti-x" aria-hidden="true"></i>
+      </button>
+    </div>
+  );
 }
 
 export default function BannerNovidades() {
   const { pathname } = useLocation();
-  const [vistas, setVistas] = useState(lerVistas);
+  const navigate = useNavigate();
+  const [vistas, setVistas] = useState(() => {
+    const v = lerJSON(CHAVE, {});
+    return v && typeof v === 'object' && !Array.isArray(v) ? v : {};
+  });
+  const [suportado] = useState(suporteNotificacoes);
+  const [temInscricao, setTemInscricao] = useState(null);   // null = ainda não sabemos
+  const [sonecaAte, setSonecaAte] = useState(() => Number(lerJSON(CHAVE_SONECA, 0)) || 0);
+  const [ativando, setAtivando] = useState(false);
+  const [falhou, setFalhou] = useState(false);
+  // Hora lida uma vez, ao montar: o render tem de ser puro. A soneca nova
+  // (adiarConvite) fica no futuro e esconde o convite na hora.
+  const [agora] = useState(() => Date.now());
 
-  // Maior id entre as que valem aqui — a ordem dentro do arquivo não decide
-  // nada. Global e específica disputam juntas: se as duas estiverem pendentes
-  // na mesma tela, a mais recente vem primeiro e a outra na sequência, ao
-  // dispensar. Nenhuma se perde; elas se enfileiram.
-  const novidade = (Array.isArray(novidades) ? novidades : [])
-    .filter(n => valeAqui(n, pathname))
-    .reduce((a, b) => (a == null || b.id > a.id ? b : a), null);
+  // Inscrição deste aparelho (a mesma leitura do card de Personalização).
+  useEffect(() => {
+    if (!suportado) return;
+    let vivo = true;
+    navigator.serviceWorker.ready
+      .then(reg => reg.pushManager.getSubscription())
+      .then(sub => { if (vivo) setTemInscricao(!!sub); }, () => {});
+    return () => { vivo = false; };
+  }, [suportado]);
 
-  // Comparação por !==, nunca por >: se um dia um id sair fora de ordem, o
-  // pior caso é o banner aparecer uma vez a mais, não sumir para sempre.
-  if (!novidade || String(novidade.id) === vistas[balde(novidade)]) return null;
+  const itens = selecionarNovidades({ itens: novidades, rotaAtual: pathname, vistas, max: 3 });
+  const permissao = suportado ? Notification.permission : 'unsupported';
+  const convite = mostrarConviteNotificacoes({ suportado, permissao, temInscricao, sonecaAte, agora });
 
-  function dispensar() {
-    const proximo = { ...vistas, [balde(novidade)]: String(novidade.id) };
-    try {
-      localStorage.setItem(CHAVE, JSON.stringify(proximo));
-      localStorage.removeItem(CHAVE_ANTIGA);  // o formato antigo não volta a ser lido
-    } catch { /* modo privado */ }
+  if (!convite && itens.length === 0) return null;
+
+  function dispensar(n) {
+    const proximo = marcarDispensada(vistas, n);
+    gravar(CHAVE, proximo);
+    try { localStorage.removeItem(CHAVE_ANTIGA); } catch { /* modo privado */ }
     setVistas(proximo);
   }
 
+  function adiarConvite() {
+    const ate = Date.now() + SONECA_MS;
+    gravar(CHAVE_SONECA, ate);
+    setSonecaAte(ate);
+  }
+
+  async function ativar() {
+    if (falhou) { navigate(ROTA_PERSONALIZACAO); return; }
+    if (ativando) return;
+    setAtivando(true);
+    try {
+      await ativarNotificacoes();
+      setTemInscricao(true);            // o cartão some sozinho
+    } catch {
+      setFalhou(true);
+    } finally {
+      setAtivando(false);
+    }
+  }
+
   return (
-    <div style={{
-      display: 'flex', alignItems: 'flex-start', gap: 10,
-      padding: '10px 14px', marginBottom: 16,
-      background: 'var(--bg2)',
-      border: '0.5px solid var(--border)',
-      borderLeft: '2px solid var(--amber)',
-      borderRadius: 10,
-    }}>
-      <i className="ti ti-sparkles"
-        style={{ fontSize: 15, color: 'var(--amber)', marginTop: 2, flexShrink: 0 }}
-        aria-hidden="true"></i>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.5 }}>
-          {novidade.texto}
-        </div>
-        <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
-          {fmtData(novidade.data)}
-        </div>
-      </div>
-      <button type="button" onClick={dispensar} aria-label="Dispensar novidade"
-        style={{
-          background: 'none', border: 'none', cursor: 'pointer',
-          color: 'var(--text3)', fontSize: 15, lineHeight: 1, padding: 4,
-          flexShrink: 0,
-        }}>
-        <i className="ti ti-x" aria-hidden="true"></i>
-      </button>
+    <div className="novidades-pilha">
+      {convite && (
+        <Cartao
+          icone="bell-ringing"
+          rotulo="NÃO PERCA NADA"
+          titulo="**Ative as notificações** no seu celular"
+          apoio={ativando ? 'Ativando…' : 'Avisamos quando a paciente responder o check-in ou houver alerta no acompanhamento — clica aqui pra ativar'}
+          erro={falhou ? 'Não foi possível ativar aqui. Abra Personalização para ver como.' : null}
+          onAbrir={ativar}
+          onFechar={adiarConvite}
+        />
+      )}
+      {itens.map(n => (
+        <Cartao
+          key={n.id}
+          icone={n.icone || ICONE_PADRAO}
+          rotulo={n.rotulo || ROTULO_PADRAO}
+          titulo={n.titulo || n.texto}
+          apoio={n.apoio}
+          onAbrir={typeof n.destino === 'string' && n.destino.startsWith('/') ? () => navigate(n.destino) : undefined}
+          onFechar={() => dispensar(n)}
+        />
+      ))}
     </div>
   );
 }

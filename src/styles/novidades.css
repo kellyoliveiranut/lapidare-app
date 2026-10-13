@@ -1,0 +1,60 @@
+/* Pilha de novidades do painel da nutri (BannerNovidades.jsx).
+   Só monta dentro de .nutri-panel. Cores dos tokens; os textos pequenos usam
+   misturas mais escuras para passar 4,5:1 sobre o degradê (bloco-103). */
+
+.novidades-pilha { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+
+.novidade-cartao {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, var(--bg-soft) 0%, var(--gold-soft) 100%);
+  border: 1px solid var(--gold-soft);
+  border-radius: 14px;
+  text-align: left;
+}
+.novidade-cartao.clicavel { cursor: pointer; }
+.novidade-cartao.clicavel:focus-visible,
+.novidade-fechar:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.novidade-icone {
+  width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0;
+  background: var(--gold-deep);
+  display: flex; align-items: center; justify-content: center;
+}
+.novidade-icone i { font-size: 20px; color: #fff; }
+
+.novidade-corpo { flex: 1; min-width: 0; }
+
+.novidade-rotulo {
+  font-family: var(--font-sans);
+  font-size: 10px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase;
+  color: #655337;                                              /* fallback */
+  color: color-mix(in srgb, var(--gold-deep) 55%, var(--ink));
+  margin-bottom: 3px;
+}
+.novidade-titulo {
+  font-family: var(--font-sans);
+  font-size: 15px; line-height: 1.35; color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.novidade-titulo strong { font-weight: 700; }
+.novidade-apoio {
+  font-family: var(--font-sans);
+  font-size: 12px; line-height: 1.45; margin-top: 4px;
+  color: #644f36;                                              /* fallback */
+  color: color-mix(in srgb, var(--ink-soft) 70%, var(--gold-deep));
+  overflow-wrap: anywhere;
+}
+.novidade-erro {
+  font-family: var(--font-sans);
+  font-size: 12px; margin-top: 4px; color: var(--ink); font-weight: 600;
+}
+
+.novidade-fechar {
+  background: none; border: none; cursor: pointer; flex-shrink: 0;
+  padding: 4px; line-height: 1; font-size: 16px;
+  color: var(--ink-soft);
+}
