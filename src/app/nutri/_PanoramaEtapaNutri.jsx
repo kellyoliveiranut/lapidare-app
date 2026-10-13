@@ -47,14 +47,14 @@ export default function PanoramaEtapaNutri({ pacienteId, nutriId }) {
     <div className="card" style={{ padding: '14px 16px', marginBottom: 14 }}>
       <div className="card-title" style={{ marginBottom: 6 }}>
         <i className="ti ti-road" style={{ color: 'var(--gold-deep)', marginRight: 6 }} aria-hidden="true" />
-        Etapa do Panorama do tratamento
+        Fase da jornada
       </div>
       <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 10 }}>
-        A paciente vê esta etapa destacada na estrada. Ela não muda sozinha.
+        A paciente vê esta fase destacada na estrada da Minha jornada. Ela não muda sozinha.
       </div>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
         <select value={valor} disabled={carregando || salvando} onChange={e => { setValor(e.target.value); setMsg(null); }}
-                aria-label="Etapa do Panorama do tratamento" style={{ flex: '1 1 240px', minWidth: 0 }}>
+                aria-label="Fase da jornada" style={{ flex: '1 1 240px', minWidth: 0 }}>
           <option value="">Não definida</option>
           {FASES_PANORAMA.map(f => <option key={f.numero} value={String(f.numero)}>{f.numero}. {f.titulo}</option>)}
         </select>

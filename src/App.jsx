@@ -75,7 +75,6 @@ const CheckinsPaciente = lazy(() => import('./app/paciente/CheckinsPaciente.jsx'
 const AvaliacaoPaciente = lazy(() => import('./app/paciente/Avaliacao.jsx'));
 const ExamesPaciente = lazy(() => import('./app/paciente/Exames.jsx'));
 const JornadaPaciente = lazy(() => import('./app/paciente/Jornada.jsx'));
-const PanoramaTratamento = lazy(() => import('./app/paciente/PanoramaTratamento.jsx'));
 
 export default function App() {
   return (
@@ -153,7 +152,7 @@ export default function App() {
                 <Route path="/paciente/avaliacao" element={<AvaliacaoPaciente />} />
                 <Route path="/paciente/exames" element={<ExamesPaciente />} />
                 <Route path="/paciente/jornada" element={<JornadaPaciente />} />
-                <Route path="/paciente/panorama" element={<PanoramaTratamento />} />
+                <Route path="/paciente/panorama" element={<Navigate to="/paciente/jornada" replace />} />
               </Route>
 
               <Route path="*" element={<Navigate to="/" replace />} />

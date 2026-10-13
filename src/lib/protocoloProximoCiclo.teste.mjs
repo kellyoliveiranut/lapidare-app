@@ -11,7 +11,6 @@
  * importa o JSON sem atributo; o hook só acrescenta `type: 'json'`.
  */
 import { register } from 'node:module';
-import { execSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 
 process.env.TZ = process.env.TZ_TESTE || 'America/Belem';
@@ -158,13 +157,17 @@ t('nutri: nenhum update de ciclos_quimio com data_quimio ou agendamento_confirma
 t('nutri: continua um único update em tratamentos_oncologicos',
   nutri.split(/from\('tratamentos_oncologicos'\)\s*\.update\(/).length - 1, 1);
 
-const diffNovo = execSync('git diff HEAD -- src/lib/protocoloCiclo.js src/app/nutri/_TratamentoOncologico.jsx src/app/paciente/MonitoramentoOncologico.jsx', { maxBuffer: 1e8 })
-  .toString('utf8').split('\n').filter(l => l.startsWith('+') && !l.startsWith('+++'));
-t('código novo sem window.confirm/alert/prompt', diffNovo.filter(l => /window\.(confirm|alert|prompt)/.test(l)), []);
-const intocado = f => { try { execSync(`git diff --quiet HEAD -- ${f}`); return true; } catch { return false; } };
-t('Inicio.jsx, lembretes-consulta, aniversarios e send-push sem diferença',
-  ['src/app/paciente/Inicio.jsx', 'netlify/functions/lembretes-consulta.js', 'netlify/functions/aniversarios.js', 'netlify/functions/send-push.js'].map(intocado),
-  [true, true, true, true]);
+// Por conteúdo, não por git diff (independe do working tree). A confirmação
+// não usa diálogo do navegador: na nutri só os dois window.confirm antigos.
+const dialogos = s => s.match(/window\.(confirm|alert|prompt)\([^)]*\)/g) ?? [];
+t('sem window.confirm/alert/prompt além dos dois antigos da nutri',
+  [dialogos(lerRaiz('src/lib/protocoloCiclo.js')), dialogos(lerRaiz('src/app/paciente/MonitoramentoOncologico.jsx')), dialogos(nutri)],
+  [[], [], ["window.confirm('Remover este ciclo?')", "window.confirm('Remover este exame?')"]]);
+// O Início e as funções de push/lembrete nunca falam de próxima aplicação.
+const PROXIMA = /proximaAplicacao|pontaFinalProxima|agendamento_confirmado|Próxima aplicação|aguardando confirmação/;
+t('Inicio.jsx, lembretes-consulta, aniversarios e send-push sem próxima aplicação',
+  ['src/app/paciente/Inicio.jsx', 'netlify/functions/lembretes-consulta.js', 'netlify/functions/aniversarios.js', 'netlify/functions/send-push.js'].map(f => PROXIMA.test(lerRaiz(f))),
+  [false, false, false, false]);
 
 // ── Migração e DESFAZER ──
 const sql = lerRaiz('supabase/migrations/2026-10-13_ciclos_agendamento_confirmado.sql');

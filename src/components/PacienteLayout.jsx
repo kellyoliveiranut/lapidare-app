@@ -53,7 +53,6 @@ const HEADERS = {
   '/paciente/avaliacao':                ()                => ({ eyebrow: 'Avaliação física',    title: 'Sua avaliação' }),
   '/paciente/exames':                   ()                => ({ eyebrow: 'Exames',              title: 'Solicitações',                subtitle: 'Documentos para levar ao laboratório' }),
   '/paciente/jornada':                  ()                => ({ eyebrow: 'Acompanhamento',      title: 'Minha jornada' }),
-  '/paciente/panorama':                 ()                => ({ eyebrow: 'Acompanhamento',      title: 'Panorama do tratamento', subtitle: 'As etapas do seu acompanhamento nutricional.' }),
 };
 
 export default function PacienteLayout() {
