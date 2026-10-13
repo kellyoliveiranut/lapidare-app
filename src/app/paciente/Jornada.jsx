@@ -1,9 +1,7 @@
-import { useEffect, useState } from 'react';
-import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { useJornada } from '../../lib/useJornada.js';
 import { ehAvulsa } from '../../lib/planoPaciente.js';
-import { faseValida, textoEstado } from '../../lib/panoramaFases.js';
+import { etapasDaJornada } from '../../lib/etapasJornada.js';
 import PanoramaEstrada from '../../components/PanoramaEstrada.jsx';
 import { TrilhaJornada } from './_Jornada.jsx';
 
@@ -21,32 +19,19 @@ import { TrilhaJornada } from './_Jornada.jsx';
  * desligada para ela e nada é desenhado — sem isso sairiam três queries à toa
  * a cada tentativa.
  *
- * Só Oncologia: acima da trilha, a estrada com as 6 etapas (antiga tela
- * Panorama do tratamento). A etapa é a de panorama_fases, que só a nutri
- * grava. A leitura corre à parte e não segura a trilha: enquanto não chega,
- * a estrada aparece sem destaque; erro ou sem linha = sem destaque e a frase
- * de que a nutri vai indicar a etapa. Outros objetivos: só a trilha, sem
- * leitura de panorama_fases.
+ * Só Oncologia: no lugar da trilha, só a estrada das 6 etapas, que avança
+ * sozinha com as consultas do pacote (etapasJornada.js: consulta N = etapa N).
+ * Nada de panorama_fases. Carregando: o texto da trilha, para a estrada não
+ * piscar sem destaque; erro: o texto de erro da trilha e a estrada sem
+ * destaque. Outros objetivos: só a trilha, como antes.
  */
 export default function Jornada() {
   const { user, profile } = useSession();
   const pacienteId = profile?.id ?? user?.id;
   const avulsa = ehAvulsa(profile);
   const onco = profile?.objetivo === 'Oncologia';
-  // Hooks antes de qualquer return.
+  // Hook antes de qualquer return.
   const { jornada, carregando, erro } = useJornada(pacienteId, !!profile && !avulsa);
-  const [etapa, setEtapa] = useState({ pronta: false, fase: null });
-
-  useEffect(() => {
-    if (!pacienteId || !onco || avulsa) return;
-    let vivo = true;
-    supabase.from('panorama_fases').select('fase').eq('paciente_id', pacienteId).maybeSingle()
-      .then(({ data, error }) => {
-        if (!vivo) return;
-        setEtapa({ pronta: true, fase: !error && faseValida(data?.fase) ? data.fase : null });
-      }, () => { if (vivo) setEtapa({ pronta: true, fase: null }); });
-    return () => { vivo = false; };
-  }, [pacienteId, onco, avulsa]);
 
   if (!profile) {
     return <div style={{ padding: 16, fontSize: 12, color: 'var(--muted)' }}>Carregando…</div>;
@@ -54,23 +39,24 @@ export default function Jornada() {
   if (avulsa) return null;
   if (!onco) return <TrilhaJornada jornada={jornada} carregando={carregando} erro={erro} />;
 
+  if (carregando) {
+    return <div style={{ padding: 16, fontSize: 12, color: 'var(--muted)' }}>Carregando sua jornada…</div>;
+  }
+  const etapas = etapasDaJornada(erro ? null : jornada);
   return (
-    <>
-      <div style={{ paddingBottom: 8, marginBottom: 16 }}>
-        <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)', margin: '0 0 10px', lineHeight: 1.35 }}>
-          As etapas do seu acompanhamento nutricional.
-        </div>
-        {etapa.pronta && etapa.fase == null && (
-          <p style={{ fontSize: 14, color: 'var(--ink)', margin: '0 0 12px', lineHeight: 1.4 }}>
-            {textoEstado(null)}
-          </p>
-        )}
-        <PanoramaEstrada key={etapa.fase ?? 'sem'} fase={etapa.fase} />
-        <p style={{ fontSize: 11, color: 'var(--muted)', margin: '16px 0 0', lineHeight: 1.4, textAlign: 'center' }}>
-          Conteúdo informativo. Seu plano é individual e definido pela sua nutricionista.
-        </p>
+    <div style={{ paddingBottom: 8 }}>
+      <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)', margin: '0 0 10px', lineHeight: 1.35 }}>
+        As etapas do seu acompanhamento nutricional.
       </div>
-      <TrilhaJornada jornada={jornada} carregando={carregando} erro={erro} />
-    </>
+      {erro && (
+        <div style={{ padding: '0 0 12px', fontSize: 12, color: 'var(--red)' }}>
+          Não foi possível carregar sua jornada agora. Tente de novo em instantes.
+        </div>
+      )}
+      <PanoramaEstrada key={etapas.atual ?? 'sem'} atual={etapas.atual} concluidas={etapas.concluidas} todas={etapas.todas} />
+      <p style={{ fontSize: 11, color: 'var(--muted)', margin: '16px 0 0', lineHeight: 1.4, textAlign: 'center' }}>
+        Conteúdo informativo. Seu plano é individual e definido pela sua nutricionista.
+      </p>
+    </div>
   );
 }

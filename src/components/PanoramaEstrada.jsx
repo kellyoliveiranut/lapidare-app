@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { FASES_PANORAMA, faseValida, estadoDaEtapa, rotuloEtapa } from '../lib/panoramaFases.js';
+import {
+  FASES_PANORAMA, faseValida, estadoDaEtapa, rotuloEtapa, estadoDaEtapaNaJornada, rotuloEtapaNaJornada,
+} from '../lib/panoramaFases.js';
 import '../styles/panorama.css';
 
 // Geometria (unidades do viewBox; largura 360, mobile-first). As estações
@@ -30,14 +32,24 @@ const CAMINHO = caminhoDaEstrada();
  * Estrada do Panorama do tratamento: 6 estações numeradas, a atual destacada.
  * `fase` inválida ou nula = nenhuma destacada e nenhum "Você está aqui".
  * Quem chama deve montar com key={fase} se a fase puder chegar depois.
+ *
+ * Minha jornada (etapasJornada.js): com `concluidas` (array), as etapas vêm
+ * das consultas — concluídas em verde (--green-soft com contorno --green),
+ * `atual` em dourado com o anel e o "Você está aqui", as demais como hoje.
+ * `todas` = as 6 concluídas. Sem `concluidas`, vale a API antiga `fase`.
  */
-export default function PanoramaEstrada({ fase }) {
-  const temFase = faseValida(fase);
+export default function PanoramaEstrada({ fase, atual = null, concluidas, todas = false }) {
+  const naJornada = Array.isArray(concluidas);
+  const etapas = naJornada
+    ? { atual: todas ? null : atual, concluidas: todas ? FASES_PANORAMA.map(f => f.numero) : concluidas }
+    : null;
+  const posicao = naJornada ? etapas.atual : fase;
+  const temFase = faseValida(posicao);
   // null = a paciente ainda não tocou em nenhuma: o painel mostra a atual (ou a 1)
   // e nenhuma estação ganha o contorno grosso de "escolhida" — sem etapa definida,
   // nada pode parecer destacado.
   const [tocada, setTocada] = useState(null);
-  const selecionada = tocada ?? (temFase ? fase : 1);
+  const selecionada = tocada ?? (temFase ? posicao : 1);
   const sel = FASES_PANORAMA[selecionada - 1];
 
   return (
@@ -63,19 +75,24 @@ export default function PanoramaEstrada({ fase }) {
 
         {FASES_PANORAMA.map((f, i) => {
           const { x, y } = pos(i);
-          const estado = estadoDaEtapa(f.numero, fase);
+          const estado = naJornada ? estadoDaEtapaNaJornada(f.numero, etapas) : estadoDaEtapa(f.numero, fase);
           const atual = estado === 'atual';
           const r = atual ? R_ATUAL : R;
           const esquerda = x === X_ESQ;
           const tx = esquerda ? x + r + 14 : x - r - 14;
           const anchor = esquerda ? 'start' : 'end';
           const escolhida = tocada === f.numero;
-          const preenchimento = atual ? 'var(--gold)' : estado === 'percorrida' ? 'var(--gold-soft)' : 'var(--paper)';
-          const contorno = atual || estado === 'percorrida' ? 'var(--gold-deep)' : 'var(--muted)';
+          const percorrida = estado === 'percorrida';
+          const preenchimento = atual ? 'var(--gold)'
+            : percorrida ? (naJornada ? 'var(--green-soft)' : 'var(--gold-soft)')
+            : 'var(--paper)';
+          const contorno = atual ? 'var(--gold-deep)'
+            : percorrida ? (naJornada ? 'var(--green)' : 'var(--gold-deep)')
+            : 'var(--muted)';
           const escolher = () => setTocada(f.numero);
           return (
             <g key={f.numero} className="panorama-estacao" role="button" tabIndex={0}
-               aria-label={rotuloEtapa(f.numero, fase)}
+               aria-label={naJornada ? rotuloEtapaNaJornada(f.numero, etapas) : rotuloEtapa(f.numero, fase)}
                aria-current={atual ? 'step' : undefined}
                aria-pressed={selecionada === f.numero}
                onClick={escolher}
@@ -102,7 +119,7 @@ export default function PanoramaEstrada({ fase }) {
 
       <div className="panorama-painel" aria-live="polite">
         <div className="panorama-painel-eyebrow">
-          Etapa {sel.numero} de {N}{temFase && sel.numero === fase ? ' · você está aqui' : ''}
+          Etapa {sel.numero} de {N}{temFase && sel.numero === posicao ? ' · você está aqui' : ''}
         </div>
         <div className="panorama-painel-titulo">{sel.titulo}</div>
         <ul>

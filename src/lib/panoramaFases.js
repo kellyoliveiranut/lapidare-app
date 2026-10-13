@@ -112,3 +112,22 @@ export function rotuloEtapa(numero, fase) {
   const f = FASES_PANORAMA[numero - 1];
   return `Etapa ${numero} de ${TOTAL_FASES_PANORAMA}: ${f?.titulo ?? ''}${SUFIXO_ESTADO[estadoDaEtapa(numero, fase)] ?? ''}`;
 }
+
+/**
+ * Estado de uma etapa na Minha jornada, quando as etapas vêm das consultas
+ * (etapasJornada.js) e não de uma fase única: concluída = 'percorrida',
+ * a atual = 'atual', depois da atual = 'proxima'. Pulada/cancelada (não
+ * concluída e antes da atual), ou sem atual e não concluída: null, sem estado.
+ */
+export function estadoDaEtapaNaJornada(numero, { atual = null, concluidas = [] } = {}) {
+  if (Array.isArray(concluidas) && concluidas.includes(numero)) return 'percorrida';
+  if (faseValida(atual) && numero === atual) return 'atual';
+  if (faseValida(atual) && numero > atual) return 'proxima';
+  return null;
+}
+
+/** aria-label da estação na Minha jornada: os mesmos textos de rotuloEtapa. */
+export function rotuloEtapaNaJornada(numero, etapas) {
+  const f = FASES_PANORAMA[numero - 1];
+  return `Etapa ${numero} de ${TOTAL_FASES_PANORAMA}: ${f?.titulo ?? ''}${SUFIXO_ESTADO[estadoDaEtapaNaJornada(numero, etapas)] ?? ''}`;
+}

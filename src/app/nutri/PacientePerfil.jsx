@@ -2,7 +2,6 @@ import { useEffect, useState, useRef, lazy, Suspense, memo, useCallback } from '
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
-import PanoramaEtapaNutri from './_PanoramaEtapaNutri.jsx';
 import {
   brl, dataBR, iniciais, horaConsultaBR, TZ_CLINICA,
   validarPlano, validarLista, contarItensLista,
@@ -1221,7 +1220,6 @@ export default function PacientePerfil() {
       <Suspense fallback={<div className="card empty-card"><div className="empty-sub">Carregando…</div></div>}>
         {tab === 'evolucao'      && <Evolucao pacienteId={paciente.id} paciente={paciente} nutriId={user.id} />}
         {tab === 'relatorio'     && <RelatorioEvolucao pacienteId={paciente.id} paciente={paciente} nutriId={user.id} />}
-        {tab === 'oncologia' && paciente.objetivo === 'Oncologia' && <PanoramaEtapaNutri pacienteId={paciente.id} nutriId={user.id} />}
         {tab === 'oncologia'     && <TratamentoOncologico pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} pacienteSexo={paciente.sexo} />}
         {tab === 'emagrecimento' && <Emagrecimento pacienteId={paciente.id} nutriId={user.id} />}
         {tab === 'anamnese'      && <Anamnese pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
