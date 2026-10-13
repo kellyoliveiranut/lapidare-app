@@ -15,6 +15,7 @@ import { modalidadeDaPaciente, localPadrao } from '../../lib/opcoesPaciente.js';
 import { pacientesComCancelada } from '../../lib/agendaListas.js';
 import { gravar } from '../../lib/gravar.js';
 import ReguaDoDia from './_ReguaDoDia.jsx';
+import SemConsultaAgenda from './_SemConsultaAgenda.jsx';
 import { HORARIOS_TAREFA, hhmm } from '../../lib/reguaDoDia.js';
 import {
   dataConsultaBR, horaConsultaBR, dataBR, TZ_CLINICA, textoDias, iniciais,
@@ -805,6 +806,9 @@ export default function Agenda() {
           </>
         )}
       </div>
+
+      {/* Só uma lista: sem aviso, selo ou push (decisão de 12/10/2026). */}
+      <SemConsultaAgenda nutriId={user?.id} />
 
       {convite && (
         <FaixaConvite

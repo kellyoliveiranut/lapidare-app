@@ -7,7 +7,8 @@ import { avisarStatus } from '../lib/realtime.js';
 import BrandFooter from './BrandFooter.jsx';
 import BannerNovidades from './BannerNovidades.jsx';
 import { iniciais, mesAno } from '../lib/utils.js';
-import { EVENTO_AVISOS_MUDOU, EVENTO_FEED_RECARREGAR, TIPOS_AVISOS_LISTA } from '../lib/avisosNutri.js';
+import { EVENTO_AVISOS_MUDOU, EVENTO_FEED_RECARREGAR } from '../lib/avisosNutri.js';
+import { contarSelos, tiposParaMarcarAoAbrir, rotuloSelo, TIPOS_COM_SELO } from '../lib/selosMenuNutri.js';
 import '../styles/nutri.css';
 
 const NAV_CONFIG = [
@@ -58,6 +59,8 @@ export default function NutriLayout() {
   const [unreadChat, setUnreadChat] = useState(0);
   const [avisosNovos, setAvisosNovos] = useState(0);
   const [fotosNovas, setFotosNovas] = useState(0);
+  const [checkinsNovos, setCheckinsNovos] = useState(0);
+  const [oncoNovos, setOncoNovos] = useState(0);
   const location = useLocation();
 
   // Fecha drawer ao trocar de rota (mobile)
@@ -97,9 +100,12 @@ export default function NutriLayout() {
     return () => { active = false; supabase.removeChannel(channel); };
   }, [user]);
 
-  // Conta avisos não vistos (avisos_nutri; a RLS já filtra pela nutri), em
-  // dois números: os tipos da página Avisos (item Avisos) e foto do prato (item
-  // Feed de pratos).
+  // Conta avisos não vistos (avisos_nutri; a RLS já filtra pela nutri), um
+  // número por item do menu (selosMenuNutri.js): contrato em Avisos, formulário
+  // e check-in diário em Check-ins, alerta em Oncologia, foto no Feed. Uma
+  // consulta só (tipo das linhas não vistas), agrupada no cliente; não vistos
+  // ficam sempre poucos (abrir cada tela marca os dela), longe do teto de 1000
+  // linhas por consulta.
   // Mesmo molde do contador do chat, com dois reforços: a recontagem ao voltar
   // à aba (o websocket costuma cair no celular em segundo plano) e o evento
   // disparado depois de marcar como visto (página Avisos e, aqui embaixo, a
@@ -109,23 +115,18 @@ export default function NutriLayout() {
     if (!user) return;
     let active = true;
 
-    const naoVistos = tipos => supabase
-      .from('avisos_nutri')
-      .select('id', { count: 'exact', head: true })
-      .is('visto_em', null)
-      .in('tipo', tipos);
-
     async function recarregar() {
-      // Item Avisos: os tipos da página Avisos (contrato, check-in diário,
-      // alerta e formulário respondido); foto do prato tem o número dela.
-      const [contratos, fotos] = await Promise.all([
-        naoVistos(TIPOS_AVISOS_LISTA),
-        naoVistos(['foto_prato']),
-      ]);
-      if (!active) return;
-      // Cada número só muda se a SUA consulta voltou sem erro.
-      if (!contratos.error) setAvisosNovos(contratos.count ?? 0);
-      if (!fotos.error) setFotosNovas(fotos.count ?? 0);
+      const { data, error } = await supabase
+        .from('avisos_nutri')
+        .select('tipo')
+        .is('visto_em', null)
+        .in('tipo', TIPOS_COM_SELO);
+      if (!active || error) return;   // com erro, os números ficam como estavam
+      const s = contarSelos(data);
+      setAvisosNovos(s.avisos);
+      setCheckinsNovos(s.checkins);
+      setOncoNovos(s.oncologia);
+      setFotosNovas(s.feed);
     }
 
     recarregar();
@@ -167,6 +168,22 @@ export default function NutriLayout() {
       }, () => {});
   }, [user, location.pathname, location.key]);
 
+  // Abrir Check-ins marca formulário e check-in diário como vistos; abrir
+  // Oncologia, só o check-in diário (a nutri lê o diário ali). O alerta nunca
+  // sai ao abrir tela: só pelo "Marcar como visto" da tela Avisos. Mesmo molde
+  // do Feed acima: por rota, falha silenciosa, e os selos recontam do banco.
+  useEffect(() => {
+    if (!user) return;
+    const tipos = tiposParaMarcarAoAbrir(location.pathname);
+    if (!tipos.length) return;
+    Promise.all(tipos.map(p_tipo => supabase.rpc('marcar_avisos_tipo_vistos', { p_tipo })))
+      .then(rs => {
+        if (rs.some(r => !r.error)) window.dispatchEvent(new Event(EVENTO_AVISOS_MUDOU));
+      }, () => {});
+  }, [user, location.pathname, location.key]);
+
+  const totalSelos = unreadChat + avisosNovos + checkinsNovos + oncoNovos + fotosNovas;
+
   const handleLogout = async () => {
     await signOut();
   };
@@ -204,13 +221,19 @@ export default function NutriLayout() {
                   <span className="nav-icon"><i className={`ti ti-${item.icon}`} aria-hidden="true"></i></span>
                   <span>{item.label}</span>
                   {item.id === 'chat' && unreadChat > 0 && (
-                    <span className="nav-badge">{unreadChat}</span>
+                    <span className="nav-badge" aria-label={rotuloSelo(unreadChat)}>{unreadChat}</span>
                   )}
                   {item.id === 'avisos' && avisosNovos > 0 && (
-                    <span className="nav-badge">{avisosNovos}</span>
+                    <span className="nav-badge" aria-label={rotuloSelo(avisosNovos)}>{avisosNovos}</span>
+                  )}
+                  {item.id === 'checkins' && checkinsNovos > 0 && (
+                    <span className="nav-badge" aria-label={rotuloSelo(checkinsNovos)}>{checkinsNovos}</span>
+                  )}
+                  {item.id === 'monitoramento' && oncoNovos > 0 && (
+                    <span className="nav-badge" aria-label={rotuloSelo(oncoNovos)}>{oncoNovos}</span>
                   )}
                   {item.id === 'feed' && fotosNovas > 0 && (
-                    <span className="nav-badge">{fotosNovas}</span>
+                    <span className="nav-badge" aria-label={rotuloSelo(fotosNovas)}>{fotosNovas}</span>
                   )}
                 </NavLink>
               ))}
@@ -237,10 +260,11 @@ export default function NutriLayout() {
             aria-label="Abrir menu"
           >
             <i className="ti ti-menu-2" aria-hidden="true"></i>
-            {/* Celular: um número só no botão do menu, somando chat, avisos e
-                fotos; cada item segue com o seu dentro do menu. */}
-            {(unreadChat + avisosNovos + fotosNovas) > 0 && (
-              <span className="mobile-toggle-badge">{unreadChat + avisosNovos + fotosNovas}</span>
+            {/* Celular: um número só no botão do menu, somando todos os selos
+                (chat, avisos, check-ins, oncologia e fotos); cada item segue com
+                o seu dentro do menu. Cada aviso conta em um selo só. */}
+            {totalSelos > 0 && (
+              <span className="mobile-toggle-badge" aria-label={rotuloSelo(totalSelos)}>{totalSelos}</span>
             )}
           </button>
           <span className="topbar-zone">{meta.zone}</span>
