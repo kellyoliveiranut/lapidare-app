@@ -3,7 +3,9 @@ import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { dataBR, dataLocalISO } from '../../lib/utils.js';
 import { linhaDoTempoPaciente, proximaAplicacao, registroPendente } from '../../lib/protocoloCiclo.js';
+import { protocoloElegivelParaChas, montarChas } from '../../lib/chasProtocolo.js';
 import ExamesLaboratoriais from './_ExamesLaboratoriais.jsx';
+import CartaoChas from '../../components/CartaoChas.jsx';
 
 const TOTAL_STEPS = 11;
 
@@ -74,6 +76,8 @@ export default function MonitoramentoOncologico() {
   const [protocoloNome, setProtocoloNome] = useState(null);
   // Começa pendente: enquanto não se sabe, nada calculado aparece.
   const [pendente, setPendente] = useState(true);
+  // Conteúdo do cartão "Chás do meu tratamento" (montarChas), ou null.
+  const [chas, setChas] = useState(null);
 
   // Estado do formulário
   const [apetite,     setApetite]     = useState(null);
@@ -146,6 +150,14 @@ export default function MonitoramentoOncologico() {
       // Erro na leitura (inclusive coluna registro_pendente ainda inexistente)
       // conta como pendente: {} não tem registro_pendente.
       setPendente(registroPendente(erroTrat ? {} : trat));
+      // Mesma linha de tratamento da linha do tempo (com erro, nenhuma). Os
+      // dados dos chás só são baixados quando o tratamento é elegível; falha
+      // no download não mostra nada.
+      const elegivel = protocoloElegivelParaChas(erroTrat ? null : trat);
+      if (!elegivel) { setChas(null); return; }
+      import('../../data/chas_protocolos.json')
+        .then(m => setChas(montarChas(elegivel, m.default)))
+        .catch(() => setChas(null));
     });
   }, [pacienteId]);
 
@@ -230,6 +242,7 @@ export default function MonitoramentoOncologico() {
     return (
       <Wrap>
         <LinhaDoTempoCiclo ciclos={ciclos} futuros={futuros} totalCiclos={totalCiclos} protocoloNome={protocoloNome} pendente={pendente} pacienteId={pacienteId} sexo={profile?.sexo} />
+        <ChasAbaixoDaLinha chas={chas} />
         <div style={{ textAlign: 'center', color: 'var(--muted)', padding: 40 }}>Carregando…</div>
       </Wrap>
     );
@@ -239,6 +252,7 @@ export default function MonitoramentoOncologico() {
     return (
       <>
         <LinhaDoTempoCiclo ciclos={ciclos} futuros={futuros} totalCiclos={totalCiclos} protocoloNome={protocoloNome} pendente={pendente} pacienteId={pacienteId} sexo={profile?.sexo} standalone />
+        <ChasAbaixoDaLinha chas={chas} standalone />
         <Concluido />
       </>
     );
@@ -248,6 +262,7 @@ export default function MonitoramentoOncologico() {
     return (
       <>
         <LinhaDoTempoCiclo ciclos={ciclos} futuros={futuros} totalCiclos={totalCiclos} protocoloNome={protocoloNome} pendente={pendente} pacienteId={pacienteId} sexo={profile?.sexo} standalone />
+        <ChasAbaixoDaLinha chas={chas} standalone />
         <JaPreenchidoHoje
           registro={registroHoje}
           onEditar={() => { preencherForm(registroHoje); setStep(1); }}
@@ -262,6 +277,7 @@ export default function MonitoramentoOncologico() {
   return (
     <Wrap>
       <LinhaDoTempoCiclo ciclos={ciclos} futuros={futuros} totalCiclos={totalCiclos} protocoloNome={protocoloNome} pendente={pendente} pacienteId={pacienteId} sexo={profile?.sexo} />
+      <ChasAbaixoDaLinha chas={chas} />
 
       {/* Barra de progresso */}
       <div style={{ marginBottom: 28 }}>
@@ -757,6 +773,17 @@ function LinhaDoTempoCiclo({ ciclos, futuros, totalCiclos, protocoloNome, penden
       </div>
 
       <ExamesLaboratoriais pacienteId={pacienteId} sexo={sexo} />
+    </div>
+  );
+}
+
+// ── Cartão dos chás, logo abaixo da linha do tempo ────────────────
+// standalone = fora do <Wrap>, como a linha do tempo nesses estados.
+function ChasAbaixoDaLinha({ chas, standalone }) {
+  if (!chas) return null;
+  return (
+    <div style={standalone ? { maxWidth: 540, margin: '12px auto 0' } : { marginBottom: 20 }}>
+      <CartaoChas chas={chas} />
     </div>
   );
 }
