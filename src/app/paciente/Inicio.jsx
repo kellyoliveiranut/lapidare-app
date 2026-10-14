@@ -119,8 +119,9 @@ export default function Inicio() {
   // Card da jornada: critério ESTRITO, só tipo_plano 'essentia' (Kelly,
   // 2026-09-25). A tela /paciente/jornada usa o critério negativo do layout;
   // aqui, plano nulo ou inesperado não ganha card. A atualização (volta ao
-  // app, sem realtime) mora no hook.
-  const { jornada } = useJornada(pacienteId, ehEssentia(profile));
+  // app, sem realtime) mora no hook. Emagrecimento não tem Minha jornada
+  // (bloco-119): sem carga, sem card.
+  const { jornada } = useJornada(pacienteId, ehEssentia(profile) && profile?.objetivo !== 'Emagrecimento');
 
   useEffect(() => {
     let active = true;

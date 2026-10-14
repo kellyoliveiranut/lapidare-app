@@ -30,13 +30,16 @@ export default function Jornada() {
   const pacienteId = profile?.id ?? user?.id;
   const avulsa = ehAvulsa(profile);
   const onco = profile?.objetivo === 'Oncologia';
+  // Emagrecimento não tem Minha jornada (bloco-119): o layout tira do menu e
+  // manda a URL ao Início; aqui, como na Avulsa, nada carrega nem desenha.
+  const emagrecimento = profile?.objetivo === 'Emagrecimento';
   // Hook antes de qualquer return.
-  const { jornada, carregando, erro } = useJornada(pacienteId, !!profile && !avulsa);
+  const { jornada, carregando, erro } = useJornada(pacienteId, !!profile && !avulsa && !emagrecimento);
 
   if (!profile) {
     return <div style={{ padding: 16, fontSize: 12, color: 'var(--muted)' }}>Carregando…</div>;
   }
-  if (avulsa) return null;
+  if (avulsa || emagrecimento) return null;
   if (!onco) return <TrilhaJornada jornada={jornada} carregando={carregando} erro={erro} />;
 
   if (carregando) {

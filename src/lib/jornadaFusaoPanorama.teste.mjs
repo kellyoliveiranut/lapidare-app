@@ -68,9 +68,9 @@ t('Jornada: carregando volta antes da estrada (a estrada não pisca sem destaque
 t('Jornada: título da seção e rodapé informativo',
   [ramoOnco.includes('As etapas do seu acompanhamento nutricional.'),
     ramoOnco.includes('Conteúdo informativo. Seu plano é individual e definido pela sua nutricionista.')], [true, true]);
-t('Jornada: useJornada importado e chamado como antes; Avulsa barrada como antes',
+t('Jornada: useJornada importado e chamado como antes; Avulsa e Emagrecimento barradas (bloco-119)',
   [jor.includes("import { useJornada } from '../../lib/useJornada.js';"), conta(jor, /useJornada/g),
-    jor.includes('useJornada(pacienteId, !!profile && !avulsa)'), jor.includes('if (avulsa) return null;'),
+    jor.includes('useJornada(pacienteId, !!profile && !avulsa && !emagrecimento)'), jor.includes('if (avulsa || emagrecimento) return null;'),
     jor.includes("import { TrilhaJornada } from './_Jornada.jsx';")],
   [true, 3, true, true, true]);
 

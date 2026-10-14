@@ -7,7 +7,7 @@ import { supabase } from '../lib/supabase.js';
 import { avisarStatus } from '../lib/realtime.js';
 import { iniciais, diasAte, horaConsultaBR } from '../lib/utils.js';
 import { ativarNotificacoes } from '../lib/push.js';
-import { bloqueadoNoPlano } from '../lib/planoPaciente.js';
+import { bloqueadoNoPlano, ehAvulsa } from '../lib/planoPaciente.js';
 import { gravar } from '../lib/gravar.js';
 import { EVENTO_EBOOKS_VISTOS } from '../lib/avisosNutri.js';
 import '../styles/paciente.css';
@@ -36,6 +36,13 @@ const MAIS_ITEMS = [
 ];
 
 // A lista do que a Avulsa acessa (AVULSA_ALLOWED) mora em lib/planoPaciente.js.
+
+// Minha jornada: não avulsa e objetivo diferente de Emagrecimento (bloco-119).
+// Objetivo nulo/vazio tem jornada. A Avulsa continua no bloqueio por plano
+// (cadeado + aviso); Emagrecimento não vê o item e a URL volta ao Início sem
+// aviso — o aviso do cadeado fala do plano Essentia, que ela pode ter.
+const ROTA_JORNADA = '/paciente/jornada';
+const temMinhaJornada = profile => !ehAvulsa(profile) && profile?.objetivo !== 'Emagrecimento';
 
 const HEADERS = {
   '/paciente/inicio':       (nome) => { const h = new Date().getHours(); const s = h < 5 || h >= 18 ? 'Boa noite' : h < 12 ? 'Bom dia' : 'Boa tarde'; return { eyebrow: 'Essentia', title: `${s}, ${nome}` }; },
@@ -79,6 +86,9 @@ export default function PacienteLayout() {
   const tabs = profile?.objetivo === 'Oncologia' ? TABS : TABS.filter(t => t.id !== 'tratamento');
 
   const isBlocked = (path) => bloqueadoNoPlano(profile, path);
+  // Só com o perfil carregado e só quando não é o bloqueio da Avulsa.
+  const semJornada = !!profile && !ehAvulsa(profile) && !temMinhaJornada(profile);
+  const maisItens = semJornada ? MAIS_ITEMS.filter(item => item.path !== ROTA_JORNADA) : MAIS_ITEMS;
 
   function handleBlocked() {
     setLockToast(true);
@@ -281,14 +291,17 @@ export default function PacienteLayout() {
   }, [pacienteId]);
 
   // Bloqueia acesso direto por URL para paciente Avulsa (mesma regra do menu)
+  // e, sem aviso, a Minha jornada para quem não a tem (Emagrecimento).
   useEffect(() => {
     if (!profile) return;
     if (isBlocked(location.pathname)) {
       navigate('/paciente/inicio', { replace: true });
       setLockToast(true);
       setTimeout(() => setLockToast(false), 3000);
+    } else if (location.pathname === ROTA_JORNADA && !temMinhaJornada(profile)) {
+      navigate('/paciente/inicio', { replace: true });
     }
-  }, [location.pathname, profile?.tipo_plano]);
+  }, [location.pathname, profile?.tipo_plano, profile?.objetivo]);
 
   // Dias civis (fuso da clínica) até a consulta do banner. Sai do memo e vem
   // para cima porque o GATE e o RÓTULO precisam do mesmo número: enquanto eram
@@ -497,7 +510,7 @@ export default function PacienteLayout() {
           <div className="sheet" onClick={e => e.stopPropagation()}>
             <div className="grabber"></div>
             <div className="serif" style={{ fontSize: 22, marginBottom: 14 }}>Mais</div>
-            {MAIS_ITEMS.map(item => {
+            {maisItens.map(item => {
               const isChatItem = item.path === '/paciente/chat';
               const blocked = isBlocked(item.path);
               return (
