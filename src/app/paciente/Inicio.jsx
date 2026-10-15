@@ -11,6 +11,7 @@ import { iniciarTokenPush, avisarNutri } from '../../lib/push.js';
 import { gravar } from '../../lib/gravar.js';
 import { useJornada, ehEssentia } from '../../lib/useJornada.js';
 import { CardJornadaResumo } from './_Jornada.jsx';
+import { MENSAGEM_DO_DIA_PAUSADA } from '../../lib/pausas.js';
 
 
 const DIAS_SEG = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
@@ -245,8 +246,11 @@ export default function Inicio() {
   // Em todos, quem decide qual das ativas vai ao ar é escolherDaSemana(): uma
   // fixada válida ganha, senão gira uma por semana. O {nome} é trocado aqui, na
   // exibição — no banco o texto fica literal.
+  //
+  // Pausada (lib/pausas.js): nenhuma destas leituras é feita — elas só
+  // alimentam o cartão. As mensagens continuam no banco, intactas.
   useEffect(() => {
-    if (!profile?.nutri_id) return;
+    if (MENSAGEM_DO_DIA_PAUSADA || !profile?.nutri_id) return;
     let active = true;
     const primeiroNome = profile.apelido || profile.nome?.split(' ')[0] || '';
 
@@ -673,8 +677,10 @@ export default function Inicio() {
           erro ou pacote vazio) — ver CardJornadaResumo. */}
       <CardJornadaResumo jornada={jornada} onAbrir={() => navigate('/paciente/jornada')} />
 
-      {/* 2 — Banner motivacional */}
-      {mensagemCiclo && (
+      {/* 2 — Banner motivacional. Pausado em lib/pausas.js: some inteiro,
+          com a margem dele, e os vizinhos ficam como ficam hoje quando não
+          há mensagem ativa. */}
+      {!MENSAGEM_DO_DIA_PAUSADA && mensagemCiclo && (
         <div style={{
           margin: '0 0 12px', padding: '14px 16px',
           background: '#FFFFFF', borderRadius: 14,
