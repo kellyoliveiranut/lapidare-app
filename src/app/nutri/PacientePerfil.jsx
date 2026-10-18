@@ -32,7 +32,8 @@ import SvgAreaChart from '../../components/SvgAreaChart.jsx';
 import { fmtVal, xLabel } from '../../lib/graficoFormato.js';
 import { iniciarTokenPush, avisarPaciente } from '../../lib/push.js';
 import { callAnthropicComRetry, lerPdfBase64 } from '../../lib/anthropic.js';
-import { buscarAlimento, medidaCaseira, kcalDoAlimento, kcalEquivalente, parseGramas } from '../../lib/taco.js';
+import { buscarAlimento, medidaCaseira, kcalDoAlimento, kcalEquivalente, parseGramas, _subscribeTaco } from '../../lib/taco.js';
+import { MODELO_PLANO, MAX_TOKENS_PLANO, motivoBloqueio, faltaMeta, lerRespostaPlano, alimentosForaDaTaco, avisoKcal } from '../../lib/planoAutomatico.js';
 import { dividirSubs } from '../../lib/subsTexto.js';
 import DateInput, { parseDatePaste } from '../../components/DateInput.jsx';
 import CheckinForm from '../../components/CheckinForm.jsx';
@@ -3952,6 +3953,7 @@ function PublicarPlano({ pacienteId, nutriId, calculosImportados, onLimparImport
   const [promptVisivel, setPromptVisivel] = useState(false);
   const [promptTexto, setPromptTexto]     = useState('');
   const [gerandoPrompt, setGerandoPrompt] = useState(false);
+  const [gerandoAuto, setGerandoAuto]     = useState(false);
   const [promptCopiado, setPromptCopiado] = useState(false);
   const [jsonInput, setJsonInput]         = useState('');
   const [erroJson, setErroJson]           = useState(null);
@@ -4271,9 +4273,14 @@ A resposta começa com "[" e termina com "]" — nada mais. "original" é sempre
     return dados;
   }
 
-  async function gerarPrompt() {
-    setGerandoPrompt(true);
-    setPromptVisivel(true);
+  // Sem argumentos é o "Gerar via prompt" de sempre (mostra o texto para copiar).
+  // `silencioso` devolve o texto sem mexer na tela — usado por gerarPlanoAuto —
+  // e `semNome` tira o nome da paciente do pedido, porque a IA não precisa dele.
+  async function gerarPrompt({ semNome = false, silencioso = false } = {}) {
+    if (!silencioso) {
+      setGerandoPrompt(true);
+      setPromptVisivel(true);
+    }
     try {
       const [pacRes, pesoRes, anamRes] = await Promise.all([
         supabase.from('pacientes').select('nome, nascimento, objetivo').eq('id', pacienteId).maybeSingle(),
@@ -4316,9 +4323,9 @@ A resposta começa com "[" e termina com "]" — nada mais. "original" é sempre
       const carbo = macros.carbo_g     || '—';
       const gord  = macros.gorduras_g  || '—';
 
+      const linhaNome = semNome ? '' : `- Nome: ${pac?.nome ?? '—'}\n`;
       const texto = `Gere um plano alimentar para paciente com as seguintes características:
-- Nome: ${pac?.nome ?? '—'}
-- Idade: ${idade != null ? idade + ' anos' : '—'}
+${linhaNome}- Idade: ${idade != null ? idade + ' anos' : '—'}
 - Peso: ${peso?.kg ?? '—'} kg / Altura: ${peso?.altura_cm ?? '—'} cm
 - Objetivo: ${pac?.objetivo ?? '—'}
 - Calorias calculadas: ${kcal} kcal/dia
@@ -4349,11 +4356,13 @@ Estrutura JSON obrigatória:
   "obs": "orientações clínicas em 2-3 parágrafos"
 }`;
 
+      if (silencioso) return { texto };
       setPromptTexto(texto);
     } catch {
+      if (silencioso) throw new Error('Não consegui ler os dados da paciente. Tente de novo.');
       setPromptTexto('Erro ao buscar dados da paciente. Tente novamente.');
     }
-    setGerandoPrompt(false);
+    if (!silencioso) setGerandoPrompt(false);
   }
 
   function copiarPrompt() {
@@ -4363,10 +4372,12 @@ Estrutura JSON obrigatória:
     });
   }
 
-  function aplicarJson() {
+  // Sem argumento lê o que foi colado no modal; gerarPlanoAuto passa o texto
+  // já validado da IA. (onClick entrega um evento, que não é string: cai no modal.)
+  function aplicarJson(textoPronto) {
     setErroJson(null);
     // remove blocos ```json``` em qualquer capitalização
-    const raw = jsonInput.replace(/```[\w]*\n?/gi, '').replace(/\n?```/g, '').trim();
+    const raw = (typeof textoPronto === 'string' ? textoPronto : jsonInput).replace(/```[\w]*\n?/gi, '').replace(/\n?```/g, '').trim();
     if (!raw) return setErroJson('Cole o JSON antes de clicar em Importar.');
 
     let parsed;
@@ -4477,6 +4488,64 @@ Estrutura JSON obrigatória:
       ? ` ⚠️ Atenção: o editor tinha ${refeicoes.length} refeições e o JSON trouxe ${refs.length} — verifique se alguma ficou de fora.`
       : '';
     setFeedback({ tipo: 'importado', msg: `JSON importado! ${refs.length} refeições carregadas.${avisoContagem} Revise e clique em Publicar.` });
+  }
+
+  // Gera o plano com a IA e o coloca no editor como RASCUNHO: nada é publicado
+  // aqui, a nutri revisa e clica em Publicar. Por ora só para pacientes que não
+  // são oncológicas (motivoBloqueio) e só com as metas já calculadas (faltaMeta).
+  async function gerarPlanoAuto() {
+    if (gerandoAuto) return;
+    setFeedback(null);
+    setGerandoAuto(true);
+    try {
+      const [pacRes, tratRes] = await Promise.all([
+        supabase.from('pacientes').select('objetivo, tipo_plano').eq('id', pacienteId).maybeSingle(),
+        supabase.from('tratamentos_oncologicos').select('id', { count: 'exact', head: true }).eq('paciente_id', pacienteId),
+      ]);
+      if (pacRes.error || tratRes.error || !pacRes.data)
+        throw new Error('Não consegui conferir os dados da paciente. Tente de novo.');
+
+      const bloqueio = motivoBloqueio({
+        objetivo: pacRes.data.objetivo, tipoPlano: pacRes.data.tipo_plano, qtdTratamentosOnco: tratRes.count,
+      });
+      if (bloqueio) return setFeedback({ tipo: 'erro', msg: bloqueio });
+
+      const falta = faltaMeta({ kcal: metaKcal, prot: macros.proteinas_g, carbo: macros.carbo_g, gord: macros.gorduras_g });
+      if (falta) return setFeedback({ tipo: 'erro', msg: falta });
+
+      if (refeicoes.length > 0 && !window.confirm('O editor já tem refeições. Gerar um plano novo substitui o que está nele. Continuar?')) return;
+
+      const { texto } = await gerarPrompt({ semNome: true, silencioso: true });
+      const resposta = await callAnthropicComRetry(
+        [{ role: 'user', content: texto }],
+        { maxTokens: MAX_TOKENS_PLANO, model: MODELO_PLANO },
+      );
+      const lido = lerRespostaPlano(resposta);
+      if (!lido.ok) return setFeedback({ tipo: 'erro', msg: lido.erro });
+
+      aplicarJson(lido.texto);
+
+      const avisos = [];
+      const m = lido.plano.macros ?? {};
+      const dif = avisoKcal(m.kcal ?? m.calorias, metaKcal);
+      if (dif) avisos.push(dif);
+      let tacoPronta = false;
+      _subscribeTaco(() => { tacoPronta = true; })();
+      if (tacoPronta) {
+        const fora = alimentosForaDaTaco(lido.plano, buscarAlimento);
+        if (fora.length) avisos.push(`Não encontrados na TACO (confira): ${fora.join('; ')}.`);
+      } else {
+        avisos.push('A tabela TACO ainda não carregou, então os alimentos não foram conferidos.');
+      }
+      setFeedback({
+        tipo: 'importado',
+        msg: `Plano gerado pela IA como RASCUNHO: ${lido.plano.refeicoes.length} refeições. Revise cada alimento e quantidade antes de publicar. ${avisos.join(' ')}`.trim(),
+      });
+    } catch (err) {
+      setFeedback({ tipo: 'erro', msg: err?.message || 'Erro ao gerar o plano.' });
+    } finally {
+      setGerandoAuto(false);
+    }
   }
 
   async function publicar() {
@@ -4903,9 +4972,24 @@ Estrutura JSON obrigatória:
         <div className="card-header">
           <div>
             <div className="card-title">Novo plano alimentar</div>
-            <div className="card-sub">Preencha manualmente ou use o prompt para Claude/ChatGPT</div>
+            <div className="card-sub">Preencha manualmente, gere com a IA (vira rascunho para você revisar) ou use o prompt para Claude/ChatGPT</div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <button
+              onClick={gerarPlanoAuto}
+              disabled={gerandoAuto}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '7px 12px', borderRadius: 8, cursor: gerandoAuto ? 'wait' : 'pointer',
+                border: '1px solid var(--border)',
+                background: 'var(--bg2)',
+                color: 'var(--dark)', fontSize: 12, fontWeight: 600,
+                fontFamily: 'var(--font-sans)',
+              }}
+            >
+              <i className="ti ti-sparkles" aria-hidden="true" />
+              {gerandoAuto ? 'Gerando… (pode levar 1 min)' : 'Gerar plano'}
+            </button>
             <button
               onClick={() => setJsonOpen(o => !o)}
               style={{
