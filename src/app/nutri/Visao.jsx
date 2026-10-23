@@ -27,6 +27,7 @@ function ehConsultaDoPacote(tipo) {
 }
 
 const STORAGE_OCULTAR_META = 'lapidare:ocultarMeta';
+const STORAGE_RECOLHER_ACOMP = 'lapidare:recolherAcompanhamento';
 
 // Ordem da lista de lembretes, a mesma em toda parte: pendente antes de
 // concluído, com prazo antes de sem prazo, mais antigo antes. Ordenar aqui e
@@ -59,6 +60,18 @@ export default function Visao() {
   const [ocultarMeta, setOcultarMeta] = useState(() => {
     return localStorage.getItem(STORAGE_OCULTAR_META) === '1';
   });
+
+  // "Acompanhamento das pacientes" recolhível. Guarda a escolha neste navegador;
+  // com o armazenamento bloqueado a seção só abre expandida, sem erro.
+  const [recolherAcomp, setRecolherAcomp] = useState(() => {
+    try { return localStorage.getItem(STORAGE_RECOLHER_ACOMP) === '1'; } catch { return false; }
+  });
+
+  function toggleRecolherAcomp() {
+    const novo = !recolherAcomp;
+    setRecolherAcomp(novo);
+    try { localStorage.setItem(STORAGE_RECOLHER_ACOMP, novo ? '1' : '0'); } catch { /* sem armazenamento: vale só nesta visita */ }
+  }
 
   function toggleOcultarMeta() {
     const novo = !ocultarMeta;
@@ -541,11 +554,28 @@ export default function Visao() {
       {/* ─── ALERTAS RELACIONAIS ─── */}
       {alertasRelacionais.length > 0 && (
         <>
-          <div className="section-label" style={{ marginTop: 8 }}>
-            Acompanhamento das pacientes
-          </div>
-          <div style={{
-            display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+          <button type="button" className="section-label"
+            onClick={toggleRecolherAcomp}
+            aria-expanded={!recolherAcomp}
+            aria-controls="acompanhamento-pacientes"
+            title={recolherAcomp ? 'Mostrar acompanhamento' : 'Esconder acompanhamento'}
+            style={{
+              marginTop: 8, display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+              background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+              textAlign: 'left', font: 'inherit', letterSpacing: '1.5px',
+              ...(recolherAcomp ? { marginBottom: 18 } : null),
+            }}>
+            <span>Acompanhamento das pacientes</span>
+            <span style={{
+              fontSize: 11, fontWeight: 600, letterSpacing: 0, padding: '1px 8px', borderRadius: 999,
+              background: 'var(--bg2)', color: 'var(--text2)',
+            }}>{alertasRelacionais.length}</span>
+            <i className={`ti ti-chevron-${recolherAcomp ? 'down' : 'up'}`}
+              style={{ fontSize: 14, marginLeft: 'auto' }} aria-hidden="true"></i>
+          </button>
+          <div id="acompanhamento-pacientes" hidden={recolherAcomp} style={{
+            display: recolherAcomp ? 'none' : 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
             gap: 10, marginBottom: 18,
           }}>
             {alertasRelacionais.map((a, i) => (
