@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { dataLocalISO, partesLocaisISO, iniciais } from '../../lib/utils.js';
 import {
-  DIAS_PARA_ADERIR, somaDias, resumirPeso, resumirAdesao, resumirCheckins, novasNoMes, nomeCurto,
+  DIAS_PARA_ADERIR, somaDias, resumirPeso, resumirAdesao, resumirCheckins, novasNoMes,
 } from '../../lib/resultadosClinicos.js';
 
 /* ============================================================
@@ -227,9 +227,15 @@ function Corpo({ dados, onAbrirPaciente }) {
           ) : (
             <div className="res-chips">
               {semRegistro.slice(0, MAX_NA_LISTA).map((p) => (
-                <button key={p.id} type="button" className="res-chip" onClick={() => onAbrirPaciente?.(p.id)}>
+                <button
+                  key={p.id}
+                  type="button"
+                  className="res-chip"
+                  onClick={() => onAbrirPaciente?.(p.id)}
+                  aria-label={`Abrir ficha de ${p.nome}`}
+                >
+                  {/* Só as iniciais ficam visíveis; o nome completo é só para leitor de tela. */}
                   <span className="res-avatar" aria-hidden="true">{iniciais(p.nome)}</span>
-                  <span className="res-chip-nome">{nomeCurto(p.nome)}</span>
                   <span className="res-chip-dias">{p.diasDesde == null ? 'há +30 dias' : `há ${p.diasDesde} dias`}</span>
                 </button>
               ))}

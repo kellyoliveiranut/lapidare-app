@@ -93,14 +93,5 @@ t('check-ins vazio', R.resumirCheckins([], HOJE).pct, null);
 // ── novas no mês ──
 t('novas no mês', R.novasNoMes([{ created_at: '2026-10-01' }, { created_at: '2026-09-30' }, { created_at: '2026-10-22' }, {}], HOJE), 2);
 
-// ── nome curto ──
-t('nome: maiúsculas viram título e tiram conectores', R.nomeCurto('ADRIANA MARIA MONTEIRO DO CARMO'), 'Adriana Carmo');
-t('nome: mantém caixa de nome já bem escrito', R.nomeCurto('Ana Larissa Guimarães Dias'), 'Ana Dias');
-t('nome: um nome só', R.nomeCurto('Katia'), 'Katia');
-t('nome: dois nomes', R.nomeCurto('Rayssa Nascimento'), 'Rayssa Nascimento');
-t('nome: conector antes do sobrenome', R.nomeCurto('Maria de Nasare Ramos Sosinho'), 'Maria Sosinho');
-t('nome: espaços sobrando', R.nomeCurto('  JOSE   DA SILVA  '), 'Jose Silva');
-t('nome: vazio', R.nomeCurto(null), '');
-
 console.log(`${ok} ok, ${falhou} falhou`);
 process.exit(falhou ? 1 : 0);
