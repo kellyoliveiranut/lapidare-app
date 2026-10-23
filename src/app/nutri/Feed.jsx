@@ -235,11 +235,13 @@ export default function FeedNutri() {
                     background: 'var(--bg2)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontSize: 12, fontWeight: 600, color: 'var(--dark)',
-                  }}>{iniciais(p.paciente?.nome)}</div>
+                  }} role="img" aria-label={`Paciente ${iniciais(p.paciente?.nome)}`}>{iniciais(p.paciente?.nome)}</div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 500 }}>{p.paciente?.nome ?? '—'}</div>
+                    {/* Só as iniciais da paciente (o círculo ao lado): o nome completo
+                        não aparece no feed, nem em captura de tela. */}
+                    <div style={{ fontSize: 13, fontWeight: 500 }}>{p.refeicao ?? '—'}</div>
                     <div style={{ fontSize: 11, color: 'var(--text3)' }}>
-                      {p.refeicao ?? '—'} · {dataBR(p.created_at)}
+                      {dataBR(p.created_at)}
                     </div>
                   </div>
                   {temNovaResposta(p) ? (
@@ -329,7 +331,7 @@ export default function FeedNutri() {
                             flex: 1, fontSize: 11, fontWeight: 600, letterSpacing: '.5px',
                             color: c.autor === 'nutri' ? 'var(--amber)' : 'var(--blue, #1a5a8c)',
                           }}>
-                            {c.autor === 'nutri' ? 'VOCÊ' : (p.paciente?.nome?.split(' ')[0] ?? 'Paciente').toUpperCase()}
+                            {c.autor === 'nutri' ? 'VOCÊ' : iniciais(p.paciente?.nome)}
                           </div>
                           {c.autor === 'nutri' && !editandoEste && (
                             <>
