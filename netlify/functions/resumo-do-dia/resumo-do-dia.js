@@ -2,7 +2,7 @@ const webpush = require('web-push');
 const { createClient } = require('@supabase/supabase-js');
 const { montarResumo, limitesDoDia } = require('./montar.js');
 
-// Resumo do dia para a nutri, todo dia às 7h de Belém (cron `0 10 * * *` em
+// Resumo do dia para a nutri, todo dia às 6h de Belém (cron `0 9 * * *` em
 // UTC, ver netlify.toml): consultas de hoje, bloqueios da agenda e lembretes.
 // Só LÊ o banco (consultas, bloqueios_agenda, lembretes_nutri) e só manda push
 // para quem é nutri e tem notificação ativada. Não grava nada.

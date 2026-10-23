@@ -33,6 +33,9 @@ const resumo = (o) => montarResumo({ ...base, ...o });
 // limites do dia em Belém
 t('limitesDoDia: 07h de Belém (10:00 UTC)', limitesDoDia(Date.UTC(2026, 9, 17, 10, 0, 0)),
   { hojeISO: '2026-10-17', inicioUTC: '2026-10-17T03:00:00.000Z', fimUTC: '2026-10-18T03:00:00.000Z' });
+t('limitesDoDia: 06h de Belém (09:00 UTC, horário do cron) é o mesmo dia', limitesDoDia(Date.UTC(2026, 9, 17, 9, 0, 0)),
+  { hojeISO: '2026-10-17', inicioUTC: '2026-10-17T03:00:00.000Z', fimUTC: '2026-10-18T03:00:00.000Z' });
+t('limitesDoDia: 06h de Belém, mesmo com o cron atrasado 15 min', limitesDoDia(Date.UTC(2026, 9, 17, 9, 15, 0)).hojeISO, '2026-10-17');
 t('limitesDoDia: 02:59 UTC ainda é o dia anterior em Belém', limitesDoDia(Date.UTC(2026, 9, 17, 2, 59, 0)).hojeISO, '2026-10-16');
 t('limitesDoDia: virada de mês/ano', limitesDoDia(Date.UTC(2027, 0, 1, 2, 0, 0)).hojeISO, '2026-12-31');
 t('belem(): hora e data', [belem('2026-10-17T17:30:00Z'), belem('2026-10-17T02:59:00Z')],

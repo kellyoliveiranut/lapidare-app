@@ -14,9 +14,9 @@
 [functions."avisos-checkin-push"]
   schedule = "*/2 * * * *"
 
-# Resumo do dia da nutri: 7h de Belém (UTC-3) = 10:00 UTC
+# Resumo do dia da nutri: 6h de Belém (UTC-3) = 09:00 UTC
 [functions."resumo-do-dia"]
-  schedule = "0 10 * * *"
+  schedule = "0 9 * * *"
 
 # Garante que o React Router funcione em qualquer rota direta
 [[redirects]]
