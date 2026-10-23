@@ -10,7 +10,8 @@
    Regras (combinadas com a Kelly em 23/10/2026):
      - Aderindo bem = registrou algo em pelo menos 4 dos últimos 7 dias
        (hoje incluído). "Registrar algo" = prato no feed, hábito, suplemento
-       tomado ou check-in respondido. Mensagem de chat NÃO conta.
+       tomado, treino, "como estou hoje" (oncologia) ou check-in respondido.
+       Mensagem de chat NÃO conta.
      - Peso: duas progressões, "últimos 30 dias" e "desde o início", só para
        quem tem objetivo Emagrecimento. Oncologia fica de fora de propósito:
        o foco delas é função e força, nunca meta de peso.
@@ -210,4 +211,23 @@ export function resumirCheckins(envios, hoje) {
 export function novasNoMes(pacientes, hoje) {
   const inicioMes = `${hoje.slice(0, 7)}-01`;
   return (pacientes ?? []).filter((p) => ehData(p.created_at) && p.created_at.slice(0, 10) >= inicioMes).length;
+}
+
+const CONECTORES = new Set(['da', 'de', 'do', 'das', 'dos', 'e']);
+
+/**
+ * "ADRIANA MARIA MONTEIRO DO CARMO" → "Adriana Carmo"; "Ana Larissa Guimarães
+ * Dias" → "Ana Dias". Primeiro e último nome, sem conectores no fim. Nome vindo
+ * de importação CSV costuma estar todo em maiúsculas: só nesse caso a caixa é
+ * refeita, para não "consertar" um nome que já está bem escrito.
+ */
+export function nomeCurto(nome) {
+  const partesNome = String(nome ?? '').trim().split(/\s+/).filter(Boolean);
+  if (partesNome.length === 0) return '';
+  const tudoMaiusculo = partesNome.join(' ') === partesNome.join(' ').toUpperCase();
+  const bonito = (w) => (tudoMaiusculo ? w.charAt(0) + w.slice(1).toLowerCase() : w);
+  const uteis = partesNome.filter((w, i) => i === 0 || !CONECTORES.has(w.toLowerCase()));
+  const primeiro = bonito(uteis[0]);
+  if (uteis.length === 1) return primeiro;
+  return `${primeiro} ${bonito(uteis[uteis.length - 1])}`;
 }
