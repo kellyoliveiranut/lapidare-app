@@ -2,7 +2,7 @@ import { memo, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
-import { iniciais, textoDias } from '../../lib/utils.js';
+import { iniciais, textoDias, textoIniciou, diasAte } from '../../lib/utils.js';
 import { linkConvite, convitePendenteVencido } from '../../lib/convite.js';
 import { gravar } from '../../lib/gravar.js';
 import { idsComRegistroPendente, contarRegistroPendente } from '../../lib/registroPendente.js';
@@ -124,13 +124,17 @@ export default function Pacientes() {
 
   const filtradas = useMemo(() => {
     if (!pacientes) return [];
-    let porStatus = pacientes.filter(p => (p.status_paciente ?? 'ativo') === filtroStatus);
-    // Só a aba 'ativo' é ordenada por nome (A→Z); finalizado/obito seguem como estão (created_at desc)
-    if (filtroStatus === 'ativo') {
-      porStatus = [...porStatus].sort((a, b) =>
-        (a.nome ?? '').localeCompare(b.nome ?? '', 'pt-BR', { sensitivity: 'base' })
-      );
-    }
+    // Mais recentes na frente (created_at desc) em todas as abas. Empate (ex.:
+    // pacientes importadas no mesmo lote) desempata por nome A→Z; sem data vai
+    // pro fim. O sort é estável e a query já vem em created_at desc.
+    const porStatus = pacientes
+      .filter(p => (p.status_paciente ?? 'ativo') === filtroStatus)
+      .sort((a, b) => {
+        const ta = a.created_at ? new Date(a.created_at).getTime() : -Infinity;
+        const tb = b.created_at ? new Date(b.created_at).getTime() : -Infinity;
+        if (ta !== tb) return tb - ta;
+        return (a.nome ?? '').localeCompare(b.nome ?? '', 'pt-BR', { sensitivity: 'base' });
+      });
     const q = busca.trim().toLowerCase();
     if (!q) return porStatus;
     return porStatus.filter(p =>
@@ -140,7 +144,7 @@ export default function Pacientes() {
 
   // Agrupa DEPOIS de filtrar/ordenar: as seções refletem o que está na tela
   // (busca e aba de status já aplicadas) e a ordem interna vem de graça —
-  // alfabética na aba Ativas, created_at desc nas outras, exatamente como hoje.
+  // mais recentes primeiro (created_at desc) em todas as abas.
   const porSecao = useMemo(() => {
     const m = { avulsa: [], onco: [], emagrec: [] };
     for (const p of filtradas) m[secaoDaPaciente(p)].push(p);
@@ -376,6 +380,8 @@ const SELO_REGISTRO = {
 };
 
 const PacienteCard = memo(function PacienteCard({ paciente: p, enviado, vencido, registroPendente, onNavigate, onReativar }) {
+  const diasDesdeInicio = diasAte(p.created_at);
+  const recente = diasDesdeInicio != null && diasDesdeInicio >= -14;
   return (
     <div
       className="card"
@@ -470,6 +476,17 @@ const PacienteCard = memo(function PacienteCard({ paciente: p, enviado, vencido,
           <i className="ti ti-clock" style={{ fontSize: 12 }} aria-hidden="true"></i>
           {p.ultimo_acesso ? `último acesso: ${textoDias(p.ultimo_acesso)}` : 'sem acesso registrado'}
         </div>
+        {textoIniciou(p.created_at) && (
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, fontSize: 11,
+            // Até 14 dias: destaca em verde pra identificar de relance quem acabou de entrar.
+            color: recente ? 'var(--green, #16a34a)' : 'var(--text3)',
+            fontWeight: recente ? 600 : 400,
+          }}>
+            <i className="ti ti-flag" style={{ fontSize: 12 }} aria-hidden="true"></i>
+            {textoIniciou(p.created_at)}
+          </div>
+        )}
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: 2 }}>
           {p.user_id ? (
             <span style={{

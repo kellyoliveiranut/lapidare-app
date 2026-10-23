@@ -135,6 +135,20 @@ export function textoDias(iso) {
 }
 
 /**
+ * "Iniciou hoje" / "Iniciou há 1 dia" / "Iniciou há 23 dias", contado em dias de
+ * calendário no fuso da clínica (via diasAte). Data ausente ou inválida → null,
+ * para o card simplesmente não mostrar a linha. Data no futuro (relógio do
+ * aparelho atrasado, por exemplo) conta como "hoje", nunca "há -2 dias".
+ */
+export function textoIniciou(iso) {
+  const n = diasAte(iso);
+  if (n == null) return null;
+  const dias = Math.max(0, -n);
+  if (dias === 0) return 'Iniciou hoje';
+  return `Iniciou há ${dias} dia${dias === 1 ? '' : 's'}`;
+}
+
+/**
  * Fuso da clínica. Consulta é sempre exibida e agendada no horário de Belém,
  * independente do aparelho de quem olha — a paciente pode estar em Manaus,
  * no Acre ou viajando, e o horário combinado não muda.
