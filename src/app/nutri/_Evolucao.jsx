@@ -142,7 +142,7 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
         data: c.data_hora,
         tipo: 'consulta', icon: 'calendar-check', cor: 'var(--green)',
         titulo: rotuloTipoConsulta(c.tipo),
-        desc: 'Consulta realizada',
+        desc: null,
       });
     }
     return lst.sort((a, b) => b.data.localeCompare(a.data));  // mais recente primeiro
@@ -199,7 +199,7 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, marginBottom: 12 }}>
         <label htmlFor="evo-periodo" style={{ fontSize: 12, color: 'var(--text3)' }}>Comparar</label>
         <select id="evo-periodo" value={periodo} onChange={(e) => setPeriodo(e.target.value)}
-          style={{ fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '0.5px solid var(--border)', background: 'var(--white)', color: 'var(--dark)' }}>
+          style={{ width: 'auto', maxWidth: '100%', fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '0.5px solid var(--border)', background: 'var(--white)', color: 'var(--dark)' }}>
           {Object.entries(PERIODOS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
       </div>
