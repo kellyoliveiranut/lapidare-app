@@ -239,6 +239,7 @@ export default function Pacientes() {
               <tr>
                 <th>Nome</th>
                 <th>Email</th>
+                <th>Plano</th>
                 <th>Objetivo</th>
                 <th style={{ textAlign: 'right' }}>Ações</th>
               </tr>
@@ -253,6 +254,7 @@ export default function Pacientes() {
                     )}
                   </td>
                   <td>{p.email}</td>
+                  <td><SeloPlano plano={p.tipo_plano} /></td>
                   <td>{p.objetivo ?? '—'}</td>
                   <td style={{ textAlign: 'right' }}>
                     <div style={{ display: 'inline-flex', gap: 6 }}>
@@ -371,6 +373,26 @@ const SELO_VENCIDO = {
   background: 'var(--red-bg)', color: 'var(--red)',
   border: '0.5px solid var(--red)',
 };
+
+// Plano da pendente (pacientes_pendentes.tipo_plano). Só mostra o que está
+// gravado: 'avulsa' ou 'essentia'. Vazio ou valor inesperado vira "—", sem
+// afirmar um plano que a planilha não trouxe.
+function SeloPlano({ plano }) {
+  const v = (plano ?? '').trim().toLowerCase();
+  if (v !== 'essentia' && v !== 'avulsa') return <span style={{ color: 'var(--text3)' }}>—</span>;
+  const essentia = v === 'essentia';
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center',
+      fontSize: 10.5, fontWeight: 600, padding: '2px 8px', borderRadius: 20,
+      background: essentia ? 'var(--gold-soft, #fdf6e3)' : 'var(--bg2)',
+      color: essentia ? 'var(--gold-deep, #a08456)' : 'var(--text3)',
+      border: `0.5px solid ${essentia ? 'var(--gold-deep, #a08456)' : 'var(--border)'}`,
+    }}>
+      {essentia ? 'Essentia' : 'Avulsa'}
+    </span>
+  );
+}
 
 // Selo do registro pendente: âmbar dos avisos de _TratamentoOncologico.jsx.
 const SELO_REGISTRO = {
