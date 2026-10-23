@@ -2,6 +2,22 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { dataBR } from '../../lib/utils.js';
 import { formatarResposta } from '../../lib/checkinDefault.js';
+import { diasEntre, ehEmagrecimento } from '../../lib/resultadosClinicos.js';
+import {
+  METRICAS, PERIODOS, serieDaMetrica, comparar, sentidoDaVariacao, detectarSuspeitas,
+  composicaoCorporal, fraseComposicao, fmtNum, fmtValor, fmtDelta, rotuloTipoConsulta,
+  descricaoAvaliacao, descricaoPlano, resumoCheckin,
+} from '../../lib/evolucaoAvaliacoes.js';
+
+// Avaliações "ignoradas nas contas" ficam só neste navegador (não apagam nada).
+const chaveIgnoradas = (pacienteId) => `lapidare:evolucaoIgnoradas:${pacienteId}`;
+function lerIgnoradas(pacienteId) {
+  try {
+    const bruto = JSON.parse(localStorage.getItem(chaveIgnoradas(pacienteId)) ?? '[]');
+    return new Set(Array.isArray(bruto) ? bruto : []);
+  } catch { return new Set(); }
+}
+const CARTOES = ['kg', 'cintura_cm', 'pgc'];
 
 export default function Evolucao({ pacienteId, paciente, nutriId }) {
   const [carregando, setCarregando] = useState(true);
@@ -12,6 +28,22 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
   const [consultas, setConsultas] = useState([]);
   const [apresentacao, setApresentacao] = useState(false);
   const [verCheckin, setVerCheckin] = useState(null);
+  const [periodo, setPeriodo] = useState('inicio');
+  const [guardadas, setGuardadas] = useState(() => ({ id: pacienteId, set: lerIgnoradas(pacienteId) }));
+  const [metricaGrafico, setMetricaGrafico] = useState('kg');
+
+  // Se a ficha trocou de paciente, relê do navegador (sem efeito: deriva no render).
+  const ignoradas = useMemo(
+    () => (guardadas.id === pacienteId ? guardadas.set : lerIgnoradas(pacienteId)),
+    [guardadas, pacienteId],
+  );
+
+  function alternarIgnorada(id) {
+    const nova = new Set(ignoradas);
+    if (nova.has(id)) nova.delete(id); else nova.add(id);
+    try { localStorage.setItem(chaveIgnoradas(pacienteId), JSON.stringify([...nova])); } catch { /* sem storage */ }
+    setGuardadas({ id: pacienteId, set: nova });
+  }
 
   async function carregar(signal = { cancelled: false }) {
     const [avRes, ckRes, plRes, prRes, csRes] = await Promise.all([
@@ -44,23 +76,28 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
   }, [apresentacao]);
 
   // ─── Highlights ───
-  const primeira = avaliacoes[0];
-  const ultima   = avaliacoes[avaliacoes.length - 1];
-  const totalDias = primeira && ultima
-    ? Math.round((new Date(ultima.data) - new Date(primeira.data)) / 86_400_000)
-    : 0;
+  // Cada métrica tem o seu próprio "início" (primeiro registro COM aquela medida).
+  const pesoNeutro = !ehEmagrecimento(paciente);
+  const series = useMemo(() => {
+    const out = {};
+    for (const campo of Object.keys(METRICAS)) out[campo] = serieDaMetrica(avaliacoes, campo, ignoradas);
+    return out;
+  }, [avaliacoes, ignoradas]);
+  const comparacoes = useMemo(() => {
+    const out = {};
+    for (const campo of Object.keys(METRICAS)) out[campo] = comparar(series[campo], periodo);
+    return out;
+  }, [series, periodo]);
+  const suspeitas = useMemo(() => detectarSuspeitas(avaliacoes, ignoradas), [avaliacoes, ignoradas]);
+  const composicao = useMemo(() => composicaoCorporal(avaliacoes, periodo, ignoradas), [avaliacoes, periodo, ignoradas]);
+  const avaliacoesPorId = useMemo(() => new Map(avaliacoes.map((a) => [a.id, a])), [avaliacoes]);
 
-  const delta = (campo) => {
-    if (!primeira || !ultima || primeira.id === ultima.id) return null;
-    const a = Number(primeira[campo] ?? 0);
-    const b = Number(ultima[campo] ?? 0);
-    if (!a || !b) return null;
-    return { de: a, para: b, dif: b - a };
-  };
-
-  const deltaPeso = delta('kg');
-  const deltaCintura = delta('cintura_cm');
-  const deltaPgc = delta('pgc');
+  const validas = avaliacoes.filter((a) => !ignoradas.has(a.id));
+  const primeira = validas[0];
+  const ultima   = validas[validas.length - 1];
+  const totalDias = primeira && ultima ? diasEntre(primeira.data, ultima.data) : 0;
+  const metricasDoGrafico = Object.keys(METRICAS).filter((c) => series[c].length >= 2);
+  const campoGrafico = metricasDoGrafico.includes(metricaGrafico) ? metricaGrafico : metricasDoGrafico[0];
 
   // ─── Timeline consolidada ───
   const eventos = useMemo(() => {
@@ -70,11 +107,8 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
         data: new Date(a.data + 'T12:00:00').toISOString(),
         tipo: 'avaliacao', icon: 'scale', cor: '#1a5a8c',
         titulo: 'Avaliação antropométrica',
-        desc: [
-          a.kg && `${Number(a.kg).toFixed(1).replace('.', ',')} kg`,
-          a.cintura_cm && `cintura ${a.cintura_cm}cm`,
-          a.pgc && `${a.pgc}% gordura`,
-        ].filter(Boolean).join(' · ') || 'Registrada',
+        desc: descricaoAvaliacao(a),
+        avaliacaoId: a.id,
       });
     }
     for (const c of checkins) {
@@ -82,7 +116,7 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
         data: c.respondido_em,
         tipo: 'checkin', icon: 'clipboard-check', cor: 'var(--green)',
         titulo: 'Check-in respondido',
-        desc: `${c.perguntas?.length ?? 0} perguntas`,
+        desc: resumoCheckin(c, formatarResposta),
         checkinId: c.id,
         checkin: c,
       });
@@ -92,7 +126,7 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
         data: p.publicado_em,
         tipo: 'plano', icon: 'salad', cor: 'var(--amber)',
         titulo: 'Plano alimentar publicado',
-        desc: `${p.dados?.macros?.kcal ?? '—'} kcal · ${p.dados?.refeicoes?.length ?? 0} refeições`,
+        desc: descricaoPlano(p.dados),
       });
     }
     for (const p of prescricoes) {
@@ -107,43 +141,12 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
       lst.push({
         data: c.data_hora,
         tipo: 'consulta', icon: 'calendar-check', cor: 'var(--green)',
-        titulo: 'Consulta realizada',
-        desc: `Tipo: ${c.tipo}`,
+        titulo: rotuloTipoConsulta(c.tipo),
+        desc: 'Consulta realizada',
       });
     }
     return lst.sort((a, b) => b.data.localeCompare(a.data));  // mais recente primeiro
   }, [avaliacoes, checkins, planos, prescricoes, consultas]);
-
-  // ─── Renders auxiliares ───
-  function HighlightCard({ titulo, atual, delta, unidade, melhorMenor = true }) {
-    if (!atual) {
-      return (
-        <div className="stat-card" style={{ opacity: .5 }}>
-          <div className="stat-label">{titulo}</div>
-          <div className="stat-val">—</div>
-          <div className="stat-sub">sem registro</div>
-        </div>
-      );
-    }
-    let corDelta = 'var(--text3)';
-    let setaDelta = '';
-    if (delta) {
-      const desejado = melhorMenor ? delta.dif < 0 : delta.dif > 0;
-      corDelta = desejado ? 'var(--green)' : (delta.dif === 0 ? 'var(--text3)' : 'var(--red)');
-      setaDelta = delta.dif > 0 ? '↑' : delta.dif < 0 ? '↓' : '—';
-    }
-    return (
-      <div className="stat-card">
-        <div className="stat-label">{titulo}</div>
-        <div className="stat-val">{Number(atual).toFixed(1).replace('.', ',')}{unidade && <span style={{ fontSize: 14, color: 'var(--text3)', marginLeft: 3 }}>{unidade}</span>}</div>
-        <div className="stat-sub" style={{ color: corDelta, fontWeight: 500 }}>
-          {delta
-            ? <>{setaDelta} {Math.abs(delta.dif).toFixed(1).replace('.', ',')}{unidade} vs início</>
-            : 'só uma avaliação'}
-        </div>
-      </div>
-    );
-  }
 
   if (carregando) {
     return <div className="card empty-card"><div className="empty-sub">Carregando linha do tempo…</div></div>;
@@ -167,10 +170,11 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
     return (
       <ModoApresentacao
         paciente={paciente}
-        avaliacoes={avaliacoes}
-        deltaPeso={deltaPeso}
-        deltaCintura={deltaCintura}
-        deltaPgc={deltaPgc}
+        series={series}
+        comparacoes={comparacoes}
+        periodo={periodo}
+        pesoNeutro={pesoNeutro}
+        composicao={composicao}
         totalDias={totalDias}
         onClose={() => setApresentacao(false)}
       />
@@ -191,17 +195,49 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
         </div>
       </div>
 
+      {/* Período + avisos */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+        <label htmlFor="evo-periodo" style={{ fontSize: 12, color: 'var(--text3)' }}>Comparar</label>
+        <select id="evo-periodo" value={periodo} onChange={(e) => setPeriodo(e.target.value)}
+          style={{ fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '0.5px solid var(--border)', background: 'var(--white)', color: 'var(--dark)' }}>
+          {Object.entries(PERIODOS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+        </select>
+      </div>
+
+      <AvisoSuspeitas suspeitas={suspeitas} porId={avaliacoesPorId}
+        ignoradas={ignoradas} onIgnorar={alternarIgnorada} />
+
       {/* Highlights */}
       <div className="stats-grid">
-        <HighlightCard titulo="Peso atual"      atual={ultima?.kg}         delta={deltaPeso}     unidade=" kg" />
-        <HighlightCard titulo="Cintura atual"   atual={ultima?.cintura_cm} delta={deltaCintura}  unidade=" cm" />
-        <HighlightCard titulo="% gordura atual" atual={ultima?.pgc}        delta={deltaPgc}      unidade="%" />
+        {CARTOES.map((campo) => (
+          <CartaoMetrica key={campo} campo={campo} serie={series[campo]} comp={comparacoes[campo]}
+            pesoNeutro={pesoNeutro} />
+        ))}
         <div className="stat-card">
           <div className="stat-label">Adesão check-ins</div>
           <div className="stat-val">{checkins.length}</div>
           <div className="stat-sub">respondidos no total</div>
         </div>
       </div>
+
+      {composicao && (
+        <div className="card" style={{ padding: '14px 16px', marginTop: 12 }}>
+          <div className="stat-label" style={{ marginBottom: 6 }}>Composição corporal</div>
+          <div style={{ fontSize: 15, color: 'var(--dark)', fontWeight: 500 }}>{fraseComposicao(composicao)}</div>
+          <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 4 }}>
+            Gordura {fmtDelta('gordura_kg', composicao.gorduraDif)} · massa magra {fmtDelta('mm_kg', composicao.massaMagraDif)}
+            {' '}· de {dataBR(composicao.deData)} a {dataBR(composicao.ateData)} ({composicao.dias} dia{composicao.dias === 1 ? '' : 's'})
+          </div>
+        </div>
+      )}
+
+      {campoGrafico && (
+        <GraficoEvolucao
+          metricas={metricasDoGrafico} campo={campoGrafico} onTrocar={setMetricaGrafico}
+          serie={series[campoGrafico]} suspeitas={suspeitas}
+          consultas={consultas.filter((c) => c.status === 'realizada')}
+          planos={planos} />
+      )}
 
       {/* Timeline */}
       <div className="section-header" style={{ marginTop: 18 }}>
@@ -250,6 +286,12 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
                   toque para ver respostas →
                 </div>
               )}
+              {ev.avaliacaoId != null && (
+                <LinhaAvaliacao
+                  ignorada={ignoradas.has(ev.avaliacaoId)}
+                  suspeita={suspeitas.get(ev.avaliacaoId)}
+                  onAlternar={() => alternarIgnorada(ev.avaliacaoId)} />
+              )}
             </div>
           </div>
         ))}
@@ -263,11 +305,185 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
 }
 
 /* ============================================================
+   CARTÃO DE MÉTRICA (valor atual + variação com data-base)
+   ============================================================ */
+function CartaoMetrica({ campo, serie, comp, pesoNeutro }) {
+  const m = METRICAS[campo];
+  const atual = serie[serie.length - 1];
+  if (!atual) {
+    return (
+      <div className="stat-card" style={{ opacity: .5 }}>
+        <div className="stat-label">{m.rotulo} atual</div>
+        <div className="stat-val">—</div>
+        <div className="stat-sub">sem registro</div>
+      </div>
+    );
+  }
+  const sentido = comp ? sentidoDaVariacao(campo, comp.dif, { pesoNeutro }) : 'neutro';
+  const cor = sentido === 'bom' ? 'var(--green)' : sentido === 'ruim' ? 'var(--red)' : 'var(--text3)';
+  return (
+    <div className="stat-card">
+      <div className="stat-label">{m.rotulo} atual</div>
+      <div className="stat-val">
+        {fmtNum(atual.valor, m.casas)}
+        <span style={{ fontSize: 14, color: 'var(--text3)', marginLeft: 3 }}>{m.unidade === '%' ? '%' : ` ${m.unidade}`}</span>
+      </div>
+      {comp ? (
+        <>
+          <div className="stat-sub" style={{ color: cor, fontWeight: 500 }}>{fmtDelta(campo, comp.dif)}</div>
+          <div className="stat-sub">
+            desde {dataBR(comp.base.data)} ({fmtValor(campo, comp.base.valor)}) · {comp.dias} dia{comp.dias === 1 ? '' : 's'}
+          </div>
+        </>
+      ) : (
+        <div className="stat-sub">
+          {serie.length === 1 ? `só uma avaliação (${dataBR(atual.data)})` : 'sem base para comparar'}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ============================================================
+   AVISO "CONFERIR" (salto improvável) — não apaga nada
+   ============================================================ */
+function AvisoSuspeitas({ suspeitas, porId, ignoradas, onIgnorar }) {
+  const itens = [...suspeitas.entries()];
+  const ignoradasLista = [...ignoradas].map((id) => porId.get(id)).filter(Boolean);
+  if (itens.length === 0 && ignoradasLista.length === 0) return null;
+  return (
+    <div role="status" style={{
+      background: '#fbf3df', border: '0.5px solid #e3cf9c', borderRadius: 10,
+      padding: '10px 14px', marginBottom: 12, fontSize: 13, color: 'var(--dark)',
+    }}>
+      {itens.length > 0 && (
+        <>
+          <div style={{ fontWeight: 600, marginBottom: 4 }}>
+            <i className="ti ti-alert-triangle" aria-hidden="true"></i>{' '}
+            {itens.length === 1 ? 'Uma avaliação para conferir' : `${itens.length} avaliações para conferir`}
+          </div>
+          {itens.map(([id, sus]) => {
+            const av = porId.get(id);
+            return (
+              <div key={id} style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', margin: '4px 0' }}>
+                <span>
+                  {dataBR(av?.data)}: {METRICAS[sus.campo].rotulo.toLowerCase()} {fmtDelta(sus.campo, sus.dif)} em {sus.dias} dia{sus.dias === 1 ? '' : 's'}
+                  {' '}(vs {dataBR(sus.deData)}). Pode ser erro de digitação.
+                </span>
+                <button className="btn-outline" onClick={() => onIgnorar(id)}>Ignorar nas contas</button>
+              </div>
+            );
+          })}
+        </>
+      )}
+      {ignoradasLista.length > 0 && (
+        <div style={{ marginTop: itens.length ? 8 : 0, color: 'var(--text2)' }}>
+          Ignoradas nas contas (continuam salvas, só neste navegador):{' '}
+          {ignoradasLista.map((a, i) => (
+            <span key={a.id}>
+              {i > 0 && ' · '}{dataBR(a.data)}{' '}
+              <button className="btn-outline" onClick={() => onIgnorar(a.id)}>Voltar a usar</button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Selo + botão dentro do card da avaliação na linha do tempo. */
+function LinhaAvaliacao({ ignorada, suspeita, onAlternar }) {
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginTop: 6 }}>
+      {ignorada && <span style={{ fontSize: 11, color: 'var(--text3)' }}>ignorada nas contas</span>}
+      {!ignorada && suspeita && (
+        <span style={{ fontSize: 11, color: '#8a6a1c', fontWeight: 600 }}>conferir</span>
+      )}
+      <button className="btn-outline" style={{ fontSize: 11, padding: '3px 8px' }}
+        onClick={(e) => { e.stopPropagation(); onAlternar(); }}>
+        {ignorada ? 'Voltar a usar' : 'Ignorar nas contas'}
+      </button>
+    </div>
+  );
+}
+
+/* ============================================================
+   GRÁFICO DE EVOLUÇÃO (uma métrica por vez, com consultas e planos)
+   ============================================================ */
+function GraficoEvolucao({ metricas, campo, onTrocar, serie, suspeitas, consultas, planos }) {
+  const m = METRICAS[campo];
+  const L = 600, A = 220, ml = 44, mr = 14, mt = 14, mb = 28;
+  const dia = (iso) => Date.UTC(...String(iso).slice(0, 10).split('-').map((n, i) => (i === 1 ? Number(n) - 1 : Number(n))));
+  const t0 = dia(serie[0].data);
+  const t1 = dia(serie[serie.length - 1].data);
+  const span = Math.max(t1 - t0, 1);
+  const vals = serie.map((p) => p.valor);
+  const vmin = Math.min(...vals), vmax = Math.max(...vals);
+  const folga = (vmax - vmin) * 0.15 || 1;
+  const lo = vmin - folga, hi = vmax + folga;
+  const x = (t) => ml + ((t - t0) / span) * (L - ml - mr);
+  const y = (v) => mt + (1 - (v - lo) / (hi - lo)) * (A - mt - mb);
+  const pontos = serie.map((p) => ({ ...p, cx: x(dia(p.data)), cy: y(p.valor) }));
+  const linha = pontos.map((p, i) => `${i ? 'L' : 'M'}${p.cx.toFixed(1)},${p.cy.toFixed(1)}`).join(' ');
+  const dentro = (iso) => { if (!iso) return null; const t = dia(iso); return t >= t0 && t <= t1 ? t : null; };
+  const marcas = [
+    ...consultas.map((c) => ({ t: dentro(c.data_hora), cor: 'var(--green)', nome: `${rotuloTipoConsulta(c.tipo)} · ${dataBR(c.data_hora)}` })),
+    ...planos.map((p) => ({ t: dentro(p.publicado_em), cor: 'var(--amber)', nome: `Plano publicado · ${dataBR(p.publicado_em)}` })),
+  ].filter((mk) => mk.t != null);
+  return (
+    <div className="card" style={{ padding: '14px 16px', marginTop: 12 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        <div className="stat-label">Evolução no tempo</div>
+        <div role="group" aria-label="Métrica do gráfico" style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {metricas.map((c) => (
+            <button key={c} type="button" aria-pressed={c === campo}
+              className={c === campo ? 'btn' : 'btn-outline'} style={{ fontSize: 12, padding: '4px 10px' }}
+              onClick={() => onTrocar(c)}>
+              {METRICAS[c].rotulo}
+            </button>
+          ))}
+        </div>
+      </div>
+      <svg viewBox={`0 0 ${L} ${A}`} role="img" style={{ width: '100%', height: 'auto', display: 'block' }}
+        aria-label={`Gráfico de ${m.rotulo.toLowerCase()}: de ${fmtValor(campo, serie[0].valor)} em ${dataBR(serie[0].data)} a ${fmtValor(campo, serie[serie.length - 1].valor)} em ${dataBR(serie[serie.length - 1].data)}`}>
+        {[hi - folga * 0.3, (hi + lo) / 2, lo + folga * 0.3].map((v, i) => (
+          <g key={i}>
+            <line x1={ml} x2={L - mr} y1={y(v)} y2={y(v)} style={{ stroke: 'var(--hair-soft, #e7dfd0)' }} strokeWidth="1" />
+            <text x={ml - 6} y={y(v) + 4} textAnchor="end" fontSize="11" style={{ fill: 'var(--text3)' }}>{fmtNum(v, 1)}</text>
+          </g>
+        ))}
+        {marcas.map((mk, i) => (
+          <line key={i} x1={x(mk.t)} x2={x(mk.t)} y1={mt} y2={A - mb} strokeDasharray="3 3" strokeWidth="1.2" style={{ stroke: mk.cor }}>
+            <title>{mk.nome}</title>
+          </line>
+        ))}
+        <path d={linha} fill="none" strokeWidth="2.2" strokeLinejoin="round" strokeLinecap="round" style={{ stroke: 'var(--gold-deep, #a08456)' }} />
+        {pontos.map((p) => {
+          const sus = suspeitas.has(p.id) && suspeitas.get(p.id).campo === campo;
+          return (
+            <circle key={p.id} cx={p.cx} cy={p.cy} r={sus ? 5 : 4} strokeWidth="2"
+              style={{ stroke: sus ? '#c0883a' : 'var(--gold-deep, #a08456)', fill: sus ? 'var(--white)' : 'var(--dark)' }}>
+              <title>{`${dataBR(p.data)} · ${fmtValor(campo, p.valor)}${sus ? ' · conferir' : ''}`}</title>
+            </circle>
+          );
+        })}
+        <text x={pontos[0].cx} y={A - 8} textAnchor="start" fontSize="11" style={{ fill: 'var(--text3)' }}>{dataBR(serie[0].data)}</text>
+        <text x={pontos[pontos.length - 1].cx} y={A - 8} textAnchor="end" fontSize="11" style={{ fill: 'var(--text3)' }}>{dataBR(serie[serie.length - 1].data)}</text>
+      </svg>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>
+        <span>● avaliação</span>
+        <span style={{ color: '#c0883a' }}>○ conferir</span>
+        <span style={{ color: 'var(--green)' }}>┆ consulta realizada</span>
+        <span style={{ color: 'var(--amber)' }}>┆ plano publicado</span>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
    MODO APRESENTAÇÃO (fullscreen pra consulta)
    ============================================================ */
-function ModoApresentacao({ paciente, avaliacoes, deltaPeso, deltaCintura, deltaPgc, totalDias, onClose }) {
-  const primeira = avaliacoes[0];
-  const ultima   = avaliacoes[avaliacoes.length - 1];
+function ModoApresentacao({ paciente, series, comparacoes, periodo, pesoNeutro, composicao, totalDias, onClose }) {
   return (
     <div style={{
       position: 'fixed', inset: 0,
@@ -311,40 +527,37 @@ function ModoApresentacao({ paciente, avaliacoes, deltaPeso, deltaCintura, delta
           display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
           gap: 14, marginBottom: 36,
         }}>
-          {[
-            { label: 'Peso',      atual: ultima?.kg,         delta: deltaPeso,    un: 'kg', melhorMenor: true },
-            { label: 'Cintura',   atual: ultima?.cintura_cm, delta: deltaCintura, un: 'cm', melhorMenor: true },
-            { label: '% gordura', atual: ultima?.pgc,        delta: deltaPgc,     un: '%', melhorMenor: true },
-          ].map((s, i) => {
-            if (!s.atual) return null;
-            const corDelta = s.delta
-              ? (s.melhorMenor ? s.delta.dif < 0 : s.delta.dif > 0) ? 'var(--green)' : 'var(--red)'
-              : 'var(--text3)';
+          {CARTOES.map((campo) => {
+            const serie = series[campo];
+            const atual = serie[serie.length - 1];
+            if (!atual) return null;
+            const comp = comparacoes[campo];
+            const sentido = comp ? sentidoDaVariacao(campo, comp.dif, { pesoNeutro }) : 'neutro';
+            const corDelta = sentido === 'bom' ? 'var(--green)' : sentido === 'ruim' ? 'var(--red)' : 'var(--text3)';
             return (
-              <div key={i} style={{
+              <div key={campo} style={{
                 background: 'var(--white)', border: '0.5px solid var(--border)',
                 borderRadius: 14, padding: '24px 28px',
               }}>
                 <div style={{
                   fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase',
                   color: 'var(--text3)', marginBottom: 10, fontWeight: 500,
-                }}>{s.label}</div>
+                }}>{METRICAS[campo].rotulo}</div>
                 <div style={{
                   fontFamily: 'var(--font-serif)', fontSize: 56, fontWeight: 600,
                   color: 'var(--dark)', lineHeight: 1,
                 }}>
-                  {Number(s.atual).toFixed(1).replace('.', ',')}
-                  <span style={{ fontSize: 22, color: 'var(--text3)', marginLeft: 6 }}>{s.un}</span>
+                  {fmtNum(atual.valor, 1)}
+                  <span style={{ fontSize: 22, color: 'var(--text3)', marginLeft: 6 }}>{METRICAS[campo].unidade}</span>
                 </div>
-                {s.delta && (
+                {comp && (
                   <div style={{
                     fontSize: 18, fontWeight: 500, color: corDelta,
-                    marginTop: 12, display: 'inline-flex', alignItems: 'center', gap: 4,
+                    marginTop: 12, display: 'inline-flex', alignItems: 'center', gap: 4, flexWrap: 'wrap',
                   }}>
-                    {s.delta.dif > 0 ? '↑' : s.delta.dif < 0 ? '↓' : '—'}{' '}
-                    {Math.abs(s.delta.dif).toFixed(1).replace('.', ',')}{s.un}
+                    {fmtDelta(campo, comp.dif)}
                     <span style={{ fontSize: 13, color: 'var(--text3)', marginLeft: 6, fontWeight: 400 }}>
-                      desde {dataBR(primeira?.data)}
+                      desde {dataBR(comp.base.data)}
                     </span>
                   </div>
                 )}
@@ -353,7 +566,20 @@ function ModoApresentacao({ paciente, avaliacoes, deltaPeso, deltaCintura, delta
           })}
         </div>
 
-        {avaliacoes.length === 0 && (
+        {composicao && (
+          <div style={{
+            background: 'var(--white)', border: '0.5px solid var(--border)', borderRadius: 14,
+            padding: '20px 28px', marginBottom: 36, fontSize: 20, color: 'var(--dark)',
+            fontFamily: 'var(--font-serif)',
+          }}>
+            {fraseComposicao(composicao)}
+            <span style={{ display: 'block', fontSize: 13, color: 'var(--text3)', fontFamily: 'var(--font-sans)', marginTop: 6 }}>
+              {PERIODOS[periodo]} · desde {dataBR(composicao.deData)}
+            </span>
+          </div>
+        )}
+
+        {CARTOES.every((c) => series[c].length === 0) && (
           <div style={{ textAlign: 'center', padding: 40, color: 'var(--text3)' }}>
             Sem avaliações antropométricas registradas ainda.
           </div>
