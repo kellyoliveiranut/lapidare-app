@@ -345,7 +345,7 @@ export function Bonequinho({ series, comps, pesoNeutro, sexo, campoAtivo, onEsco
 
 /* Metas escolhidas pela nutri para a paciente (pacientes.metas_evolucao → catálogo
    de lib/metasEvolucao.js). Sem metas, nada aparece. */
-export function MetasCard({ metas }) {
+export function MetasCard({ metas, progresso = {} }) {
   if (!metas || metas.length === 0) return null;
   return (
     <div style={{ ...CARD, padding: '14px 16px', marginBottom: 12 }}>
@@ -356,10 +356,32 @@ export function MetasCard({ metas }) {
         {metas.map((m) => (
           <li key={m.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 15, lineHeight: 1.4, padding: '5px 0', color: 'var(--ink, #1c1712)' }}>
             <span aria-hidden="true" style={{ flexShrink: 0, width: 8, height: 8, borderRadius: '50%', background: '#a08456', marginTop: 7 }} />
-            <span>{m.texto}</span>
+            <span>
+              {m.texto}
+              {progresso[m.id] && (
+                <span style={{ display: 'block', fontSize: 12, color: 'var(--muted, #8c7b6b)', marginTop: 2 }}>{progresso[m.id]}</span>
+              )}
+            </span>
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+/* Cartões do que a paciente registra no dia a dia (constância, disposição, movimento).
+   Só fatos, sem cor de "bom" ou "ruim": o significado clínico é da nutricionista. */
+export function CartoesAcompanhamento({ itens }) {
+  if (!itens || itens.length === 0) return null;
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(itens.length, 3)}, 1fr)`, gap: 8, marginBottom: 12 }}>
+      {itens.map((it) => (
+        <div key={it.rotulo} style={{ ...CARD, padding: '12px 12px' }}>
+          <div style={{ fontSize: 9, letterSpacing: '.16em', textTransform: 'uppercase', color: 'var(--muted, #8c7b6b)', fontWeight: 500 }}>{it.rotulo}</div>
+          <div style={{ fontFamily: 'var(--font-serif)', fontSize: 24, fontWeight: 600, margin: '4px 0 2px', color: 'var(--ink, #1c1712)' }}>{it.valor}</div>
+          <div style={{ fontSize: 11, color: 'var(--muted, #8c7b6b)', lineHeight: 1.35 }}>{it.nota}</div>
+        </div>
+      ))}
     </div>
   );
 }

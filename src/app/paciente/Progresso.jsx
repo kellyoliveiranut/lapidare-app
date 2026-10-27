@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
-import { dataBR } from '../../lib/utils.js';
-import { Jornada, CartoesMetricas, Grafico, Bonequinho, BarrasComposicao, MetasCard } from '../../components/EvolucaoVisual.jsx';
+import { dataBR, dataLocalISO } from '../../lib/utils.js';
+import { Jornada, CartoesMetricas, Grafico, Bonequinho, BarrasComposicao, MetasCard, CartoesAcompanhamento } from '../../components/EvolucaoVisual.jsx';
 import { sinalDe, tempoDe } from '../../lib/sinaleira.js';
 import { diasEntre, ehEmagrecimento } from '../../lib/resultadosClinicos.js';
 import { metasPorCodigos } from '../../lib/metasEvolucao.js';
+import { constancia, disposicao, movimento, progressoDaMeta, fmt1 } from '../../lib/acompanhamentoOnco.js';
 import {
   METRICAS, serieDaMetrica, comparar, composicaoCorporal,
   fmtValor, normalizarAvaliacoes,
@@ -27,6 +28,7 @@ export default function Progresso() {
   const pacienteId = profile?.id ?? user?.id;
   const [registros, setRegistros] = useState(undefined);
   const [metrica, setMetrica] = useState('kg');
+  const [diario, setDiario] = useState({ monit: [], checkins: [] });
   const [obsExpandido, setObsExpandido] = useState(new Set());
   const [verTodas, setVerTodas] = useState(false);
   const toggleObs = useCallback(id => setObsExpandido(s => {
@@ -49,6 +51,22 @@ export default function Progresso() {
       setRegistros(normalizarAvaliacoes(data));
     }
     load();
+    // O que a paciente já registra no dia a dia (monitoramento e check-in): alimenta as metas
+    // e os cartões de acompanhamento. Falha aqui não derruba a tela de evolução.
+    async function loadDiario() {
+      if (!pacienteId) return;
+      const desde = dataLocalISO(-30);
+      const [m, c] = await Promise.all([
+        supabase.from('monitoramento_oncologico').select('data, disposicao, mobilidade, hidratacao')
+          .eq('paciente_id', pacienteId).gte('data', desde).order('data', { ascending: false }),
+        supabase.from('checkin_envios').select('respondido_em, respostas')
+          .eq('paciente_id', pacienteId).not('respondido_em', 'is', null)
+          .order('respondido_em', { ascending: false }).limit(4),
+      ]);
+      if (!active) return;
+      setDiario({ monit: m.data ?? [], checkins: c.data ?? [] });
+    }
+    loadDiario();
     return () => { active = false; };
   }, [pacienteId]);
 
@@ -69,6 +87,28 @@ export default function Progresso() {
     () => (pesoNeutro ? null : composicaoCorporal(registros ?? [], 'inicio')),
     [registros, pesoNeutro],
   );
+
+  const hoje = dataLocalISO();
+  const metasDaPaciente = metasPorCodigos(profile?.metas_evolucao);
+  const progressoMetas = {};
+  for (const m of metasDaPaciente) {
+    const t = progressoDaMeta(m.id, { hoje, monit: diario.monit, checkins: diario.checkins });
+    if (t) progressoMetas[m.id] = t;
+  }
+  // Cartões do dia a dia: só para oncologia, e só se ela já registrou alguma coisa.
+  const itensAcomp = [];
+  if (profile?.objetivo === 'Oncologia') {
+    const k = constancia(diario.monit, hoje, 14);
+    const d = disposicao(diario.monit, hoje);
+    const mv = movimento(diario.monit, hoje);
+    if (k.registrados > 0) itensAcomp.push({ rotulo: 'Constância', valor: `${k.registrados} de ${k.dias}`, nota: 'dias com registro no monitoramento' });
+    if (d) itensAcomp.push({
+      rotulo: 'Disposição', valor: `${fmt1(d.atual)} de 10`,
+      nota: d.dif == null ? 'média dos últimos 7 dias'
+        : `${d.dif > 0.05 ? '↑' : d.dif < -0.05 ? '↓' : '→'} ${fmt1(Math.abs(d.dif))} em relação aos 7 dias antes`,
+    });
+    if (mv) itensAcomp.push({ rotulo: 'Movimento', valor: `${mv.dias} de ${mv.registrados}`, nota: 'dias com caminhada ou exercício (7 dias)' });
+  }
 
   if (registros === undefined) {
     return <div className="empty-state"><div className="empty-sub">Carregando…</div></div>;
@@ -105,7 +145,9 @@ export default function Progresso() {
           : `Você está há ${tempoDe(diasTotal)} em acompanhamento.`}
         registros={registros.length} pesoComp={pesoComp} composicao={composicao} />
 
-      <MetasCard metas={metasPorCodigos(profile?.metas_evolucao)} />
+      <MetasCard metas={metasDaPaciente} progresso={progressoMetas} />
+
+      <CartoesAcompanhamento itens={itensAcomp} />
 
       <CartoesMetricas campos={CARTOES} series={series} comps={comps} pesoNeutro={pesoNeutro}
         campoAtivo={campo} onEscolher={setMetrica} />
