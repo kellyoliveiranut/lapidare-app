@@ -368,7 +368,7 @@ export default function Agenda() {
       .select(`
         id, data_hora, duracao_min, tipo, status, modalidade, local_id, obs,
         lembrete_ativo, lembrete_enviado,
-        confirmada_em, confirmada_por, nao_confirmada_em, nao_confirmada_por,
+        confirmada_em, confirmada_por, nao_confirmada_em, nao_confirmada_por, remarcada_de,
         paciente:pacientes(id, nome)
       `)
       .eq('nutri_id', user.id)
@@ -531,18 +531,18 @@ export default function Agenda() {
   // não impede um segundo clique enquanto o update está no ar.
   const [mandandoId, setMandandoId] = useState(null);
   async function mandarParaADefinir(c) {
-    if (c.status !== 'agendada' || !c.data_hora || mandandoId) return;
+    if (c.status !== 'agendada' || !c.data_hora || mandandoId) return false;
     const nome = c.paciente?.nome ?? 'paciente sem nome';
     if (!window.confirm(
       `Tirar a consulta de ${nome} (${dataConsultaBR(c.data_hora)}) do calendário e mandar para "A definir"? ` +
       'A confirmação de presença e o lembrete dessa consulta serão zerados. ' +
-      'A paciente fica em "A definir" até você dar uma nova data.'
-    )) return;
+      'A paciente fica em "A definir" até você dar uma nova data, e a data de antes fica registrada.'
+    )) return false;
     setMandandoId(c.id);
     setErroLembrete(null);
     try {
       const { data, error } = await supabase.from('consultas')
-        .update({ data_hora: null })
+        .update({ data_hora: null, remarcada_de: c.data_hora })
         .eq('id', c.id)
         .eq('status', 'agendada')
         .select('id');
@@ -551,15 +551,17 @@ export default function Agenda() {
           ? 'Não consegui mandar para "A definir": ' + error.message
           : 'Não consegui mandar para "A definir": a consulta não foi alterada. Recarregue a página e tente de novo.');
         setTimeout(() => setErroLembrete(null), 6000);
-        return;
+        return false;
       }
       // O mesmo recarregamento de depois de salvar no modal: a consulta muda
       // de seção e o painel de lembretes perde o cartão dela.
       setEnviadosLocais(prev => { const m = new Map(prev); m.delete(c.id); return m; });
       await Promise.all([carregar(), verificarLembretes()]);
+      return true;
     } catch (err) {
       setErroLembrete('Não consegui mandar para "A definir": ' + (err?.message ?? 'tente de novo'));
       setTimeout(() => setErroLembrete(null), 6000);
+      return false;
     } finally {
       setMandandoId(null);
     }
@@ -749,6 +751,9 @@ export default function Agenda() {
   const abrirNova = () => setModalState({ open: true, consulta: null, pacienteInicialId: null, remarcando: false });
   const abrirEdit = (consulta) => setModalState({ open: true, consulta, pacienteInicialId: null, remarcando: false });
   const fechar = () => setModalState({ open: false, consulta: null, pacienteInicialId: null, remarcando: false });
+  // Remarcar da linha: abre o modal já no modo remarcação (nova data) — de lá
+  // ela também pode deixar em "A definir".
+  const abrirRemarcar = (consulta) => setModalState({ open: true, consulta, pacienteInicialId: null, remarcando: true });
 
   // Busca ampla da barra de ações: escolher a paciente abre o modal de consulta
   // NOVA já com ela dentro (`consulta: null` é o que faz o modal ser criação).
@@ -981,7 +986,7 @@ export default function Agenda() {
             <ConsultaRow key={c.id} c={c} isLast={i === consultasDoDia.length - 1} onClick={() => abrirEdit(c)}
               onToggleConfirmada={toggleConfirmada}
               onToggleNaoConfirmada={toggleNaoConfirmada}
-              onRemarcar={() => mandarParaADefinir(c)}
+              onRemarcar={() => abrirRemarcar(c)}
               remarcandoAgora={mandandoId === c.id}
               corDoTipo />
           ))}
@@ -1158,7 +1163,7 @@ export default function Agenda() {
                         onClick={() => abrirEdit(c)}
                         onToggleConfirmada={toggleConfirmada}
                         onToggleNaoConfirmada={toggleNaoConfirmada}
-                        onRemarcar={() => mandarParaADefinir(c)}
+                        onRemarcar={() => abrirRemarcar(c)}
                         remarcandoAgora={mandandoId === c.id}
                         corDoTipo />
                     ))}
@@ -1199,6 +1204,7 @@ export default function Agenda() {
           onClose={fechar}
           onSaved={() => consultaSalva(modalState.consulta?.id ?? null)}
           onToggleConfirmada={toggleConfirmada}
+          onADefinir={async (c) => { if (await mandarParaADefinir(c)) fechar(); }}
         />
       )}
 
@@ -2100,6 +2106,13 @@ function ConsultaRow({ c, isLast, onClick, onToggleConfirmada, onToggleNaoConfir
             {c.data_hora ? dataConsultaBR(c.data_hora) : 'A definir'} · {c.duracao_min}min
             {c.status === 'realizada' && ' · ✓ realizada'}
           </span>
+          {c.remarcada_de && c.status === 'agendada' && (
+            <span style={{ fontSize: 11, color: 'var(--text3)', whiteSpace: 'nowrap' }}>
+              {c.data_hora
+                ? `Remarcada de ${dataConsultaBR(c.remarcada_de)}`
+                : `Era ${dataConsultaBR(c.remarcada_de)} · cancelada`}
+            </span>
+          )}
           <span style={{
             display: 'inline-flex', alignItems: 'center', gap: 3,
             padding: '1px 7px', borderRadius: 20, whiteSpace: 'nowrap',
@@ -2149,7 +2162,7 @@ function ConsultaRow({ c, isLast, onClick, onToggleConfirmada, onToggleNaoConfir
                 }}>
                 {confirmada
                   ? (confirmouPelaPaciente
-                      ? <><i className="ti ti-check" aria-hidden="true" /> Confirmada</>
+                      ? <><i className="ti ti-check" aria-hidden="true" /> Confirmou no app</>
                       : <><i className="ti ti-check" aria-hidden="true" /> Confirmada por você</>)
                   : 'Marcar confirmada'}
               </button>
@@ -2709,7 +2722,7 @@ function BloqueioModal({ nutriId, dataInicial, onClose, onSaved }) {
   );
 }
 
-function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId, remarcarAoAbrir, onClose, onSaved, onToggleConfirmada }) {
+function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId, remarcarAoAbrir, onClose, onSaved, onToggleConfirmada, onADefinir }) {
   const isEdit = !!consulta;
   const navigate = useNavigate();
 
@@ -2949,6 +2962,11 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
         obs: obs.trim() || null,
         lembrete_ativo: lembreteAtivo,
       };
+      // Mudou a data de uma consulta que já tinha data: guarda a de antes, para
+      // a Agenda mostrar "era dia X". Só quando o instante mudou de verdade.
+      if (isEdit && consulta.data_hora && new Date(dataHora).getTime() !== new Date(consulta.data_hora).getTime()) {
+        payload.remarcada_de = consulta.data_hora;
+      }
       // Editar confere a linha alterada (gravar): um update barrado pelo RLS,
       // ou com a consulta já apagada, voltaria sem erro e o modal fecharia
       // como salvo. Criar segue como antes — insert barrado já devolve erro.
@@ -3046,6 +3064,7 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
             <i className="ti ti-calendar-event" aria-hidden="true"></i>{' '}
             <strong>Escolha a nova data e o horário abaixo, depois clique em “Salvar remarcação”.</strong>
             {' '}A confirmação de presença será zerada e um novo lembrete será enviado.
+            {consulta?.data_hora && <> A data de antes ({dataConsultaBR(consulta.data_hora)}) fica registrada.</>}
           </div>
         )}
 
@@ -3191,6 +3210,16 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
             <i className="ti ti-check" aria-hidden="true"></i> {busy ? '...' : (remarcando ? 'Salvar remarcação' : (isEdit ? 'Salvar alterações' : 'Agendar'))}
           </button>
         </div>
+
+        {/* Sem nova data ainda: a consulta sai do calendário e vai para "A
+            definir", com a data de antes registrada. */}
+        {remarcando && isEdit && consulta.data_hora && consulta.status === 'agendada' && typeof onADefinir === 'function' && (
+          <button type="button" className="btn-outline" disabled={busy}
+            style={{ width: '100%', justifyContent: 'center', marginTop: 8 }}
+            onClick={() => onADefinir(consulta)}>
+            <i className="ti ti-calendar-question" aria-hidden="true"></i> Ainda sem nova data — deixar em “A definir”
+          </button>
+        )}
 
         {/* Navegação, não ação — cor neutra pra não competir com os botões
             semânticos abaixo. Lê de consulta.paciente.id, e não do select:
