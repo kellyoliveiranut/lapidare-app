@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, lazy, Suspense, memo, useCallback } from 'react';
+import { useEffect, useMemo, useState, useRef, lazy, Suspense, memo, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
@@ -12,7 +12,7 @@ import {
 import { TEMPLATE_PADRAO } from '../../lib/checkinDefault.js';
 import { mensagemAcesso, mensagemSenhaDefinida } from '../../lib/mensagemAcesso.js';
 import { OBJETIVOS } from '../../lib/objetivos.js';
-import { SEXOS, PLANOS, modalidadeDaPaciente, localPadrao, datasSemLocal, localParaDefinirData } from '../../lib/opcoesPaciente.js';
+import { SEXOS, PLANOS, modalidadeDaPaciente, localPadrao, datasSemLocal, localParaDefinirData, gradeDoDia } from '../../lib/opcoesPaciente.js';
 import { MODALIDADES_CONSULTA } from '../../lib/consultaVisual.js';
 // Estatico de proposito: pdfPlano + pdfBase somam poucos kB. O peso real e o
 // jsPDF, que continua atras do import dinamico dentro do criarDocumento().
@@ -7141,7 +7141,7 @@ function useLocaisAtendimento(nutriId) {
   useEffect(() => {
     let vivo = true;
     supabase.from('locais_atendimento')
-      .select('id, nome, endereco, ativo, dias_semana')
+      .select('id, nome, endereco, ativo, dias_semana, primeiro_horario_tarde')
       .eq('nutri_id', nutriId)
       .then(
         ({ data, error }) => {
@@ -7240,6 +7240,7 @@ function ModalAgendarAcompanhamento({ pacienteId, nutriId, consultaAtiva, modali
   const porLinha = horariosDoPacote({
     linhas: datas.map(d => ({ data: d.data, hora: d.hora })),
     duracao, ocupacaoPorData, preferidoPadrao: HORARIO_CONSULTA_PADRAO,
+    gradeDaData: (d) => gradeDoDia({ locais, modalidade, data: d }),
   });
   const horasEfetivas = porLinha.map(p => p.valor);
 
@@ -7249,8 +7250,8 @@ function ModalAgendarAcompanhamento({ pacienteId, nutriId, consultaAtiva, modali
   const ocTopo = primeiraData ? ocupacaoPorData[primeiraData] : undefined;
   const selTopo = opcoesHorario({
     livres: !ocTopo ? []
-      : ocTopo.falhou ? HORARIOS_CONSULTA
-      : horariosLivres({ data: primeiraData, duracaoMin: Number(duracao), consultas: ocTopo.consultas, bloqueios: ocTopo.bloqueios }),
+      : ocTopo.falhou ? gradeDoDia({ locais, modalidade, data: primeiraData })
+      : horariosLivres({ data: primeiraData, duracaoMin: Number(duracao), consultas: ocTopo.consultas, bloqueios: ocTopo.bloqueios, grade: gradeDoDia({ locais, modalidade, data: primeiraData }) }),
     atual: null, hora, preferido: hora || HORARIO_CONSULTA_PADRAO,
     carregando: !!primeiraData && !ocTopo, temData: !!primeiraData, escolherSozinho: true,
   });
@@ -7491,8 +7492,11 @@ function ModalAgendarAvulsa({ pacienteId, nutriId, modalidadePaciente, onClose, 
   // Só horários livres (pedido 9): mesmo desenho do ConsultaModal da Agenda.
   // `horaEscolhida` é o que o select MOSTRA e o que o salvar grava — nunca o
   // estado `hora` por baixo, que pode ter ficado num horário que sumiu da lista.
+  // Regra do local (Wandenkolk: tarde só a partir das 14:30). Memo para o hook
+  // não recalcular a lista a cada render.
+  const gradeAvulsa = useMemo(() => gradeDoDia({ locais, modalidade, data }), [locais, modalidade, data]);
   const { carregando: carregandoHorarios, falhou: falhouHorarios, livres } =
-    useHorariosLivres({ supabase, nutriId, data, duracao, ignorarIds: [] });
+    useHorariosLivres({ supabase, nutriId, data, duracao, ignorarIds: [], grade: gradeAvulsa });
   const sel = opcoesHorario({
     livres, atual: null, hora, preferido: HORARIO_CONSULTA_PADRAO,
     carregando: carregandoHorarios, temData: !!data, escolherSozinho: true,
@@ -7661,8 +7665,24 @@ function ModalDefinirData({
   // Só horários livres (pedido 9). A própria consulta não ocupa o próprio
   // horário (ignorarIds), e a duração é a dela. `horaEscolhida` é o que o
   // select mostra e o que o salvar grava.
+  // Modalidade e local que a consulta já tem (a lista não os traz). Sem o local
+  // gravado, vale a regra de dia — a mesma que o salvar aplica. Leitura que
+  // falha deixa a grade inteira, como antes.
+  const { locais } = useLocaisAtendimento(nutriId);
+  const [dadosLocal, setDadosLocal] = useState({ modalidade: null, localId: '' });
+  useEffect(() => {
+    let vivo = true;
+    supabase.from('consultas').select('modalidade, local_id').eq('id', consultaId).maybeSingle()
+      .then(({ data: c }) => { if (vivo && c) setDadosLocal({ modalidade: c.modalidade, localId: c.local_id ?? '' }); },
+            () => {});
+    return () => { vivo = false; };
+  }, [consultaId]);
+  const gradeConsulta = useMemo(
+    () => gradeDoDia({ locais, modalidade: dadosLocal.modalidade, localId: dadosLocal.localId, data }),
+    [locais, dadosLocal, data],
+  );
   const { carregando: carregandoHorarios, falhou: falhouHorarios, livres } =
-    useHorariosLivres({ supabase, nutriId, data, duracao: duracaoMin, ignorarIds: [consultaId] });
+    useHorariosLivres({ supabase, nutriId, data, duracao: duracaoMin, ignorarIds: [consultaId], grade: gradeConsulta });
   const sel = opcoesHorario({
     livres, atual: null, hora, preferido: HORARIO_CONSULTA_PADRAO,
     carregando: carregandoHorarios, temData: !!data, escolherSozinho: true,

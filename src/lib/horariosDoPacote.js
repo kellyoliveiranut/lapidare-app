@@ -34,7 +34,7 @@ import { montarDataHoraISO } from './utils.js';
  *   ajustada  a hora do estado não é a efetiva (estava ocupada e a linha
  *             pulou para o próximo livre)
  */
-export function horariosDoPacote({ linhas = [], duracao, ocupacaoPorData = {}, preferidoPadrao = '14:00' }) {
+export function horariosDoPacote({ linhas = [], duracao, ocupacaoPorData = {}, preferidoPadrao = '14:00', gradeDaData = null }) {
   // Linhas anteriores já resolvidas, como consultas "gravadas" para o
   // horariosLivres: { id, data_hora, duracao_min, status }.
   const anteriores = [];
@@ -54,6 +54,8 @@ export function horariosDoPacote({ linhas = [], duracao, ocupacaoPorData = {}, p
         duracaoMin: Number(duracao),
         consultas: [...(falhou ? [] : ocupacao.consultas ?? []), ...doPacote],
         bloqueios: falhou ? [] : (ocupacao.bloqueios ?? []),
+        // Regra do local daquela data (ex.: tarde só a partir das 14:30).
+        grade: gradeDaData ? gradeDaData(data) : undefined,
       });
     }
 

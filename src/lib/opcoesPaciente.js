@@ -1,3 +1,4 @@
+import { gradeDoLocal } from './agendaConflitos.js';
 /**
  * Listas canônicas de sexo, tipo de plano e modalidade da paciente.
  *
@@ -118,4 +119,17 @@ export function localParaDefinirData({ modalidade, localId, locais, dataISO }) {
   if (modalidade !== 'presencial') return null;
   if (localId) return null;
   return localPadrao(locais, dataISO) || null;
+}
+
+/**
+ * Grade de inícios de consulta para o dia, conforme o local em que ela será.
+ * Presencial: o local já gravado (`localId`) ou, sem ele, o que a regra de dia
+ * da semana escolhe (localPadrao) — o mesmo que o salvar vai gravar. Online ou
+ * sem local decidido: grade inteira. A regra de cada local (ex.: tarde só a
+ * partir das 14:30) está em gradeDoLocal.
+ */
+export function gradeDoDia({ locais, modalidade, localId = '', data }) {
+  if (modalidade !== 'presencial') return gradeDoLocal(null);
+  const id = localId || localPadrao(locais, data);
+  return gradeDoLocal((locais ?? []).find(l => l.id === id) ?? null);
 }

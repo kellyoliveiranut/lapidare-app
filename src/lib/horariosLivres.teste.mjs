@@ -10,6 +10,7 @@
 process.env.TZ = process.env.TZ_TESTE || 'America/Belem';
 
 // Import DINAMICO: o TZ acima precisa valer antes de o módulo carregar.
+const { gradeDoDia } = await import('./opcoesPaciente.js');
 const { gradeDoLocal, horariosLivres, opcoesHorario, primeiroLivreAPartirDe, carregarOcupacaoDoDia } = await import('./agendaConflitos.js');
 const { montarDataHoraISO, HORARIOS_CONSULTA } = await import('./utils.js');
 
@@ -214,6 +215,18 @@ t('gradeDoLocal', 'regra inválida → grade inteira', gradeDoLocal({ primeiro_h
 t('gradeDoLocal', 'sem 14:00 e 13:30', [gradeDoLocal(W).includes('14:00'), gradeDoLocal(W).includes('13:30')], [false, false]);
 t('gradeDoLocal', 'com horariosLivres: dia vazio, 14:00 não aparece',
   horariosLivres({ data: D, duracaoMin: 60, grade: gradeDoLocal(W) }).includes('14:00'), false);
+
+// ─── gradeDoDia (local pela regra de dia ou já gravado) ──────────────
+const LOCS = [
+  { id: 'cto', ativo: true, dias_semana: [1, 5], primeiro_horario_tarde: null },
+  { id: 'ed',  ativo: true, dias_semana: [2, 3, 4], primeiro_horario_tarde: '14:30' },
+];
+const tarde = (g) => g.filter(h => h >= '12:00')[0];
+t('gradeDoDia', 'presencial terça (Ed Village): tarde 14:30', tarde(gradeDoDia({ locais: LOCS, modalidade: 'presencial', data: '2026-10-27' })), '14:30');
+t('gradeDoDia', 'presencial segunda (CTO): grade inteira', gradeDoDia({ locais: LOCS, modalidade: 'presencial', data: '2026-10-26' }), G);
+t('gradeDoDia', 'online: grade inteira', gradeDoDia({ locais: LOCS, modalidade: 'online', data: '2026-10-27' }), G);
+t('gradeDoDia', 'local já gravado vale mais que o dia', tarde(gradeDoDia({ locais: LOCS, modalidade: 'presencial', localId: 'ed', data: '2026-10-26' })), '14:30');
+t('gradeDoDia', 'sem locais carregados: grade inteira', gradeDoDia({ locais: [], modalidade: 'presencial', data: '2026-10-27' }), G);
 
 // ─── saída ───────────────────────────────────────────────────────────
 let grupoAtual = '';

@@ -23,7 +23,7 @@ import { HORARIOS_CONSULTA } from './utils.js';
  *
  * Devolve { carregando, falhou, livres }.
  */
-export function useHorariosLivres({ supabase, nutriId, data, duracao, ignorarIds = [] }) {
+export function useHorariosLivres({ supabase, nutriId, data, duracao, ignorarIds = [], grade = HORARIOS_CONSULTA }) {
   const [ocupacao, setOcupacao] = useState({ data: null, consultas: [], bloqueios: [], falhou: false });
 
   useEffect(() => {
@@ -45,13 +45,14 @@ export function useHorariosLivres({ supabase, nutriId, data, duracao, ignorarIds
 
   const livres = useMemo(() => {
     if (!data || carregando) return [];
-    if (ocupacao.falhou) return HORARIOS_CONSULTA;
+    if (ocupacao.falhou) return grade;
     return horariosLivres({
       data, duracaoMin: Number(duracao),
       consultas: ocupacao.consultas, bloqueios: ocupacao.bloqueios,
       ignorarIds: chaveIgnorar ? chaveIgnorar.split(',') : [],
+      grade,
     });
-  }, [data, duracao, ocupacao, carregando, chaveIgnorar]);
+  }, [data, duracao, ocupacao, carregando, chaveIgnorar, grade]);
 
   return { carregando, falhou, livres };
 }
