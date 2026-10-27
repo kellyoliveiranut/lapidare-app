@@ -2,12 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { gravar } from '../../lib/gravar.js';
 import { dataBR } from '../../lib/utils.js';
-import { formatarResposta } from '../../lib/checkinDefault.js';
 import { diasEntre, ehEmagrecimento } from '../../lib/resultadosClinicos.js';
 import {
   METRICAS, PERIODOS, serieDaMetrica, comparar, detectarSuspeitas,
-  composicaoCorporal, fmtDelta, rotuloTipoConsulta,
-  descricaoAvaliacao, descricaoPlano, resumoCheckin, normalizarAvaliacoes, idadeEm, classificarImc,
+  composicaoCorporal, fmtDelta,
+  normalizarAvaliacoes, idadeEm, classificarImc,
 } from '../../lib/evolucaoAvaliacoes.js';
 import { tempoDe } from '../../lib/sinaleira.js';
 import {
@@ -34,12 +33,7 @@ function lerIgnoradas(pacienteId) {
 export default function Evolucao({ pacienteId, paciente, nutriId }) {
   const [carregando, setCarregando] = useState(true);
   const [avaliacoes, setAvaliacoes] = useState([]);
-  const [checkins, setCheckins] = useState([]);
-  const [planos, setPlanos] = useState([]);
-  const [prescricoes, setPrescricoes] = useState([]);
-  const [consultas, setConsultas] = useState([]);
   const [apresentacao, setApresentacao] = useState(false);
-  const [verCheckin, setVerCheckin] = useState(null);
   const [periodo, setPeriodo] = useState('inicio');
   const [metricaGrafico, setMetricaGrafico] = useState('kg');
   const [erroIgnorar, setErroIgnorar] = useState('');
@@ -77,13 +71,7 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
   }
 
   async function carregar(signal = { cancelled: false }) {
-    const [avRes, ckRes, plRes, prRes, csRes] = await Promise.all([
-      supabase.from('peso_registros').select('id,data,kg,altura_cm,pgc,mm_kg,mm_pct,gordura_kg,cintura_cm,quadril_cm,abdome_cm,braco_cm,braco_dir_cm,braco_esq_cm,coxa_cm,coxa_dir_cm,coxa_esq_cm,panturrilha_cm,hidratacao_pct,geb_kcal,get_kcal,obs,ignorar_calculo').eq('paciente_id', pacienteId).order('data'),
-      supabase.from('checkin_envios').select('id, perguntas, respostas, respondido_em, enviado_em').eq('paciente_id', pacienteId).not('respondido_em', 'is', null).order('respondido_em'),
-      supabase.from('planos').select('id, dados, publicado_em').eq('paciente_id', pacienteId).order('publicado_em'),
-      supabase.from('prescricoes').select('id, tipo, titulo, created_at').eq('paciente_id', pacienteId).order('created_at'),
-      supabase.from('consultas').select('id, tipo, data_hora, status').eq('paciente_id', pacienteId).order('data_hora'),
-    ]);
+    const avRes = await supabase.from('peso_registros').select('id,data,kg,altura_cm,pgc,mm_kg,mm_pct,gordura_kg,cintura_cm,quadril_cm,abdome_cm,braco_cm,braco_dir_cm,braco_esq_cm,coxa_cm,coxa_dir_cm,coxa_esq_cm,panturrilha_cm,hidratacao_pct,geb_kcal,get_kcal,obs,ignorar_calculo').eq('paciente_id', pacienteId).order('data');
     if (signal.cancelled) return;
     let lista = normalizarAvaliacoes(avRes.data);
     // Migra o que a Kelly marcou antes neste navegador (uma vez; depois apaga a chave).
@@ -100,10 +88,6 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
     }
     if (signal.cancelled) return;
     setAvaliacoes(lista);
-    setCheckins(ckRes.data ?? []);
-    setPlanos(plRes.data ?? []);
-    setPrescricoes(prRes.data ?? []);
-    setConsultas(csRes.data ?? []);
     setCarregando(false);
   }
   useEffect(() => {
@@ -163,142 +147,11 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
   }, [avaliacoes, series, comparacoes, paciente?.nascimento]);
   const sexo = paciente?.sexo;
 
-  // ─── Timeline consolidada ───
-  const eventos = useMemo(() => {
-    const lst = [];
-    for (const a of avaliacoes) {
-      lst.push({
-        data: new Date(a.data + 'T12:00:00').toISOString(),
-        tipo: 'avaliacao', icon: 'scale', cor: '#1a5a8c',
-        titulo: 'Avaliação antropométrica',
-        desc: descricaoAvaliacao(a),
-        avaliacaoId: a.id,
-      });
-    }
-    for (const c of checkins) {
-      lst.push({
-        data: c.respondido_em,
-        tipo: 'checkin', icon: 'clipboard-check', cor: 'var(--green)',
-        titulo: 'Check-in respondido',
-        desc: resumoCheckin(c, formatarResposta),
-        checkinId: c.id,
-        checkin: c,
-      });
-    }
-    for (const p of planos) {
-      lst.push({
-        data: p.publicado_em,
-        tipo: 'plano', icon: 'salad', cor: 'var(--amber)',
-        titulo: 'Plano alimentar publicado',
-        desc: descricaoPlano(p.dados),
-      });
-    }
-    for (const p of prescricoes) {
-      lst.push({
-        data: p.created_at,
-        tipo: 'prescricao', icon: 'file-text', cor: 'var(--blue)',
-        titulo: `Prescrição · ${p.tipo}`,
-        desc: p.titulo,
-      });
-    }
-    for (const c of consultas.filter(c => c.status === 'realizada')) {
-      lst.push({
-        data: c.data_hora,
-        tipo: 'consulta', icon: 'calendar-check', cor: 'var(--green)',
-        titulo: rotuloTipoConsulta(c.tipo),
-        desc: null,
-      });
-    }
-    return lst.sort((a, b) => b.data.localeCompare(a.data));  // mais recente primeiro
-  }, [avaliacoes, checkins, planos, prescricoes, consultas]);
-
   if (carregando) {
-    return <div className="card empty-card"><div className="empty-sub">Carregando linha do tempo…</div></div>;
-  }
-
-  if (eventos.length === 0) {
-    return (
-      <div className="card empty-card">
-        <i className="ti ti-history empty-icon" aria-hidden="true"></i>
-        <div className="empty-title">Sem registros de evolução ainda</div>
-        <div className="empty-sub">
-          Conforme você registrar avaliações antropométricas e a paciente responder check-ins,
-          tudo vai aparecer aqui em ordem cronológica.
-        </div>
-      </div>
-    );
-  }
-
-  // Linha do tempo (check-ins, planos, prescrições, consultas): fica recolhida.
-  function renderHistorico(aberto) {
-    return (
-      <details open={aberto || suspeitas.size > 0} style={{ marginTop: 18 }}>
-        <summary style={{ cursor: 'pointer', fontSize: 13, fontWeight: 500, color: 'var(--dark)' }}>
-          Histórico de eventos ({eventos.length}) — avaliações, check-ins, planos e consultas
-        </summary>
-      <div className="section-header" style={{ marginTop: 18 }}>
-        <div className="section-title">Linha do tempo</div>
-        <span className="card-sub">mais recente primeiro</span>
-      </div>
-      <div style={{ position: 'relative', paddingLeft: 28, marginTop: 8 }}>
-        {/* Linha vertical */}
-        <div style={{
-          position: 'absolute', left: 11, top: 0, bottom: 0,
-          width: 2, background: 'var(--border)',
-        }} />
-        {eventos.map((ev, i) => (
-          <div key={i} style={{ position: 'relative', marginBottom: 14 }}>
-            {/* Ponto */}
-            <div style={{
-              position: 'absolute', left: -22, top: 14,
-              width: 16, height: 16, borderRadius: '50%',
-              background: ev.cor,
-              border: '2px solid var(--white)',
-              boxShadow: '0 0 0 1px var(--border)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <i className={`ti ti-${ev.icon}`} style={{ fontSize: 9, color: 'var(--white)' }} aria-hidden="true"></i>
-            </div>
-            {/* Card do evento */}
-            <div
-              className="card"
-              style={{
-                padding: '12px 14px', marginBottom: 0,
-                cursor: ev.checkinId ? 'pointer' : 'default',
-              }}
-              onClick={() => ev.checkinId && setVerCheckin(ev.checkin)}>
-              <div style={{
-                fontSize: 10, color: ev.cor, letterSpacing: '.5px',
-                textTransform: 'uppercase', fontWeight: 600, marginBottom: 4,
-              }}>
-                {dataBR(ev.data)}
-              </div>
-              <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--dark)' }}>{ev.titulo}</div>
-              {ev.desc && (
-                <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 3 }}>{ev.desc}</div>
-              )}
-              {ev.checkinId && (
-                <div style={{ fontSize: 10, color: 'var(--gold-deep, #a08456)', marginTop: 4 }}>
-                  toque para ver respostas →
-                </div>
-              )}
-              {ev.avaliacaoId != null && (
-                <LinhaAvaliacao
-                  ignorada={ignoradas.has(ev.avaliacaoId)}
-                  suspeita={suspeitas.get(ev.avaliacaoId)}
-                  onAlternar={() => alternarIgnorada(ev.avaliacaoId)} />
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      </details>
-    );
+    return <div className="card empty-card"><div className="empty-sub">Carregando evolução…</div></div>;
   }
 
   if (avaliacoes.length === 0) {
-    // Sem avaliações do Shaped ainda: só o histórico de eventos.
     return (
       <>
         <div className="card empty-card" style={{ marginBottom: 14 }}>
@@ -306,7 +159,6 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
           <div className="empty-title">Sem avaliações antropométricas ainda</div>
           <div className="empty-sub">Importe o relatório do Shaped em "Registrar avaliação" e a evolução aparece aqui.</div>
         </div>
-        {renderHistorico(true)}
       </>
     );
   }
@@ -368,11 +220,6 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
       <TabelaCalculos campos={TABELA} series={series} comps={comparacoes} pesoNeutro={pesoNeutro}
         rotuloPeriodo={rotuloPeriodo} imc={imc} />
 
-      {renderHistorico(false)}
-
-      {verCheckin && (
-        <VerCheckinModal envio={verCheckin} onClose={() => setVerCheckin(null)} />
-      )}
     </>
   );
 }
@@ -445,22 +292,6 @@ function AvisoSuspeitas({ suspeitas, porId, ignoradas, onIgnorar }) {
   );
 }
 
-/** Selo + botão dentro do card da avaliação na linha do tempo. */
-function LinhaAvaliacao({ ignorada, suspeita, onAlternar }) {
-  return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginTop: 6 }}>
-      {ignorada && <span style={{ fontSize: 11, color: 'var(--text3)' }}>ignorada nas contas</span>}
-      {!ignorada && suspeita && (
-        <span style={{ fontSize: 11, color: '#8a6a1c', fontWeight: 600 }}>conferir</span>
-      )}
-      <button className="btn-outline" style={{ fontSize: 11, padding: '3px 8px' }}
-        onClick={(e) => { e.stopPropagation(); onAlternar(); }}>
-        {ignorada ? 'Voltar a usar' : 'Ignorar nas contas'}
-      </button>
-    </div>
-  );
-}
-
 /* ============================================================
    PAINEL VISUAL: bonequinho + gráfico (com seletor de medida) + composição
    ============================================================ */
@@ -521,61 +352,6 @@ function ModoApresentacao({ paciente, sexo, frase, registros, avaliacoes, series
           composicao={composicao} registros={avaliacoes} grande />
         <TabelaCalculos campos={TABELA} series={series} comps={comparacoes} pesoNeutro={pesoNeutro}
           rotuloPeriodo={rotuloPeriodo} imc={imc} />
-      </div>
-    </div>
-  );
-}
-
-/* ============================================================
-   MODAL DE VER RESPOSTAS DO CHECK-IN
-   ============================================================ */
-function VerCheckinModal({ envio, onClose }) {
-  const respostas = envio.respostas ?? {};
-  return (
-    <ModalShell title="Respostas do check-in"
-      subtitle={`Respondido em ${dataBR(envio.respondido_em)}`}
-      onClose={onClose} large>
-      <div style={{ background: 'var(--bg2)', borderRadius: 8, padding: 12 }}>
-        {envio.perguntas?.map(p => (
-          <div key={p.id} style={{
-            padding: '10px 0',
-            borderBottom: '0.5px solid #e3dcce',
-          }}>
-            <div style={{ fontSize: 11, letterSpacing: 1, color: 'var(--text3)', textTransform: 'uppercase', marginBottom: 4 }}>
-              {p.secao}
-            </div>
-            <div style={{ fontSize: 13, color: 'var(--dark)', fontWeight: 500, marginBottom: 4 }}>
-              {p.pergunta}
-            </div>
-            <div style={{ fontSize: 13, color: 'var(--ink-soft, #4a3828)', background: 'var(--white)', padding: '8px 10px', borderRadius: 6 }}>
-              {formatarResposta(p, respostas[p.id])}
-            </div>
-          </div>
-        ))}
-      </div>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 14 }}>
-        <button className="btn-outline" onClick={onClose}>Fechar</button>
-      </div>
-    </ModalShell>
-  );
-}
-
-function ModalShell({ title, subtitle, children, onClose, large }) {
-  return (
-    <div style={{
-      position: 'fixed', inset: 0,
-      background: 'rgba(28,23,18,.55)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 150,
-    }} onClick={onClose}>
-      <div onClick={e => e.stopPropagation()} style={{
-        background: 'var(--white)', borderRadius: 12, padding: 22,
-        width: large ? 600 : 460, maxWidth: '92vw',
-        maxHeight: '92vh', overflowY: 'auto',
-        border: '0.5px solid var(--border)',
-      }}>
-        <div style={{ fontFamily: 'var(--font-serif)', fontSize: 19, marginBottom: 4 }}>{title}</div>
-        {subtitle && <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 14 }}>{subtitle}</div>}
-        {children}
       </div>
     </div>
   );
