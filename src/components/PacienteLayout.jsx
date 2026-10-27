@@ -416,12 +416,15 @@ export default function PacienteLayout() {
               <strong>{bannerDias === 1 ? 'amanhã' : 'hoje'}</strong>
               {bannerHora && ` às ${bannerHora}`}
               {tema.nutri_nome && ` · ${tema.nutri_nome}`}
-              {/* Onde: só presencial com local preenchido (online e "sem local" não mostram nada,
-                  igual ao LocalConsulta do Início). O endereço completo fica no card do Início. */}
-              {proximaBanner?.modalidade === 'presencial' && proximaBanner?.local?.nome && (
+              {/* Como e onde: online, presencial com o nome do local, ou só "presencial" quando o
+                  local não foi preenchido. Modalidade vazia (consulta antiga): nada. O endereço
+                  completo fica no card do Início. */}
+              {(proximaBanner?.modalidade === 'online' || proximaBanner?.modalidade === 'presencial') && (
                 <span style={{ display: 'block', color: 'var(--muted)' }}>
-                  <i className="ti ti-map-pin" style={{ fontSize: 12, marginRight: 3 }} aria-hidden="true" />
-                  {proximaBanner.local.nome}
+                  <i className={`ti ti-${proximaBanner.modalidade === 'online' ? 'video' : 'map-pin'}`} style={{ fontSize: 12, marginRight: 3 }} aria-hidden="true" />
+                  {proximaBanner.modalidade === 'online'
+                    ? 'Online'
+                    : (proximaBanner.local?.nome ?? 'Presencial')}
                 </span>
               )}
             </div>

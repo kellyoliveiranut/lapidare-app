@@ -110,30 +110,34 @@ function ConfirmarPresenca({ confirmada, avisouAusencia = false, escuro, ocupado
   );
 }
 
-// Onde a consulta acontece. Um componente só, usado nos DOIS cards (o normal e
+// Como e onde a consulta acontece. Um componente só, usado nos DOIS cards (o normal e
 // o banner da véspera), para os dois não divergirem.
-//
-// Três motivos para não renderizar nada, todos legítimos e nenhum é erro:
-//   - consulta online (o local nem existe: há check no banco amarrando
+//   - online: mostra "Online" (o local nem existe: há check no banco amarrando
 //     local_id a modalidade = 'presencial');
-//   - presencial sem local preenchido — o campo é opcional na Agenda;
-//   - `local` nulo porque o join foi barrado pela RLS. É o caso que motivou a
-//     migration 2026-08-28b; sem ela, TODA paciente cai aqui em silêncio.
+//   - presencial com local: mostra nome e endereço;
+//   - presencial sem local (o campo é opcional na Agenda) ou com `local` nulo porque
+//     o join foi barrado pela RLS (migration 2026-08-28b): mostra só "Presencial".
+//     Melhor dizer a modalidade do que não dizer nada;
+//   - modalidade vazia (consulta antiga): não mostra nada, não há o que afirmar.
 function LocalConsulta({ consulta, escuro = false }) {
-  if (consulta?.modalidade !== 'presencial') return null;
-  const nome = consulta.local?.nome;
-  if (!nome) return null;
-  const endereco = consulta.local?.endereco;
+  const modalidade = consulta?.modalidade;
+  if (modalidade !== 'presencial' && modalidade !== 'online') return null;
+  const online = modalidade === 'online';
+  const nome = online ? null : consulta.local?.nome;
+  const endereco = online ? null : consulta.local?.endereco;
   return (
     <div style={{
       display: 'flex', alignItems: 'flex-start', gap: 6,
       fontSize: 12, lineHeight: 1.4, marginBottom: 10,
       color: escuro ? 'rgba(255,255,255,.85)' : 'var(--muted)',
     }}>
-      <i className="ti ti-map-pin" style={{ fontSize: 14, flexShrink: 0, marginTop: 1 }} aria-hidden="true" />
+      <i className={`ti ti-${online ? 'video' : 'map-pin'}`} style={{ fontSize: 14, flexShrink: 0, marginTop: 1 }} aria-hidden="true" />
       <span>
-        <strong style={{ fontWeight: 600 }}>{nome}</strong>
-        {endereco && <><br />{endereco}</>}
+        {online
+          ? <strong style={{ fontWeight: 600 }}>Consulta online</strong>
+          : nome
+            ? <><strong style={{ fontWeight: 600 }}>{nome}</strong>{endereco && <><br />{endereco}</>}</>
+            : <strong style={{ fontWeight: 600 }}>Consulta presencial</strong>}
       </span>
     </div>
   );
