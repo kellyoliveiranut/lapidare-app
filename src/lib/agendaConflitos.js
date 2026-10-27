@@ -150,6 +150,18 @@ export function horariosLivres({
 }
 
 /**
+ * Grade de inícios para o local escolhido. Um local com `primeiro_horario_tarde`
+ * (ex.: '14:30' na Wandenkolk) não oferece horário da tarde antes dele: somem
+ * os inícios entre 12:00 e esse horário. Manhã e horários depois dele ficam.
+ * Sem local, sem regra ou regra inválida → a grade inteira.
+ */
+export function gradeDoLocal(local, grade = HORARIOS_CONSULTA) {
+  const primeiro = local?.primeiro_horario_tarde;
+  if (!/^\d{2}:\d{2}$/.test(primeiro ?? '')) return grade;
+  return grade.filter(h => h < '12:00' || h >= primeiro);
+}
+
+/**
  * Primeiro horário da lista a partir de `preferido` ('HH:MM'); se não houver
  * nenhum depois, o primeiro da lista; lista vazia → null. A lista vem em ordem
  * de relógio, e 'HH:MM' compara certo como texto.

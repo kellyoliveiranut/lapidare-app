@@ -10,7 +10,7 @@
 process.env.TZ = process.env.TZ_TESTE || 'America/Belem';
 
 // Import DINAMICO: o TZ acima precisa valer antes de o módulo carregar.
-const { horariosLivres, opcoesHorario, primeiroLivreAPartirDe, carregarOcupacaoDoDia } = await import('./agendaConflitos.js');
+const { gradeDoLocal, horariosLivres, opcoesHorario, primeiroLivreAPartirDe, carregarOcupacaoDoDia } = await import('./agendaConflitos.js');
 const { montarDataHoraISO, HORARIOS_CONSULTA } = await import('./utils.js');
 
 let ok = 0, falhou = 0;
@@ -202,6 +202,18 @@ function clienteFalso(respostas) {
 }
 t('leitura', 'sem data: nada lido, listas vazias',
   await carregarOcupacaoDoDia(clienteFalso({}).supabase, { nutriId: 'N', data: '' }), { consultas: [], bloqueios: [] });
+
+// ─── gradeDoLocal ────────────────────────────────────────────────────
+const W = { primeiro_horario_tarde: '14:30' };
+t('gradeDoLocal', 'Wandenkolk: tarde começa 14:30',
+  gradeDoLocal(W).filter(h => h >= '12:00'), ['14:30','15:00','15:30','16:00','16:30','17:00','17:30','18:00']);
+t('gradeDoLocal', 'manhã intacta', gradeDoLocal(W).filter(h => h < '12:00'), G.filter(h => h < '12:00'));
+t('gradeDoLocal', 'sem regra → grade inteira', gradeDoLocal({ primeiro_horario_tarde: null }), G);
+t('gradeDoLocal', 'sem local → grade inteira', gradeDoLocal(null), G);
+t('gradeDoLocal', 'regra inválida → grade inteira', gradeDoLocal({ primeiro_horario_tarde: 'x' }), G);
+t('gradeDoLocal', 'sem 14:00 e 13:30', [gradeDoLocal(W).includes('14:00'), gradeDoLocal(W).includes('13:30')], [false, false]);
+t('gradeDoLocal', 'com horariosLivres: dia vazio, 14:00 não aparece',
+  horariosLivres({ data: D, duracaoMin: 60, grade: gradeDoLocal(W) }).includes('14:00'), false);
 
 // ─── saída ───────────────────────────────────────────────────────────
 let grupoAtual = '';

@@ -8,7 +8,7 @@ import NovaPacienteRapida from './_NovaPacienteRapida.jsx';
 import { linkConvite, mensagemConviteEncoded } from '../../lib/convite.js';
 import {
   verificarAgenda, textoImpedimentos, textoConfirmacao, bloqueioCobre, impedimentosQueTravam, avisosQueConfirmam,
-  carregarOcupacaoDoDia, horariosLivres, opcoesHorario,
+  carregarOcupacaoDoDia, horariosLivres, opcoesHorario, gradeDoLocal,
 } from '../../lib/agendaConflitos.js';
 import { tipoColor, tipoColorSoft, MODALIDADES_CONSULTA, modalidadeInfo, opcoesTipoConsulta, tipoSugerido } from '../../lib/consultaVisual.js';
 import { modalidadeDaPaciente, localPadrao } from '../../lib/opcoesPaciente.js';
@@ -389,7 +389,7 @@ export default function Agenda() {
   async function carregarLocais() {
     if (!user) return;
     const { data } = await supabase
-      .from('locais_atendimento').select('id, nome, endereco, ativo, dias_semana')
+      .from('locais_atendimento').select('id, nome, endereco, ativo, dias_semana, primeiro_horario_tarde')
       .eq('nutri_id', user.id).order('nome');
     setLocais(data ?? []);
   }
@@ -2792,15 +2792,22 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
 
   const idEditado = isEdit ? consulta.id : null;
   const carregandoHorarios = !!data && ocupacao.data !== data;
+  // Local com regra própria (Wandenkolk: tarde só a partir das 14:30). Online
+  // não tem local, então vale a grade inteira.
+  const grade = useMemo(
+    () => gradeDoLocal(modalidade === 'presencial' ? (locais ?? []).find(l => l.id === localId) : null),
+    [modalidade, localId, locais],
+  );
   const livres = useMemo(() => {
     if (!data || carregandoHorarios) return [];
-    if (ocupacao.falhou) return HORARIOS_CONSULTA;
+    if (ocupacao.falhou) return grade;
     return horariosLivres({
       data, duracaoMin: Number(duracao),
       consultas: ocupacao.consultas, bloqueios: ocupacao.bloqueios,
       ignorarIds: idEditado ? [idEditado] : [],
+      grade,
     });
-  }, [data, duracao, ocupacao, carregandoHorarios, idEditado]);
+  }, [data, duracao, ocupacao, carregandoHorarios, idEditado, grade]);
 
   // "(atual)" só no dia original: em outro dia o horário de antes não é
   // referência de nada. `valor` é o que o select mostra E o que o salvar grava.
