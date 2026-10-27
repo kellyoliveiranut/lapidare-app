@@ -127,14 +127,32 @@ export function TabelaCalculos({ campos, series, comps, pesoNeutro, rotuloPeriod
           {imc && (
             <tr>
               <td style={{ ...td, fontWeight: 500 }}>IMC</td>
-              <td style={td}>{imc.inicio != null ? fmtNum(imc.inicio, 1) : '—'}</td>
-              <td style={td}>{fmtNum(imc.atual, 1)}</td>
+              <td style={td}>{imc.inicio != null ? fmtNum(imc.inicio, 1) : '—'}<ClasseImc c={imc.classeInicio} /></td>
+              <td style={td}>{fmtNum(imc.atual, 1)}<ClasseImc c={imc.classeAtual} /></td>
               <td style={td}>{imc.inicio != null ? `${imc.atual - imc.inicio > 0 ? '+' : imc.atual - imc.inicio < 0 ? '−' : ''}${fmtNum(Math.abs(imc.atual - imc.inicio), 1)}` : '—'}</td>
               <td style={td}>—</td><td style={td}>—</td>
             </tr>
           )}
         </tbody>
       </table>
+      {imc && (
+        <div style={{ fontSize: 11, color: 'var(--muted, #8c7b6b)', padding: '8px 10px 4px', lineHeight: 1.5 }}>
+          {imc.semNascimento
+            ? 'IMC sem classificação: preencha a data de nascimento no cadastro (adulto: OMS; idoso, a partir de 60 anos: Lipschitz).'
+            : (imc.classeAtual || imc.classeInicio)
+              ? 'Classificação pela idade na data de cada medida — adulto: OMS; idoso (60 anos ou mais): Lipschitz.'
+              : 'IMC sem classificação para menores de 20 anos (usa curvas de percentil/escore-z da OMS).'}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ClasseImc({ c }) {
+  if (!c) return null;
+  return (
+    <div style={{ fontSize: 11, color: 'var(--muted, #8c7b6b)', fontWeight: 500 }} title={c.referencia}>
+      {c.faixa} <span style={{ fontWeight: 400 }}>· {c.referencia.split(' · ')[0]}</span>
     </div>
   );
 }

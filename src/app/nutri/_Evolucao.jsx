@@ -6,7 +6,7 @@ import { diasEntre, ehEmagrecimento } from '../../lib/resultadosClinicos.js';
 import {
   METRICAS, PERIODOS, serieDaMetrica, comparar, detectarSuspeitas,
   composicaoCorporal, fmtDelta, rotuloTipoConsulta,
-  descricaoAvaliacao, descricaoPlano, resumoCheckin, normalizarAvaliacoes,
+  descricaoAvaliacao, descricaoPlano, resumoCheckin, normalizarAvaliacoes, idadeEm, classificarImc,
 } from '../../lib/evolucaoAvaliacoes.js';
 import { tempoDe } from '../../lib/sinaleira.js';
 import {
@@ -109,14 +109,23 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
   const metricasDoGrafico = GRAFICO_ORDEM.filter((c) => series[c].length >= 2);
   const campoGrafico = metricasDoGrafico.includes(metricaGrafico) ? metricaGrafico : metricasDoGrafico[0];
 
-  // IMC = peso ÷ altura². Só a conta (sem classificação — critério é da nutricionista).
+  // IMC = peso ÷ altura², classificado pela idade em cada data (adulto OMS / idoso Lipschitz).
   const imc = useMemo(() => {
     const alt = [...avaliacoes].reverse().find((a) => Number(a.altura_cm) > 0)?.altura_cm;
     const kgs = series.kg;
     if (!alt || !kgs?.length) return null;
     const f = (kg) => kg / ((Number(alt) / 100) ** 2);
-    return { atual: f(kgs[kgs.length - 1].valor), inicio: comparacoes.kg ? f(comparacoes.kg.base.valor) : null };
-  }, [avaliacoes, series, comparacoes]);
+    const ult = kgs[kgs.length - 1];
+    const nasc = paciente?.nascimento;
+    const base = comparacoes.kg?.base;
+    const vAtual = f(ult.valor), vInicio = base ? f(base.valor) : null;
+    return {
+      atual: vAtual, inicio: vInicio,
+      classeAtual: classificarImc(vAtual, idadeEm(nasc, ult.data)),
+      classeInicio: vInicio != null ? classificarImc(vInicio, idadeEm(nasc, base.data)) : null,
+      semNascimento: !nasc,
+    };
+  }, [avaliacoes, series, comparacoes, paciente?.nascimento]);
   const sexo = paciente?.sexo;
 
   // ─── Timeline consolidada ───

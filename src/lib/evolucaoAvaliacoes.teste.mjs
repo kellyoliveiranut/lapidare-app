@@ -119,4 +119,28 @@ t('normalizar lista vazia', E.normalizarAvaliacoes(null), []);
 t('abdome e panturrilha existem', [E.METRICAS.abdome_cm.rotulo, E.METRICAS.panturrilha_cm.rotulo], ['Abdome', 'Panturrilha']);
 
 console.log(`${ok} ok, ${falhou} falhou`);
+// ─── IMC por idade ───
+{
+  const { idadeEm, classificarImc } = await import('./evolucaoAvaliacoes.js');
+  let ok2 = 0, falha2 = 0;
+  const eq = (a, b, n) => { if (JSON.stringify(a) === JSON.stringify(b)) ok2++; else { falha2++; console.log('FALHOU', n, a, b); } };
+  eq(idadeEm('1966-10-28', '2026-10-27'), 59, 'aniversário amanhã');
+  eq(idadeEm('1966-10-27', '2026-10-27'), 60, 'aniversário hoje');
+  eq(idadeEm(null, '2026-10-27'), null, 'sem nascimento');
+  eq(classificarImc(21.9, 70)?.faixa, 'Baixo peso', 'idoso 21,9');
+  eq(classificarImc(22, 70)?.faixa, 'Eutrofia', 'idoso 22');
+  eq(classificarImc(27, 60)?.faixa, 'Eutrofia', 'idoso 27');
+  eq(classificarImc(27.1, 60)?.faixa, 'Sobrepeso', 'idoso 27,1');
+  eq(classificarImc(18.4, 40)?.faixa, 'Baixo peso', 'adulto 18,4');
+  eq(classificarImc(24.9, 40)?.faixa, 'Eutrofia', 'adulto 24,9');
+  eq(classificarImc(25, 59)?.faixa, 'Sobrepeso', 'adulto 25 aos 59');
+  eq(classificarImc(30, 40)?.faixa, 'Obesidade grau I', 'adulto 30');
+  eq(classificarImc(35, 40)?.faixa, 'Obesidade grau II', 'adulto 35');
+  eq(classificarImc(40, 40)?.faixa, 'Obesidade grau III', 'adulto 40');
+  eq(classificarImc(22, 15), null, 'menor de 20');
+  eq(classificarImc(22, null), null, 'sem idade');
+  console.log(`${ok2} ok, ${falha2} falhou (IMC por idade)`);
+  if (falha2) falhou += 1;
+}
+
 process.exit(falhou ? 1 : 0);

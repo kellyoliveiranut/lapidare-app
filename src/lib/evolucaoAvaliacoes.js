@@ -258,3 +258,29 @@ export function resumoCheckin(envio, formatar) {
     .map((p) => `${p.secao || p.pergunta}: ${formatar(p, respostas[p.id])}`);
   return [base, ...destaques].join(' · ');
 }
+
+// ─── Classificação do IMC por faixa etária ─────────────────────────────────
+// Idade completa (anos) em `dataISO`, a partir de 'YYYY-MM-DD'. Sem data válida: null.
+export function idadeEm(nascimento, dataISO) {
+  const n = /^(\d{4})-(\d{2})-(\d{2})/.exec(nascimento ?? '');
+  const d = /^(\d{4})-(\d{2})-(\d{2})/.exec(dataISO ?? '');
+  if (!n || !d) return null;
+  let anos = Number(d[1]) - Number(n[1]);
+  if (Number(d[2]) < Number(n[2]) || (Number(d[2]) === Number(n[2]) && Number(d[3]) < Number(n[3]))) anos -= 1;
+  return anos >= 0 ? anos : null;
+}
+
+// Adulto (20–59 anos): OMS. Idoso (≥ 60 anos): Lipschitz (1994), a mesma adotada pelo
+// SISVAN/Ministério da Saúde. Abaixo de 20 anos o IMC se classifica por percentil/escore-z
+// (curvas da OMS), que não é calculado aqui: devolve null.
+export function classificarImc(imc, idade) {
+  if (!(imc > 0) || idade == null || idade < 20) return null;
+  const v = Math.round(imc * 10) / 10;
+  if (idade >= 60) {
+    const faixa = v < 22 ? 'Baixo peso' : v <= 27 ? 'Eutrofia' : 'Sobrepeso';
+    return { faixa, referencia: 'Idoso · Lipschitz' };
+  }
+  const faixa = v < 18.5 ? 'Baixo peso' : v < 25 ? 'Eutrofia' : v < 30 ? 'Sobrepeso'
+    : v < 35 ? 'Obesidade grau I' : v < 40 ? 'Obesidade grau II' : 'Obesidade grau III';
+  return { faixa, referencia: 'Adulto · OMS' };
+}
