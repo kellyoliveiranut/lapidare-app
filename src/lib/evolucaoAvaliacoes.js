@@ -284,3 +284,31 @@ export function classificarImc(imc, idade) {
     : v < 35 ? 'Obesidade grau I' : v < 40 ? 'Obesidade grau II' : 'Obesidade grau III';
   return { faixa, referencia: 'Adulto · OMS' };
 }
+
+/**
+ * Confere avaliações AINDA NÃO SALVAS (importação do Shaped) contra o histórico.
+ * `existentes`: avaliações já no banco (as com ignorar_calculo ficam de fora).
+ * `novas`: [{ id, data, kg, cintura_cm, … }] com valores numéricos (ou null).
+ * Devolve Map(id da nova → [mensagem]) só para as novas que entram num salto
+ * improvável — mesma regra do aviso "conferir" da evolução. Não bloqueia nada:
+ * quem decide é a nutricionista.
+ */
+export function conferirNovas(existentes, novas) {
+  const base = normalizarAvaliacoes(existentes).filter((a) => !a.ignorar_calculo);
+  const novasNorm = normalizarAvaliacoes(novas);
+  const ids = new Set(novasNorm.map((n) => n.id));
+  const todas = [...base, ...novasNorm];
+  const porId = new Map(todas.map((a) => [a.id, a]));
+  const avisos = new Map();
+  for (const [id, s] of detectarSuspeitas(todas)) {
+    const alvo = ids.has(id) ? id : ids.has(s.deId) ? s.deId : null;
+    if (!alvo) continue;
+    const m = METRICAS[s.campo];
+    const de = porId.get(s.deId);
+    const txt = `${m.rotulo}: ${fmtDelta(s.campo, s.dif)} em ${s.dias} dia${s.dias === 1 ? '' : 's'}`
+      + (de ? ` em relação a ${de.data.slice(8, 10)}/${de.data.slice(5, 7)}/${de.data.slice(0, 4)}` : '');
+    if (!avisos.has(alvo)) avisos.set(alvo, []);
+    avisos.get(alvo).push(txt);
+  }
+  return avisos;
+}

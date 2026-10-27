@@ -56,6 +56,7 @@ import { TERMO_VERSAO } from '../../components/TermoConsentimento.jsx';
 import { criarContratoPendente, parseValorContrato } from '../../lib/contratoEssentia.js';
 import { convitePendenteVencido } from '../../lib/convite.js';
 import PlanoView from '../../components/PlanoView.jsx';
+import { conferirNovas } from '../../lib/evolucaoAvaliacoes.js';
 
 export default function PacientePerfil() {
   const { id } = useParams();
@@ -3370,7 +3371,7 @@ function RegistrarAvaliacao({ pacienteId, nutriId, paciente }) {
 
   async function carregar() {
     const { data: av } = await supabase.from('peso_registros')
-      .select('id, data, kg, altura_cm, cintura_cm, quadril_cm, abdome_cm, braco_cm, braco_dir_cm, braco_esq_cm, coxa_cm, coxa_dir_cm, coxa_esq_cm, panturrilha_cm, pgc, mm_kg, mm_pct, gordura_kg, hidratacao_pct, geb_kcal, get_kcal, obs')
+      .select('id, data, kg, altura_cm, cintura_cm, quadril_cm, abdome_cm, braco_cm, braco_dir_cm, braco_esq_cm, coxa_cm, coxa_dir_cm, coxa_esq_cm, panturrilha_cm, pgc, mm_kg, mm_pct, gordura_kg, hidratacao_pct, geb_kcal, get_kcal, obs, ignorar_calculo')
       .eq('paciente_id', pacienteId)
       .order('data', { ascending: false });
     setHistorico(av ?? []);
@@ -3466,6 +3467,7 @@ function RegistrarAvaliacao({ pacienteId, nutriId, paciente }) {
           rascunhos={rascunhos}
           salvando={salvandoLote}
           datasExistentes={new Set((historico ?? []).map(h => h.data))}
+          existentes={historico}
           onEditar={(id, campo, val) => setRascunhos(rs => rs.map(r => r._id === id ? { ...r, dados: { ...r.dados, [campo]: val } } : r))}
           onRemover={(id) => setRascunhos(rs => rs.filter(r => r._id !== id))}
           onReprocessar={reprocessarRascunho}
@@ -3769,7 +3771,7 @@ function parseSubs(subs) {
 }
 
 // ─── Modal: conferência do lote de avaliações Shaped (revisar antes de salvar) ──
-function ModalRevisaoLote({ rascunhos, salvando, datasExistentes, onEditar, onRemover, onReprocessar, onReprocessarTodos, onSalvar, onFechar }) {
+function ModalRevisaoLote({ rascunhos, salvando, datasExistentes, existentes, onEditar, onRemover, onReprocessar, onReprocessarTodos, onSalvar, onFechar }) {
   const comErro = rascunhos.filter(r => r.erro);
   const validos = rascunhos.filter(r => !r.erro && r.dados);
   const pendentes = validos.filter(r => dataSuspeita(r.dados.data) || !r.dados.kg);
@@ -3783,6 +3785,18 @@ function ModalRevisaoLote({ rascunhos, salvando, datasExistentes, onEditar, onRe
     if (d && !(d in primeiraOcorrencia)) primeiraOcorrencia[d] = r._id;
   }
   const podeSalvar = !salvando && !reprocessando && validos.length > 0 && pendentes.length === 0;
+
+  // Confere os valores lidos contra o histórico (mesma regra do aviso "conferir" da evolução).
+  // Só avisa: não impede de salvar. Datas já existentes/duplicadas não entram (serão ignoradas).
+  const aNumero = (v) => { const n = parseFloat(String(v ?? '').replace(',', '.')); return Number.isNaN(n) ? null : n; };
+  const novasParaConferir = validos
+    .filter(r => /^\d{4}-\d{2}-\d{2}$/.test(r.dados.data ?? '') && !datasExistentes?.has(r.dados.data) && primeiraOcorrencia[r.dados.data] === r._id)
+    .map(r => {
+      const o = { id: r._id, data: r.dados.data };
+      for (const c of CAMPOS_LOTE) o[c.k] = aNumero(r.dados[c.k]);
+      return o;
+    });
+  const avisosConferir = conferirNovas(existentes ?? [], novasParaConferir);
 
   const inputStyle = {
     width: '100%', boxSizing: 'border-box', padding: '7px 9px', borderRadius: 8,
@@ -3885,6 +3899,15 @@ function ModalRevisaoLote({ rascunhos, salvando, datasExistentes, onEditar, onRe
                     Remover
                   </button>
                 </div>
+
+                {avisosConferir.has(r._id) && (
+                  <div role="alert" style={{ marginBottom: 10, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--amber, #d97706)', background: 'var(--amber-bg, #fffbeb)', fontSize: 12, color: 'var(--dark)', lineHeight: 1.5 }}>
+                    <strong>⚠️ Conferir antes de salvar:</strong> pode ser leitura errada do PDF.
+                    <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>
+                      {avisosConferir.get(r._id).map((t, i) => <li key={i}>{t}</li>)}
+                    </ul>
+                  </div>
+                )}
 
                 <div style={{ marginBottom: 10, maxWidth: 220 }}>
                   <label style={labelStyle}>Data {suspeita && <span style={{ color: 'var(--red, #dc2626)' }}>· ⚠️ confira</span>}</label>

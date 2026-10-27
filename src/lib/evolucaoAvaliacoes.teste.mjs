@@ -143,4 +143,23 @@ console.log(`${ok} ok, ${falhou} falhou`);
   if (falha2) falhou += 1;
 }
 
+// ─── conferirNovas (importação) ───
+{
+  const { conferirNovas } = await import('./evolucaoAvaliacoes.js');
+  let ok3 = 0, falha3 = 0;
+  const eq = (a, b, n) => { if (JSON.stringify(a) === JSON.stringify(b)) ok3++; else { falha3++; console.log('FALHOU', n, a, b); } };
+  const hist = [
+    { id: 'h1', data: '2026-09-01', kg: 89.2 },
+    { id: 'h2', data: '2026-09-15', kg: 88.0 },
+  ];
+  eq(conferirNovas(hist, [{ id: 'n1', data: '2026-10-01', kg: 87.0 }]).size, 0, 'normal');
+  const a1 = conferirNovas(hist, [{ id: 'n1', data: '2026-10-01', kg: 72.0 }]);
+  eq(a1.get('n1')?.length, 1, 'salto absurdo');
+  eq(a1.get('n1')?.[0].startsWith('Peso: −16,0 kg em 16 dias'), true, 'texto do aviso');
+  eq(conferirNovas([{ ...hist[1], ignorar_calculo: true }, hist[0]], [{ id: 'n1', data: '2026-10-01', kg: 87.0 }]).size, 0, 'ignorada não conta');
+  eq(conferirNovas(hist, []).size, 0, 'sem novas');
+  console.log(`${ok3} ok, ${falha3} falhou (conferirNovas)`);
+  if (falha3) falhou += 1;
+}
+
 process.exit(falhou ? 1 : 0);
