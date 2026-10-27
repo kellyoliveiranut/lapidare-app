@@ -343,26 +343,24 @@ export function Bonequinho({ series, comps, pesoNeutro, sexo, campoAtivo, onEsco
   );
 }
 
-/* Recado escrito pela nutri (pacientes.recado_evolucao), em balão de fala.
-   O texto é da nutricionista; sem texto, nada aparece. */
-export function RecadoBalao({ texto, autora = 'Sua nutricionista' }) {
-  const t = (texto ?? '').trim();
-  if (!t) return null;
+/* Metas escolhidas pela nutri para a paciente (pacientes.metas_evolucao → catálogo
+   de lib/metasEvolucao.js). Sem metas, nada aparece. */
+export function MetasCard({ metas }) {
+  if (!metas || metas.length === 0) return null;
   return (
-    <figure style={{ margin: '0 0 14px', padding: 0 }}>
-      <blockquote style={{
-        position: 'relative', margin: 0, padding: '12px 16px', background: '#fffdf8',
-        border: '1.5px solid #a08456', borderRadius: 16, fontFamily: 'var(--font-serif)',
-        fontSize: 18, lineHeight: 1.4, color: 'var(--ink, #1c1712)', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere',
-      }}>
-        {t}
-        <span aria-hidden="true" style={{
-          position: 'absolute', left: 28, bottom: -9, width: 14, height: 14, background: '#fffdf8',
-          borderRight: '1.5px solid #a08456', borderBottom: '1.5px solid #a08456', transform: 'rotate(45deg)',
-        }} />
-      </blockquote>
-      <figcaption style={{ fontSize: 11, color: 'var(--muted, #8c7b6b)', margin: '12px 0 0 20px' }}>{autora}</figcaption>
-    </figure>
+    <div style={{ ...CARD, padding: '14px 16px', marginBottom: 12 }}>
+      <div style={{ fontSize: 10, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--muted, #8c7b6b)', fontWeight: 500, marginBottom: 8 }}>
+        Suas metas
+      </div>
+      <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+        {metas.map((m) => (
+          <li key={m.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 15, lineHeight: 1.4, padding: '5px 0', color: 'var(--ink, #1c1712)' }}>
+            <span aria-hidden="true" style={{ flexShrink: 0, width: 8, height: 8, borderRadius: '50%', background: '#a08456', marginTop: 7 }} />
+            <span>{m.texto}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

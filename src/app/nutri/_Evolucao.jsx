@@ -9,6 +9,7 @@ import {
   normalizarAvaliacoes, idadeEm, classificarImc,
 } from '../../lib/evolucaoAvaliacoes.js';
 import { tempoDe } from '../../lib/sinaleira.js';
+import { METAS, TEMAS, MAX_METAS, temaDoObjetivo } from '../../lib/metasEvolucao.js';
 import {
   Jornada, CartoesMetricas, TabelaCalculos, Grafico, Bonequinho, BarrasComposicao,
 } from '../../components/EvolucaoVisual.jsx';
@@ -39,9 +40,9 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
   const [erroIgnorar, setErroIgnorar] = useState('');
   const [sexoLocal, setSexoLocal] = useState(null);
   const [erroSexo, setErroSexo] = useState('');
-  const [recado, setRecado] = useState(paciente?.recado_evolucao ?? '');
-  const [recadoSalvo, setRecadoSalvo] = useState(paciente?.recado_evolucao ?? '');
-  const [recadoMsg, setRecadoMsg] = useState('');
+  const [metas, setMetas] = useState(() => paciente?.metas_evolucao ?? []);
+  const [metasSalvas, setMetasSalvas] = useState(() => paciente?.metas_evolucao ?? []);
+  const [metasMsg, setMetasMsg] = useState('');
 
   // Deriva do que veio do banco: não há estado paralelo para ficar fora de sincronia.
   const ignoradas = useMemo(
@@ -67,16 +68,23 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
     setSexoLocal(v);
   }
 
-  async function salvarRecado() {
-    setRecadoMsg('');
-    const texto = recado.trim();
+  function alternarMeta(id) {
+    setMetasMsg('');
+    setMetas((lst) => {
+      if (lst.includes(id)) return lst.filter((x) => x !== id);
+      return lst.length >= MAX_METAS ? lst : [...lst, id];
+    });
+  }
+
+  async function salvarMetas() {
+    setMetasMsg('');
     const r = await gravar(
-      supabase.from('pacientes').update({ recado_evolucao: texto || null }).eq('id', pacienteId),
-      { rotulo: 'salvar o recado' },
+      supabase.from('pacientes').update({ metas_evolucao: metas }).eq('id', pacienteId),
+      { rotulo: 'salvar as metas' },
     );
-    if (!r.ok) { setRecadoMsg(r.msg); return; }
-    setRecado(texto); setRecadoSalvo(texto);
-    setRecadoMsg(texto ? 'Recado salvo. A paciente vê no gráfico dela.' : 'Recado removido.');
+    if (!r.ok) { setMetasMsg(r.msg); return; }
+    setMetasSalvas(metas);
+    setMetasMsg(metas.length ? 'Metas salvas. A paciente vê na tela de evolução dela.' : 'Metas removidas.');
   }
 
   async function carregar(signal = { cancelled: false }) {
@@ -229,8 +237,8 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
       <Jornada titulo="Evolução da paciente" frase={frase} registros={validas.length}
         pesoComp={comparacoes.kg} composicao={composicao} />
 
-      <CampoRecado valor={recado} salvo={recadoSalvo} msg={recadoMsg}
-        onChange={(v) => { setRecado(v); setRecadoMsg(''); }} onSalvar={salvarRecado} />
+      <CampoMetas objetivo={paciente?.objetivo} escolhidas={metas} salvas={metasSalvas} msg={metasMsg}
+        onAlternar={alternarMeta} onSalvar={salvarMetas} />
 
       <CartoesMetricas campos={CARTOES} series={series} comps={comparacoes} pesoNeutro={pesoNeutro}
         campoAtivo={campoGrafico} onEscolher={setMetricaGrafico} colunas={4} />
@@ -279,22 +287,45 @@ function ListaAvaliacoes({ avaliacoes, ignoradas, suspeitas, onAlternar }) {
   );
 }
 
-// Recado da nutri para o balão da paciente. O texto é todo da Kelly: o app não sugere nada.
-function CampoRecado({ valor, salvo, msg, onChange, onSalvar }) {
-  const mudou = valor.trim() !== (salvo ?? '').trim();
+// Metas da paciente: a nutri marca no catálogo (lib/metasEvolucao.js), até MAX_METAS.
+// Começa pelo tema do objetivo da paciente; os outros temas ficam um clique abaixo.
+function CampoMetas({ objetivo, escolhidas, salvas, msg, onAlternar, onSalvar }) {
+  const sugerido = temaDoObjetivo(objetivo);
+  const [verTodos, setVerTodos] = useState(false);
+  const mudou = escolhidas.length !== salvas.length || escolhidas.some((c) => !salvas.includes(c));
+  const temas = TEMAS.filter((t) => verTodos || t.id === sugerido || t.id === 'geral'
+    || METAS.some((m) => m.tema === t.id && escolhidas.includes(m.id)));
+  const cheio = escolhidas.length >= MAX_METAS;
   return (
     <div className="card" style={{ padding: '12px 16px', marginBottom: 12 }}>
-      <label htmlFor="evo-recado" style={{ display: 'block', fontSize: 10, letterSpacing: '.16em', textTransform: 'uppercase', color: 'var(--text3)', fontWeight: 500, marginBottom: 6 }}>
-        Recado para a paciente (aparece no gráfico dela)
-      </label>
-      <textarea id="evo-recado" value={valor} maxLength={200} rows={2}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder="Escreva aqui um recado curto. Se ficar vazio, nada aparece para a paciente."
-        style={{ width: '100%', fontSize: 14, padding: '8px 10px', borderRadius: 8, border: '0.5px solid var(--border)', resize: 'vertical', fontFamily: 'inherit' }} />
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6, flexWrap: 'wrap' }}>
-        <button className="btn" type="button" disabled={!mudou} onClick={onSalvar}>Salvar recado</button>
-        <span style={{ fontSize: 11, color: 'var(--text3)' }}>{valor.length}/200</span>
+      <div style={{ fontSize: 10, letterSpacing: '.16em', textTransform: 'uppercase', color: 'var(--text3)', fontWeight: 500, marginBottom: 8 }}>
+        Metas da paciente ({escolhidas.length}/{MAX_METAS}) · a paciente vê na evolução dela
+      </div>
+      {temas.map((t) => (
+        <fieldset key={t.id} style={{ border: 'none', padding: 0, margin: '0 0 8px' }}>
+          <legend style={{ fontSize: 12, fontWeight: 600, color: 'var(--dark)', marginBottom: 4, padding: 0 }}>{t.rotulo}</legend>
+          {METAS.filter((m) => m.tema === t.id).map((m) => {
+            const marcada = escolhidas.includes(m.id);
+            return (
+              <label key={m.id} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 13, padding: '3px 0', opacity: !marcada && cheio ? 0.5 : 1 }}>
+                <input type="checkbox" checked={marcada} disabled={!marcada && cheio}
+                  onChange={() => onAlternar(m.id)} style={{ marginTop: 3, width: 'auto' }} />
+                <span>{m.texto}</span>
+              </label>
+            );
+          })}
+        </fieldset>
+      ))}
+      <button type="button" className="btn-outline" onClick={() => setVerTodos((v) => !v)} style={{ marginBottom: 8 }}>
+        {verTodos ? 'Mostrar só o tema da paciente' : 'Ver metas de outros temas'}
+      </button>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <button className="btn" type="button" disabled={!mudou} onClick={onSalvar}>Salvar metas</button>
+        {cheio && <span style={{ fontSize: 11, color: 'var(--text3)' }}>Limite de {MAX_METAS} metas: desmarque uma para trocar.</span>}
         {msg && <span role="status" style={{ fontSize: 12, color: msg.startsWith('Não consegui') ? '#a2442b' : 'var(--text3)' }}>{msg}</span>}
+      </div>
+      <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 8, lineHeight: 1.5 }}>
+        Os textos das metas são um rascunho para a sua revisão (src/lib/metasEvolucao.js). Nenhuma tem número, prazo ou promessa de resultado.
       </div>
     </div>
   );

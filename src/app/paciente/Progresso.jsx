@@ -2,9 +2,10 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { dataBR } from '../../lib/utils.js';
-import { Jornada, CartoesMetricas, Grafico, Bonequinho, BarrasComposicao, RecadoBalao } from '../../components/EvolucaoVisual.jsx';
+import { Jornada, CartoesMetricas, Grafico, Bonequinho, BarrasComposicao, MetasCard } from '../../components/EvolucaoVisual.jsx';
 import { sinalDe, tempoDe } from '../../lib/sinaleira.js';
 import { diasEntre, ehEmagrecimento } from '../../lib/resultadosClinicos.js';
+import { metasPorCodigos } from '../../lib/metasEvolucao.js';
 import {
   METRICAS, serieDaMetrica, comparar, composicaoCorporal,
   fmtValor, normalizarAvaliacoes,
@@ -104,7 +105,7 @@ export default function Progresso() {
           : `Você está há ${tempoDe(diasTotal)} em acompanhamento.`}
         registros={registros.length} pesoComp={pesoComp} composicao={composicao} />
 
-      <RecadoBalao texto={profile?.recado_evolucao} />
+      <MetasCard metas={metasPorCodigos(profile?.metas_evolucao)} />
 
       <CartoesMetricas campos={CARTOES} series={series} comps={comps} pesoNeutro={pesoNeutro}
         campoAtivo={campo} onEscolher={setMetrica} />
