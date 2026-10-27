@@ -80,7 +80,7 @@ export default function PainelResultados({ nutriId }) {
         if (ids.length === 0) { if (vivo) setDados({ vazio: true }); return; }
 
         const [pesos, habitos, suplementos, pratos, envios, monitoramento, treinos] = await Promise.all([
-          buscarTudo(() => supabase.from('peso_registros').select('id, paciente_id, data, kg').in('paciente_id', ids)),
+          buscarTudo(() => supabase.from('peso_registros').select('id, paciente_id, data, kg').in('paciente_id', ids).eq('ignorar_calculo', false)),
           // Hábito registrado com valor 0 é "não fiz": não conta como adesão.
           buscarTudo(() => supabase.from('habitos_logs').select('id, paciente_id, data, valor').in('paciente_id', ids).gte('data', dia30)),
           buscarTudo(() => supabase.from('suplementos_logs').select('id, paciente_id, data').in('paciente_id', ids).eq('tomado', true).gte('data', dia30)),

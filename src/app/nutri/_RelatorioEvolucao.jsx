@@ -19,7 +19,7 @@ export default function RelatorioEvolucao({ pacienteId, paciente, nutriId }) {
 
     const [pesosRes, supsRes, supLogsRes, habitosRes, habitoLogsRes,
            checkinsRes, followupsRes, planosRes, consultasRes] = await Promise.all([
-      supabase.from('peso_registros').select('data,kg,pgc,mm_kg,cintura_cm').eq('paciente_id', pacienteId).order('data'),
+      supabase.from('peso_registros').select('data,kg,pgc,mm_kg,cintura_cm').eq('paciente_id', pacienteId).eq('ignorar_calculo', false).order('data'),
       supabase.from('suplementos').select('id,nome,dose,unidade,horario,objetivo').eq('paciente_id', pacienteId).eq('ativo', true).order('ordem'),
       supabase.from('suplementos_logs').select('suplemento_id,data,tomado').eq('paciente_id', pacienteId).gte('data', trintaDiasAtras),
       supabase.from('habitos').select('id,nome,meta,unidade').eq('paciente_id', pacienteId).eq('ativo', true).order('ordem'),

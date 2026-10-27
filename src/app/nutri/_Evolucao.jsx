@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
+import { gravar } from '../../lib/gravar.js';
 import { dataBR } from '../../lib/utils.js';
 import { formatarResposta } from '../../lib/checkinDefault.js';
 import { diasEntre, ehEmagrecimento } from '../../lib/resultadosClinicos.js';
@@ -20,7 +21,8 @@ const TABELA = ['kg', 'pgc', 'gordura_kg', 'mm_kg', 'mm_pct', 'hidratacao_pct', 
   'quadril_cm', 'braco_cm', 'coxa_cm', 'panturrilha_cm', 'geb_kcal', 'get_kcal'];
 const GRAFICO_ORDEM = ['kg', 'pgc', 'gordura_kg', 'mm_kg', 'cintura_cm', 'abdome_cm', 'quadril_cm', 'braco_cm', 'coxa_cm', 'panturrilha_cm'];
 
-// Avaliações "ignoradas nas contas" ficam só neste navegador (não apagam nada).
+// "Ignorar nas contas" agora fica no banco (peso_registros.ignorar_calculo). A marcação antiga,
+// guardada só neste navegador, é migrada para o banco na primeira carga e depois apagada.
 const chaveIgnoradas = (pacienteId) => `lapidare:evolucaoIgnoradas:${pacienteId}`;
 function lerIgnoradas(pacienteId) {
   try {
@@ -39,32 +41,65 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
   const [apresentacao, setApresentacao] = useState(false);
   const [verCheckin, setVerCheckin] = useState(null);
   const [periodo, setPeriodo] = useState('inicio');
-  const [guardadas, setGuardadas] = useState(() => ({ id: pacienteId, set: lerIgnoradas(pacienteId) }));
   const [metricaGrafico, setMetricaGrafico] = useState('kg');
+  const [erroIgnorar, setErroIgnorar] = useState('');
+  const [recado, setRecado] = useState(paciente?.recado_evolucao ?? '');
+  const [recadoSalvo, setRecadoSalvo] = useState(paciente?.recado_evolucao ?? '');
+  const [recadoMsg, setRecadoMsg] = useState('');
 
-  // Se a ficha trocou de paciente, relê do navegador (sem efeito: deriva no render).
+  // Deriva do que veio do banco: não há estado paralelo para ficar fora de sincronia.
   const ignoradas = useMemo(
-    () => (guardadas.id === pacienteId ? guardadas.set : lerIgnoradas(pacienteId)),
-    [guardadas, pacienteId],
+    () => new Set(avaliacoes.filter((a) => a.ignorar_calculo).map((a) => a.id)),
+    [avaliacoes],
   );
 
-  function alternarIgnorada(id) {
-    const nova = new Set(ignoradas);
-    if (nova.has(id)) nova.delete(id); else nova.add(id);
-    try { localStorage.setItem(chaveIgnoradas(pacienteId), JSON.stringify([...nova])); } catch { /* sem storage */ }
-    setGuardadas({ id: pacienteId, set: nova });
+  async function alternarIgnorada(id) {
+    const marcar = !ignoradas.has(id);
+    setErroIgnorar('');
+    const r = await gravar(
+      supabase.from('peso_registros').update({ ignorar_calculo: marcar }).eq('id', id),
+      { rotulo: marcar ? 'ignorar a avaliação nas contas' : 'voltar a usar a avaliação' },
+    );
+    if (!r.ok) { setErroIgnorar(r.msg); return; }
+    setAvaliacoes((lst) => lst.map((a) => (a.id === id ? { ...a, ignorar_calculo: marcar } : a)));
+  }
+
+  async function salvarRecado() {
+    setRecadoMsg('');
+    const texto = recado.trim();
+    const r = await gravar(
+      supabase.from('pacientes').update({ recado_evolucao: texto || null }).eq('id', pacienteId),
+      { rotulo: 'salvar o recado' },
+    );
+    if (!r.ok) { setRecadoMsg(r.msg); return; }
+    setRecado(texto); setRecadoSalvo(texto);
+    setRecadoMsg(texto ? 'Recado salvo. A paciente vê no gráfico dela.' : 'Recado removido.');
   }
 
   async function carregar(signal = { cancelled: false }) {
     const [avRes, ckRes, plRes, prRes, csRes] = await Promise.all([
-      supabase.from('peso_registros').select('id,data,kg,altura_cm,pgc,mm_kg,mm_pct,gordura_kg,cintura_cm,quadril_cm,abdome_cm,braco_cm,braco_dir_cm,braco_esq_cm,coxa_cm,coxa_dir_cm,coxa_esq_cm,panturrilha_cm,hidratacao_pct,geb_kcal,get_kcal,obs').eq('paciente_id', pacienteId).order('data'),
+      supabase.from('peso_registros').select('id,data,kg,altura_cm,pgc,mm_kg,mm_pct,gordura_kg,cintura_cm,quadril_cm,abdome_cm,braco_cm,braco_dir_cm,braco_esq_cm,coxa_cm,coxa_dir_cm,coxa_esq_cm,panturrilha_cm,hidratacao_pct,geb_kcal,get_kcal,obs,ignorar_calculo').eq('paciente_id', pacienteId).order('data'),
       supabase.from('checkin_envios').select('id, perguntas, respostas, respondido_em, enviado_em').eq('paciente_id', pacienteId).not('respondido_em', 'is', null).order('respondido_em'),
       supabase.from('planos').select('id, dados, publicado_em').eq('paciente_id', pacienteId).order('publicado_em'),
       supabase.from('prescricoes').select('id, tipo, titulo, created_at').eq('paciente_id', pacienteId).order('created_at'),
       supabase.from('consultas').select('id, tipo, data_hora, status').eq('paciente_id', pacienteId).order('data_hora'),
     ]);
     if (signal.cancelled) return;
-    setAvaliacoes(normalizarAvaliacoes(avRes.data));
+    let lista = normalizarAvaliacoes(avRes.data);
+    // Migra o que a Kelly marcou antes neste navegador (uma vez; depois apaga a chave).
+    const antigas = lerIgnoradas(pacienteId);
+    if (antigas.size > 0) {
+      const ids = lista.filter((a) => antigas.has(a.id) && !a.ignorar_calculo).map((a) => a.id);
+      let ok = true;
+      if (ids.length > 0) {
+        const r = await gravar(supabase.from('peso_registros').update({ ignorar_calculo: true }).in('id', ids), { esperado: ids.length, rotulo: 'migrar as avaliações ignoradas' });
+        ok = r.ok;
+        if (ok) lista = lista.map((a) => (ids.includes(a.id) ? { ...a, ignorar_calculo: true } : a));
+      }
+      if (ok) { try { localStorage.removeItem(chaveIgnoradas(pacienteId)); } catch { /* sem storage */ } }
+    }
+    if (signal.cancelled) return;
+    setAvaliacoes(lista);
     setCheckins(ckRes.data ?? []);
     setPlanos(plRes.data ?? []);
     setPrescricoes(prRes.data ?? []);
@@ -315,9 +350,13 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
 
       <AvisoSuspeitas suspeitas={suspeitas} porId={avaliacoesPorId}
         ignoradas={ignoradas} onIgnorar={alternarIgnorada} />
+      {erroIgnorar && <div role="alert" style={{ fontSize: 12, color: '#a2442b', margin: '-4px 0 10px' }}>{erroIgnorar}</div>}
 
       <Jornada titulo="Evolução da paciente" frase={frase} registros={validas.length}
         pesoComp={comparacoes.kg} composicao={composicao} />
+
+      <CampoRecado valor={recado} salvo={recadoSalvo} msg={recadoMsg}
+        onChange={(v) => { setRecado(v); setRecadoMsg(''); }} onSalvar={salvarRecado} />
 
       <CartoesMetricas campos={CARTOES} series={series} comps={comparacoes} pesoNeutro={pesoNeutro}
         campoAtivo={campoGrafico} onEscolher={setMetricaGrafico} colunas={4} />
@@ -341,6 +380,27 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
 /* ============================================================
    AVISO "CONFERIR" (salto improvável) — não apaga nada
    ============================================================ */
+// Recado da nutri para o balão da paciente. O texto é todo da Kelly: o app não sugere nada.
+function CampoRecado({ valor, salvo, msg, onChange, onSalvar }) {
+  const mudou = valor.trim() !== (salvo ?? '').trim();
+  return (
+    <div className="card" style={{ padding: '12px 16px', marginBottom: 12 }}>
+      <label htmlFor="evo-recado" style={{ display: 'block', fontSize: 10, letterSpacing: '.16em', textTransform: 'uppercase', color: 'var(--text3)', fontWeight: 500, marginBottom: 6 }}>
+        Recado para a paciente (aparece no gráfico dela)
+      </label>
+      <textarea id="evo-recado" value={valor} maxLength={200} rows={2}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Escreva aqui um recado curto. Se ficar vazio, nada aparece para a paciente."
+        style={{ width: '100%', fontSize: 14, padding: '8px 10px', borderRadius: 8, border: '0.5px solid var(--border)', resize: 'vertical', fontFamily: 'inherit' }} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6, flexWrap: 'wrap' }}>
+        <button className="btn" type="button" disabled={!mudou} onClick={onSalvar}>Salvar recado</button>
+        <span style={{ fontSize: 11, color: 'var(--text3)' }}>{valor.length}/200</span>
+        {msg && <span role="status" style={{ fontSize: 12, color: msg.startsWith('Não consegui') ? '#a2442b' : 'var(--text3)' }}>{msg}</span>}
+      </div>
+    </div>
+  );
+}
+
 function AvisoSuspeitas({ suspeitas, porId, ignoradas, onIgnorar }) {
   const itens = [...suspeitas.entries()];
   const ignoradasLista = [...ignoradas].map((id) => porId.get(id)).filter(Boolean);

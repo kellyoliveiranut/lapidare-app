@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { dataBR } from '../../lib/utils.js';
-import { Jornada, CartoesMetricas, Grafico, Bonequinho, BarrasComposicao } from '../../components/EvolucaoVisual.jsx';
+import { Jornada, CartoesMetricas, Grafico, Bonequinho, BarrasComposicao, RecadoBalao } from '../../components/EvolucaoVisual.jsx';
 import { sinalDe, tempoDe } from '../../lib/sinaleira.js';
 import { diasEntre, ehEmagrecimento } from '../../lib/resultadosClinicos.js';
 import {
@@ -41,6 +41,7 @@ export default function Progresso() {
       const { data } = await supabase
         .from('peso_registros')
         .select('id, data, kg, cintura_cm, quadril_cm, abdome_cm, panturrilha_cm, braco_cm, braco_dir_cm, coxa_cm, coxa_dir_cm, pgc, mm_kg, gordura_kg, obs')
+        .eq('ignorar_calculo', false)
         .eq('paciente_id', pacienteId)
         .order('data', { ascending: true });
       if (!active) return;
@@ -102,6 +103,8 @@ export default function Progresso() {
           ? 'Sua primeira avaliação foi registrada.'
           : `Você está há ${tempoDe(diasTotal)} em acompanhamento.`}
         registros={registros.length} pesoComp={pesoComp} composicao={composicao} />
+
+      <RecadoBalao texto={profile?.recado_evolucao} />
 
       <CartoesMetricas campos={CARTOES} series={series} comps={comps} pesoNeutro={pesoNeutro}
         campoAtivo={campo} onEscolher={setMetrica} />

@@ -343,6 +343,29 @@ export function Bonequinho({ series, comps, pesoNeutro, sexo, campoAtivo, onEsco
   );
 }
 
+/* Recado escrito pela nutri (pacientes.recado_evolucao), em balão de fala.
+   O texto é da nutricionista; sem texto, nada aparece. */
+export function RecadoBalao({ texto, autora = 'Sua nutricionista' }) {
+  const t = (texto ?? '').trim();
+  if (!t) return null;
+  return (
+    <figure style={{ margin: '0 0 14px', padding: 0 }}>
+      <blockquote style={{
+        position: 'relative', margin: 0, padding: '12px 16px', background: '#fffdf8',
+        border: '1.5px solid #a08456', borderRadius: 16, fontFamily: 'var(--font-serif)',
+        fontSize: 18, lineHeight: 1.4, color: 'var(--ink, #1c1712)', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere',
+      }}>
+        {t}
+        <span aria-hidden="true" style={{
+          position: 'absolute', left: 28, bottom: -9, width: 14, height: 14, background: '#fffdf8',
+          borderRight: '1.5px solid #a08456', borderBottom: '1.5px solid #a08456', transform: 'rotate(45deg)',
+        }} />
+      </blockquote>
+      <figcaption style={{ fontSize: 11, color: 'var(--muted, #8c7b6b)', margin: '12px 0 0 20px' }}>{autora}</figcaption>
+    </figure>
+  );
+}
+
 export function Barra({ rotulo, r, maximo }) {
   const g = Number(r.gordura_kg), mm = Number(r.mm_kg);
   return (
