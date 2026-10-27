@@ -5,7 +5,7 @@ import { dataBR } from '../../lib/utils.js';
 import { diasEntre, ehEmagrecimento } from '../../lib/resultadosClinicos.js';
 import {
   METRICAS, PERIODOS, serieDaMetrica, comparar, detectarSuspeitas,
-  composicaoCorporal, fmtDelta,
+  composicaoCorporal, fmtDelta, fmtValor,
   normalizarAvaliacoes, idadeEm, classificarImc,
 } from '../../lib/evolucaoAvaliacoes.js';
 import { tempoDe } from '../../lib/sinaleira.js';
@@ -37,6 +37,8 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
   const [periodo, setPeriodo] = useState('inicio');
   const [metricaGrafico, setMetricaGrafico] = useState('kg');
   const [erroIgnorar, setErroIgnorar] = useState('');
+  const [sexoLocal, setSexoLocal] = useState(null);
+  const [erroSexo, setErroSexo] = useState('');
   const [recado, setRecado] = useState(paciente?.recado_evolucao ?? '');
   const [recadoSalvo, setRecadoSalvo] = useState(paciente?.recado_evolucao ?? '');
   const [recadoMsg, setRecadoMsg] = useState('');
@@ -56,6 +58,13 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
     );
     if (!r.ok) { setErroIgnorar(r.msg); return; }
     setAvaliacoes((lst) => lst.map((a) => (a.id === id ? { ...a, ignorar_calculo: marcar } : a)));
+  }
+
+  async function salvarSexo(v) {
+    setErroSexo('');
+    const r = await gravar(supabase.from('pacientes').update({ sexo: v }).eq('id', pacienteId), { rotulo: 'salvar o sexo' });
+    if (!r.ok) { setErroSexo(r.msg); return; }
+    setSexoLocal(v);
   }
 
   async function salvarRecado() {
@@ -145,7 +154,7 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
       semNascimento: !nasc,
     };
   }, [avaliacoes, series, comparacoes, paciente?.nascimento]);
-  const sexo = paciente?.sexo;
+  const sexo = sexoLocal ?? paciente?.sexo;
 
   if (carregando) {
     return <div className="card empty-card"><div className="empty-sub">Carregando evolução…</div></div>;
@@ -200,6 +209,19 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
         </div>
       </div>
 
+      {!sexo && (
+        <div className="card" role="status" style={{ padding: '12px 16px', marginBottom: 12, borderColor: 'var(--amber, #d97706)' }}>
+          <div style={{ fontSize: 13, marginBottom: 8 }}>
+            <strong>Sexo não informado.</strong> A silhueta do corpo e o check-in dependem dele. Enquanto isso aparece a silhueta feminina.
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <button className="btn-outline" type="button" onClick={() => salvarSexo('feminino')}>Feminino</button>
+            <button className="btn-outline" type="button" onClick={() => salvarSexo('masculino')}>Masculino</button>
+            {erroSexo && <span role="alert" style={{ fontSize: 12, color: '#a2442b' }}>{erroSexo}</span>}
+          </div>
+        </div>
+      )}
+
       <AvisoSuspeitas suspeitas={suspeitas} porId={avaliacoesPorId}
         ignoradas={ignoradas} onIgnorar={alternarIgnorada} />
       {erroIgnorar && <div role="alert" style={{ fontSize: 12, color: '#a2442b', margin: '-4px 0 10px' }}>{erroIgnorar}</div>}
@@ -217,6 +239,8 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
         campoGrafico={campoGrafico} metricasDoGrafico={metricasDoGrafico} onTrocar={setMetricaGrafico}
         composicao={composicao} registros={validas} />
 
+      <ListaAvaliacoes avaliacoes={avaliacoes} ignoradas={ignoradas} suspeitas={suspeitas} onAlternar={alternarIgnorada} />
+
       <TabelaCalculos campos={TABELA} series={series} comps={comparacoes} pesoNeutro={pesoNeutro}
         rotuloPeriodo={rotuloPeriodo} imc={imc} />
 
@@ -227,6 +251,34 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
 /* ============================================================
    AVISO "CONFERIR" (salto improvável) — não apaga nada
    ============================================================ */
+// Todas as avaliações, recolhidas, cada uma com "Ignorar nas contas" / "Voltar a usar".
+function ListaAvaliacoes({ avaliacoes, ignoradas, suspeitas, onAlternar }) {
+  const lista = [...avaliacoes].reverse();
+  return (
+    <details className="card" style={{ padding: '12px 16px', marginTop: 12 }}>
+      <summary style={{ cursor: 'pointer', fontSize: 13, fontWeight: 500 }}>
+        Avaliações registradas ({avaliacoes.length})
+      </summary>
+      <div style={{ marginTop: 8 }}>
+        {lista.map((a) => {
+          const ign = ignoradas.has(a.id);
+          return (
+            <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '8px 0', borderTop: '0.5px solid var(--hair-soft, #e6dfd3)', opacity: ign ? 0.6 : 1 }}>
+              <span style={{ fontSize: 13, fontWeight: 500, minWidth: 84 }}>{dataBR(a.data)}</span>
+              <span style={{ fontSize: 13, flex: 1, minWidth: 80 }}>{a.kg != null ? fmtValor('kg', a.kg) : '—'}</span>
+              {suspeitas.has(a.id) && <span style={{ fontSize: 11, color: '#a2442b' }}>conferir</span>}
+              {ign && <span style={{ fontSize: 11, color: 'var(--text3)' }}>ignorada nas contas</span>}
+              <button className="btn-outline" type="button" onClick={() => onAlternar(a.id)}>
+                {ign ? 'Voltar a usar' : 'Ignorar nas contas'}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </details>
+  );
+}
+
 // Recado da nutri para o balão da paciente. O texto é todo da Kelly: o app não sugere nada.
 function CampoRecado({ valor, salvo, msg, onChange, onSalvar }) {
   const mudou = valor.trim() !== (salvo ?? '').trim();

@@ -249,7 +249,7 @@ const CORPOS = {
     img: corpoFeminino,
     partes: [
       { campo: 'braco_cm',   nome: 'Braço',   x: 214, y: 255, rot: [112, 262] },
-      { campo: 'abdome_cm',  nome: 'Abdome',  x: 268, y: 330, rot: [128, 336], fita: [250, 350] },
+      { campo: 'abdome_cm',  nome: 'Abdome',  x: 268, y: 330, rot: [98, 336], fita: [250, 350] },
       { campo: 'cintura_cm', nome: 'Cintura', x: 300, y: 295, rot: [520, 300], fita: [248, 352] },
       { campo: 'quadril_cm', nome: 'Quadril', x: 250, y: 372, rot: [535, 352], fita: [218, 382] },
       { campo: 'coxa_cm',    nome: 'Coxa',    x: 268, y: 470, rot: [175, 480] },

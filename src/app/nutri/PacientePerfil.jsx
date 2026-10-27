@@ -3096,6 +3096,7 @@ async function runPool(items, limite, worker, onProgress) {
 
 function RegistrarAvaliacao({ pacienteId, nutriId, paciente }) {
   const [historico, setHistorico] = useState([]);
+  const avisoSaltoRef = useRef(null);
   const [form, setForm] = useState(novaAvaliacao());
   const [busy, setBusy] = useState(false);
   // DOIS estados de propósito. Este componente tem cinco fluxos que dão
@@ -3423,6 +3424,16 @@ function RegistrarAvaliacao({ pacienteId, nutriId, paciente }) {
         get_kcal: numInt(form.get_kcal),
         obs: form.obs.trim() || null,
       };
+      // Valor que destoa do histórico: avisa uma vez. Clicar em Salvar de novo, sem mexer nos
+      // campos, confirma (a nutri pode mesmo ter medido assim).
+      const assinatura = JSON.stringify(payload);
+      const avisos = conferirNovas(historico, [{ ...payload, id: 'novo' }]).get('novo');
+      if (avisos && avisoSaltoRef.current !== assinatura) {
+        avisoSaltoRef.current = assinatura;
+        setFeedback({ tipo: 'aviso', msg: `Confira antes de salvar (pode ser erro de digitação): ${avisos.join('; ')}. Se estiver certo, clique em Salvar de novo.` });
+        return;
+      }
+      avisoSaltoRef.current = null;
       const { error } = await supabase.from('peso_registros').insert(payload);
       if (error) throw error;
       setFeedback({ tipo: 'ok', msg: 'Avaliação registrada.' });
