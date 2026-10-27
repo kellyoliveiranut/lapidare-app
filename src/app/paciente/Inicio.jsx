@@ -36,34 +36,77 @@ function labelTipo(tipo) {
 // Botão/selo de confirmação de presença. `escuro` = card verde do "hoje",
 // que precisa de contraste invertido. Sem estado próprio: quem confirma é
 // a Inicio, que segura a consulta.
-function ConfirmarPresenca({ confirmada, escuro, ocupado, onConfirmar }) {
+function ConfirmarPresenca({ confirmada, avisouAusencia = false, escuro, ocupado, onConfirmar, onAvisarAusencia }) {
+  const [perguntando, setPerguntando] = useState(false);
+  const base = { display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 10, fontSize: 11, fontFamily: 'var(--font-sans)' };
+  const textoSuave = escuro ? 'rgba(255,255,255,.85)' : 'var(--muted)';
+  const botaoSuave = {
+    ...base, cursor: 'pointer', fontWeight: 500, background: 'transparent', color: textoSuave,
+    border: `0.5px solid ${escuro ? 'rgba(255,255,255,.4)' : 'var(--hair)'}`,
+  };
+
+  // Perguntar antes de avisar: um toque sem querer não deve mandar aviso à nutri.
+  if (perguntando) {
+    return (
+      <div role="group" aria-label="Confirmar aviso de ausência"
+        style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', fontSize: 11, color: textoSuave }}>
+        <span>Avisar sua nutri que você não irá?</span>
+        <button type="button" disabled={ocupado} onClick={() => { setPerguntando(false); onAvisarAusencia(); }}
+          style={{ ...base, cursor: 'pointer', fontWeight: 600, border: 'none', background: '#a2442b', color: '#fff' }}>
+          {ocupado ? 'Avisando…' : 'Sim, não irei'}
+        </button>
+        <button type="button" onClick={() => setPerguntando(false)} style={botaoSuave}>Voltar</button>
+      </div>
+    );
+  }
+  if (avisouAusencia) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <div style={{
+          ...base, fontWeight: 500,
+          background: escuro ? 'rgba(255,255,255,.15)' : 'rgba(162,68,43,.08)',
+          color: escuro ? '#fff' : '#a2442b',
+          border: `0.5px solid ${escuro ? 'rgba(255,255,255,.3)' : 'rgba(162,68,43,.35)'}`,
+        }}>
+          <i className="ti ti-calendar-off" style={{ fontSize: 13 }} aria-hidden="true" />
+          Você avisou que não irá. Sua nutri foi avisada.
+        </div>
+        <button type="button" onClick={onConfirmar} disabled={ocupado} style={botaoSuave}>
+          {ocupado ? 'Confirmando…' : 'Mudei de ideia: confirmar presença'}
+        </button>
+      </div>
+    );
+  }
   if (confirmada) {
     return (
-      <div style={{
-        display: 'inline-flex', alignItems: 'center', gap: 5,
-        padding: '6px 12px', borderRadius: 10, fontSize: 11, fontWeight: 500,
-        background: escuro ? 'rgba(255,255,255,.15)' : 'rgba(58,122,70,.10)',
-        color:      escuro ? '#fff' : 'var(--green, #3a7a46)',
-        border: `0.5px solid ${escuro ? 'rgba(255,255,255,.3)' : 'rgba(58,122,70,.35)'}`,
-      }}>
-        <i className="ti ti-check" style={{ fontSize: 13 }} aria-hidden="true" />
-        Presença confirmada
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <div style={{
+          ...base, fontWeight: 500,
+          background: escuro ? 'rgba(255,255,255,.15)' : 'rgba(58,122,70,.10)',
+          color:      escuro ? '#fff' : 'var(--green, #3a7a46)',
+          border: `0.5px solid ${escuro ? 'rgba(255,255,255,.3)' : 'rgba(58,122,70,.35)'}`,
+        }}>
+          <i className="ti ti-check" style={{ fontSize: 13 }} aria-hidden="true" />
+          Presença confirmada
+        </div>
+        <button type="button" onClick={() => setPerguntando(true)} style={botaoSuave}>Não poderei ir</button>
       </div>
     );
   }
   return (
-    <button onClick={onConfirmar} disabled={ocupado}
-      style={{
-        display: 'inline-flex', alignItems: 'center', gap: 5,
-        padding: '6px 12px', borderRadius: 10, cursor: 'pointer',
-        fontFamily: 'var(--font-sans)', fontSize: 11, fontWeight: 600,
-        background: escuro ? '#fff' : 'var(--green, #3a7a46)',
-        color:      escuro ? 'var(--green, #3a7a46)' : '#fff',
-        border: 'none',
-      }}>
-      <i className="ti ti-circle-check" style={{ fontSize: 13 }} aria-hidden="true" />
-      {ocupado ? 'Confirmando…' : 'Confirmar presença'}
-    </button>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+      <button onClick={onConfirmar} disabled={ocupado}
+        style={{
+          ...base, cursor: 'pointer', fontWeight: 600,
+          background: escuro ? '#fff' : 'var(--green, #3a7a46)',
+          color:      escuro ? 'var(--green, #3a7a46)' : '#fff',
+          border: 'none',
+        }}>
+        <i className="ti ti-circle-check" style={{ fontSize: 13 }} aria-hidden="true" />
+        {ocupado ? 'Confirmando…' : 'Confirmar presença'}
+      </button>
+      <button type="button" onClick={() => setPerguntando(true)} style={botaoSuave}>Não irei</button>
+    </div>
   );
 }
 
@@ -144,7 +187,7 @@ export default function Inicio() {
         // O MESMO select existe no refetch do realtime, mais abaixo: mudar só
         // um faz o local sumir na primeira atualização que chegar.
         supabase.from('consultas')
-          .select('id, data_hora, tipo, duracao_min, confirmada_em, modalidade, local_id, local:locais_atendimento(nome, endereco)')
+          .select('id, data_hora, tipo, duracao_min, confirmada_em, nao_confirmada_em, nao_confirmada_por, modalidade, local_id, local:locais_atendimento(nome, endereco)')
           .eq('paciente_id', pacienteId).eq('status', 'agendada')
           .gte('data_hora', agora).order('data_hora', { ascending: true }).limit(1).maybeSingle(),
         supabase.from('checkin_envios').select('id, enviado_em, lembrete_enviado_em, nome, tipo')
@@ -218,7 +261,7 @@ export default function Inicio() {
       const { data } = await supabase.from('consultas')
         // Mesmo select da carga inicial, incluindo o local — os dois andam
         // juntos, senão o local some assim que o realtime atualizar.
-        .select('id, data_hora, tipo, duracao_min, confirmada_em, modalidade, local_id, local:locais_atendimento(nome, endereco)')
+        .select('id, data_hora, tipo, duracao_min, confirmada_em, nao_confirmada_em, nao_confirmada_por, modalidade, local_id, local:locais_atendimento(nome, endereco)')
         .eq('paciente_id', pacienteId).eq('status', 'agendada')
         .gte('data_hora', new Date().toISOString())
         .order('data_hora', { ascending: true }).limit(1).maybeSingle();
@@ -366,8 +409,29 @@ export default function Inicio() {
       return;
     }
     // A RPC devolve o carimbo — atualiza local, sem refazer a query.
-    setProximaConsulta(c => (c ? { ...c, confirmada_em: data } : c));
+    setProximaConsulta(c => (c ? { ...c, confirmada_em: data, nao_confirmada_em: null, nao_confirmada_por: null } : c));
     avisarNutri(tokenPush, 'consulta_confirmada');
+  }
+
+  // "Não irei": a paciente avisa que não comparecerá. Também vai por RPC security
+  // definer (avisar_ausencia_consulta). Não cancela a consulta: só avisa a nutri,
+  // que decide o que fazer. O estado local espelha o que a RPC grava.
+  async function avisarAusencia() {
+    if (!proximaConsulta || confirmando) return;
+    setConfirmando(true);
+    setErroConfirmar(null);
+    const tokenPush = iniciarTokenPush();
+    const { data, error } = await supabase.rpc('avisar_ausencia_consulta', {
+      p_consulta_id: proximaConsulta.id,
+    });
+    setConfirmando(false);
+    if (error) {
+      setErroConfirmar('Não consegui avisar agora. Tente de novo.');
+      setTimeout(() => setErroConfirmar(null), 4000);
+      return;
+    }
+    setProximaConsulta(c => (c ? { ...c, nao_confirmada_em: data, nao_confirmada_por: 'paciente', confirmada_em: null } : c));
+    avisarNutri(tokenPush, 'consulta_ausencia');
   }
 
   // ─── Derivados básicos ────────────────────────────────────────────────────
@@ -375,11 +439,14 @@ export default function Inicio() {
   const totalCompras = compras?.lista?.reduce((a, c) => a + (c.itens?.length ?? 0), 0) ?? 0;
 
   const dias = proximaConsulta ? diasAte(proximaConsulta.data_hora) : null;
+  const avisouAusencia = !!proximaConsulta?.nao_confirmada_em && proximaConsulta?.nao_confirmada_por === 'paciente';
   const gcalUrl = proximaConsulta ? gerarGoogleCalendarUrl({
     titulo: `Consulta com ${nutriNome}`,
     dataHoraInicio: proximaConsulta.data_hora,
     duracaoMin: proximaConsulta.duracao_min,
-    local: 'Online',
+    local: proximaConsulta.modalidade === 'presencial' && proximaConsulta.local?.nome
+      ? [proximaConsulta.local.nome, proximaConsulta.local.endereco].filter(Boolean).join(' — ')
+      : 'Online',
   }) : null;
 
   const ckUrgente = !!checkinPendente?.lembrete_enviado_em;
@@ -571,9 +638,11 @@ export default function Inicio() {
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             <ConfirmarPresenca
               confirmada={!!proximaConsulta.confirmada_em}
+              avisouAusencia={avisouAusencia}
               escuro={false}
               ocupado={confirmando}
-              onConfirmar={confirmarPresenca} />
+              onConfirmar={confirmarPresenca}
+              onAvisarAusencia={avisarAusencia} />
             {gcalUrl && (
               <a href={gcalUrl} target="_blank" rel="noreferrer"
                 onClick={e => e.stopPropagation()}
@@ -645,9 +714,11 @@ export default function Inicio() {
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               <ConfirmarPresenca
                 confirmada={!!proximaConsulta.confirmada_em}
+                avisouAusencia={avisouAusencia}
                 escuro={eHoje}
                 ocupado={confirmando}
-                onConfirmar={confirmarPresenca} />
+                onConfirmar={confirmarPresenca}
+                onAvisarAusencia={avisarAusencia} />
               {gcalUrl && (
                 <a href={gcalUrl} target="_blank" rel="noreferrer"
                   style={{

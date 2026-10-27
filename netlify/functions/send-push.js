@@ -71,6 +71,7 @@ exports.handler = async (event) => {
         foto_prato:     { title: primeiroNome, body: 'Nova foto do prato',       url: '/nutri/feed' },
         resposta_prato: { title: primeiroNome, body: 'Nova resposta num prato',  url: '/nutri/feed' },
         consulta_confirmada: { title: primeiroNome, body: 'Confirmou a consulta', url: '/nutri/agenda' },
+        consulta_ausencia:   { title: primeiroNome, body: 'Avisou que não irá à consulta', url: '/nutri/agenda' },
         checkin_respondido:  { title: primeiroNome, body: 'Respondeu o check-in',  url: '/nutri/checkins' },
         // Primeiro payload da nutri com URL DINAMICA. Os outros cinco apontam
         // para rota fixa porque o destino e uma lista; o estado do contrato so

@@ -368,7 +368,7 @@ export default function Agenda() {
       .select(`
         id, data_hora, duracao_min, tipo, status, modalidade, local_id, obs,
         lembrete_ativo, lembrete_enviado,
-        confirmada_em, confirmada_por, nao_confirmada_em,
+        confirmada_em, confirmada_por, nao_confirmada_em, nao_confirmada_por,
         paciente:pacientes(id, nome)
       `)
       .eq('nutri_id', user.id)
@@ -400,7 +400,7 @@ export default function Agenda() {
     const fim = new Date(agora.getTime() + JANELA_LEMBRETE_DIAS * 24 * 3600 * 1000);
     const { data, error } = await supabase
       .from('consultas')
-      .select('id, data_hora, modalidade, local_id, lembrete_enviado, lembrete_enviado_em, confirmada_em, nao_confirmada_em, paciente:pacientes(id, nome, telefone)')
+      .select('id, data_hora, modalidade, local_id, lembrete_enviado, lembrete_enviado_em, confirmada_em, nao_confirmada_em, nao_confirmada_por, paciente:pacientes(id, nome, telefone)')
       .eq('nutri_id', user.id)
       .eq('lembrete_ativo', true)
       .eq('status', 'agendada')
@@ -481,6 +481,7 @@ export default function Agenda() {
         confirmada_em:     anterior?.confirmada_em     ?? null,
         confirmada_por:    anterior?.confirmada_por    ?? null,
         nao_confirmada_em: anterior?.nao_confirmada_em ?? null,
+        nao_confirmada_por: anterior?.nao_confirmada_por ?? null,
       } : c));
       setLembretes(prev => prev.map(l => l.id === consultaId ? {
         ...l,
@@ -498,8 +499,8 @@ export default function Agenda() {
     return aplicarPresenca(
       consultaId,
       confirmar
-        ? { confirmada_em: new Date().toISOString(), confirmada_por: 'nutri', nao_confirmada_em: null }
-        : { confirmada_em: null, confirmada_por: null, nao_confirmada_em: null },
+        ? { confirmada_em: new Date().toISOString(), confirmada_por: 'nutri', nao_confirmada_em: null, nao_confirmada_por: null }
+        : { confirmada_em: null, confirmada_por: null, nao_confirmada_em: null, nao_confirmada_por: null },
       'Não consegui salvar a confirmação, tente novamente',
     );
   }
@@ -510,8 +511,8 @@ export default function Agenda() {
     return aplicarPresenca(
       consultaId,
       marcar
-        ? { confirmada_em: null, confirmada_por: null, nao_confirmada_em: new Date().toISOString() }
-        : { confirmada_em: null, confirmada_por: null, nao_confirmada_em: null },
+        ? { confirmada_em: null, confirmada_por: null, nao_confirmada_em: new Date().toISOString(), nao_confirmada_por: 'nutri' }
+        : { confirmada_em: null, confirmada_por: null, nao_confirmada_em: null, nao_confirmada_por: null },
       'Não consegui salvar, tente novamente',
     );
   }
@@ -610,6 +611,7 @@ export default function Agenda() {
               confirmada_em:     nova.confirmada_em,
               confirmada_por:    nova.confirmada_por,
               nao_confirmada_em: nova.nao_confirmada_em,
+              nao_confirmada_por: nova.nao_confirmada_por,
             }
           : c));
         // Remarcar em outro lugar zera lembrete_enviado pelo trigger. O cache
@@ -2160,7 +2162,9 @@ function ConsultaRow({ c, isLast, onClick, onToggleConfirmada, onToggleNaoConfir
               <button
                 onClick={alternarNaoConfirmada}
                 title={naoConfirmou
-                  ? 'Marcada como "não confirmou" — toque para voltar a pendente'
+                  ? (c.nao_confirmada_por === 'paciente'
+                      ? 'A paciente avisou pelo app que não irá — toque para voltar a pendente'
+                      : 'Marcada como "não confirmou" — toque para voltar a pendente')
                   : 'Marcar que a paciente não confirmou / provavelmente não vem'}
                 style={{
                   minHeight: 30, padding: '0 11px',
@@ -2172,7 +2176,7 @@ function ConsultaRow({ c, isLast, onClick, onToggleConfirmada, onToggleNaoConfir
                   border: `1px solid ${naoConfirmou ? 'var(--dark)' : 'var(--border)'}`,
                 }}>
                 {naoConfirmou
-                  ? <><i className="ti ti-x" aria-hidden="true" /> Não confirmou</>
+                  ? <><i className="ti ti-x" aria-hidden="true" /> {c.nao_confirmada_por === 'paciente' ? 'Avisou que não irá' : 'Não confirmou'}</>
                   : 'Não confirmou'}
               </button>
             )}

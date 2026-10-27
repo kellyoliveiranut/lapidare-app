@@ -258,7 +258,7 @@ export default function PacienteLayout() {
       const janela48h  = new Date(Date.now() + 48 * 3600 * 1000).toISOString();
       const { data } = await supabase
         .from('consultas')
-        .select('id, data_hora, tipo, status')
+        .select('id, data_hora, tipo, status, modalidade, local:locais_atendimento(nome)')
         .eq('paciente_id', pacienteId)
         .eq('status', 'agendada')
         .gte('data_hora', janela15m)
@@ -391,7 +391,7 @@ export default function PacienteLayout() {
           role="button"
           tabIndex={0}
           onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') navigate('/paciente/inicio'); }}
-          title="Ver a consulta e confirmar presença"
+          title="Ver a consulta, confirmar presença ou avisar que não irá"
           style={{
           padding: '9px max(16px, env(safe-area-inset-right)) 9px max(16px, env(safe-area-inset-left))',
           background: 'var(--paper)',
@@ -416,6 +416,14 @@ export default function PacienteLayout() {
               <strong>{bannerDias === 1 ? 'amanhã' : 'hoje'}</strong>
               {bannerHora && ` às ${bannerHora}`}
               {tema.nutri_nome && ` · ${tema.nutri_nome}`}
+              {/* Onde: só presencial com local preenchido (online e "sem local" não mostram nada,
+                  igual ao LocalConsulta do Início). O endereço completo fica no card do Início. */}
+              {proximaBanner?.modalidade === 'presencial' && proximaBanner?.local?.nome && (
+                <span style={{ display: 'block', color: 'var(--muted)' }}>
+                  <i className="ti ti-map-pin" style={{ fontSize: 12, marginRight: 3 }} aria-hidden="true" />
+                  {proximaBanner.local.nome}
+                </span>
+              )}
             </div>
           </div>
         </div>
