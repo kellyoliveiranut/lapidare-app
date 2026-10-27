@@ -38,16 +38,20 @@ function deveLembrar(p, agora, cfg = CONFIG) {
   return true;
 }
 
-// Sem promessa, sem cobrança, sem conteúdo clínico (CFN 856).
-function textoPush(nome) {
+// Sem promessa, sem cobrança, sem conteúdo clínico (CFN 856). Dois textos que
+// se alternam: `envios` é quantos lembretes ela já recebeu nesta ausência (0 =
+// primeiro), para quem não voltou não ler a mesma frase duas vezes seguidas.
+const TEXTOS = [
+  (n) => `${n}, sua nutri está por aqui quando você precisar. Que tal passar no app hoje?`,
+  (n) => `${n}, no seu tempo: seu espaço no Essentia está pronto para quando você quiser voltar.`,
+];
+const SEM_NOME = ['Sua nutri está por aqui quando você precisar. Que tal passar no app hoje?',
+  'No seu tempo: seu espaço no Essentia está pronto para quando você quiser voltar.'];
+
+function textoPush(nome, envios = 0) {
   const primeiro = (nome ?? '').trim().split(/\s+/)[0];
-  return {
-    title: 'Essentia',
-    body: primeiro
-      ? `${primeiro}, faz alguns dias que você não passa por aqui. Seu acompanhamento continua te esperando — toque para abrir.`
-      : 'Faz alguns dias que você não passa por aqui. Seu acompanhamento continua te esperando — toque para abrir.',
-    url: '/paciente/inicio',
-  };
+  const i = Math.abs(Number(envios) || 0) % TEXTOS.length;
+  return { title: 'Essentia', body: primeiro ? TEXTOS[i](primeiro) : SEM_NOME[i], url: '/paciente/inicio' };
 }
 
 module.exports = { CONFIG, deveLembrar, enviosDaAusencia, textoPush };

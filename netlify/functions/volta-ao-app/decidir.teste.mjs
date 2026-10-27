@@ -22,8 +22,12 @@ t('voltou depois do último lembrete e sumiu de novo: conta do zero',
   deveLembrar({ ...base, ultimo_acesso: dias(8), volta_app_enviado_em: dias(30), volta_app_envios: 3 }, AGORA), true);
 t('ultimo_acesso inválido → não', deveLembrar({ ...base, ultimo_acesso: 'x' }, AGORA), false);
 t('config padrão', CONFIG, { DIAS_SEM_ACESSO: 7, INTERVALO_DIAS: 14, MAX_ENVIOS: 3 });
-t('texto com primeiro nome', textoPush('Maria da Silva').body.startsWith('Maria, '), true);
-t('texto sem nome', textoPush(null).body.startsWith('Faz alguns dias'), true);
+t('1º lembrete: texto da nutri', textoPush('Maria da Silva', 0).body, 'Maria, sua nutri está por aqui quando você precisar. Que tal passar no app hoje?');
+t('2º lembrete: texto "no seu tempo"', textoPush('Maria', 1).body, 'Maria, no seu tempo: seu espaço no Essentia está pronto para quando você quiser voltar.');
+t('3º lembrete volta ao primeiro', textoPush('Maria', 2).body === textoPush('Maria', 0).body, true);
+t('sem nome (1º)', textoPush(null, 0).body, 'Sua nutri está por aqui quando você precisar. Que tal passar no app hoje?');
+t('sem nome (2º)', textoPush('  ', 1).body.startsWith('No seu tempo'), true);
+t('envios inválido cai no 1º', textoPush('Ana', undefined).body.startsWith('Ana, sua nutri'), true);
 t('abre a tela inicial da paciente', textoPush('A').url, '/paciente/inicio');
 console.log(`${ok} passaram, ${ruim} falharam`);
 process.exit(ruim ? 1 : 0);

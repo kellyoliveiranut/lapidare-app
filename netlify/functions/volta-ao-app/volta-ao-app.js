@@ -52,7 +52,7 @@ exports.handler = async (event) => {
         .eq('id', p.id);
       if (updErr) { falhas++; continue; }
 
-      const payload = JSON.stringify(textoPush(p.nome));
+      const payload = JSON.stringify(textoPush(p.nome, enviosDaAusencia(p)));
       let algum = false;
       await Promise.all(rows.map(async (row) => {
         try {
