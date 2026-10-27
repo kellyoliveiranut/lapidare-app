@@ -50,5 +50,49 @@
     "apoio": "Você recebe aviso (e push, se estiver ativado) quando a paciente responde o check-in e quando há sinal de alerta — clica aqui pra ver os avisos",
     "icone": "bell",
     "destino": "/nutri/avisos"
+  },
+  {
+    "id": 8,
+    "data": "2026-10-27",
+    "rota": null,
+    "rotulo": "NOVIDADE NA SUA ÁREA",
+    "titulo": "Novo: **metas da paciente** e Evolução mais completa",
+    "texto": "Novo: metas da paciente e Evolução mais completa",
+    "apoio": "Escolha até 5 metas por paciente, veja o IMC classificado pela idade e a silhueta que acompanha a medida — clica aqui pra abrir as pacientes",
+    "icone": "target",
+    "destino": "/nutri/pacientes"
+  },
+  {
+    "id": 9,
+    "data": "2026-10-27",
+    "rota": null,
+    "rotulo": "NOVIDADE NA SUA ÁREA",
+    "titulo": "Novo: a paciente pode **avisar que não irá** à consulta",
+    "texto": "Novo: a paciente pode avisar que não irá à consulta",
+    "apoio": "Você recebe push e vê \"Avisou que não irá\" na Agenda; quem confirma pelo app aparece como \"Confirmou no app\" — clica aqui pra abrir a Agenda",
+    "icone": "calendar-x",
+    "destino": "/nutri/agenda"
+  },
+  {
+    "id": 10,
+    "data": "2026-10-27",
+    "rota": null,
+    "rotulo": "NOVIDADE NA SUA ÁREA",
+    "titulo": "Novo: **Remarcar** guarda a data de antes e o horário respeita o local",
+    "texto": "Novo: Remarcar guarda a data de antes e o horário respeita o local",
+    "apoio": "Remarque com nova data ou deixe em \"A definir\", e no Ed Village Millenium a tarde começa às 14:30 — clica aqui pra abrir a Agenda",
+    "icone": "calendar-event",
+    "destino": "/nutri/agenda"
+  },
+  {
+    "id": 11,
+    "data": "2026-10-27",
+    "rota": null,
+    "rotulo": "NOVIDADE NA SUA ÁREA",
+    "titulo": "Novo: lembrete automático para quem **sumiu do app**",
+    "texto": "Novo: lembrete automático para quem sumiu do app",
+    "apoio": "A paciente há 7 dias sem abrir o app recebe um push pedindo para voltar (no máximo 3, a cada 14 dias) — você não precisa fazer nada",
+    "icone": "bell-ringing",
+    "destino": null
   }
 ]
