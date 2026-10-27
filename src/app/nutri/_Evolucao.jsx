@@ -9,7 +9,7 @@ import {
   normalizarAvaliacoes, idadeEm, classificarImc,
 } from '../../lib/evolucaoAvaliacoes.js';
 import { tempoDe } from '../../lib/sinaleira.js';
-import { METAS, TEMAS, MAX_METAS, temaDoObjetivo } from '../../lib/metasEvolucao.js';
+import { METAS, TEMAS, MAX_METAS, MAX_TEXTO_AJUSTE, temaDoObjetivo, lerEntrada, gravarEntrada } from '../../lib/metasEvolucao.js';
 import {
   Jornada, CartoesMetricas, TabelaCalculos, Grafico, Bonequinho, BarrasComposicao,
 } from '../../components/EvolucaoVisual.jsx';
@@ -40,8 +40,8 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
   const [erroIgnorar, setErroIgnorar] = useState('');
   const [sexoLocal, setSexoLocal] = useState(null);
   const [erroSexo, setErroSexo] = useState('');
-  const [metas, setMetas] = useState(() => paciente?.metas_evolucao ?? []);
-  const [metasSalvas, setMetasSalvas] = useState(() => paciente?.metas_evolucao ?? []);
+  const [metas, setMetas] = useState(() => (paciente?.metas_evolucao ?? []).map(lerEntrada));
+  const [metasSalvas, setMetasSalvas] = useState(() => (paciente?.metas_evolucao ?? []).map(lerEntrada).map(gravarEntrada));
   const [metasMsg, setMetasMsg] = useState('');
 
   // Deriva do que veio do banco: não há estado paralelo para ficar fora de sincronia.
@@ -71,19 +71,25 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
   function alternarMeta(id) {
     setMetasMsg('');
     setMetas((lst) => {
-      if (lst.includes(id)) return lst.filter((x) => x !== id);
-      return lst.length >= MAX_METAS ? lst : [...lst, id];
+      if (lst.some((x) => x.id === id)) return lst.filter((x) => x.id !== id);
+      return lst.length >= MAX_METAS ? lst : [...lst, { id, texto: null }];
     });
+  }
+
+  function ajustarMeta(id, texto) {
+    setMetasMsg('');
+    setMetas((lst) => lst.map((x) => (x.id === id ? { ...x, texto } : x)));
   }
 
   async function salvarMetas() {
     setMetasMsg('');
+    const entradas = metas.map(gravarEntrada);
     const r = await gravar(
-      supabase.from('pacientes').update({ metas_evolucao: metas }).eq('id', pacienteId),
+      supabase.from('pacientes').update({ metas_evolucao: entradas }).eq('id', pacienteId),
       { rotulo: 'salvar as metas' },
     );
     if (!r.ok) { setMetasMsg(r.msg); return; }
-    setMetasSalvas(metas);
+    setMetasSalvas(entradas);
     setMetasMsg(metas.length ? 'Metas salvas. A paciente vê na tela de evolução dela.' : 'Metas removidas.');
   }
 
@@ -238,7 +244,7 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
         pesoComp={comparacoes.kg} composicao={composicao} />
 
       <CampoMetas objetivo={paciente?.objetivo} escolhidas={metas} salvas={metasSalvas} msg={metasMsg}
-        onAlternar={alternarMeta} onSalvar={salvarMetas} />
+        onAlternar={alternarMeta} onAjustar={ajustarMeta} onSalvar={salvarMetas} />
 
       <CartoesMetricas campos={CARTOES} series={series} comps={comparacoes} pesoNeutro={pesoNeutro}
         campoAtivo={campoGrafico} onEscolher={setMetricaGrafico} colunas={4} />
@@ -289,12 +295,14 @@ function ListaAvaliacoes({ avaliacoes, ignoradas, suspeitas, onAlternar }) {
 
 // Metas da paciente: a nutri marca no catálogo (lib/metasEvolucao.js), até MAX_METAS.
 // Começa pelo tema do objetivo da paciente; os outros temas ficam um clique abaixo.
-function CampoMetas({ objetivo, escolhidas, salvas, msg, onAlternar, onSalvar }) {
+function CampoMetas({ objetivo, escolhidas, salvas, msg, onAlternar, onAjustar, onSalvar }) {
   const sugerido = temaDoObjetivo(objetivo);
   const [verTodos, setVerTodos] = useState(false);
-  const mudou = escolhidas.length !== salvas.length || escolhidas.some((c) => !salvas.includes(c));
+  const entradas = escolhidas.map(gravarEntrada);
+  const mudou = entradas.length !== salvas.length || entradas.some((c, i) => c !== salvas[i]);
+  const ids = escolhidas.map((x) => x.id);
   const temas = TEMAS.filter((t) => verTodos || t.id === sugerido || t.id === 'geral'
-    || METAS.some((m) => m.tema === t.id && escolhidas.includes(m.id)));
+    || METAS.some((m) => m.tema === t.id && ids.includes(m.id)));
   const cheio = escolhidas.length >= MAX_METAS;
   return (
     <div className="card" style={{ padding: '12px 16px', marginBottom: 12 }}>
@@ -305,13 +313,27 @@ function CampoMetas({ objetivo, escolhidas, salvas, msg, onAlternar, onSalvar })
         <fieldset key={t.id} style={{ border: 'none', padding: 0, margin: '0 0 8px' }}>
           <legend style={{ fontSize: 12, fontWeight: 600, color: 'var(--dark)', marginBottom: 4, padding: 0 }}>{t.rotulo}</legend>
           {METAS.filter((m) => m.tema === t.id).map((m) => {
-            const marcada = escolhidas.includes(m.id);
+            const marcada = ids.includes(m.id);
+            const atual = escolhidas.find((x) => x.id === m.id);
             return (
-              <label key={m.id} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 13, padding: '3px 0', opacity: !marcada && cheio ? 0.5 : 1 }}>
-                <input type="checkbox" checked={marcada} disabled={!marcada && cheio}
-                  onChange={() => onAlternar(m.id)} style={{ marginTop: 3, width: 'auto' }} />
-                <span>{m.texto}</span>
-              </label>
+              <div key={m.id}>
+                <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 13, padding: '3px 0', opacity: !marcada && cheio ? 0.5 : 1 }}>
+                  <input type="checkbox" checked={marcada} disabled={!marcada && cheio}
+                    onChange={() => onAlternar(m.id)} style={{ marginTop: 3, width: 'auto' }} />
+                  <span>{m.texto}</span>
+                </label>
+                {marcada && m.ajustavel && (
+                  <div style={{ margin: '2px 0 6px 26px' }}>
+                    <label htmlFor={`ajuste-${m.id}`} style={{ fontSize: 11, color: 'var(--text3)' }}>
+                      Ajustar para o tratamento desta paciente (opcional; a paciente vê este texto)
+                    </label>
+                    <input id={`ajuste-${m.id}`} type="text" maxLength={MAX_TEXTO_AJUSTE}
+                      value={atual?.texto ?? m.texto}
+                      onChange={(e) => onAjustar(m.id, e.target.value)}
+                      style={{ width: '100%', fontSize: 13, padding: '6px 8px', borderRadius: 8, border: '0.5px solid var(--border)', fontFamily: 'inherit' }} />
+                  </div>
+                )}
+              </div>
             );
           })}
         </fieldset>

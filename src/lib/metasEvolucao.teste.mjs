@@ -1,4 +1,4 @@
-import { METAS, TEMAS, MAX_METAS, temaDoObjetivo, metasPorCodigos } from './metasEvolucao.js';
+import { METAS, TEMAS, MAX_METAS, temaDoObjetivo, metasPorCodigos, lerEntrada, gravarEntrada } from './metasEvolucao.js';
 let ok = 0, falhou = 0;
 const eq = (a, b, n) => { if (JSON.stringify(a) === JSON.stringify(b)) ok++; else { falhou++; console.log('FALHOU', n, a, b); } };
 eq(new Set(METAS.map((m) => m.id)).size, METAS.length, 'códigos únicos');
@@ -11,5 +11,12 @@ eq(metasPorCodigos(null), [], 'nulo');
 eq(MAX_METAS, 5, 'limite igual ao do banco');
 // Oncologia nunca com meta de peso
 eq(METAS.filter((m) => m.tema === 'oncologia').some((m) => /peso|emagrec|perder/i.test(m.texto)), false, 'onco sem meta de peso');
+eq(lerEntrada('onco_atividade::Caminhar 10 min'), { id: 'onco_atividade', texto: 'Caminhar 10 min' }, 'lê ajuste');
+eq(lerEntrada('onco_forca'), { id: 'onco_forca', texto: null }, 'lê simples');
+eq(gravarEntrada({ id: 'onco_atividade', texto: 'Só alongar, conforme a equipe' }), 'onco_atividade::Só alongar, conforme a equipe', 'grava ajuste');
+eq(gravarEntrada({ id: 'onco_atividade', texto: METAS.find((m) => m.id === 'onco_atividade').texto }), 'onco_atividade', 'texto igual ao padrão não grava ajuste');
+eq(gravarEntrada({ id: 'onco_forca', texto: 'qualquer' }), 'onco_forca', 'meta não ajustável ignora texto');
+eq(metasPorCodigos(['onco_hidratacao::Beber líquidos conforme a orientação da equipe'])[0].texto, 'Beber líquidos conforme a orientação da equipe', 'ajuste aparece');
+eq(metasPorCodigos(['onco_forca::texto']).map((m) => m.texto === METAS.find((x) => x.id === 'onco_forca').texto)[0], true, 'não ajustável mantém catálogo');
 console.log(`${ok} ok, ${falhou} falhou (metas)`);
 process.exit(falhou ? 1 : 0);
