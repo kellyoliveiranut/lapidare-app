@@ -6,7 +6,7 @@ import { diasEntre, ehEmagrecimento } from '../../lib/resultadosClinicos.js';
 import {
   METRICAS, PERIODOS, serieDaMetrica, comparar, sentidoDaVariacao, detectarSuspeitas,
   composicaoCorporal, fraseComposicao, fmtNum, fmtValor, fmtDelta, rotuloTipoConsulta,
-  descricaoAvaliacao, descricaoPlano, resumoCheckin,
+  descricaoAvaliacao, descricaoPlano, resumoCheckin, normalizarAvaliacoes,
 } from '../../lib/evolucaoAvaliacoes.js';
 
 // Avaliações "ignoradas nas contas" ficam só neste navegador (não apagam nada).
@@ -54,7 +54,7 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
       supabase.from('consultas').select('id, tipo, data_hora, status').eq('paciente_id', pacienteId).order('data_hora'),
     ]);
     if (signal.cancelled) return;
-    setAvaliacoes(avRes.data ?? []);
+    setAvaliacoes(normalizarAvaliacoes(avRes.data));
     setCheckins(ckRes.data ?? []);
     setPlanos(plRes.data ?? []);
     setPrescricoes(prRes.data ?? []);

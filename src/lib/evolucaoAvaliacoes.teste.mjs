@@ -107,5 +107,16 @@ t('check-in resumo', E.resumoCheckin({
 }, fmt), '1 de 3 perguntas respondidas · Energia: 7');
 t('check-in sem perguntas', E.resumoCheckin({}, fmt), 'Respondido');
 
+// ── Shaped grava braço/coxa em *_dir_cm ──
+const norm = E.normalizarAvaliacoes([
+  { id: 1, data: '2026-01-01', braco_dir_cm: 31.2, braco_cm: null, coxa_dir_cm: null, coxa_cm: 55 },
+  { id: 2, data: '2026-02-01', braco_dir_cm: 30.8, braco_cm: 33, coxa_dir_cm: 54, coxa_cm: 56 },
+]);
+t('braço: usa dir quando existe', norm.map((a) => a.braco_cm), [31.2, 30.8]);
+t('coxa: cai na coluna antiga sem dir', norm.map((a) => a.coxa_cm), [55, 54]);
+t('série de braço vem do Shaped', E.comparar(E.serieDaMetrica(norm, 'braco_cm'), 'inicio').dif, -0.4);
+t('normalizar lista vazia', E.normalizarAvaliacoes(null), []);
+t('abdome e panturrilha existem', [E.METRICAS.abdome_cm.rotulo, E.METRICAS.panturrilha_cm.rotulo], ['Abdome', 'Panturrilha']);
+
 console.log(`${ok} ok, ${falhou} falhou`);
 process.exit(falhou ? 1 : 0);

@@ -21,6 +21,8 @@ export const METRICAS = {
   kg:         { rotulo: 'Peso',            unidade: 'kg', casas: 1, melhorMenor: true,  salto: [3, 0.25] },
   cintura_cm: { rotulo: 'Cintura',         unidade: 'cm', casas: 1, melhorMenor: true,  salto: [5, 0.25] },
   quadril_cm: { rotulo: 'Quadril',         unidade: 'cm', casas: 1, melhorMenor: null,  salto: [5, 0.25] },
+  abdome_cm:  { rotulo: 'Abdome',           unidade: 'cm', casas: 1, melhorMenor: true,  salto: [5, 0.25] },
+  panturrilha_cm: { rotulo: 'Panturrilha',  unidade: 'cm', casas: 1, melhorMenor: null,  salto: [3, 0.15] },
   braco_cm:   { rotulo: 'Braço',           unidade: 'cm', casas: 1, melhorMenor: null,  salto: [4, 0.15] },
   coxa_cm:    { rotulo: 'Coxa',            unidade: 'cm', casas: 1, melhorMenor: null,  salto: [6, 0.25] },
   pgc:        { rotulo: '% de gordura',    unidade: '%',  casas: 1, melhorMenor: true,  salto: [3, 0.15] },
@@ -55,6 +57,21 @@ export function fmtDelta(campo, dif) {
   if (n === '—') return n;
   if (Math.round(Math.abs(dif) * 10 ** (m?.casas ?? 1)) === 0) return `${n}${un}`;
   return `${dif < 0 ? '−' : '+'}${n}${un}`;
+}
+
+/**
+ * O Shaped (importado por IA) grava braço e coxa em braco_dir_cm / coxa_dir_cm;
+ * braco_cm / coxa_cm são colunas antigas (mesma convenção do restante do app:
+ * "dir" é a referência, a coluna antiga é o reserva). Esta função devolve as
+ * avaliações com braco_cm e coxa_cm já resolvidos, para as telas lerem um só campo.
+ */
+export function normalizarAvaliacoes(avaliacoes) {
+  const pega = (a, b) => (Number(a) > 0 ? a : b);
+  return (avaliacoes ?? []).map((a) => ({
+    ...a,
+    braco_cm: pega(a?.braco_dir_cm, a?.braco_cm),
+    coxa_cm: pega(a?.coxa_dir_cm, a?.coxa_cm),
+  }));
 }
 
 const ehData = (s) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}/.test(s);

@@ -7,11 +7,11 @@ import corpoMasculino from '../../assets/corpo-masculino.webp';
 import { diasEntre, ehEmagrecimento } from '../../lib/resultadosClinicos.js';
 import {
   METRICAS, serieDaMetrica, comparar, sentidoDaVariacao, composicaoCorporal,
-  fraseComposicao, fmtNum, fmtValor, fmtDelta,
+  fraseComposicao, fmtNum, fmtValor, fmtDelta, normalizarAvaliacoes,
 } from '../../lib/evolucaoAvaliacoes.js';
 
 // Ordem dos botões/cartões. Quadril só aparece se houver registro.
-const ORDEM = ['kg', 'cintura_cm', 'pgc', 'mm_kg', 'quadril_cm', 'braco_cm', 'coxa_cm'];
+const ORDEM = ['kg', 'cintura_cm', 'pgc', 'mm_kg', 'quadril_cm', 'abdome_cm', 'braco_cm', 'coxa_cm', 'panturrilha_cm'];
 const CARTOES = ['kg', 'cintura_cm', 'pgc', 'mm_kg'];
 const MANUSCRITA = "'Caveat', 'Bradley Hand', cursive";
 
@@ -65,11 +65,11 @@ export default function Progresso() {
       if (!pacienteId) return;
       const { data } = await supabase
         .from('peso_registros')
-        .select('id, data, kg, cintura_cm, quadril_cm, braco_cm, coxa_cm, pgc, mm_kg, gordura_kg, obs')
+        .select('id, data, kg, cintura_cm, quadril_cm, abdome_cm, panturrilha_cm, braco_cm, braco_dir_cm, coxa_cm, coxa_dir_cm, pgc, mm_kg, gordura_kg, obs')
         .eq('paciente_id', pacienteId)
         .order('data', { ascending: true });
       if (!active) return;
-      setRegistros(data ?? []);
+      setRegistros(normalizarAvaliacoes(data));
     }
     load();
     return () => { active = false; };
@@ -379,6 +379,7 @@ const CORPOS = {
       { campo: 'cintura_cm', nome: 'Cintura', x: 300, y: 295, rot: [520, 300], fita: [248, 352] },
       { campo: 'quadril_cm', nome: 'Quadril', x: 300, y: 385, rot: [535, 352], fita: [218, 382] },
       { campo: 'coxa_cm',    nome: 'Coxa',    x: 268, y: 470, rot: [175, 480] },
+      { campo: 'panturrilha_cm', nome: 'Panturrilha', x: 272, y: 610, rot: [170, 618] },
     ],
   },
   masculino: {
@@ -388,6 +389,7 @@ const CORPOS = {
       { campo: 'cintura_cm', nome: 'Cintura', x: 300, y: 330, rot: [535, 318], fita: [240, 360] },
       { campo: 'quadril_cm', nome: 'Quadril', x: 300, y: 405, rot: [545, 362], fita: [224, 376] },
       { campo: 'coxa_cm',    nome: 'Coxa',    x: 270, y: 480, rot: [185, 490] },
+      { campo: 'panturrilha_cm', nome: 'Panturrilha', x: 270, y: 615, rot: [165, 622] },
     ],
   },
 };
