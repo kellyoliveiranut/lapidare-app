@@ -14,6 +14,10 @@
 [functions."avisos-checkin-push"]
   schedule = "*/2 * * * *"
 
+# Lembrete "volte ao app" para paciente sem abrir o app há dias: 10:30 de Belém
+[functions."volta-ao-app"]
+  schedule = "30 13 * * *"
+
 # Resumo do dia da nutri: 6h de Belém (UTC-3) = 09:00 UTC
 [functions."resumo-do-dia"]
   schedule = "0 9 * * *"
