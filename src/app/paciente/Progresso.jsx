@@ -9,7 +9,24 @@ import {
 } from '../../lib/evolucaoAvaliacoes.js';
 
 // Ordem dos botões/cartões. Quadril só aparece se houver registro.
-const ORDEM = ['kg', 'cintura_cm', 'pgc', 'mm_kg', 'quadril_cm'];
+const ORDEM = ['kg', 'cintura_cm', 'pgc', 'mm_kg', 'quadril_cm', 'braco_cm', 'coxa_cm'];
+const CARTOES = ['kg', 'cintura_cm', 'pgc', 'mm_kg'];
+const MANUSCRITA = "'Caveat', 'Bradley Hand', cursive";
+
+/* Sinaleira: só para Emagrecimento. Verde = foi no sentido desejado, amarelo = estável,
+   terracota = foi no sentido contrário. Sempre com seta/sinal (cor não é o único aviso).
+   Oncologia: sem semáforo — o foco é função e força. */
+const SINAL = {
+  bom:    { cor: '#5f8a4b', fundo: '#e6f0df', nome: 'no caminho' },
+  neutro: { cor: '#b8902f', fundo: '#f8efd2', nome: 'estável' },
+  ruim:   { cor: '#c0704f', fundo: '#f6e3db', nome: 'mudou ao contrário' },
+};
+function sinalDe(campo, comp, pesoNeutro) {
+  if (!comp) return null;
+  const sentido = sentidoDaVariacao(campo, comp.dif);
+  if (pesoNeutro || METRICAS[campo].melhorMenor == null) return null; // sem sentido definido: sem cor
+  return SINAL[sentido];
+}
 
 const ENTENDA = [
   ['Peso', 'Quanto você pesa na balança no dia da avaliação.'],
@@ -122,11 +139,11 @@ export default function Progresso() {
 
       {/* ─── "ONDE VOCÊ COMEÇOU → ONDE ESTÁ" ─────────────────── */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
-        {disponiveis.filter(c => c !== 'quadril_cm').map(c => {
+        {disponiveis.filter(c => CARTOES.includes(c)).map(c => {
           const mc = METRICAS[c];
           const atual = series[c][series[c].length - 1];
           const comp = comps[c];
-          const sentido = comp ? sentidoDaVariacao(c, comp.dif, { pesoNeutro }) : 'neutro';
+          const sinal = sinalDe(c, comp, pesoNeutro);
           const ativo = c === campo;
           return (
             <button key={c} type="button" onClick={() => setMetrica(c)} aria-pressed={ativo}
@@ -145,11 +162,12 @@ export default function Progresso() {
               {comp ? (
                 <>
                   <div style={{
-                    display: 'inline-block', marginTop: 6, padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600,
-                    background: sentido === 'bom' ? '#e6f0df' : 'var(--bg-soft, #f5f0e8)',
-                    color: sentido === 'bom' ? '#3f6b2e' : 'var(--ink-soft)',
+                    display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 6, padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600,
+                    background: sinal ? sinal.fundo : 'var(--bg-soft, #f5f0e8)',
+                    color: sinal ? sinal.cor : 'var(--ink-soft)',
                   }}>
-                    {fmtDelta(c, comp.dif)}
+                    {sinal && <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: '50%', background: sinal.cor }} />}
+                    {fmtDelta(c, comp.dif)}{sinal && <span style={{ fontWeight: 500 }}> · {sinal.nome}</span>}
                   </div>
                   <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 4 }}>
                     começou em {fmtValor(c, comp.base.valor)}
@@ -164,6 +182,10 @@ export default function Progresso() {
           );
         })}
       </div>
+
+      {/* ─── BONEQUINHO: toque numa parte do corpo ───────────── */}
+      <Bonequinho series={series} comps={comps} pesoNeutro={pesoNeutro}
+        onEscolher={(c) => setMetrica(c)} />
 
       {/* ─── GRÁFICO ─────────────────────────────────────────── */}
       <div style={{ display: 'flex', gap: 4, overflowX: 'auto', paddingBottom: 4, margin: '0 0 8px' }}>
@@ -183,7 +205,7 @@ export default function Progresso() {
           );
         })}
       </div>
-      <Grafico campo={campo} serie={serie} />
+      <Grafico campo={campo} serie={serie} sinal={sinalDe(campo, comps[campo], pesoNeutro)} comp={comps[campo]} />
 
       {/* ─── COMPOSIÇÃO CORPORAL (barras início × agora) ─────── */}
       {composicao && <BarrasComposicao registros={registros} composicao={composicao} />}
@@ -260,8 +282,8 @@ export default function Progresso() {
   );
 }
 
-/* Gráfico com valores escritos nos pontos e datas no eixo. */
-function Grafico({ campo, serie }) {
+/* Gráfico "à mão": linha com leve tremor, balão de fala e seta no último ponto. */
+function Grafico({ campo, serie, sinal, comp }) {
   const m = METRICAS[campo];
   if (serie.length === 0) {
     return (
@@ -270,7 +292,7 @@ function Grafico({ campo, serie }) {
       </div>
     );
   }
-  const L = 320, A = 170, ml = 14, mr = 14, mt = 26, mb = 26;
+  const L = 320, A = 200, ml = 18, mr = 18, mt = 62, mb = 26;
   const vals = serie.map(p => p.valor);
   const vmin = Math.min(...vals), vmax = Math.max(...vals);
   const folga = (vmax - vmin) * 0.2 || 1;
@@ -279,42 +301,149 @@ function Grafico({ campo, serie }) {
   const x = (i) => (n === 1 ? L / 2 : ml + (i / (n - 1)) * (L - ml - mr));
   const y = (v) => mt + (1 - (v - lo) / (hi - lo)) * (A - mt - mb);
   const pts = serie.map((p, i) => ({ ...p, cx: x(i), cy: y(p.valor) }));
+  const fim = pts[n - 1];
   const linha = pts.map((p, i) => `${i ? 'L' : 'M'}${p.cx.toFixed(1)},${p.cy.toFixed(1)}`).join(' ');
-  const area = `${linha} L${pts[n - 1].cx.toFixed(1)},${A - mb} L${pts[0].cx.toFixed(1)},${A - mb} Z`;
-  // Valor escrito só no primeiro, no último e no ponto mais alto/baixo — evita poluir.
-  const rotulados = new Set([0, n - 1]);
+  const cor = sinal ? sinal.cor : '#1c1712';
+
+  // Balão acima do último ponto, sem sair do quadro.
+  const bw = 150, bh = 40;
+  const bx = Math.min(Math.max(fim.cx - bw / 2, 4), L - bw - 4);
+  const by = 6;
+  const caudaX = Math.min(Math.max(fim.cx, bx + 18), bx + bw - 18);
+  const seta = comp ? (comp.dif > 0 ? '↑' : comp.dif < 0 ? '↓' : '→') : '';
+  const frase2 = comp
+    ? `${seta} ${fmtDelta(campo, comp.dif)} desde ${dataBR(comp.base.data).slice(0, 5)}`
+    : 'ponto de partida';
   return (
     <div className="card" style={{ padding: '12px 8px 8px' }}>
       <div style={{ fontSize: 10, color: 'var(--muted)', padding: '0 8px 2px' }}>
         {m.rotulo} ao longo do tempo
       </div>
       <svg viewBox={`0 0 ${L} ${A}`} role="img" style={{ width: '100%', height: 'auto', display: 'block' }}
-        aria-label={`${m.rotulo}: de ${fmtValor(campo, serie[0].valor)} em ${dataBR(serie[0].data)} para ${fmtValor(campo, serie[n - 1].valor)} em ${dataBR(serie[n - 1].data)}`}>
+        aria-label={`${m.rotulo}: de ${fmtValor(campo, serie[0].valor)} em ${dataBR(serie[0].data)} para ${fmtValor(campo, fim.valor)} em ${dataBR(fim.data)}`}>
         <defs>
+          <filter id="rab-g" x="-5%" y="-5%" width="110%" height="110%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="4" result="r" />
+            <feDisplacementMap in="SourceGraphic" in2="r" scale="2.6" />
+          </filter>
           <linearGradient id="evo-fade" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor="#c4a882" stopOpacity=".35" />
+            <stop offset="0%" stopColor="#c4a882" stopOpacity=".3" />
             <stop offset="100%" stopColor="#c4a882" stopOpacity="0" />
           </linearGradient>
         </defs>
-        {[0.25, 0.5, 0.75].map(f => (
+        {[0.33, 0.66].map(f => (
           <line key={f} x1={ml} x2={L - mr} y1={mt + f * (A - mt - mb)} y2={mt + f * (A - mt - mb)}
-            stroke="#e6dfd3" strokeWidth=".6" strokeDasharray="2,3" />
+            stroke="#d9d3c9" strokeWidth=".8" strokeDasharray="3,4" filter="url(#rab-g)" />
         ))}
-        {n >= 2 && <path d={area} fill="url(#evo-fade)" />}
-        {n >= 2 && <path d={linha} fill="none" stroke="#1c1712" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />}
-        {pts.map((p, i) => (
-          <g key={p.id}>
-            <circle cx={p.cx} cy={p.cy} r={i === n - 1 ? 5 : 3.5} fill={i === n - 1 ? '#a08456' : '#c4a882'} stroke="#1c1712" strokeWidth="1.2" />
-            {rotulados.has(i) && (
-              <text x={Math.min(Math.max(p.cx, 26), L - 26)} y={p.cy - 10} textAnchor="middle" fontSize="11" fontWeight="600" fill="#1c1712">
-                {fmtNum(p.valor, m.casas)}
-              </text>
-            )}
-          </g>
-        ))}
+        {n >= 2 && (
+          <path d={`${linha} L${fim.cx.toFixed(1)},${A - mb} L${pts[0].cx.toFixed(1)},${A - mb} Z`} fill="url(#evo-fade)" />
+        )}
+        <g filter="url(#rab-g)">
+          {n >= 2 && <path d={linha} fill="none" stroke={cor} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />}
+          {pts.map((p, i) => (
+            <circle key={p.id} cx={p.cx} cy={p.cy} r={i === n - 1 ? 6 : 3.8}
+              fill={i === n - 1 ? cor : '#fff'} stroke={cor} strokeWidth="2" />
+          ))}
+        </g>
+        {/* primeiro valor, escrito à mão */}
+        {n >= 2 && (
+          <text x={pts[0].cx} y={pts[0].cy - 12} textAnchor="start" fontSize="16" fontWeight="700" fill="#8c7b6b"
+            style={{ fontFamily: MANUSCRITA }}>{fmtNum(pts[0].valor, m.casas)}</text>
+        )}
+        {/* balão de fala com cauda apontando para o ponto de hoje */}
+        <g filter="url(#rab-g)">
+          <path d={`M${bx + 10},${by} H${bx + bw - 10} Q${bx + bw},${by} ${bx + bw},${by + 10} V${by + bh - 10} Q${bx + bw},${by + bh} ${bx + bw - 10},${by + bh} H${caudaX + 8} L${fim.cx},${fim.cy - 9} L${caudaX - 8},${by + bh} H${bx + 10} Q${bx},${by + bh} ${bx},${by + bh - 10} V${by + 10} Q${bx},${by} ${bx + 10},${by} Z`}
+            fill="#fffdf8" stroke={cor} strokeWidth="1.8" strokeLinejoin="round" />
+        </g>
+        <text x={bx + bw / 2} y={by + 17} textAnchor="middle" fontSize="19" fontWeight="700" fill="#1c1712"
+          style={{ fontFamily: MANUSCRITA }}>{fmtValor(campo, fim.valor)}</text>
+        <text x={bx + bw / 2} y={by + 33} textAnchor="middle" fontSize="13" fontWeight="500" fill={cor}
+          style={{ fontFamily: MANUSCRITA }}>{frase2}</text>
         <text x={pts[0].cx} y={A - 8} textAnchor={n === 1 ? 'middle' : 'start'} fontSize="10" fill="#8c7b6b">{dataBR(serie[0].data)}</text>
-        {n >= 2 && <text x={pts[n - 1].cx} y={A - 8} textAnchor="end" fontSize="10" fill="#8c7b6b">{dataBR(serie[n - 1].data)}</text>}
+        {n >= 2 && <text x={fim.cx} y={A - 8} textAnchor="end" fontSize="10" fill="#8c7b6b">{dataBR(fim.data)}</text>}
       </svg>
+    </div>
+  );
+}
+
+/* Bonequinho: toque numa parte do corpo para ver a medida e como ela mudou. */
+const PARTES = [
+  { campo: 'braco_cm',   nome: 'Braço',   x: 66,  y: 112, lado: 'e' },
+  { campo: 'cintura_cm', nome: 'Cintura', x: 130, y: 132, lado: 'd' },
+  { campo: 'quadril_cm', nome: 'Quadril', x: 130, y: 176, lado: 'd' },
+  { campo: 'coxa_cm',    nome: 'Coxa',    x: 112, y: 232, lado: 'e' },
+];
+function Bonequinho({ series, comps, pesoNeutro, onEscolher }) {
+  const partes = PARTES.filter(p => series[p.campo]?.length > 0);
+  const [escolhida, setEscolhida] = useState(null);
+  if (partes.length === 0) return null;
+  const sel = partes.find(p => p.campo === escolhida) ?? partes[0];
+  const comp = comps[sel.campo];
+  const atual = series[sel.campo][series[sel.campo].length - 1];
+  const sinal = sinalDe(sel.campo, comp, pesoNeutro);
+  const tr = { stroke: '#1c1712', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', fill: '#faf6ee' };
+  return (
+    <div className="card" style={{ padding: '14px 12px', marginBottom: 12 }}>
+      <div style={{ fontSize: 9, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--muted)', fontWeight: 500, padding: '0 4px 4px' }}>
+        Toque no seu corpo
+      </div>
+      <svg viewBox="0 0 260 300" role="group" aria-label="Figura do corpo com as medidas" style={{ width: '100%', maxWidth: 300, display: 'block', margin: '0 auto' }}>
+        <defs>
+          <filter id="rab-b" x="-5%" y="-5%" width="110%" height="110%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="2" seed="9" result="r" />
+            <feDisplacementMap in="SourceGraphic" in2="r" scale="2.2" />
+          </filter>
+        </defs>
+        <g filter="url(#rab-b)" {...tr}>
+          <circle cx="130" cy="34" r="20" />
+          <path d="M122 52 L122 62 M138 52 L138 62" fill="none" />
+          <path d="M96 70 Q130 60 164 70 L168 150 Q168 178 158 196 L102 196 Q92 178 92 150 Z" />
+          <path d="M96 72 Q70 90 62 140 Q60 156 66 160 Q74 160 78 146 Q84 112 98 96" />
+          <path d="M164 72 Q190 90 198 140 Q200 156 194 160 Q186 160 182 146 Q176 112 162 96" />
+          <path d="M102 196 L96 270 Q96 282 108 282 Q120 282 120 270 L128 200" />
+          <path d="M158 196 L164 270 Q164 282 152 282 Q140 282 140 270 L132 200" />
+        </g>
+        {partes.map(p => {
+          const ativo = p.campo === sel.campo;
+          const c = comps[p.campo];
+          const sn = sinalDe(p.campo, c, pesoNeutro);
+          const cor = sn ? sn.cor : '#a08456';
+          const lx = p.lado === 'd' ? p.x + 82 : p.x - 52;
+          return (
+            <g key={p.campo} onClick={() => { setEscolhida(p.campo); onEscolher(p.campo); }} style={{ cursor: 'pointer' }}
+              role="button" tabIndex={0} aria-label={`${p.nome}: ver detalhes`} aria-pressed={ativo}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setEscolhida(p.campo); onEscolher(p.campo); } }}>
+              {/* fita métrica tracejada */}
+              {(p.campo === 'cintura_cm' || p.campo === 'quadril_cm') && (
+                <line x1={p.x - 36} x2={p.x + 50} y1={p.y} y2={p.y} stroke={cor} strokeWidth="1.6" strokeDasharray="4,3" />
+              )}
+              <circle cx={p.x} cy={p.y} r={ativo ? 11 : 8} fill={ativo ? cor : '#fff'} stroke={cor} strokeWidth="2.2" />
+              <text x={lx} y={p.y + 5} textAnchor="middle" fontSize="16" fontWeight="700" fill={ativo ? '#1c1712' : '#8c7b6b'}
+                style={{ fontFamily: MANUSCRITA }}>{p.nome}</text>
+            </g>
+          );
+        })}
+      </svg>
+      <div style={{ background: 'var(--bg-soft, #f5f0e8)', borderRadius: 14, padding: '10px 14px', marginTop: 6 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+          <span className="serif" style={{ fontSize: 22, fontWeight: 600 }}>
+            {sel.nome} · {fmtValor(sel.campo, atual.valor)}
+          </span>
+          {comp && (
+            <span style={{
+              fontSize: 12, fontWeight: 600, padding: '2px 8px', borderRadius: 20,
+              background: sinal ? sinal.fundo : '#fff', color: sinal ? sinal.cor : 'var(--ink-soft)',
+            }}>
+              {comp.dif > 0 ? '↑' : comp.dif < 0 ? '↓' : '→'} {fmtDelta(sel.campo, comp.dif)}
+            </span>
+          )}
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
+          {comp
+            ? `Começou em ${fmtValor(sel.campo, comp.base.valor)} (${dataBR(comp.base.data)})`
+            : `Primeira medida: ${dataBR(atual.data)}`}
+        </div>
+      </div>
     </div>
   );
 }

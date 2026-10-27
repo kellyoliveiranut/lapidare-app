@@ -21,6 +21,8 @@ export const METRICAS = {
   kg:         { rotulo: 'Peso',            unidade: 'kg', casas: 1, melhorMenor: true,  salto: [3, 0.25] },
   cintura_cm: { rotulo: 'Cintura',         unidade: 'cm', casas: 1, melhorMenor: true,  salto: [5, 0.25] },
   quadril_cm: { rotulo: 'Quadril',         unidade: 'cm', casas: 1, melhorMenor: null,  salto: [5, 0.25] },
+  braco_cm:   { rotulo: 'Braço',           unidade: 'cm', casas: 1, melhorMenor: null,  salto: [4, 0.15] },
+  coxa_cm:    { rotulo: 'Coxa',            unidade: 'cm', casas: 1, melhorMenor: null,  salto: [6, 0.25] },
   pgc:        { rotulo: '% de gordura',    unidade: '%',  casas: 1, melhorMenor: true,  salto: [3, 0.15] },
   gordura_kg: { rotulo: 'Gordura',         unidade: 'kg', casas: 1, melhorMenor: true,  salto: [3, 0.2] },
   mm_kg:      { rotulo: 'Massa magra',     unidade: 'kg', casas: 1, melhorMenor: false, salto: [2, 0.1] },
