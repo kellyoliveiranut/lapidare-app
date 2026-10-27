@@ -4,10 +4,21 @@ import { dataBR } from '../../lib/utils.js';
 import { formatarResposta } from '../../lib/checkinDefault.js';
 import { diasEntre, ehEmagrecimento } from '../../lib/resultadosClinicos.js';
 import {
-  METRICAS, PERIODOS, serieDaMetrica, comparar, sentidoDaVariacao, detectarSuspeitas,
-  composicaoCorporal, fraseComposicao, fmtNum, fmtValor, fmtDelta, rotuloTipoConsulta,
+  METRICAS, PERIODOS, serieDaMetrica, comparar, detectarSuspeitas,
+  composicaoCorporal, fmtDelta, rotuloTipoConsulta,
   descricaoAvaliacao, descricaoPlano, resumoCheckin, normalizarAvaliacoes,
 } from '../../lib/evolucaoAvaliacoes.js';
+import { tempoDe } from '../../lib/sinaleira.js';
+import {
+  Jornada, CartoesMetricas, TabelaCalculos, Grafico, Bonequinho, BarrasComposicao,
+} from '../../components/EvolucaoVisual.jsx';
+import { sinalDe } from '../../lib/sinaleira.js';
+
+const CARTOES = ['kg', 'cintura_cm', 'pgc', 'mm_kg'];
+// Ordem da tabela de cálculos: tudo o que o Shaped traz.
+const TABELA = ['kg', 'pgc', 'gordura_kg', 'mm_kg', 'mm_pct', 'hidratacao_pct', 'cintura_cm', 'abdome_cm',
+  'quadril_cm', 'braco_cm', 'coxa_cm', 'panturrilha_cm', 'geb_kcal', 'get_kcal'];
+const GRAFICO_ORDEM = ['kg', 'pgc', 'gordura_kg', 'mm_kg', 'cintura_cm', 'abdome_cm', 'quadril_cm', 'braco_cm', 'coxa_cm', 'panturrilha_cm'];
 
 // Avaliações "ignoradas nas contas" ficam só neste navegador (não apagam nada).
 const chaveIgnoradas = (pacienteId) => `lapidare:evolucaoIgnoradas:${pacienteId}`;
@@ -17,7 +28,6 @@ function lerIgnoradas(pacienteId) {
     return new Set(Array.isArray(bruto) ? bruto : []);
   } catch { return new Set(); }
 }
-const CARTOES = ['kg', 'cintura_cm', 'pgc'];
 
 export default function Evolucao({ pacienteId, paciente, nutriId }) {
   const [carregando, setCarregando] = useState(true);
@@ -96,8 +106,18 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
   const primeira = validas[0];
   const ultima   = validas[validas.length - 1];
   const totalDias = primeira && ultima ? diasEntre(primeira.data, ultima.data) : 0;
-  const metricasDoGrafico = Object.keys(METRICAS).filter((c) => series[c].length >= 2);
+  const metricasDoGrafico = GRAFICO_ORDEM.filter((c) => series[c].length >= 2);
   const campoGrafico = metricasDoGrafico.includes(metricaGrafico) ? metricaGrafico : metricasDoGrafico[0];
+
+  // IMC = peso ÷ altura². Só a conta (sem classificação — critério é da nutricionista).
+  const imc = useMemo(() => {
+    const alt = [...avaliacoes].reverse().find((a) => Number(a.altura_cm) > 0)?.altura_cm;
+    const kgs = series.kg;
+    if (!alt || !kgs?.length) return null;
+    const f = (kg) => kg / ((Number(alt) / 100) ** 2);
+    return { atual: f(kgs[kgs.length - 1].valor), inicio: comparacoes.kg ? f(comparacoes.kg.base.valor) : null };
+  }, [avaliacoes, series, comparacoes]);
+  const sexo = paciente?.sexo;
 
   // ─── Timeline consolidada ───
   const eventos = useMemo(() => {
@@ -165,81 +185,13 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
     );
   }
 
-  // ─── Modo apresentação ───
-  if (apresentacao) {
+  // Linha do tempo (check-ins, planos, prescrições, consultas): fica recolhida.
+  function renderHistorico(aberto) {
     return (
-      <ModoApresentacao
-        paciente={paciente}
-        series={series}
-        comparacoes={comparacoes}
-        periodo={periodo}
-        pesoNeutro={pesoNeutro}
-        composicao={composicao}
-        totalDias={totalDias}
-        onClose={() => setApresentacao(false)}
-      />
-    );
-  }
-
-  return (
-    <>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-        <div style={{ fontSize: 13, color: 'var(--text3)' }}>
-          {totalDias > 0 && <>Acompanhamento de <strong style={{ color: 'var(--dark)' }}>{totalDias} dia{totalDias === 1 ? '' : 's'}</strong> · </>}
-          {eventos.length} evento{eventos.length === 1 ? '' : 's'} no histórico
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn" onClick={() => setApresentacao(true)}>
-            <i className="ti ti-presentation" aria-hidden="true"></i> Modo apresentação
-          </button>
-        </div>
-      </div>
-
-      {/* Período + avisos */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-        <label htmlFor="evo-periodo" style={{ fontSize: 12, color: 'var(--text3)' }}>Comparar</label>
-        <select id="evo-periodo" value={periodo} onChange={(e) => setPeriodo(e.target.value)}
-          style={{ width: 'auto', maxWidth: '100%', fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '0.5px solid var(--border)', background: 'var(--white)', color: 'var(--dark)' }}>
-          {Object.entries(PERIODOS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-        </select>
-      </div>
-
-      <AvisoSuspeitas suspeitas={suspeitas} porId={avaliacoesPorId}
-        ignoradas={ignoradas} onIgnorar={alternarIgnorada} />
-
-      {/* Highlights */}
-      <div className="stats-grid">
-        {CARTOES.map((campo) => (
-          <CartaoMetrica key={campo} campo={campo} serie={series[campo]} comp={comparacoes[campo]}
-            pesoNeutro={pesoNeutro} />
-        ))}
-        <div className="stat-card">
-          <div className="stat-label">Adesão check-ins</div>
-          <div className="stat-val">{checkins.length}</div>
-          <div className="stat-sub">respondidos no total</div>
-        </div>
-      </div>
-
-      {composicao && (
-        <div className="card" style={{ padding: '14px 16px', marginTop: 12 }}>
-          <div className="stat-label" style={{ marginBottom: 6 }}>Composição corporal</div>
-          <div style={{ fontSize: 15, color: 'var(--dark)', fontWeight: 500 }}>{fraseComposicao(composicao)}</div>
-          <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 4 }}>
-            Gordura {fmtDelta('gordura_kg', composicao.gorduraDif)} · massa magra {fmtDelta('mm_kg', composicao.massaMagraDif)}
-            {' '}· de {dataBR(composicao.deData)} a {dataBR(composicao.ateData)} ({composicao.dias} dia{composicao.dias === 1 ? '' : 's'})
-          </div>
-        </div>
-      )}
-
-      {campoGrafico && (
-        <GraficoEvolucao
-          metricas={metricasDoGrafico} campo={campoGrafico} onTrocar={setMetricaGrafico}
-          serie={series[campoGrafico]} suspeitas={suspeitas}
-          consultas={consultas.filter((c) => c.status === 'realizada')}
-          planos={planos} />
-      )}
-
-      {/* Timeline */}
+      <details open={aberto || suspeitas.size > 0} style={{ marginTop: 18 }}>
+        <summary style={{ cursor: 'pointer', fontSize: 13, fontWeight: 500, color: 'var(--dark)' }}>
+          Histórico de eventos ({eventos.length}) — avaliações, check-ins, planos e consultas
+        </summary>
       <div className="section-header" style={{ marginTop: 18 }}>
         <div className="section-title">Linha do tempo</div>
         <span className="card-sub">mais recente primeiro</span>
@@ -297,50 +249,83 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
         ))}
       </div>
 
+      </details>
+    );
+  }
+
+  if (avaliacoes.length === 0) {
+    // Sem avaliações do Shaped ainda: só o histórico de eventos.
+    return (
+      <>
+        <div className="card empty-card" style={{ marginBottom: 14 }}>
+          <i className="ti ti-scale empty-icon" aria-hidden="true"></i>
+          <div className="empty-title">Sem avaliações antropométricas ainda</div>
+          <div className="empty-sub">Importe o relatório do Shaped em "Registrar avaliação" e a evolução aparece aqui.</div>
+        </div>
+        {renderHistorico(true)}
+      </>
+    );
+  }
+
+  const rotuloPeriodo = PERIODOS[periodo];
+  const frase = avaliacoes.length === 1
+    ? 'Primeira avaliação registrada.'
+    : `Acompanhamento de ${tempoDe(totalDias)} · ${rotuloPeriodo.toLowerCase()}.`;
+
+  // ─── Modo apresentação ───
+  if (apresentacao) {
+    return (
+      <ModoApresentacao
+        paciente={paciente} sexo={sexo} frase={frase} registros={validas.length} avaliacoes={validas}
+        series={series} comparacoes={comparacoes} periodo={periodo} pesoNeutro={pesoNeutro}
+        composicao={pesoNeutro ? null : composicao} imc={imc} campoGrafico={campoGrafico} metricasDoGrafico={metricasDoGrafico}
+        onTrocar={setMetricaGrafico} rotuloPeriodo={rotuloPeriodo}
+        onClose={() => setApresentacao(false)}
+      />
+    );
+  }
+
+  return (
+    <>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+        <div style={{ fontSize: 13, color: 'var(--text3)' }}>
+          {validas.length} avaliaç{validas.length === 1 ? 'ão' : 'ões'}
+          {totalDias > 0 && <> · <strong style={{ color: 'var(--dark)' }}>{totalDias} dia{totalDias === 1 ? '' : 's'}</strong> de acompanhamento</>}
+        </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <label htmlFor="evo-periodo" style={{ fontSize: 12, color: 'var(--text3)' }}>Comparar</label>
+          <select id="evo-periodo" value={periodo} onChange={(e) => setPeriodo(e.target.value)}
+            style={{ width: 'auto', maxWidth: '100%', fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '0.5px solid var(--border)', background: 'var(--white)', color: 'var(--dark)' }}>
+            {Object.entries(PERIODOS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+          <button className="btn" onClick={() => setApresentacao(true)}>
+            <i className="ti ti-presentation" aria-hidden="true"></i> Modo apresentação
+          </button>
+        </div>
+      </div>
+
+      <AvisoSuspeitas suspeitas={suspeitas} porId={avaliacoesPorId}
+        ignoradas={ignoradas} onIgnorar={alternarIgnorada} />
+
+      <Jornada titulo="Evolução da paciente" frase={frase} registros={validas.length}
+        pesoComp={comparacoes.kg} composicao={composicao} />
+
+      <CartoesMetricas campos={CARTOES} series={series} comps={comparacoes} pesoNeutro={pesoNeutro}
+        campoAtivo={campoGrafico} onEscolher={setMetricaGrafico} colunas={4} />
+
+      <PainelVisual sexo={sexo} series={series} comps={comparacoes} pesoNeutro={pesoNeutro}
+        campoGrafico={campoGrafico} metricasDoGrafico={metricasDoGrafico} onTrocar={setMetricaGrafico}
+        composicao={composicao} registros={validas} />
+
+      <TabelaCalculos campos={TABELA} series={series} comps={comparacoes} pesoNeutro={pesoNeutro}
+        rotuloPeriodo={rotuloPeriodo} imc={imc} />
+
+      {renderHistorico(false)}
+
       {verCheckin && (
         <VerCheckinModal envio={verCheckin} onClose={() => setVerCheckin(null)} />
       )}
     </>
-  );
-}
-
-/* ============================================================
-   CARTÃO DE MÉTRICA (valor atual + variação com data-base)
-   ============================================================ */
-function CartaoMetrica({ campo, serie, comp, pesoNeutro }) {
-  const m = METRICAS[campo];
-  const atual = serie[serie.length - 1];
-  if (!atual) {
-    return (
-      <div className="stat-card" style={{ opacity: .5 }}>
-        <div className="stat-label">{m.rotulo} atual</div>
-        <div className="stat-val">—</div>
-        <div className="stat-sub">sem registro</div>
-      </div>
-    );
-  }
-  const sentido = comp ? sentidoDaVariacao(campo, comp.dif, { pesoNeutro }) : 'neutro';
-  const cor = sentido === 'bom' ? 'var(--green)' : sentido === 'ruim' ? 'var(--red)' : 'var(--text3)';
-  return (
-    <div className="stat-card">
-      <div className="stat-label">{m.rotulo} atual</div>
-      <div className="stat-val">
-        {fmtNum(atual.valor, m.casas)}
-        <span style={{ fontSize: 14, color: 'var(--text3)', marginLeft: 3 }}>{m.unidade === '%' ? '%' : ` ${m.unidade}`}</span>
-      </div>
-      {comp ? (
-        <>
-          <div className="stat-sub" style={{ color: cor, fontWeight: 500 }}>{fmtDelta(campo, comp.dif)}</div>
-          <div className="stat-sub">
-            desde {dataBR(comp.base.data)} ({fmtValor(campo, comp.base.valor)}) · {comp.dias} dia{comp.dias === 1 ? '' : 's'}
-          </div>
-        </>
-      ) : (
-        <div className="stat-sub">
-          {serie.length === 1 ? `só uma avaliação (${dataBR(atual.data)})` : 'sem base para comparar'}
-        </div>
-      )}
-    </div>
   );
 }
 
@@ -408,182 +393,64 @@ function LinhaAvaliacao({ ignorada, suspeita, onAlternar }) {
 }
 
 /* ============================================================
-   GRÁFICO DE EVOLUÇÃO (uma métrica por vez, com consultas e planos)
+   PAINEL VISUAL: bonequinho + gráfico (com seletor de medida) + composição
    ============================================================ */
-function GraficoEvolucao({ metricas, campo, onTrocar, serie, suspeitas, consultas, planos }) {
-  const m = METRICAS[campo];
-  const L = 600, A = 220, ml = 44, mr = 14, mt = 14, mb = 28;
-  const dia = (iso) => Date.UTC(...String(iso).slice(0, 10).split('-').map((n, i) => (i === 1 ? Number(n) - 1 : Number(n))));
-  const t0 = dia(serie[0].data);
-  const t1 = dia(serie[serie.length - 1].data);
-  const span = Math.max(t1 - t0, 1);
-  const vals = serie.map((p) => p.valor);
-  const vmin = Math.min(...vals), vmax = Math.max(...vals);
-  const folga = (vmax - vmin) * 0.15 || 1;
-  const lo = vmin - folga, hi = vmax + folga;
-  const x = (t) => ml + ((t - t0) / span) * (L - ml - mr);
-  const y = (v) => mt + (1 - (v - lo) / (hi - lo)) * (A - mt - mb);
-  const pontos = serie.map((p) => ({ ...p, cx: x(dia(p.data)), cy: y(p.valor) }));
-  const linha = pontos.map((p, i) => `${i ? 'L' : 'M'}${p.cx.toFixed(1)},${p.cy.toFixed(1)}`).join(' ');
-  const dentro = (iso) => { if (!iso) return null; const t = dia(iso); return t >= t0 && t <= t1 ? t : null; };
-  const marcas = [
-    ...consultas.map((c) => ({ t: dentro(c.data_hora), cor: 'var(--green)', nome: `${rotuloTipoConsulta(c.tipo)} · ${dataBR(c.data_hora)}` })),
-    ...planos.map((p) => ({ t: dentro(p.publicado_em), cor: 'var(--amber)', nome: `Plano publicado · ${dataBR(p.publicado_em)}` })),
-  ].filter((mk) => mk.t != null);
+function PainelVisual({ sexo, series, comps, pesoNeutro, campoGrafico, metricasDoGrafico, onTrocar, composicao, registros, grande = false }) {
   return (
-    <div className="card" style={{ padding: '14px 16px', marginTop: 12 }}>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-        <div className="stat-label">Evolução no tempo</div>
-        <div role="group" aria-label="Métrica do gráfico" style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-          {metricas.map((c) => (
-            <button key={c} type="button" aria-pressed={c === campo}
-              className={c === campo ? 'btn' : 'btn-outline'} style={{ fontSize: 12, padding: '4px 10px' }}
-              onClick={() => onTrocar(c)}>
-              {METRICAS[c].rotulo}
-            </button>
-          ))}
+    <>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 12, alignItems: 'start' }}>
+        <Bonequinho series={series} comps={comps} pesoNeutro={pesoNeutro} sexo={sexo} onEscolher={onTrocar} />
+        <div>
+          <div role="group" aria-label="Medida do gráfico" style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+            {metricasDoGrafico.map((c) => (
+              <button key={c} type="button" aria-pressed={c === campoGrafico}
+                className={c === campoGrafico ? 'btn' : 'btn-outline'} style={{ fontSize: grande ? 14 : 12, padding: '4px 10px' }}
+                onClick={() => onTrocar(c)}>
+                {METRICAS[c].rotulo}
+              </button>
+            ))}
+          </div>
+          {campoGrafico && (
+            <Grafico campo={campoGrafico} serie={series[campoGrafico]}
+              sinal={sinalDe(campoGrafico, comps[campoGrafico], pesoNeutro)} comp={comps[campoGrafico]} />
+          )}
+          {composicao && <div style={{ marginTop: 12 }}><BarrasComposicao registros={registros} composicao={composicao} /></div>}
         </div>
       </div>
-      <svg viewBox={`0 0 ${L} ${A}`} role="img" style={{ width: '100%', height: 'auto', display: 'block' }}
-        aria-label={`Gráfico de ${m.rotulo.toLowerCase()}: de ${fmtValor(campo, serie[0].valor)} em ${dataBR(serie[0].data)} a ${fmtValor(campo, serie[serie.length - 1].valor)} em ${dataBR(serie[serie.length - 1].data)}`}>
-        {[hi - folga * 0.3, (hi + lo) / 2, lo + folga * 0.3].map((v, i) => (
-          <g key={i}>
-            <line x1={ml} x2={L - mr} y1={y(v)} y2={y(v)} style={{ stroke: 'var(--hair-soft, #e7dfd0)' }} strokeWidth="1" />
-            <text x={ml - 6} y={y(v) + 4} textAnchor="end" fontSize="11" style={{ fill: 'var(--text3)' }}>{fmtNum(v, 1)}</text>
-          </g>
-        ))}
-        {marcas.map((mk, i) => (
-          <line key={i} x1={x(mk.t)} x2={x(mk.t)} y1={mt} y2={A - mb} strokeDasharray="3 3" strokeWidth="1.2" style={{ stroke: mk.cor }}>
-            <title>{mk.nome}</title>
-          </line>
-        ))}
-        <path d={linha} fill="none" strokeWidth="2.2" strokeLinejoin="round" strokeLinecap="round" style={{ stroke: 'var(--gold-deep, #a08456)' }} />
-        {pontos.map((p) => {
-          const sus = suspeitas.has(p.id) && suspeitas.get(p.id).campo === campo;
-          return (
-            <circle key={p.id} cx={p.cx} cy={p.cy} r={sus ? 5 : 4} strokeWidth="2"
-              style={{ stroke: sus ? '#c0883a' : 'var(--gold-deep, #a08456)', fill: sus ? 'var(--white)' : 'var(--dark)' }}>
-              <title>{`${dataBR(p.data)} · ${fmtValor(campo, p.valor)}${sus ? ' · conferir' : ''}`}</title>
-            </circle>
-          );
-        })}
-        <text x={pontos[0].cx} y={A - 8} textAnchor="start" fontSize="11" style={{ fill: 'var(--text3)' }}>{dataBR(serie[0].data)}</text>
-        <text x={pontos[pontos.length - 1].cx} y={A - 8} textAnchor="end" fontSize="11" style={{ fill: 'var(--text3)' }}>{dataBR(serie[serie.length - 1].data)}</text>
-      </svg>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>
-        <span>● avaliação</span>
-        <span style={{ color: '#c0883a' }}>○ conferir</span>
-        <span style={{ color: 'var(--green)' }}>┆ consulta realizada</span>
-        <span style={{ color: 'var(--amber)' }}>┆ plano publicado</span>
-      </div>
-    </div>
+    </>
   );
 }
 
 /* ============================================================
-   MODO APRESENTAÇÃO (fullscreen pra consulta)
+   MODO APRESENTAÇÃO (tela cheia, para mostrar à paciente na consulta)
+   Mesmo visual da ficha, em tamanho grande e sem botões de edição.
    ============================================================ */
-function ModoApresentacao({ paciente, series, comparacoes, periodo, pesoNeutro, composicao, totalDias, onClose }) {
+function ModoApresentacao({ paciente, sexo, frase, registros, avaliacoes, series, comparacoes, pesoNeutro, composicao, imc,
+  campoGrafico, metricasDoGrafico, onTrocar, rotuloPeriodo, onClose }) {
   return (
-    <div style={{
-      position: 'fixed', inset: 0,
-      background: 'var(--bg)',
-      zIndex: 200,
-      overflow: 'auto',
-      padding: '40px 32px',
-    }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'var(--bg)', zIndex: 200, overflow: 'auto', padding: '40px 32px' }}>
       <button onClick={onClose} style={{
-        position: 'fixed', top: 20, right: 20,
-        background: 'var(--dark)', color: 'var(--white)',
-        border: 'none', borderRadius: 8, padding: '8px 14px',
-        cursor: 'pointer', fontSize: 13, fontFamily: 'var(--font-sans)',
-        display: 'inline-flex', alignItems: 'center', gap: 6,
-        zIndex: 201,
+        position: 'fixed', top: 20, right: 20, background: 'var(--dark)', color: 'var(--white)',
+        border: 'none', borderRadius: 8, padding: '8px 14px', cursor: 'pointer', fontSize: 13,
+        fontFamily: 'var(--font-sans)', display: 'inline-flex', alignItems: 'center', gap: 6, zIndex: 201,
       }}>
         <i className="ti ti-x" aria-hidden="true"></i> Sair (ESC)
       </button>
-
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-        <div style={{
-          fontSize: 12, letterSpacing: '.22em', textTransform: 'uppercase',
-          color: 'var(--gold-deep, #a08456)', marginBottom: 8,
-        }}>
+        <div style={{ fontSize: 12, letterSpacing: '.22em', textTransform: 'uppercase', color: 'var(--gold-deep, #a08456)', marginBottom: 8 }}>
           Evolução
         </div>
-        <h1 style={{
-          fontFamily: 'var(--font-serif)', fontSize: 48, fontWeight: 500,
-          color: 'var(--dark)', marginBottom: 4, lineHeight: 1.1,
-        }}>
+        <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 48, fontWeight: 500, color: 'var(--dark)', marginBottom: 16, lineHeight: 1.1 }}>
           {paciente?.nome}
         </h1>
-        {totalDias > 0 && (
-          <div style={{ fontSize: 16, color: 'var(--text2)', marginBottom: 32 }}>
-            {totalDias} dias de acompanhamento
-          </div>
-        )}
-
-        {/* Stats grandes */}
-        <div style={{
-          display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-          gap: 14, marginBottom: 36,
-        }}>
-          {CARTOES.map((campo) => {
-            const serie = series[campo];
-            const atual = serie[serie.length - 1];
-            if (!atual) return null;
-            const comp = comparacoes[campo];
-            const sentido = comp ? sentidoDaVariacao(campo, comp.dif, { pesoNeutro }) : 'neutro';
-            const corDelta = sentido === 'bom' ? 'var(--green)' : sentido === 'ruim' ? 'var(--red)' : 'var(--text3)';
-            return (
-              <div key={campo} style={{
-                background: 'var(--white)', border: '0.5px solid var(--border)',
-                borderRadius: 14, padding: '24px 28px',
-              }}>
-                <div style={{
-                  fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase',
-                  color: 'var(--text3)', marginBottom: 10, fontWeight: 500,
-                }}>{METRICAS[campo].rotulo}</div>
-                <div style={{
-                  fontFamily: 'var(--font-serif)', fontSize: 56, fontWeight: 600,
-                  color: 'var(--dark)', lineHeight: 1,
-                }}>
-                  {fmtNum(atual.valor, 1)}
-                  <span style={{ fontSize: 22, color: 'var(--text3)', marginLeft: 6 }}>{METRICAS[campo].unidade}</span>
-                </div>
-                {comp && (
-                  <div style={{
-                    fontSize: 18, fontWeight: 500, color: corDelta,
-                    marginTop: 12, display: 'inline-flex', alignItems: 'center', gap: 4, flexWrap: 'wrap',
-                  }}>
-                    {fmtDelta(campo, comp.dif)}
-                    <span style={{ fontSize: 13, color: 'var(--text3)', marginLeft: 6, fontWeight: 400 }}>
-                      desde {dataBR(comp.base.data)}
-                    </span>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        {composicao && (
-          <div style={{
-            background: 'var(--white)', border: '0.5px solid var(--border)', borderRadius: 14,
-            padding: '20px 28px', marginBottom: 36, fontSize: 20, color: 'var(--dark)',
-            fontFamily: 'var(--font-serif)',
-          }}>
-            {fraseComposicao(composicao)}
-            <span style={{ display: 'block', fontSize: 13, color: 'var(--text3)', fontFamily: 'var(--font-sans)', marginTop: 6 }}>
-              {PERIODOS[periodo]} · desde {dataBR(composicao.deData)}
-            </span>
-          </div>
-        )}
-
-        {CARTOES.every((c) => series[c].length === 0) && (
-          <div style={{ textAlign: 'center', padding: 40, color: 'var(--text3)' }}>
-            Sem avaliações antropométricas registradas ainda.
-          </div>
-        )}
+        <Jornada titulo="Sua jornada" frase={frase} registros={registros} pesoComp={comparacoes.kg} composicao={composicao} grande />
+        <CartoesMetricas campos={CARTOES} series={series} comps={comparacoes} pesoNeutro={pesoNeutro}
+          campoAtivo={campoGrafico} onEscolher={onTrocar} colunas={4} grande />
+        <PainelVisual sexo={sexo} series={series} comps={comparacoes} pesoNeutro={pesoNeutro}
+          campoGrafico={campoGrafico} metricasDoGrafico={metricasDoGrafico} onTrocar={onTrocar}
+          composicao={composicao} registros={avaliacoes} grande />
+        <TabelaCalculos campos={TABELA} series={series} comps={comparacoes} pesoNeutro={pesoNeutro}
+          rotuloPeriodo={rotuloPeriodo} imc={imc} />
       </div>
     </div>
   );
