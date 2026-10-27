@@ -399,7 +399,8 @@ function PainelVisual({ sexo, series, comps, pesoNeutro, campoGrafico, metricasD
   return (
     <>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 12, alignItems: 'start' }}>
-        <Bonequinho series={series} comps={comps} pesoNeutro={pesoNeutro} sexo={sexo} onEscolher={onTrocar} />
+        <Bonequinho series={series} comps={comps} pesoNeutro={pesoNeutro} sexo={sexo}
+          campoAtivo={campoGrafico} onEscolher={onTrocar} />
         <div>
           <div role="group" aria-label="Medida do gráfico" style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
             {metricasDoGrafico.map((c) => (

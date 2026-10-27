@@ -107,7 +107,7 @@ export default function Progresso() {
         campoAtivo={campo} onEscolher={setMetrica} />
 
       {/* ─── BONEQUINHO: toque numa parte do corpo ───────────── */}
-      <Bonequinho series={series} comps={comps} pesoNeutro={pesoNeutro} sexo={profile?.sexo}
+      <Bonequinho series={series} comps={comps} pesoNeutro={pesoNeutro} sexo={profile?.sexo} campoAtivo={campo}
         onEscolher={(c) => setMetrica(c)} />
 
       {/* ─── GRÁFICO ─────────────────────────────────────────── */}
