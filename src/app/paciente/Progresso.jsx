@@ -368,10 +368,10 @@ function Grafico({ campo, serie, sinal, comp }) {
 
 /* Bonequinho: toque numa parte do corpo para ver a medida e como ela mudou. */
 const PARTES = [
-  { campo: 'braco_cm',   nome: 'Braço',   x: 66,  y: 112, lado: 'e' },
-  { campo: 'cintura_cm', nome: 'Cintura', x: 130, y: 132, lado: 'd' },
-  { campo: 'quadril_cm', nome: 'Quadril', x: 130, y: 176, lado: 'd' },
-  { campo: 'coxa_cm',    nome: 'Coxa',    x: 112, y: 232, lado: 'e' },
+  { campo: 'braco_cm',   nome: 'Braço',   x: 80,  y: 112, lado: 'e' },
+  { campo: 'cintura_cm', nome: 'Cintura', x: 130, y: 138, lado: 'd' },
+  { campo: 'quadril_cm', nome: 'Quadril', x: 130, y: 182, lado: 'd' },
+  { campo: 'coxa_cm',    nome: 'Coxa',    x: 114, y: 232, lado: 'e' },
 ];
 function Bonequinho({ series, comps, pesoNeutro, onEscolher }) {
   const partes = PARTES.filter(p => series[p.campo]?.length > 0);
@@ -387,7 +387,7 @@ function Bonequinho({ series, comps, pesoNeutro, onEscolher }) {
       <div style={{ fontSize: 9, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--muted)', fontWeight: 500, padding: '0 4px 4px' }}>
         Toque no seu corpo
       </div>
-      <svg viewBox="0 0 260 300" role="group" aria-label="Figura do corpo com as medidas" style={{ width: '100%', maxWidth: 300, display: 'block', margin: '0 auto' }}>
+      <svg viewBox="0 0 260 330" role="group" aria-label="Figura do corpo com as medidas" style={{ width: '100%', maxWidth: 300, display: 'block', margin: '0 auto' }}>
         <defs>
           <filter id="rab-b" x="-5%" y="-5%" width="110%" height="110%">
             <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="2" seed="9" result="r" />
@@ -395,13 +395,23 @@ function Bonequinho({ series, comps, pesoNeutro, onEscolher }) {
           </filter>
         </defs>
         <g filter="url(#rab-b)" {...tr}>
-          <circle cx="130" cy="34" r="20" />
-          <path d="M122 52 L122 62 M138 52 L138 62" fill="none" />
-          <path d="M96 70 Q130 60 164 70 L168 150 Q168 178 158 196 L102 196 Q92 178 92 150 Z" />
-          <path d="M96 72 Q70 90 62 140 Q60 156 66 160 Q74 160 78 146 Q84 112 98 96" />
-          <path d="M164 72 Q190 90 198 140 Q200 156 194 160 Q186 160 182 146 Q176 112 162 96" />
-          <path d="M102 196 L96 270 Q96 282 108 282 Q120 282 120 270 L128 200" />
-          <path d="M158 196 L164 270 Q164 282 152 282 Q140 282 140 270 L132 200" />
+          {/* braços atrás do tronco, levemente afastados (posição anatômica) */}
+          <path d="M165.0,72.0 C167.8,70.0 173.8,77.3 177.0,84.0 C180.2,90.7 182.2,102.7 184.0,112.0 C185.8,121.3 186.3,130.3 188.0,140.0 C189.7,149.7 192.2,160.3 194.0,170.0 C195.8,179.7 197.5,191.0 199.0,198.0 C200.5,205.0 203.0,208.0 203.0,212.0 C203.0,216.0 200.7,221.7 199.0,222.0 C197.3,222.3 195.2,217.7 193.0,214.0 C190.8,210.3 188.2,207.3 186.0,200.0 C183.8,192.7 182.0,179.7 180.0,170.0 C178.0,160.3 176.0,151.3 174.0,142.0 C172.0,132.7 170.3,121.7 168.0,114.0 C165.7,106.3 160.5,103.0 160.0,96.0 C159.5,89.0 162.2,74.0 165.0,72.0 Z" />
+          <path d="M95.0,72.0 C92.2,70.0 86.2,77.3 83.0,84.0 C79.8,90.7 77.8,102.7 76.0,112.0 C74.2,121.3 73.7,130.3 72.0,140.0 C70.3,149.7 67.8,160.3 66.0,170.0 C64.2,179.7 62.5,191.0 61.0,198.0 C59.5,205.0 57.0,208.0 57.0,212.0 C57.0,216.0 59.3,221.7 61.0,222.0 C62.7,222.3 64.8,217.7 67.0,214.0 C69.2,210.3 71.8,207.3 74.0,200.0 C76.2,192.7 78.0,179.7 80.0,170.0 C82.0,160.3 84.0,151.3 86.0,142.0 C88.0,132.7 89.7,121.7 92.0,114.0 C94.3,106.3 99.5,103.0 100.0,96.0 C100.5,89.0 97.8,74.0 95.0,72.0 Z" />
+          {/* tronco e pernas */}
+          <path d="M138.0,62.0 C143.0,62.5 147.7,63.5 152.0,65.0 C156.3,66.5 162.7,66.5 164.0,71.0 C165.3,75.5 161.5,85.2 160.0,92.0 C158.5,98.8 156.2,104.7 155.0,112.0 C153.8,119.3 152.5,128.3 153.0,136.0 C153.5,143.7 155.8,150.3 158.0,158.0 C160.2,165.7 164.8,174.2 166.0,182.0 C167.2,189.8 165.7,196.7 165.0,205.0 C164.3,213.3 163.2,223.5 162.0,232.0 C160.8,240.5 158.3,248.0 158.0,256.0 C157.7,264.0 160.3,271.7 160.0,280.0 C159.7,288.3 156.0,299.3 156.0,306.0 C156.0,312.7 162.2,317.0 160.0,320.0 C157.8,323.0 145.8,325.7 143.0,324.0 C140.2,322.3 143.7,317.0 143.0,310.0 C142.3,303.0 140.2,290.7 139.0,282.0 C137.8,273.3 137.0,267.3 136.0,258.0 C135.0,248.7 134.0,234.7 133.0,226.0 C132.0,217.3 131.0,206.0 130.0,206.0 C129.0,206.0 128.0,217.3 127.0,226.0 C126.0,234.7 125.0,248.7 124.0,258.0 C123.0,267.3 122.2,273.3 121.0,282.0 C119.8,290.7 117.7,303.0 117.0,310.0 C116.3,317.0 119.8,322.3 117.0,324.0 C114.2,325.7 102.2,323.0 100.0,320.0 C97.8,317.0 104.0,312.7 104.0,306.0 C104.0,299.3 100.3,288.3 100.0,280.0 C99.7,271.7 102.3,264.0 102.0,256.0 C101.7,248.0 99.2,240.5 98.0,232.0 C96.8,223.5 95.7,213.3 95.0,205.0 C94.3,196.7 92.8,189.8 94.0,182.0 C95.2,174.2 99.8,165.7 102.0,158.0 C104.2,150.3 106.5,143.7 107.0,136.0 C107.5,128.3 106.2,119.3 105.0,112.0 C103.8,104.7 101.5,98.8 100.0,92.0 C98.5,85.2 94.7,75.5 96.0,71.0 C97.3,66.5 103.7,66.5 108.0,65.0 C112.3,63.5 117.0,62.5 122.0,62.0 C127.0,61.5 133.0,61.5 138.0,62.0 Z" />
+          {/* pescoço e cabeça */}
+          <path d="M121,46 L121,63 Q130,68 139,63 L139,46" />
+          <ellipse cx="130" cy="30" rx="16" ry="19" />
+        </g>
+        {/* detalhes anatômicos: clavículas, umbigo, joelhos */}
+        <g filter="url(#rab-b)" fill="none" stroke="#8c7b6b" strokeWidth="1.4" strokeLinecap="round">
+          <path d="M124,70 Q112,72 102,78" />
+          <path d="M136,70 Q148,72 158,78" />
+          <path d="M120,112 Q130,120 140,112" />
+          <ellipse cx="130" cy="152" rx="1.8" ry="2.4" />
+          <path d="M142,254 Q150,258 157,254" />
+          <path d="M118,254 Q110,258 103,254" />
         </g>
         {partes.map(p => {
           const ativo = p.campo === sel.campo;
@@ -415,7 +425,7 @@ function Bonequinho({ series, comps, pesoNeutro, onEscolher }) {
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setEscolhida(p.campo); onEscolher(p.campo); } }}>
               {/* fita métrica tracejada */}
               {(p.campo === 'cintura_cm' || p.campo === 'quadril_cm') && (
-                <line x1={p.x - 36} x2={p.x + 50} y1={p.y} y2={p.y} stroke={cor} strokeWidth="1.6" strokeDasharray="4,3" />
+                <line x1={p.x - 34} x2={p.x + 50} y1={p.y} y2={p.y} stroke={cor} strokeWidth="1.6" strokeDasharray="4,3" />
               )}
               <circle cx={p.x} cy={p.y} r={ativo ? 11 : 8} fill={ativo ? cor : '#fff'} stroke={cor} strokeWidth="2.2" />
               <text x={lx} y={p.y + 5} textAnchor="middle" fontSize="16" fontWeight="700" fill={ativo ? '#1c1712' : '#8c7b6b'}
