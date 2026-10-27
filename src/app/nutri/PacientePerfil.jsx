@@ -2355,6 +2355,7 @@ function ModalEditarDados({ paciente, onClose, onSaved }) {
 
   async function salvar() {
     if (!form.nome.trim()) return setErro('Nome é obrigatório.');
+    if (!form.sexo) return setErro('Informe o sexo da paciente.');
     const { iso: nascISO, erro: nascErro } = parseBrData(nascInput);
     if (nascErro) { setErroNasc(nascErro); setErro(nascErro); return; }
     // As colunas nao tem CHECK e este caminho grava direto em `pacientes`,
@@ -2533,16 +2534,16 @@ function ModalEditarDados({ paciente, onClose, onSaved }) {
               e não-informado caem na versão neutra. É por AQUI que as fichas
               antigas — cadastradas antes da coluna existir — ganham o valor. */}
           <div>
-            <label className="field-label">Sexo</label>
-            <select value={form.sexo} onChange={set('sexo')}>
-              <option value="">— não informado —</option>
+            <label className="field-label">Sexo (obrigatório)</label>
+            <select value={form.sexo} onChange={set('sexo')} required>
+              <option value="">— selecione —</option>
               {SEXOS.map(o => (
                 <option key={o.v} value={o.v}>{o.l}</option>
               ))}
             </select>
             {!form.sexo && (
               <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 3 }}>
-                Sem isso, o check-in vai na versão neutra — sem as perguntas de inchaço e ciclo menstrual.
+                Obrigatório: define o desenho do corpo na evolução da paciente e a versão do check-in.
               </div>
             )}
           </div>

@@ -232,6 +232,7 @@ export default function NovaPacienteRapida({ nutriId, onClose, onCriada }) {
     setErro(null);
     if (!nome.trim()) return setErro('Informe o nome.');
     if (!telefone.trim()) return setErro('Informe o telefone.');
+    if (!sexo) return setErro('Informe o sexo da paciente.');
     if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       return setErro('Email inválido.');
     }
@@ -469,14 +470,14 @@ export default function NovaPacienteRapida({ nutriId, onClose, onCriada }) {
                 campo aparece igual ao do Cadastrar.jsx. Sexo decide a variação
                 do check-in (lib/checkinVariacao.js). */}
             <div style={{ marginBottom: 8 }}>
-              <label className="form-lbl">Sexo</label>
-              <select value={sexo} onChange={e => setSexo(e.target.value)}>
-                <option value="">— não informado —</option>
+              <label className="form-lbl">Sexo (obrigatório)</label>
+              <select value={sexo} onChange={e => setSexo(e.target.value)} required>
+                <option value="">— selecione —</option>
                 {SEXOS.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
               </select>
               {!sexo && (
                 <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 3 }}>
-                  Sem isso, o check-in vai na versão neutra — sem as perguntas de inchaço e ciclo menstrual.
+                  Obrigatório: define o desenho do corpo na evolução da paciente e a versão do check-in.
                 </div>
               )}
             </div>

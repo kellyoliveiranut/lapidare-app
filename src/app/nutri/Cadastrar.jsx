@@ -14,7 +14,7 @@ import DateInput from '../../components/DateInput.jsx';
 
 // O "— não informado —" é opção de tela, não valor de banco: por isso mora
 // aqui e não em SEXOS. Hoisted para não remontar o array a cada render.
-const SEXOS_COM_VAZIO = [{ v: '', l: '— não informado —' }, ...SEXOS];
+const SEXOS_COM_VAZIO = [{ v: '', l: '— selecione —' }, ...SEXOS];
 
 export default function Cadastrar() {
   const { user, profile } = useSession();
@@ -205,6 +205,8 @@ export default function Cadastrar() {
     if (!nome.trim()) return setErro('Informe o nome.');
     if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return setErro('Email inválido.');
     if (!telefone.trim()) return setErro('Informe o telefone.');
+    // Obrigatório: define o desenho do corpo na tela de evolução e a versão do check-in.
+    if (!sexo) return setErro('Informe o sexo da paciente.');
     // !(x > 0) e não x <= 0: assim pega NaN junto. O banco tambem barra
     // (check valor > 0), mas la o erro chegaria depois da paciente criada.
     if (tipoPlano === 'essentia' && !(valorContratoNum > 0)) {
@@ -413,8 +415,8 @@ export default function Cadastrar() {
           {/* Sexo decide a variação do check-in (lib/checkinVariacao.js):
               feminino mantém a seção "Corpo & ciclo" e o texto atual;
               masculino e não-informado caem na versão neutra. */}
-          <SelectField label="Sexo" value={sexo} onChange={setSexo} options={SEXOS_COM_VAZIO}
-            hint={sexo ? null : 'Sem isso, o check-in vai na versão neutra — sem as perguntas de inchaço e ciclo menstrual.'} />
+          <SelectField label="Sexo (obrigatório)" value={sexo} onChange={setSexo} options={SEXOS_COM_VAZIO}
+            hint={sexo ? null : 'Obrigatório: define o desenho do corpo na evolução da paciente e a versão do check-in.'} />
           <SelectField label="Objetivo" value={objetivo} onChange={setObjetivo} options={OBJETIVOS} />
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <SelectField label="Tipo de plano" value={tipoPlano} onChange={escolherPlano} options={PLANOS} />
