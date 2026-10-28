@@ -28,7 +28,7 @@ t('3º lembrete volta ao primeiro', textoPush('Maria', 2).body === textoPush('Ma
 t('sem nome (1º)', textoPush(null, 0).body, 'Sua nutri acompanha o seu dia a dia pelo app. Que tal passar por aqui hoje e registrar como você está?');
 t('sem nome (2º)', textoPush('  ', 1).body.startsWith('No seu tempo'), true);
 t('envios inválido cai no 1º', textoPush('Ana', undefined).body.startsWith('Ana, sua nutri acompanha'), true);
-t('nenhum texto fala em "disponível" ou "por aqui quando"', [0,1].every(i => !/dispon|por aqui quando/i.test(textoPush('Ana', i).body)), true);
+t('nenhum texto fala em "disponível" ou "está por aqui"', [0,1].every(i => !/dispon|está por aqui/i.test(textoPush('Ana', i).body)), true);
 t('abre a tela inicial da paciente', textoPush('A').url, '/paciente/inicio');
 console.log(`${ok} passaram, ${ruim} falharam`);
 process.exit(ruim ? 1 : 0);
