@@ -55,6 +55,7 @@ exports.handler = async (event) => {
       .select('id, data_hora, modalidade, local_id, local:locais_atendimento(nome, endereco), paciente:pacientes(user_id, nome)')
       .eq('status', 'agendada')
       .eq('lembrete_ativo', true)
+      .eq('oculta_paciente', false) // data escondida da paciente (reagendamento): sem push com a data
       .is('push_lembrete_enviado_em', null)
       .gte('data_hora', tomorrowStartUTC.toISOString())
       .lt('data_hora', tomorrowEndUTC.toISOString());

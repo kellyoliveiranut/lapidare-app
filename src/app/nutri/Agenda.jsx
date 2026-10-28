@@ -368,7 +368,7 @@ export default function Agenda() {
       .select(`
         id, data_hora, duracao_min, tipo, status, modalidade, local_id, obs,
         lembrete_ativo, lembrete_enviado,
-        confirmada_em, confirmada_por, nao_confirmada_em, nao_confirmada_por, remarcada_de,
+        confirmada_em, confirmada_por, nao_confirmada_em, nao_confirmada_por, remarcada_de, oculta_paciente,
         paciente:pacientes(id, nome)
       `)
       .eq('nutri_id', user.id)
@@ -403,6 +403,7 @@ export default function Agenda() {
       .select('id, data_hora, modalidade, local_id, lembrete_enviado, lembrete_enviado_em, confirmada_em, nao_confirmada_em, nao_confirmada_por, paciente:pacientes(id, nome, telefone)')
       .eq('nutri_id', user.id)
       .eq('lembrete_ativo', true)
+      .eq('oculta_paciente', false) // data escondida da paciente: não sugerir lembrete com a data
       .eq('status', 'agendada')
       .gte('data_hora', agora.toISOString())
       .lte('data_hora', fim.toISOString())
@@ -2106,6 +2107,11 @@ function ConsultaRow({ c, isLast, onClick, onToggleConfirmada, onToggleNaoConfir
             {c.data_hora ? dataConsultaBR(c.data_hora) : 'A definir'} · {c.duracao_min}min
             {c.status === 'realizada' && ' · ✓ realizada'}
           </span>
+          {c.oculta_paciente && c.status === 'agendada' && (
+            <span style={{ fontSize: 11, color: 'var(--text3)', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+              <i className="ti ti-eye-off" aria-hidden="true" style={{ fontSize: 12 }} /> Data oculta da paciente
+            </span>
+          )}
           {c.remarcada_de && c.status === 'agendada' && (
             <span style={{ fontSize: 11, color: 'var(--text3)', whiteSpace: 'nowrap' }}>
               {c.data_hora

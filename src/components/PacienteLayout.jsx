@@ -261,6 +261,7 @@ export default function PacienteLayout() {
         .select('id, data_hora, tipo, status, modalidade, local:locais_atendimento(nome)')
         .eq('paciente_id', pacienteId)
         .eq('status', 'agendada')
+        .eq('oculta_paciente', false) // a nutri está reagendando: sem banner com a data
         .gte('data_hora', janela15m)
         .lte('data_hora', janela48h)
         .order('data_hora', { ascending: true })

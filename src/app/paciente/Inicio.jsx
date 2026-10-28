@@ -192,7 +192,8 @@ export default function Inicio() {
         // um faz o local sumir na primeira atualização que chegar.
         supabase.from('consultas')
           .select('id, data_hora, tipo, duracao_min, confirmada_em, nao_confirmada_em, nao_confirmada_por, modalidade, local_id, local:locais_atendimento(nome, endereco)')
-          .eq('paciente_id', pacienteId).eq('status', 'agendada')
+          // oculta_paciente: a nutri está reagendando; a paciente não vê a data.
+          .eq('paciente_id', pacienteId).eq('status', 'agendada').eq('oculta_paciente', false)
           .gte('data_hora', agora).order('data_hora', { ascending: true }).limit(1).maybeSingle(),
         supabase.from('checkin_envios').select('id, enviado_em, lembrete_enviado_em, nome, tipo')
           .eq('paciente_id', pacienteId).is('respondido_em', null)
@@ -266,7 +267,7 @@ export default function Inicio() {
         // Mesmo select da carga inicial, incluindo o local — os dois andam
         // juntos, senão o local some assim que o realtime atualizar.
         .select('id, data_hora, tipo, duracao_min, confirmada_em, nao_confirmada_em, nao_confirmada_por, modalidade, local_id, local:locais_atendimento(nome, endereco)')
-        .eq('paciente_id', pacienteId).eq('status', 'agendada')
+        .eq('paciente_id', pacienteId).eq('status', 'agendada').eq('oculta_paciente', false)
         .gte('data_hora', new Date().toISOString())
         .order('data_hora', { ascending: true }).limit(1).maybeSingle();
       if (active) setProximaConsulta(data ?? null);
