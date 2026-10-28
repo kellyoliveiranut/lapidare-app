@@ -494,6 +494,24 @@ export default function Agenda() {
     }
   }
 
+  // Esconde (ou mostra) a data da consulta para a paciente — a nutri segue vendo
+  // tudo. UPDATE isolado de uma coluna, com estado local otimista como as
+  // presenças; reverte se o banco recusar. Esconder também tira a consulta do
+  // painel de lembretes (não sugerir lembrete com a data); mostrar a traz de volta.
+  async function toggleOculta(consultaId, ocultar) {
+    const anterior = (consultas ?? []).find(c => c.id === consultaId);
+    setConsultas(prev => (prev ?? []).map(c => c.id === consultaId ? { ...c, oculta_paciente: ocultar } : c));
+    const r = await gravar(supabase.from('consultas').update({ oculta_paciente: ocultar }).eq('id', consultaId),
+      { rotulo: ocultar ? 'ocultar a data da paciente' : 'mostrar a data para a paciente' });
+    if (!r.ok) {
+      setConsultas(prev => (prev ?? []).map(c => c.id === consultaId ? { ...c, oculta_paciente: !!anterior?.oculta_paciente } : c));
+      setErroLembrete('Não consegui salvar, tente novamente');
+      setTimeout(() => setErroLembrete(null), 4000);
+      return;
+    }
+    verificarLembretes();
+  }
+
   // Confirmar zera nao_confirmada_em — espelha no cliente o que a RPC da
   // paciente faz no servidor: a resposta nova substitui a anterior.
   function toggleConfirmada(consultaId, confirmar) {
@@ -987,6 +1005,7 @@ export default function Agenda() {
             <ConsultaRow key={c.id} c={c} isLast={i === consultasDoDia.length - 1} onClick={() => abrirEdit(c)}
               onToggleConfirmada={toggleConfirmada}
               onToggleNaoConfirmada={toggleNaoConfirmada}
+              onToggleOculta={toggleOculta}
               onRemarcar={() => abrirRemarcar(c)}
               remarcandoAgora={mandandoId === c.id}
               corDoTipo />
@@ -1164,6 +1183,7 @@ export default function Agenda() {
                         onClick={() => abrirEdit(c)}
                         onToggleConfirmada={toggleConfirmada}
                         onToggleNaoConfirmada={toggleNaoConfirmada}
+              onToggleOculta={toggleOculta}
                         onRemarcar={() => abrirRemarcar(c)}
                         remarcandoAgora={mandandoId === c.id}
                         corDoTipo />
@@ -2003,7 +2023,7 @@ function LinhaPacienteCancelada({ p, isLast }) {
 //
 // remarcandoAgora: o Remarcar da linha está gravando (mandarParaADefinir) —
 // o botão fica desabilitado até a resposta do banco.
-function ConsultaRow({ c, isLast, onClick, onToggleConfirmada, onToggleNaoConfirmada, onRemarcar, remarcandoAgora = false, corDoTipo = false }) {
+function ConsultaRow({ c, isLast, onClick, onToggleConfirmada, onToggleNaoConfirmada, onToggleOculta, onRemarcar, remarcandoAgora = false, corDoTipo = false }) {
   const navigate = useNavigate();
   const cor = tipoColor(c.tipo);
   const confirmavel = podeConfirmar(c) && typeof onToggleConfirmada === 'function';
@@ -2040,6 +2060,11 @@ function ConsultaRow({ c, isLast, onClick, onToggleConfirmada, onToggleNaoConfir
   function alternarNaoConfirmada(e) {
     e.stopPropagation();
     onToggleNaoConfirmada(c.id, !naoConfirmou);
+  }
+
+  function alternarOculta(e) {
+    e.stopPropagation();
+    onToggleOculta(c.id, !c.oculta_paciente);
   }
 
   // Sem o stopPropagation o clique subiria para o wrapper e abriria o modal em
@@ -2107,11 +2132,6 @@ function ConsultaRow({ c, isLast, onClick, onToggleConfirmada, onToggleNaoConfir
             {c.data_hora ? dataConsultaBR(c.data_hora) : 'A definir'} · {c.duracao_min}min
             {c.status === 'realizada' && ' · ✓ realizada'}
           </span>
-          {c.oculta_paciente && c.status === 'agendada' && (
-            <span style={{ fontSize: 11, color: 'var(--text3)', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-              <i className="ti ti-eye-off" aria-hidden="true" style={{ fontSize: 12 }} /> Data oculta da paciente
-            </span>
-          )}
           {c.remarcada_de && c.status === 'agendada' && (
             <span style={{ fontSize: 11, color: 'var(--text3)', whiteSpace: 'nowrap' }}>
               {c.data_hora
@@ -2199,12 +2219,33 @@ function ConsultaRow({ c, isLast, onClick, onToggleConfirmada, onToggleNaoConfir
                   : 'Não confirmou'}
               </button>
             )}
+            {/* Esconde a data da paciente enquanto a nutri reagenda. Ligado = fundo
+                escuro, como o "Avisou que não irá": é um estado, não uma ação. */}
+            {remarcavel && typeof onToggleOculta === 'function' && (
+              <button
+                onClick={alternarOculta}
+                title={c.oculta_paciente
+                  ? 'A paciente não vê a data desta consulta — toque para mostrar de novo'
+                  : 'Esconder a data desta consulta da paciente (para reagendar)'}
+                style={{
+                  minHeight: 30, padding: '0 11px',
+                  borderRadius: 20, cursor: 'pointer',
+                  fontFamily: 'var(--font-sans)', fontSize: 11.5, fontWeight: 500,
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                  background: c.oculta_paciente ? 'var(--dark)' : 'var(--bg2)',
+                  color:      c.oculta_paciente ? '#ffffff'     : 'var(--text2)',
+                  border: `1px solid ${c.oculta_paciente ? 'var(--dark)' : 'var(--border)'}`,
+                }}>
+                <i className={`ti ${c.oculta_paciente ? 'ti-eye-off' : 'ti-eye'}`} aria-hidden="true" />
+                {c.oculta_paciente ? 'Data oculta da paciente' : 'Ocultar da paciente'}
+              </button>
+            )}
             {/* Neutro de propósito: o laranja do confirmar é o que pede ação. */}
             {remarcavel && (
               <button
                 onClick={acionarRemarcar}
                 disabled={remarcandoAgora}
-                title="Manda para A definir"
+                title="Remarcar: escolher a nova data"
                 style={{
                   minHeight: 30, padding: '0 11px',
                   borderRadius: 20, cursor: 'pointer',
