@@ -42,19 +42,23 @@ function deveLembrar(p, agora, cfg = CONFIG) {
 // se alternam: `envios` é quantos lembretes ela já recebeu nesta ausência (0 =
 // primeiro), para quem não voltou não ler a mesma frase duas vezes seguidas.
 // Os textos dizem que a nutri ACOMPANHA o app (ela vê o que a paciente registra)
-// e NÃO falam em "estar disponível": uma paciente leu "sua nutri está por aqui"
-// como convite para marcar consulta (28/10/2026).
+// e NÃO falam em "estar disponível" nem "estar por aqui": uma paciente leu "sua
+// nutri está por aqui" como convite para marcar consulta (28/10/2026). Três
+// textos, um por lembrete (são no máximo 3 por ausência); `envios` = quantos
+// ela já recebeu nesta ausência (0 = primeiro).
 const TEXTOS = [
-  (n) => `${n}, sua nutri acompanha o seu dia a dia pelo app. Que tal passar por aqui hoje e registrar como você está?`,
-  (n) => `${n}, no seu tempo: seu acompanhamento também acontece no app, e sua nutri vê o que você registra. Passe por aqui quando puder.`,
+  { com: (n) => `${n}, sua nutri acompanha o que você registra no app. Conta como você está hoje?`,
+    sem: 'Sua nutri acompanha o que você registra no app. Conta como você está hoje?' },
+  { com: (n) => `${n}, no seu ritmo: quando puder, registre como você está no app. Sua nutri acompanha.`,
+    sem: 'No seu ritmo: quando puder, registre como você está no app. Sua nutri acompanha.' },
+  { com: (n) => `${n}, seu acompanhamento continua no app. Sua nutri vê seus registros e cuida do seu plano com eles.`,
+    sem: 'Seu acompanhamento continua no app. Sua nutri vê seus registros e cuida do seu plano com eles.' },
 ];
-const SEM_NOME = ['Sua nutri acompanha o seu dia a dia pelo app. Que tal passar por aqui hoje e registrar como você está?',
-  'No seu tempo: seu acompanhamento também acontece no app, e sua nutri vê o que você registra. Passe por aqui quando puder.'];
 
 function textoPush(nome, envios = 0) {
   const primeiro = (nome ?? '').trim().split(/\s+/)[0];
   const i = Math.abs(Number(envios) || 0) % TEXTOS.length;
-  return { title: 'Essentia', body: primeiro ? TEXTOS[i](primeiro) : SEM_NOME[i], url: '/paciente/inicio' };
+  return { title: 'Essentia', body: primeiro ? TEXTOS[i].com(primeiro) : TEXTOS[i].sem, url: '/paciente/inicio' };
 }
 
 module.exports = { CONFIG, deveLembrar, enviosDaAusencia, textoPush };
