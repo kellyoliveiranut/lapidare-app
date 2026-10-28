@@ -22,12 +22,13 @@ t('voltou depois do último lembrete e sumiu de novo: conta do zero',
   deveLembrar({ ...base, ultimo_acesso: dias(8), volta_app_enviado_em: dias(30), volta_app_envios: 3 }, AGORA), true);
 t('ultimo_acesso inválido → não', deveLembrar({ ...base, ultimo_acesso: 'x' }, AGORA), false);
 t('config padrão', CONFIG, { DIAS_SEM_ACESSO: 7, INTERVALO_DIAS: 14, MAX_ENVIOS: 3 });
-t('1º lembrete: texto da nutri', textoPush('Maria da Silva', 0).body, 'Maria, sua nutri está por aqui quando você precisar. Que tal passar no app hoje?');
-t('2º lembrete: texto "no seu tempo"', textoPush('Maria', 1).body, 'Maria, no seu tempo: seu espaço no Essentia está pronto para quando você quiser voltar.');
+t('1º lembrete: texto da nutri', textoPush('Maria da Silva', 0).body, 'Maria, sua nutri acompanha o seu dia a dia pelo app. Que tal passar por aqui hoje e registrar como você está?');
+t('2º lembrete: texto "no seu tempo"', textoPush('Maria', 1).body, 'Maria, no seu tempo: seu acompanhamento também acontece no app, e sua nutri vê o que você registra. Passe por aqui quando puder.');
 t('3º lembrete volta ao primeiro', textoPush('Maria', 2).body === textoPush('Maria', 0).body, true);
-t('sem nome (1º)', textoPush(null, 0).body, 'Sua nutri está por aqui quando você precisar. Que tal passar no app hoje?');
+t('sem nome (1º)', textoPush(null, 0).body, 'Sua nutri acompanha o seu dia a dia pelo app. Que tal passar por aqui hoje e registrar como você está?');
 t('sem nome (2º)', textoPush('  ', 1).body.startsWith('No seu tempo'), true);
-t('envios inválido cai no 1º', textoPush('Ana', undefined).body.startsWith('Ana, sua nutri'), true);
+t('envios inválido cai no 1º', textoPush('Ana', undefined).body.startsWith('Ana, sua nutri acompanha'), true);
+t('nenhum texto fala em "disponível" ou "por aqui quando"', [0,1].every(i => !/dispon|por aqui quando/i.test(textoPush('Ana', i).body)), true);
 t('abre a tela inicial da paciente', textoPush('A').url, '/paciente/inicio');
 console.log(`${ok} passaram, ${ruim} falharam`);
 process.exit(ruim ? 1 : 0);

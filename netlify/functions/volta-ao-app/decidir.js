@@ -41,12 +41,15 @@ function deveLembrar(p, agora, cfg = CONFIG) {
 // Sem promessa, sem cobrança, sem conteúdo clínico (CFN 856). Dois textos que
 // se alternam: `envios` é quantos lembretes ela já recebeu nesta ausência (0 =
 // primeiro), para quem não voltou não ler a mesma frase duas vezes seguidas.
+// Os textos dizem que a nutri ACOMPANHA o app (ela vê o que a paciente registra)
+// e NÃO falam em "estar disponível": uma paciente leu "sua nutri está por aqui"
+// como convite para marcar consulta (28/10/2026).
 const TEXTOS = [
-  (n) => `${n}, sua nutri está por aqui quando você precisar. Que tal passar no app hoje?`,
-  (n) => `${n}, no seu tempo: seu espaço no Essentia está pronto para quando você quiser voltar.`,
+  (n) => `${n}, sua nutri acompanha o seu dia a dia pelo app. Que tal passar por aqui hoje e registrar como você está?`,
+  (n) => `${n}, no seu tempo: seu acompanhamento também acontece no app, e sua nutri vê o que você registra. Passe por aqui quando puder.`,
 ];
-const SEM_NOME = ['Sua nutri está por aqui quando você precisar. Que tal passar no app hoje?',
-  'No seu tempo: seu espaço no Essentia está pronto para quando você quiser voltar.'];
+const SEM_NOME = ['Sua nutri acompanha o seu dia a dia pelo app. Que tal passar por aqui hoje e registrar como você está?',
+  'No seu tempo: seu acompanhamento também acontece no app, e sua nutri vê o que você registra. Passe por aqui quando puder.'];
 
 function textoPush(nome, envios = 0) {
   const primeiro = (nome ?? '').trim().split(/\s+/)[0];
