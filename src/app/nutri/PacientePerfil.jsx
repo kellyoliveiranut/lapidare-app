@@ -1334,7 +1334,9 @@ export default function PacientePerfil() {
             { id: 'habitos',       label: 'Hábitos',       icon: 'checklist' },
             { id: 'ebooks',        label: 'E-books',       icon: 'book-2' },
             isOnco ? emag : onco,
-          ].filter(t => !(t.id === 'emagrecimento' && isOnco && ehPlanoEssentia(paciente.tipo_plano)));
+          ].filter(t => !(t.id === 'emagrecimento' && isOnco && ehPlanoEssentia(paciente.tipo_plano)))
+            // Paciente de objetivo Emagrecimento não tem a aba Oncologia/Histórico onco (pedido de 2026-10-29).
+            .filter(t => !(t.id === 'oncologia' && paciente.objetivo === 'Emagrecimento'));
           // Paciente Essentia oncológica não tem a aba Emagrecimento (pedido de 2026-10-29).
           // O Financeiro saiu da barra de abas (pedido de 2026-10-29): abre pela
           // faixa "Financeiro" no topo do perfil.
