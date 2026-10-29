@@ -577,6 +577,7 @@ export default function PacientePerfil() {
 
   return (
     <>
+      <div id="topo-perfil" style={{ scrollMarginTop: 80 }} />
       <button
         onClick={voltar}
         style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 12, display: 'inline-flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer' }}
@@ -1404,6 +1405,7 @@ export default function PacientePerfil() {
                 {id === 'plan-compras' && <PublicarLista pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
                 {id === 'plan-suplementacao' && <Suplementacao pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
                 {id === 'plan-treinos' && <Treinos pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
+                {(id === 'plan-plano' || id === 'plan-treinos') && <BotaoVoltarAoTopo />}
               </section>
             ))}
           </div>
@@ -7874,6 +7876,27 @@ function AvisoHorariosNaoConferidos() {
     <span style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.4 }}>
       Não consegui conferir os horários ocupados. A conferência final acontece ao salvar.
     </span>
+  );
+}
+
+function BotaoVoltarAoTopo() {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}>
+      <button
+        type="button"
+        onClick={() => {
+          document.getElementById('topo-perfil')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px',
+          borderRadius: 999, border: '1px solid var(--border)', background: 'var(--white)',
+          color: 'var(--dark)', fontSize: 13, cursor: 'pointer',
+        }}
+      >
+        <i className="ti ti-arrow-up" aria-hidden="true" /> Voltar ao topo
+      </button>
+    </div>
   );
 }
 
