@@ -23,46 +23,104 @@ export function achatarExame(linha) {
   return { id: linha.id, data_exame: linha.data_exame, obs: linha.obs ?? '', ...(linha.valores ?? {}) };
 }
 
-/** Só aceita chaves do catálogo; null (nunca escolhido) = todos. */
-export function chavesAtivas(salvas, campos) {
+/** Só aceita chaves do catálogo; null (nunca escolhido) = o padrão informado (ou todos). */
+export function chavesAtivas(salvas, campos, padrao = null) {
   const todas = campos.map(c => c.key);
-  if (!Array.isArray(salvas)) return todas;
+  if (!Array.isArray(salvas)) {
+    if (!padrao) return todas;
+    const p = new Set(padrao);
+    return todas.filter(k => p.has(k));
+  }
   const set = new Set(salvas);
   return todas.filter(k => set.has(k));
 }
 
-const CHAVES_REF = ['min', 'max', 'baixo', 'critico', 'alto', 'criticoAlto'];
+const CHAVES_LIMITE = ['min', 'max', 'baixo', 'critico', 'alto', 'criticoAlto'];
 
-/** Limpa o que a nutri digitou: só chaves conhecidas, só números finitos. */
+/** Limpa o que a nutri digitou: só números finitos nos limites e texto curto na fonte. */
 export function normalizarRefs(refs) {
   const saida = {};
   for (const [campo, r] of Object.entries(refs ?? {})) {
     const lim = {};
-    for (const k of CHAVES_REF) {
+    for (const k of CHAVES_LIMITE) {
       const n = numeroDe(r?.[k]);
       if (n != null) lim[k] = n;
     }
-    if (Object.keys(lim).length) saida[campo] = lim;
+    // A fonte/justificativa só vale junto de uma faixa: sozinha não muda nada.
+    const fonte = String(r?.fonte ?? '').trim().slice(0, 300);
+    if (Object.keys(lim).length) saida[campo] = fonte ? { ...lim, fonte } : lim;
   }
   return saida;
 }
 
-/** Junta as faixas da nutri ao catálogo no formato que nivelExame/textoRef entendem. */
+function dentro(ref, v) {
+  if (!ref) return null;
+  if (ref.min != null && v < ref.min) return false;
+  if (ref.max != null && v > ref.max) return false;
+  return true;
+}
+
+/**
+ * Junta ao catálogo a faixa PERSONALIZADA da nutri (quando existe ela substitui a
+ * referência orientativa do marcador) e liga a função `nivel(valor, sexo)`:
+ *   - com limites de alerta dela: usa o alerta (e ainda marca "fora da referência");
+ *   - só com referência: 'normal' dentro, 'atencao' fora (é "fora da referência",
+ *     nunca "crítico" nem "deficiência");
+ *   - sem referência nenhuma: null (sem cor).
+ */
 export function aplicarReferencias(campos, refs) {
   return campos.map(c => {
     const r = refs?.[c.key];
-    if (!r) return c;
-    const ref = {};
-    if (r.min != null) ref.min = r.min;
-    if (r.max != null) ref.max = r.max;
-    const alerta = {};
-    for (const k of ['baixo', 'critico', 'alto', 'criticoAlto']) if (r[k] != null) alerta[k] = r[k];
+    const temFaixa = r && (r.min != null || r.max != null);
+    const temAlerta = r && ['baixo', 'critico', 'alto', 'criticoAlto'].some(k => r[k] != null);
+    const refEfetiva = temFaixa
+      ? { ...(r.min != null ? { min: r.min } : {}), ...(r.max != null ? { max: r.max } : {}) }
+      : c.ref;
+    const alerta = temAlerta
+      ? Object.fromEntries(['baixo', 'critico', 'alto', 'criticoAlto'].filter(k => r[k] != null).map(k => [k, r[k]]))
+      : undefined;
+    const doSexo = (sexo) => {
+      if (!refEfetiva) return null;
+      if (refEfetiva.min != null || refEfetiva.max != null) return refEfetiva;
+      return refEfetiva[sexo] ?? refEfetiva.feminino ?? null;
+    };
     return {
       ...c,
-      ...(Object.keys(ref).length ? { ref } : {}),
-      ...(Object.keys(alerta).length ? { alerta } : {}),
+      ...(refEfetiva ? { ref: refEfetiva } : {}),
+      ...(alerta ? { alerta } : {}),
+      personalizada: !!(temFaixa || temAlerta),
+      fonte: r?.fonte ?? '',
+      nivel: (valor, sexo) => {
+        if (valor == null) return null;
+        const faixa = doSexo(sexo);
+        if (alerta) {
+          const n = nivelAlerta(alerta, Number(valor));
+          if (n === 'normal' && faixa && dentro(faixa, Number(valor)) === false) return 'atencao';
+          return n;
+        }
+        const d = dentro(faixa, Number(valor));
+        return d == null ? null : (d ? 'normal' : 'atencao');
+      },
     };
   });
+}
+
+function nivelAlerta(a, n) {
+  if ((a.critico != null && n <= a.critico) || (a.criticoAlto != null && n >= a.criticoAlto)) return 'critico';
+  if ((a.baixo != null && n <= a.baixo) || (a.alto != null && n >= a.alto)) return 'atencao';
+  return 'normal';
+}
+
+/** Rótulo da classificação por diretriz (HbA1c, vitamina D, PCR-us); null se o marcador não tem. */
+export function rotuloCriterio(campo, valor) {
+  if (!campo?.criterio || valor == null) return null;
+  const v = Number(valor);
+  if (!Number.isFinite(v)) return null;
+  for (const c of campo.criterio) {
+    if (c.ate == null) return c.rotulo;
+    if (c.incl ? v <= c.ate : v < c.ate) return c.rotulo;
+  }
+  return null;
 }
 
 /** Diferença entre dois exames (A mais antigo, B mais novo), só onde os dois têm valor. */

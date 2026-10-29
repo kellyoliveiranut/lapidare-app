@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
-import { numeroDe, homaIr, achatarExame, chavesAtivas, normalizarRefs, aplicarReferencias, compararExames } from './examesEmagrecimento.js';
-import { nivelExame, textoRef } from '../data/exames_referencia.js';
-import { CAMPOS_EMAG } from '../data/exames_emagrecimento.js';
+import { numeroDe, homaIr, achatarExame, chavesAtivas, normalizarRefs, aplicarReferencias, compararExames, rotuloCriterio } from './examesEmagrecimento.js';
+import { textoRef } from '../data/exames_referencia.js';
+import { CAMPOS_EMAG, CHAVES_PADRAO_EMAG, CHAVES_EMAG, PEDIDO_EMAGRECIMENTO } from '../data/exames_emagrecimento.js';
+import { CATEGORIAS_EXAME } from '../data/exames_solicitacao.js';
 
 assert.equal(numeroDe('95,2'), 95.2); assert.equal(numeroDe('1.234,5'), 1234.5);
 assert.equal(numeroDe(''), null); assert.equal(numeroDe('abc'), null); assert.equal(numeroDe(7), 7);
@@ -11,30 +12,56 @@ assert.equal(homaIr(null, 10), null); assert.equal(homaIr(0, 10), null);
 assert.deepEqual(achatarExame({ id: 1, data_exame: '2026-01-01', valores: { ldl: 100 }, obs: null }),
   { id: 1, data_exame: '2026-01-01', obs: '', ldl: 100 });
 
-const campos = CAMPOS_EMAG.slice(0, 3);
-assert.deepEqual(chavesAtivas(null, campos), campos.map(c => c.key));
-assert.deepEqual(chavesAtivas(['homa_ir', 'xxx', 'glicemia_jejum'], campos), ['glicemia_jejum', 'homa_ir']);
-assert.deepEqual(chavesAtivas([], campos), []);
+const tres = CAMPOS_EMAG.slice(0, 3);
+assert.deepEqual(chavesAtivas(null, tres), tres.map(c => c.key));
+assert.deepEqual(chavesAtivas(['homa_ir', 'xxx', 'glicemia_jejum'], CAMPOS_EMAG), ['glicemia_jejum', 'homa_ir']);
+assert.deepEqual(chavesAtivas([], tres), []);
+assert.deepEqual(chavesAtivas(null, tres, ['hba1c']), ['hba1c']);
 
-assert.deepEqual(normalizarRefs({ ldl: { min: '', max: '130,5', alto: 'x' }, tsh: {} , lixo: null }), { ldl: { max: 130.5 } });
+// catálogo consistente
+assert.equal(new Set(CHAVES_EMAG).size, CHAVES_EMAG.length);
+for (const k of CHAVES_PADRAO_EMAG) assert.ok(CHAVES_EMAG.includes(k), 'painel com chave inexistente: ' + k);
+const todosItens = new Set(CATEGORIAS_EXAME.flatMap(c => c.itens));
+for (const i of PEDIDO_EMAGRECIMENTO) assert.ok(todosItens.has(i), 'item fora do catálogo de solicitação: ' + i);
 
-// sem referência → sem cor e sem faixa (nunca inventa limite)
-const sem = aplicarReferencias(CAMPOS_EMAG, {});
-const ldl0 = sem.find(c => c.key === 'ldl');
-assert.equal(nivelExame(ldl0, 500), 'normal'); // sem alerta: nada acende
-assert.equal(textoRef(ldl0, null), null);
-// com referência da nutri
-const com = aplicarReferencias(CAMPOS_EMAG, { ldl: { max: 100, alto: 130, criticoAlto: 190 } });
-const ldl1 = com.find(c => c.key === 'ldl');
-assert.equal(textoRef(ldl1, null), '< 100');
-assert.equal(nivelExame(ldl1, 140), 'atencao');
-assert.equal(nivelExame(ldl1, 200), 'critico');
-assert.equal(nivelExame(ldl1, 90), 'normal');
+// normalizar
+assert.deepEqual(normalizarRefs({ ldl: { min: '', max: '130,5', alto: 'x', fonte: '  Dir. X  ' }, tsh: { fonte: 'só fonte' }, lixo: null }),
+  { ldl: { max: 130.5, fonte: 'Dir. X' } });
+
+const com = aplicarReferencias(CAMPOS_EMAG, {});
+const g = com.find(c => c.key === 'glicemia_jejum');
+// referência orientativa da tabela: 70–99, bordas inclusivas, "fora" = atenção (nunca crítico)
+assert.equal(textoRef(g, null), '70–99');
+assert.equal(g.nivel(70), 'normal'); assert.equal(g.nivel(99), 'normal');
+assert.equal(g.nivel(100), 'atencao'); assert.equal(g.nivel(69), 'atencao');
+// sem faixa → sem cor (LDL: meta individualizada)
+const ldl = com.find(c => c.key === 'ldl');
+assert.equal(ldl.nivel(500), null); assert.equal(textoRef(ldl, null), null);
+// por sexo
+const hb = com.find(c => c.key === 'hemoglobina');
+assert.equal(hb.nivel(13, 'feminino'), 'normal'); assert.equal(hb.nivel(13, 'masculino'), 'atencao');
+assert.equal(hb.nivel(13, null), 'normal');
+// LH: só homem tem faixa; mulher fica sem cor
+const lh = com.find(c => c.key === 'lh');
+assert.equal(lh.nivel(5, 'masculino'), 'normal'); assert.equal(lh.nivel(5, 'feminino'), null);
+// faixa personalizada substitui a orientativa e traz alerta própria
+const pers = aplicarReferencias(CAMPOS_EMAG, { glicemia_jejum: { min: 75, max: 90, criticoAlto: 126 } }).find(c => c.key === 'glicemia_jejum');
+assert.equal(pers.personalizada, true); assert.equal(textoRef(pers, null), '75–90');
+assert.equal(pers.nivel(95), 'atencao'); assert.equal(pers.nivel(80), 'normal'); assert.equal(pers.nivel(130), 'critico');
+
+// critérios por diretriz
+const hba1c = CAMPOS_EMAG.find(c => c.key === 'hba1c');
+assert.equal(rotuloCriterio(hba1c, 5.6), 'Normal'); assert.equal(rotuloCriterio(hba1c, 5.7), 'Pré-diabetes');
+assert.equal(rotuloCriterio(hba1c, 6.4), 'Pré-diabetes'); assert.equal(rotuloCriterio(hba1c, 6.5), 'Critério para diabetes');
+const vd = CAMPOS_EMAG.find(c => c.key === 'vitamina_d');
+assert.equal(rotuloCriterio(vd, 11), 'Deficiência importante'); assert.equal(rotuloCriterio(vd, 12), 'Inadequação');
+assert.equal(rotuloCriterio(vd, 19), 'Inadequação'); assert.equal(rotuloCriterio(vd, 20), 'Adequada para a maioria dos adultos saudáveis');
+assert.equal(rotuloCriterio(vd, 50), 'Adequada para a maioria dos adultos saudáveis'); assert.match(rotuloCriterio(vd, 51), /Atenção/);
+const pcr = CAMPOS_EMAG.find(c => c.key === 'pcr_us');
+assert.match(rotuloCriterio(pcr, 0.9), /Menor/); assert.match(rotuloCriterio(pcr, 1), /intermediária/);
+assert.match(rotuloCriterio(pcr, 3), /intermediária/); assert.match(rotuloCriterio(pcr, 3.1), /elevada/);
+assert.equal(rotuloCriterio(ldl, 100), null);
 
 const cmp = compararExames({ ldl: 100, hdl: 50 }, { ldl: 90, tsh: 2 }, CAMPOS_EMAG);
 assert.equal(cmp.length, 1); assert.equal(cmp[0].dif, -10); assert.equal(cmp[0].pct, -10);
-import { CATEGORIAS_EXAME } from '../data/exames_solicitacao.js';
-import { PEDIDO_EMAGRECIMENTO } from '../data/exames_emagrecimento.js';
-const todosItens = new Set(CATEGORIAS_EXAME.flatMap(c => c.itens));
-for (const i of PEDIDO_EMAGRECIMENTO) assert.ok(todosItens.has(i), 'item fora do catálogo de solicitação: ' + i);
 console.log('ok examesEmagrecimento');
