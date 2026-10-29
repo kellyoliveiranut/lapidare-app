@@ -10,6 +10,7 @@ import {
 import { janelasDaVisao } from '../../lib/visaoJanelas.js';
 import { gravar } from '../../lib/gravar.js';
 import PainelResultados from './_PainelResultados.jsx';
+import PainelNotificacoes from './_PainelNotificacoes.jsx';
 
 // Nº esperado de consultas por tipo de plano (para alertar planos chegando ao fim).
 // Só entra aqui plano com pacote fechado: 'avulsa' fica de fora de propósito —
@@ -389,6 +390,9 @@ export default function Visao() {
       {/* Depois do dia de hoje (que é o que pede ação) e antes das estatísticas
           do consultório. Componente próprio: se falhar, o resto da Visão segue. */}
       <PainelResultados nutriId={user?.id} />
+
+      {/* ─── NOTIFICAÇÕES DAS PACIENTES ─── */}
+      <PainelNotificacoes />
 
       {/* ─── STATS RÁPIDAS ─── */}
       <div className="g3">
