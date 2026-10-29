@@ -138,7 +138,9 @@ console.log(`      (${paginas} páginas, ${bytes.length} bytes)`);
 // Texto desenhado: toda string literal do stream, desescapada e juntada.
 const desenhado = [...pdf.matchAll(/\(((?:\\.|[^\\)])*)\)\s*Tj/g)]
   .map(m => m[1].replace(/\\([()\\])/g, '$1'))
-  .join(' ').replace(/\s+/g, ' ');
+  // Node sem ICU completo decodifica o byte 0x96 de 'windows-1252' como o
+  // caractere de controle U+0096 e não como o travessão: normaliza aqui.
+  .join(' ').replace(/\u0096/g, '–').replace(/\s+/g, ' ');
 t('PDF: há texto extraível do stream', desenhado.length > 1000, true);
 t('PDF: hash impresso no bloco de aceite', desenhado.includes(hashSnap), true);
 t('PDF: registro do contrato impresso', desenhado.includes(CONTRATO_ID), true);

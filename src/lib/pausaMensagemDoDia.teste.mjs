@@ -69,34 +69,12 @@ t('Início: a guarda do cartão é a do bloco que desenha {mensagemCiclo.texto}'
 t('Início: mensagemCiclo só é desenhado dentro do bloco guardado',
   (inicio.match(/mensagemCiclo\.texto/g) ?? []).length, 1);
 
-// ── Fora as linhas da pausa, o Início é o do b388ea4 ──
-// Em blocos inteiros: "  //" sozinho também existe mais acima no arquivo.
-const ADICIONADAS = [
-  IMPORT + '\n',
-  '  //\n' +
-  '  // Pausada (lib/pausas.js): nenhuma destas leituras é feita — elas só\n' +
-  '  // alimentam o cartão. As mensagens continuam no banco, intactas.\n',
-];
-const reconstruido = (() => {
-  let s = inicio;
-  for (const b of ADICIONADAS) s = s.replace(b, '');
-  s = s.replace(GUARDA_EFEITO, '    if (!profile?.nutri_id) return;');
-  s = s.replace(
-    "      {/* 2 — Banner motivacional. Pausado em lib/pausas.js: some inteiro,\n" +
-    "          com a margem dele, e os vizinhos ficam como ficam hoje quando não\n" +
-    "          há mensagem ativa. */}\n" + GUARDA_CARTAO,
-    '      {/* 2 — Banner motivacional */}\n      {mensagemCiclo && (');
-  return s;
-})();
-t('Início: tirando as linhas da pausa, idêntico ao b388ea4 (cartões de segurança, consulta, jornada, material e convite intactos)',
-  reconstruido === inicioAntes, true);
+// Removidas em 29/10/2026: duas conferências que comparavam o Início inteiro com
+// o b388ea4 ("tirando as linhas da pausa, idêntico" e "linhas novas = import e
+// guardas"). Deixaram de valer quando o Início ganhou, de propósito, a
+// confirmação de presença, o aviso de ausência e o local da consulta. O que
+// importa da pausa continua conferido acima (guardas e leituras) e abaixo.
 
-// ── Nenhum texto novo para a paciente ──
-const novasNaoComentario = inicio.split('\n')
-  .filter(l => !inicioAntes.split('\n').includes(l))
-  .filter(l => !/^\s*(\/\/|\{\/\*|\*|.*\*\/\}$)/.test(l) && !/^\s+(com a margem|há mensagem)/.test(l));
-t('Início: linhas novas que não são comentário = import e as duas guardas',
-  novasNaoComentario, [IMPORT, GUARDA_EFEITO, GUARDA_CARTAO]);
 t('pausas.js: nenhuma string (nenhum texto para a paciente)', /['"`]/.test(pausas.split('\n').slice(1).join('\n')), false);
 
 // ── A origem da mensagem continua intacta ──

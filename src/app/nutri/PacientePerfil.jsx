@@ -4419,14 +4419,11 @@ Estrutura JSON obrigatória:
     try { parsed = JSON.parse(raw); }
     catch (e) { return setErroJson(`JSON inválido: ${e.message}`); }
 
-    console.log('[Lapidare] JSON parseado:', parsed);
-    console.log('[Lapidare] Chaves encontradas:', Array.isArray(parsed) ? '(array raiz)' : Object.keys(parsed));
 
     // Se a raiz for um array, trata como lista de refeições direto
     let plano = parsed;
     if (Array.isArray(parsed)) {
       plano = { refeicoes: parsed };
-      console.log('[Lapidare] JSON era array na raiz — tratando como lista de refeições');
     }
 
     // Se não for objeto após normalização, erro
@@ -4454,7 +4451,6 @@ Estrutura JSON obrigatória:
     }
 
     const refeicoesBruto = buscarRefeicoes(plano);
-    console.log('[Lapidare] Refeições encontradas:', refeicoesBruto.length, refeicoesBruto);
 
     // Verificar ANTES de atualizar qualquer estado — mantém modal aberto com erro
     if (refeicoesBruto.length === 0) {
@@ -4469,7 +4465,6 @@ Estrutura JSON obrigatória:
     // macros: aceita "macros", "macro", ou busca em qualquer chave que tenha "kcal"
     let macrosBruto = plano.macros ?? plano.macro ?? plano.macronutrientes ?? plano.metas ?? {};
     if (!macrosBruto || typeof macrosBruto !== 'object') macrosBruto = {};
-    console.log('[Lapidare] Macros encontradas:', macrosBruto);
 
     const m = macrosBruto;
     setMacros({
@@ -5991,8 +5986,6 @@ Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (e
       try {
         const data = JSON.parse(texto);
         const chaves = Object.keys(Array.isArray(data) ? {} : data);
-        console.log('[Lapidare] Compras chaves:', chaves);
-        console.log('[Lapidare] Compras data:', data);
 
         // Todas as variantes de "lista de compras"
         const lc = data.lista_de_compras ?? data.lista_compras ?? data.listadecompras
