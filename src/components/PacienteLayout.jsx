@@ -887,7 +887,11 @@ function PerfilSheet({ profile, user, onClose, refreshProfile }) {
     setErro(null);
     setUploading(true);
     const ext = file.name.split('.').pop();
-    const path = `${user.id}/avatar.${ext}`;
+    // A pasta é o id da FICHA (pacientes.id), não o do login: a regra do bucket
+    // (avatares_pacientes_insert/update/delete) só aceita pastas de
+    // `select id from pacientes where user_id = auth.uid()`. Com user.id o envio
+    // era barrado para quem tem ficha criada pela nutri (id diferente do login).
+    const path = `${profile?.id ?? user.id}/avatar.${ext}`;
     const { error: upErr } = await supabase.storage
       .from('avatares_pacientes')
       .upload(path, file, { upsert: true, contentType: file.type });
