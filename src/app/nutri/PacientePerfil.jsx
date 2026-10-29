@@ -7885,8 +7885,7 @@ function BotaoVoltarAoTopo() {
       <button
         type="button"
         onClick={() => {
-          document.getElementById('topo-perfil')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          window.scrollTo({ top: 0, behavior: 'smooth' });
+          document.getElementById('plan-calculos')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }}
         style={{
           display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px',
