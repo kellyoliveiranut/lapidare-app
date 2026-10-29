@@ -24,6 +24,8 @@ import { verificarAgenda, textoImpedimentos, textoConfirmacao, opcoesHorario, ho
 import { useHorariosLivres, useOcupacaoDeDatas } from '../../lib/useHorariosLivres.js';
 import { gravar } from '../../lib/gravar.js';
 import { confirmar as confirmarJanela } from '../../lib/dialogos.js';
+import ModalShell from '../../components/ModalShell.jsx';
+import { CATEGORIAS_SUGERIDAS, mover as moverItem, resumo as resumoSubs, importarSubstituicoes } from '../../lib/substituicoes.js';
 import { montarSlots, rotuloTipo, ehPlanoEssentia } from '../../lib/slotsConsultas.js';
 import { faltandoParaNota } from '../../lib/dadosNotaFiscal.js';
 import { horariosDoPacote } from '../../lib/horariosDoPacote.js';
@@ -4313,6 +4315,7 @@ function PublicarPlano({ pacienteId, nutriId, calculosImportados, onLimparImport
     setSubstituicoes((dados?.substituicoes ?? []).map(s => ({
       _id: Math.random().toString(36).slice(2),
       original: txtCampo(s.original),
+      categoria: txtCampo(s.categoria),
       subs: Array.isArray(s.subs)
         ? s.subs.map(sub => typeof sub === 'object' ? txtCampo(sub?.nome).trim() : String(sub).trim()).filter(Boolean).join(', ')
         : String(s.subs ?? ''),
@@ -4345,7 +4348,28 @@ function PublicarPlano({ pacienteId, nutriId, calculosImportados, onLimparImport
         : r
     )), []);
 
-  const addSubstituicao = () => setSubstituicoes(p => [...p, { _id: Math.random().toString(36).slice(2), original: '', subs: '' }]);
+  const addSubstituicao = () => setSubstituicoes(p => [...p, { _id: Math.random().toString(36).slice(2), original: '', categoria: '', subs: '' }]);
+  const duplicarSubstituicao = id => setSubstituicoes(p => {
+    const i = p.findIndex(s => s._id === id);
+    if (i < 0) return p;
+    const nova = { ...p[i], _id: Math.random().toString(36).slice(2) };
+    return [...p.slice(0, i + 1), nova, ...p.slice(i + 1)];
+  });
+  const moverSubstituicao = (id, delta) => setSubstituicoes(p => moverItem(p, p.findIndex(s => s._id === id), delta));
+  const [copiarSubsOpen, setCopiarSubsOpen] = useState(false);
+  const [avisoCopiaSubs, setAvisoCopiaSubs] = useState(null);
+  function aplicarSubsDeOutra(lista, nomeOutra) {
+    const antes = substituicoes.filter(s => s.original.trim()).length;
+    const modo = antes === 0 ? 'substituir' : 'acrescentar';
+    const novoId = () => Math.random().toString(36).slice(2);
+    const resultado = importarSubstituicoes(substituicoes, lista, modo, novoId);
+    const novas = resultado.length - (modo === 'substituir' ? 0 : substituicoes.length);
+    setSubstituicoes(resultado);
+    setCopiarSubsOpen(false);
+    setAvisoCopiaSubs(modo === 'substituir'
+      ? `${resultado.length} substituições copiadas de ${nomeOutra}. Revise antes de publicar.`
+      : `${novas} substituição(ões) nova(s) acrescentada(s) de ${nomeOutra} (as que já existiam foram mantidas). Revise antes de publicar.`);
+  }
   const removeSubstituicao = id => setSubstituicoes(p => p.filter(s => s._id !== id));
   const setSubst = (id, k, v) => setSubstituicoes(p => p.map(s =>
     s._id === id
@@ -4526,6 +4550,7 @@ A resposta começa com "[" e termina com "]" — nada mais. "original" é sempre
     const subsValidas = substituicoes.filter(s => s.original.trim());
     if (subsValidas.length) dados.substituicoes = subsValidas.map(s => ({
       original: s.original.trim(),
+      ...(String(s.categoria ?? '').trim() ? { categoria: String(s.categoria).trim() } : {}),
       subs: s._subsObj ?? s.subs.trim(),
     }));
     return dados;
@@ -4728,6 +4753,7 @@ Estrutura JSON obrigatória:
       setSubstituicoes(subsRaw.map(s => ({
         _id: Math.random().toString(36).slice(2),
         original: txtCampo(s?.original ?? s?.de ?? s?.from),
+        categoria: txtCampo(s?.categoria),
         subs: Array.isArray(s?.subs)
           ? s.subs.map(x => (typeof x === 'object' ? txtCampo(x?.nome) : String(x))).filter(Boolean).join(', ')
           : txtCampo(s?.subs ?? s?.por ?? s?.to),
@@ -5608,8 +5634,17 @@ Estrutura JSON obrigatória:
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--amber)', letterSpacing: 1.2, textTransform: 'uppercase' }}>
                 Lista de Substituições
+                {(() => { const r = resumoSubs(substituicoes); return r.total ? ` · ${r.total}` : ''; })()}
               </div>
-              <div style={{ display: 'flex', gap: 6 }}>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                <button
+                  className="btn-outline"
+                  style={{ fontSize: 11, padding: '3px 8px', gap: 4 }}
+                  onClick={() => setCopiarSubsOpen(true)}
+                >
+                  <i className="ti ti-copy" style={{ fontSize: 12 }} aria-hidden="true" />
+                  Copiar de outra paciente
+                </button>
                 <button
                   className="btn-outline"
                   style={{ fontSize: 11, padding: '3px 8px', gap: 4 }}
@@ -5708,27 +5743,67 @@ Estrutura JSON obrigatória:
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-                {substituicoes.map(s => (
-                  <div key={s._id} style={{ display: 'grid', gridTemplateColumns: '2fr 3fr auto', gap: 6, alignItems: 'center' }}>
-                    <input
-                      value={s.original}
-                      onChange={e => setSubst(s._id, 'original', e.target.value)}
-                      placeholder="ex: Arroz branco"
-                    />
-                    <input
-                      value={s.subs}
-                      onChange={e => setSubst(s._id, 'subs', e.target.value)}
-                      placeholder="ex: Arroz integral, batata doce, mandioca"
-                    />
-                    <button onClick={() => removeSubstituicao(s._id)}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 2 }}>
-                      <i className="ti ti-x" style={{ fontSize: 13 }} aria-hidden="true" />
-                    </button>
-                  </div>
-                ))}
+                {substituicoes.map((s, idx) => {
+                  const semSubs = s.original.trim() && !String(s.subs ?? '').trim();
+                  const semAlimento = !s.original.trim() && String(s.subs ?? '').trim();
+                  const btnMini = { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 2, lineHeight: 1 };
+                  return (
+                    <div key={s._id} style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', paddingTop: 2 }}>
+                        <button type="button" style={{ ...btnMini, opacity: idx === 0 ? 0.3 : 1 }} disabled={idx === 0} onClick={() => moverSubstituicao(s._id, -1)} aria-label="Subir"><i className="ti ti-chevron-up" style={{ fontSize: 13 }} aria-hidden="true" /></button>
+                        <button type="button" style={{ ...btnMini, opacity: idx === substituicoes.length - 1 ? 0.3 : 1 }} disabled={idx === substituicoes.length - 1} onClick={() => moverSubstituicao(s._id, 1)} aria-label="Descer"><i className="ti ti-chevron-down" style={{ fontSize: 13 }} aria-hidden="true" /></button>
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 6 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          <input
+                            value={s.original}
+                            onChange={e => setSubst(s._id, 'original', e.target.value)}
+                            placeholder="ex: Arroz branco"
+                          />
+                          <input
+                            list="subs-categorias"
+                            value={s.categoria ?? ''}
+                            onChange={e => setSubst(s._id, 'categoria', e.target.value)}
+                            placeholder="Categoria (opcional)"
+                            style={{ fontSize: 12 }}
+                          />
+                        </div>
+                        <textarea
+                          value={s.subs}
+                          onChange={e => setSubst(s._id, 'subs', e.target.value)}
+                          rows={Math.min(8, Math.max(2, Math.ceil(String(s.subs ?? '').length / 38)))}
+                          placeholder="ex: Arroz integral, batata doce, mandioca"
+                          style={{ resize: 'vertical', width: '100%', boxSizing: 'border-box', fontFamily: 'inherit', fontSize: 'inherit' }}
+                        />
+                        {(semSubs || semAlimento) && (
+                          <div style={{ gridColumn: '1 / -1', fontSize: 11, color: 'var(--red, #e05252)' }}>
+                            {semSubs ? 'Sem substitutos: esta linha será publicada vazia.' : 'Sem o alimento original: esta linha não será publicada.'}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', paddingTop: 2 }}>
+                        <button type="button" style={btnMini} onClick={() => duplicarSubstituicao(s._id)} aria-label="Duplicar" title="Duplicar linha"><i className="ti ti-copy-plus" style={{ fontSize: 13 }} aria-hidden="true" /></button>
+                        <button type="button" style={btnMini} onClick={() => removeSubstituicao(s._id)} aria-label="Remover" title="Remover linha"><i className="ti ti-x" style={{ fontSize: 13 }} aria-hidden="true" /></button>
+                      </div>
+                    </div>
+                  );
+                })}
+                <datalist id="subs-categorias">
+                  {CATEGORIAS_SUGERIDAS.map(c => <option key={c} value={c} />)}
+                </datalist>
               </div>
             )}
           </div>
+
+          {avisoCopiaSubs && (
+            <div style={{ fontSize: 12, padding: '8px 12px', borderRadius: 8, background: 'var(--bg2)', border: '1px solid var(--border)', display: 'flex', gap: 8, alignItems: 'center' }}>
+              <span style={{ flex: 1 }}>{avisoCopiaSubs}</span>
+              <button type="button" onClick={() => setAvisoCopiaSubs(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)' }} aria-label="Fechar aviso">×</button>
+            </div>
+          )}
+          {copiarSubsOpen && (
+            <ModalCopiarSubstituicoes pacienteIdAtual={pacienteId} onClose={() => setCopiarSubsOpen(false)} onEscolher={aplicarSubsDeOutra} />
+          )}
 
           {/* ── Publicar (mesmo botão do plano) ── */}
           <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
@@ -7736,6 +7811,61 @@ function AvisoHorariosNaoConferidos() {
     <span style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.4 }}>
       Não consegui conferir os horários ocupados. A conferência final acontece ao salvar.
     </span>
+  );
+}
+
+function ModalCopiarSubstituicoes({ pacienteIdAtual, onClose, onEscolher }) {
+  const [pacientes, setPacientes] = useState(null);
+  const [busca, setBusca] = useState('');
+  const [carregandoId, setCarregandoId] = useState(null);
+  const [erro, setErro] = useState(null);
+
+  useEffect(() => {
+    let vivo = true;
+    supabase.from('pacientes').select('id, nome').order('nome', { ascending: true }).then(({ data, error }) => {
+      if (!vivo) return;
+      if (error) setErro('Não consegui carregar as pacientes.');
+      setPacientes((data ?? []).filter(p => p.id !== pacienteIdAtual));
+    });
+    return () => { vivo = false; };
+  }, [pacienteIdAtual]);
+
+  async function escolher(p) {
+    setErro(null);
+    setCarregandoId(p.id);
+    const { data, error } = await supabase
+      .from('planos').select('dados, publicado_em')
+      .eq('paciente_id', p.id).order('publicado_em', { ascending: false }).limit(10);
+    setCarregandoId(null);
+    if (error) { setErro('Não consegui ler os planos dessa paciente.'); return; }
+    const comSubs = (data ?? []).find(x => x.dados?.substituicoes?.length > 0);
+    if (!comSubs) { setErro(`${p.nome} não tem lista de substituição publicada.`); return; }
+    onEscolher(comSubs.dados.substituicoes, p.nome);
+  }
+
+  const lista = (pacientes ?? []).filter(p => !busca.trim() || p.nome.toLowerCase().includes(busca.trim().toLowerCase()));
+  return (
+    <ModalShell title="Copiar substituições de outra paciente"
+      subtitle="Usa a lista do plano publicado mais recente dela como ponto de partida. Revise antes de publicar."
+      onClose={onClose}>
+      <input autoFocus value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar paciente…"
+        style={{ width: '100%', boxSizing: 'border-box', marginBottom: 10 }} />
+      {erro && <div style={{ fontSize: 12, color: 'var(--red, #e05252)', marginBottom: 8 }}>{erro}</div>}
+      <div style={{ maxHeight: 280, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {pacientes === null && <div style={{ fontSize: 13, color: 'var(--text3)' }}>Carregando…</div>}
+        {pacientes && lista.length === 0 && <div style={{ fontSize: 13, color: 'var(--text3)' }}>Nenhuma paciente encontrada.</div>}
+        {lista.map(p => (
+          <button key={p.id} type="button" disabled={!!carregandoId} onClick={() => escolher(p)}
+            style={{ textAlign: 'left', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--white)', cursor: 'pointer', fontSize: 13, color: 'var(--dark)' }}>
+            {p.nome}{carregandoId === p.id ? ' …' : ''}
+          </button>
+        ))}
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 14 }}>
+        <button type="button" onClick={onClose}
+          style={{ padding: '7px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', color: 'var(--dark)' }}>Fechar</button>
+      </div>
+    </ModalShell>
   );
 }
 

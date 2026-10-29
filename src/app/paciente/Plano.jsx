@@ -1,3 +1,4 @@
+import { agruparPorCategoria } from '../../lib/substituicoes.js';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
@@ -309,14 +310,23 @@ function PlanoImpressao({ dados, publicadoEm, paciente }) {
           <div className="pr-subs-aviso">
             Substituições — escolha UMA opção por alimento, na quantidade indicada
           </div>
-          {substituicoes.map((s, i) => {
-            const opcoes = textoSubs(s.subs);
-            return (
-              <div className="pr-subs-linha" key={i}>
-                <strong>{s.original}</strong>{opcoes ? ` — ${opcoes}` : ''}
-              </div>
-            );
-          })}
+          {agruparPorCategoria(substituicoes).map((g, gi) => (
+            <div key={gi}>
+              {g.categoria && (
+                <div style={{ fontWeight: 600, margin: '10px 0 4px', fontSize: '0.92em', letterSpacing: '.04em', textTransform: 'uppercase', opacity: 0.8 }}>
+                  {g.categoria}
+                </div>
+              )}
+              {g.itens.map((s, i) => {
+                const opcoes = textoSubs(s.subs);
+                return (
+                  <div className="pr-subs-linha" key={i}>
+                    <strong>{s.original}</strong>{opcoes ? ` — ${opcoes}` : ''}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
         </div>
       )}
 

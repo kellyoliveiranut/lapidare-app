@@ -24,6 +24,7 @@
 import { criarDocumento, cabecalho, cardPaciente, rodape,
   M, W, TOPO, BRONZE, SEPIA, LINHA, LINHA2 } from './pdfBase.js';
 import { textoSubs, listaSubs } from './subsTexto.js';
+import { agruparPorCategoria } from './substituicoes.js';
 
 const FS_SEC  = 7.9;
 const FS_REF  = 10.5;
@@ -181,7 +182,14 @@ export async function gerarPDFPlano({ pacienteNome, contato, dados, publicadoEm 
       { estilo: 'italic', tamanho: 9, cor: SEPIA });
     y += 15;
 
-    for (const s of substituicoes) {
+    const grupos = agruparPorCategoria(substituicoes);
+    for (const grupo of grupos) {
+      if (grupo.categoria) {
+        y = caberOuQuebrar(y, 2 * LH_ITEM);
+        escrever(grupo.categoria.toUpperCase(), M, y + FS_ITEM, { estilo: 'bold', tamanho: FS_ITEM - 1, cor: SEPIA });
+        y += LH_ITEM;
+      }
+    for (const s of grupo.itens) {
       const opcoes = textoSubs(s.subs);
       // O original vai em negrito e as opções seguem na MESMA linha, então a
       // largura dele é medida com a fonte em negrito antes de quebrar o resto.
@@ -201,6 +209,7 @@ export async function gerarPDFPlano({ pacienteNome, contato, dados, publicadoEm 
           { tamanho: FS_ITEM, cor: SEPIA });
       });
       y += nLinhas * LH_ITEM;
+    }
     }
   }
 
