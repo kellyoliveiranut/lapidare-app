@@ -17,6 +17,7 @@ import { desdeISO, filtroJanela } from '../../lib/janelaAgenda.js';
 import { gravar } from '../../lib/gravar.js';
 import ReguaDoDia from './_ReguaDoDia.jsx';
 import SemConsultaAgenda from './_SemConsultaAgenda.jsx';
+import { confirmar as confirmarJanela } from '../../lib/dialogos.js';
 import { HORARIOS_TAREFA, hhmm } from '../../lib/reguaDoDia.js';
 import {
   dataConsultaBR, horaConsultaBR, dataBR, TZ_CLINICA, textoDias, iniciais,
@@ -283,7 +284,7 @@ export default function Agenda() {
   }
 
   async function excluirBloqueio(b) {
-    if (!window.confirm(
+    if (!await confirmarJanela(
       `Remover o bloqueio de ${dataBR(b.data)}${textoFaixaBloqueio(b)}? ` +
       `Esta ação não pode ser desfeita.`
     )) return;
@@ -579,7 +580,7 @@ export default function Agenda() {
   async function mandarParaADefinir(c) {
     if (c.status !== 'agendada' || !c.data_hora || mandandoId) return false;
     const nome = c.paciente?.nome ?? 'paciente sem nome';
-    if (!window.confirm(
+    if (!await confirmarJanela(
       `Tirar a consulta de ${nome} (${dataConsultaBR(c.data_hora)}) do calendário e mandar para "A definir"? ` +
       'A confirmação de presença e o lembrete dessa consulta serão zerados. ' +
       'A paciente fica em "A definir" até você dar uma nova data, e a data de antes fica registrada.'
@@ -2532,7 +2533,7 @@ function TarefaModal({ tarefa, nutriId, dataInicial, onClose, onSaved }) {
   }
 
   async function excluir() {
-    if (!window.confirm(`Excluir a tarefa "${tarefa.texto}"? Esta ação não pode ser desfeita.`)) return;
+    if (!await confirmarJanela(`Excluir a tarefa "${tarefa.texto}"? Esta ação não pode ser desfeita.`)) return;
     setBusy(true);
     setErro(null);
     const r = await gravar(supabase.from('lembretes_nutri').delete().eq('id', tarefa.id),
@@ -2703,7 +2704,7 @@ function BloqueioModal({ nutriId, dataInicial, onClose, onSaved }) {
         return bloqueioCobre(candidato, { data: p.data, hora: p.hora, duracaoMin: c.duracao_min });
       });
 
-      if (afetadas.length && !window.confirm(
+      if (afetadas.length && !await confirmarJanela(
         `${afetadas.length === 1
           ? 'Já existe 1 consulta marcada'
           : `Já existem ${afetadas.length} consultas marcadas`} neste horário.\n\n` +
@@ -3025,7 +3026,7 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
       const confirmar = avisosQueConfirmam(avisos, {
         isEdit, inicial: initial, atual: { data, hora, duracao, status },
       });
-      if (confirmar.length && !window.confirm(textoConfirmacao(confirmar))) return;
+      if (confirmar.length && !await confirmarJanela(textoConfirmacao(confirmar))) return;
 
       // "14:00" é 14:00 em BELÉM, não no fuso do aparelho de quem agenda —
       // mesmo helper que o PacientePerfil já usa para gravar consulta.
@@ -3070,7 +3071,7 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
   }
 
   async function finalizarConsulta() {
-    if (!window.confirm('Marcar esta consulta como realizada?')) return;
+    if (!await confirmarJanela('Marcar esta consulta como realizada?')) return;
     setBusy(true);
     const r = await gravar(
       supabase
@@ -3085,7 +3086,7 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
   }
 
   async function cancelarConsulta() {
-    if (!window.confirm('Tem certeza que deseja cancelar esta consulta?')) return;
+    if (!await confirmarJanela('Tem certeza que deseja cancelar esta consulta?')) return;
     setBusy(true);
     const r = await gravar(
       supabase
