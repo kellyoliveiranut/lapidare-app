@@ -4,6 +4,8 @@ import { brl, statusParcela, liquidoParcela } from '../../lib/utils.js';
 import ListaVendas from '../../components/ListaVendas.jsx';
 import { NovaVendaModal, EditarParcelaModal, EditarVendaModal } from '../../components/VendaModais.jsx';
 import { gravar } from '../../lib/gravar.js';
+import { confirmar } from '../../lib/dialogos.js';
+import DadosNotaFiscal from './_DadosNotaFiscal.jsx';
 
 /**
  * Aba Financeiro do perfil da paciente — o mesmo histórico de vendas que a
@@ -17,12 +19,14 @@ import { gravar } from '../../lib/gravar.js';
  * As parcelas vêm aninhadas no mesmo select: parcelas.venda_id tem FK para
  * vendas.id, então o PostgREST resolve o embedding numa query só.
  */
-export default function Financeiro({ pacienteId, nutriId, pacienteNome, pacienteTipoPlano }) {
+export default function Financeiro({ pacienteId, nutriId, pacienteNome, pacienteTipoPlano, paciente, onDadosSalvos }) {
   const [vendas, setVendas] = useState(undefined);
   const [novaVendaOpen, setNovaVendaOpen] = useState(false);
   const [parcelaEdit, setParcelaEdit] = useState(null);
   const [vendaEdit, setVendaEdit] = useState(null);
   const [servicos, setServicos] = useState([]);
+  // Valor do contrato Essentia (pendente ou aceito), para lembrar de lançar a venda.
+  const [valorContrato, setValorContrato] = useState(null);
 
   // tipo_plano viaja junto porque o NovaVendaModal precisa dele para o teto
   // de parcelas no cartão (10 na Essentia, 12 nas demais).
@@ -43,6 +47,10 @@ export default function Financeiro({ pacienteId, nutriId, pacienteNome, paciente
     ]);
     setVendas(vRes.data ?? []);
     setServicos(sRes.data ?? []);
+    const { data: ct } = await supabase.from('contratos_essentia')
+      .select('valor').eq('paciente_id', pacienteId)
+      .order('created_at', { ascending: false }).limit(1).maybeSingle();
+    setValorContrato(ct?.valor != null ? Number(ct.valor) : null);
   }
   useEffect(() => { carregar(); }, [pacienteId, nutriId]);
 
@@ -85,7 +93,7 @@ export default function Financeiro({ pacienteId, nutriId, pacienteNome, paciente
   );
 
   async function excluirVenda(venda) {
-    const ok = window.confirm(
+    const ok = await confirmar(
       `Excluir a venda "${venda.servico}" de ${pacienteNome}?\n\n` +
       `Todas as parcelas relacionadas também serão removidas. Essa ação não pode ser desfeita.`
     );
@@ -107,6 +115,19 @@ export default function Financeiro({ pacienteId, nutriId, pacienteNome, paciente
 
   return (
     <>
+      {paciente && <DadosNotaFiscal paciente={paciente} onSalvo={onDadosSalvos} />}
+
+      {vendas.length === 0 && valorContrato > 0 && (
+        <div className="al-b" style={{ marginBottom: 12 }}>
+          <i className="ti ti-info-circle" style={{ fontSize: 16, marginTop: 1 }} aria-hidden="true" />
+          <div style={{ flex: 1 }}>
+            <div className="al-t">Contrato de {brl(valorContrato)} sem venda registrada</div>
+            <div className="al-d">Registre a venda para o valor entrar no Financeiro e na Previsibilidade.</div>
+          </div>
+          <button className="btn" onClick={() => setNovaVendaOpen(true)}>Registrar venda</button>
+        </div>
+      )}
+
       {vendas.length > 0 && (
         <>
           <div className="stats-grid">
@@ -191,6 +212,8 @@ export default function Financeiro({ pacienteId, nutriId, pacienteNome, paciente
           servicos={servicos}
           nutriId={nutriId}
           pacienteFixo={pacienteFixo}
+          valorInicial={vendas.length === 0 ? valorContrato : null}
+          servicoInicial={vendas.length === 0 && valorContrato > 0 ? 'Essentia' : ''}
           onClose={() => setNovaVendaOpen(false)}
           onSaved={async () => { setNovaVendaOpen(false); await carregar(); }}
         />

@@ -23,6 +23,9 @@ import { ehFeriado } from '../../lib/feriados.js';
 import { verificarAgenda, textoImpedimentos, textoConfirmacao, opcoesHorario, horariosLivres } from '../../lib/agendaConflitos.js';
 import { useHorariosLivres, useOcupacaoDeDatas } from '../../lib/useHorariosLivres.js';
 import { gravar } from '../../lib/gravar.js';
+import { confirmar as confirmarJanela } from '../../lib/dialogos.js';
+import { montarSlots, rotuloTipo, ehPlanoEssentia } from '../../lib/slotsConsultas.js';
+import { faltandoParaNota } from '../../lib/dadosNotaFiscal.js';
 import { horariosDoPacote } from '../../lib/horariosDoPacote.js';
 // O gráfico de área saiu daqui para ser usado também pelos exames. O
 // comportamento do gráfico de peso não mudou: o corte de "menos de 2 pontos"
@@ -88,6 +91,10 @@ export default function PacientePerfil() {
   const [agendarAvulsaOpen, setAgendarAvulsaOpen] = useState(false);
   const [definirDataConsulta, setDefinirDataConsulta] = useState(null); // consulta "a definir" sendo datada
   const [acompList, setAcompList] = useState(null);
+  // Modal de agendar UMA consulta (posição vazia da lista, ou avulsa) e modal
+  // de migração para o Essentia.
+  const [agendarTipo, setAgendarTipo] = useState(null);   // { tipo, titulo } | null
+  const [migrarOpen, setMigrarOpen] = useState(false);
   const [erroAcomp, setErroAcomp] = useState(null);
   const [erroCarregar, setErroCarregar] = useState(false);
   const [linkConviteCopiado, setLinkConviteCopiado] = useState(false);
@@ -107,6 +114,37 @@ export default function PacientePerfil() {
     const m = tipo.match(/^consulta_(\d+)$/);
     return m ? `Consulta ${m[1]}` : tipo;
   }
+
+  // Quantas vendas a paciente tem (para o aviso do Financeiro). Recontado ao
+  // trocar de aba: ela pode ter lançado a venda na aba Financeiro agora.
+  const [qtdVendas, setQtdVendas] = useState(null);
+  useEffect(() => {
+    if (!id || !user?.id) return;
+    let vivo = true;
+    supabase.from('vendas').select('id', { count: 'exact', head: true })
+      .eq('paciente_id', id).eq('nutri_id', user.id)
+      .then(({ count, error }) => { if (vivo && !error) setQtdVendas(count ?? 0); });
+    return () => { vivo = false; };
+  }, [id, user?.id, tab]);
+  const faltaNota = paciente ? faltandoParaNota(paciente) : [];
+  const avisoFinanceiro = paciente?.status_paciente === 'ativo'
+    ? [
+        qtdVendas === 0 && 'nenhuma venda registrada',
+        faltaNota.length > 0 && `dados da nota fiscal incompletos (falta: ${faltaNota.join(', ')})`,
+      ].filter(Boolean)
+    : [];
+
+  const planoEssentia = ehPlanoEssentia(paciente?.tipo_plano);
+  const { slots: slotsPlano, outras: outrasConsultas } = useMemo(
+    () => montarSlots(paciente?.tipo_plano, acompList ?? []),
+    [paciente?.tipo_plano, acompList],
+  );
+  const temConsultaDoPlano = slotsPlano.some(sl => sl.consulta);
+  // Posições do plano primeiro, em ordem fixa; depois as de outro tipo.
+  const linhasConsultas = [
+    ...slotsPlano.map(sl => ({ tipo: sl.tipo, rotulo: sl.rotulo, consulta: sl.consulta })),
+    ...outrasConsultas.map(c => ({ tipo: c.tipo, rotulo: rotuloTipo(c.tipo), consulta: c })),
+  ];
 
   async function iniciarConsulta() {
     if (!consultaAtiva || busyConsulta) return;
@@ -886,17 +924,28 @@ export default function PacientePerfil() {
         />
       )}
 
-      {/* Agendar consulta avulsa */}
-      {agendarAvulsaOpen && (
+      {/* Agendar UMA consulta (posição vazia da lista, ou avulsa) */}
+      {agendarTipo && (
         <ModalAgendarAvulsa
           pacienteId={id}
           nutriId={user?.id}
           modalidadePaciente={paciente?.modalidade}
-          onClose={() => setAgendarAvulsaOpen(false)}
+          tipo={agendarTipo.tipo}
+          titulo={agendarTipo.titulo}
+          onClose={() => setAgendarTipo(null)}
           onSalvo={() => {
-            setAgendarAvulsaOpen(false);
+            setAgendarTipo(null);
             Promise.all([reloadConsultaAtiva(), loadAcompConsultas()]);
           }}
+        />
+      )}
+
+      {/* Migrar paciente avulsa para o Essentia */}
+      {migrarOpen && (
+        <ModalMigrarEssentia
+          paciente={paciente}
+          onClose={() => setMigrarOpen(false)}
+          onSaved={() => { setMigrarOpen(false); carregar(); }}
         />
       )}
 
@@ -917,6 +966,23 @@ export default function PacientePerfil() {
             return r;
           }}
         />
+      )}
+
+      {/* Aviso do Financeiro: venda não registrada ou dados da nota incompletos */}
+      {avisoFinanceiro.length > 0 && tab !== 'financeiro' && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          padding: '10px 14px', borderRadius: 10, marginBottom: 14,
+          background: 'var(--amber-bg, #fdf8ee)', border: '0.5px solid var(--gold-deep, #a08456)',
+        }}>
+          <i className="ti ti-cash" style={{ fontSize: 17, color: 'var(--gold-deep, #a08456)' }} aria-hidden="true" />
+          <div style={{ flex: 1, fontSize: 13, color: 'var(--text2)' }}>
+            <strong>Financeiro:</strong> {avisoFinanceiro.join(' · ')}.
+          </div>
+          <button className="btn-outline" onClick={() => setTab('financeiro')} style={{ whiteSpace: 'nowrap' }}>
+            Abrir Financeiro
+          </button>
+        </div>
       )}
 
       {/* Card de consulta ativa */}
@@ -1004,38 +1070,58 @@ export default function PacientePerfil() {
 
       {/* Botões de agendamento */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
-        <button
-          onClick={() => setAgendarAcompOpen(true)}
-          style={{
-            flex: '1 1 200px', padding: '9px 14px', borderRadius: 10,
-            border: '1px dashed var(--gold-deep, #a08456)',
-            background: 'transparent', color: 'var(--gold-deep, #a08456)',
-            fontSize: 13, fontWeight: 500, cursor: 'pointer',
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            gap: 6, fontFamily: 'var(--font-sans)',
-          }}
-        >
-          <i className="ti ti-calendar-plus" aria-hidden="true" />
-          Agendar acompanhamento (6 consultas)
-        </button>
-        <button
-          onClick={() => setAgendarAvulsaOpen(true)}
-          style={{
-            flex: '1 1 200px', padding: '9px 14px', borderRadius: 10,
-            border: '1px dashed var(--gold-deep, #a08456)',
-            background: 'transparent', color: 'var(--gold-deep, #a08456)',
-            fontSize: 13, fontWeight: 500, cursor: 'pointer',
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            gap: 6, fontFamily: 'var(--font-sans)',
-          }}
-        >
-          <i className="ti ti-calendar-plus" aria-hidden="true" />
-          Agendar consulta avulsa
-        </button>
+        {planoEssentia && !temConsultaDoPlano && (
+          <button
+            onClick={() => setAgendarAcompOpen(true)}
+            style={{
+              flex: '1 1 200px', padding: '9px 14px', borderRadius: 10,
+              border: '1px dashed var(--gold-deep, #a08456)',
+              background: 'transparent', color: 'var(--gold-deep, #a08456)',
+              fontSize: 13, fontWeight: 500, cursor: 'pointer',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              gap: 6, fontFamily: 'var(--font-sans)',
+            }}
+          >
+            <i className="ti ti-calendar-plus" aria-hidden="true" />
+            Agendar acompanhamento (6 consultas)
+          </button>
+        )}
+        {planoEssentia ? (
+          <button
+            onClick={() => setAgendarTipo({ tipo: 'avulsa', titulo: 'Agendar consulta avulsa' })}
+            style={{
+              flex: '1 1 200px', padding: '9px 14px', borderRadius: 10,
+              border: '1px dashed var(--gold-deep, #a08456)',
+              background: 'transparent', color: 'var(--gold-deep, #a08456)',
+              fontSize: 13, fontWeight: 500, cursor: 'pointer',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              gap: 6, fontFamily: 'var(--font-sans)',
+            }}
+          >
+            <i className="ti ti-calendar-plus" aria-hidden="true" />
+            Agendar consulta avulsa
+          </button>
+        ) : (
+          <button
+            onClick={() => setMigrarOpen(true)}
+            style={{
+              flex: '1 1 200px', padding: '9px 14px', borderRadius: 10,
+              border: '1px solid var(--gold-deep, #a08456)',
+              background: 'var(--gold-soft, #faf6ee)', color: 'var(--gold-deep, #a08456)',
+              fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              gap: 6, fontFamily: 'var(--font-sans)',
+            }}
+          >
+            <i className="ti ti-arrow-up-right" aria-hidden="true" />
+            Migrar para o Essentia
+          </button>
+        )}
       </div>
 
-      {/* Lista de consultas do acompanhamento */}
-      {acompList && acompList.length > 0 && (
+      {/* Lista de consultas: posições fixas do plano (Essentia 1 a 6; avulsa
+          1ª consulta e retorno) e, depois, as consultas de outros tipos. */}
+      {acompList && (
         <div style={{
           background: 'var(--white)', border: '0.5px solid var(--hair)',
           borderRadius: 12, marginBottom: 14, overflow: 'hidden',
@@ -1056,7 +1142,33 @@ export default function PacientePerfil() {
               {erroAcomp}
             </div>
           )}
-          {acompList.map((c, idx) => {
+          {linhasConsultas.map((linha, idx) => {
+            if (!linha.consulta) {
+              return (
+                <div key={`vazio-${linha.tipo}`} style={{
+                  display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
+                  borderBottom: idx < linhasConsultas.length - 1 ? '0.5px solid var(--hair)' : 'none',
+                }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--muted)' }}>{linha.rotulo}</div>
+                    <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 1 }}>Não agendada</div>
+                  </div>
+                  <button
+                    onClick={() => setAgendarTipo({ tipo: linha.tipo, titulo: `Agendar ${linha.rotulo.toLowerCase()}` })}
+                    style={{
+                      flexShrink: 0, padding: '5px 10px', borderRadius: 8,
+                      border: '1px dashed var(--gold-deep, #a08456)', background: 'transparent',
+                      color: 'var(--gold-deep, #a08456)', fontSize: 11, fontWeight: 600,
+                      cursor: 'pointer', fontFamily: 'var(--font-sans)',
+                      display: 'inline-flex', alignItems: 'center', gap: 4,
+                    }}
+                  >
+                    <i className="ti ti-calendar-plus" aria-hidden="true" /> Agendar
+                  </button>
+                </div>
+              );
+            }
+            const c = linha.consulta;
             const realizada = c.status === 'realizada';
             const semData = !c.data_hora;
             const dt = semData ? null : new Date(c.data_hora);
@@ -1066,7 +1178,7 @@ export default function PacientePerfil() {
               <div key={c.id} style={{
                 display: 'flex', alignItems: 'center', gap: 10,
                 padding: '10px 14px',
-                borderBottom: idx < acompList.length - 1 ? '0.5px solid var(--hair)' : 'none',
+                borderBottom: idx < linhasConsultas.length - 1 ? '0.5px solid var(--hair)' : 'none',
                 opacity: realizada ? 0.65 : 1,
               }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -1074,7 +1186,7 @@ export default function PacientePerfil() {
                     fontSize: 13, fontWeight: 500, color: 'var(--ink)',
                     textDecoration: realizada ? 'line-through' : 'none',
                   }}>
-                    {labelTipoConsulta(c.tipo)}
+                    {linha.rotulo}
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 1 }}>
                     {semData ? 'A definir' : `${dataStr} às ${horaStr}`}
@@ -1125,8 +1237,8 @@ export default function PacientePerfil() {
                   }
                 </button>
                 <button
-                  onClick={() => {
-                    if (window.confirm(`Excluir "${labelTipoConsulta(c.tipo)}" (${semData ? 'a definir' : `${dataStr} às ${horaStr}`})? Esta ação não pode ser desfeita.`)) {
+                  onClick={async () => {
+                    if (await confirmarJanela(`Excluir "${linha.rotulo}" (${semData ? 'a definir' : `${dataStr} às ${horaStr}`})? Esta ação não pode ser desfeita.`)) {
                       excluirAcomp(c.id);
                     }
                   }}
@@ -1177,22 +1289,16 @@ export default function PacientePerfil() {
             const onco = todas.splice(todas.findIndex(t => t.id === 'oncologia'), 1)[0];
             todas.push(onco);
           }
-          // Financeiro entra depois da reordenação, logo após Relatório: no fim
-          // da lista ela nasceria fora da área visível da barra, que rola na
-          // horizontal. O índice sai do próprio Relatório porque a posição dele
-          // muda entre os dois perfis — em não-onco, Emagrecimento sobe para o
-          // índice 1 e empurra Relatório para o 2.
+          // Financeiro é a PRIMEIRA aba (pedido de 2026-10-29): é onde ficam os
+          // dados da nota fiscal e o valor das vendas, e na posição antiga —
+          // depois de Relatório — ficava escondido no meio da barra, que rola na
+          // horizontal. Entra depois da reordenação acima.
+          todas.unshift({ id: 'financeiro', label: 'Financeiro', icon: 'cash' });
+          // Exames entra logo depois de Relatório, onde sempre esteve em relação
+          // às abas de análise. Nasceu ao lado de Suplementação por afinidade e
+          // ali caía na 12ª de 17 posições: ~1300px de rolagem num aparelho de
+          // ~360px. Afinidade conceitual não paga o preço de ser inencontrável.
           todas.splice(todas.findIndex(t => t.id === 'relatorio') + 1, 0,
-            { id: 'financeiro', label: 'Financeiro', icon: 'cash' });
-          // Exames entra logo depois de Financeiro, pelo MESMO motivo dele.
-          // Nasceu ao lado de Suplementação por afinidade — os dois são
-          // documentos de prescrição que a paciente recebe — e ali caía na 12ª
-          // de 17 posições: ~1300px de rolagem num aparelho de ~360px, com a
-          // scrollbar escondida abaixo de 768px. A aba existia e ninguém achava.
-          // Afinidade conceitual não paga o preço de ser inencontrável.
-          // O índice sai do próprio Financeiro porque a posição dele muda entre
-          // os dois perfis, exatamente como a de Relatório.
-          todas.splice(todas.findIndex(t => t.id === 'financeiro') + 1, 0,
             { id: 'exames', label: 'Exames', icon: 'test-pipe' });
           return todas;
         })().map(t => (
@@ -1235,7 +1341,7 @@ export default function PacientePerfil() {
         {tab === 'checkin'       && <CheckinPersonalizado pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} paciente={paciente} />}
         {tab === 'calculos'      && <Calculos pacienteId={paciente.id} nutriId={user.id} paciente={paciente} onUsarNaDieta={(vals) => { setCalculosImportados(vals); setTab('plano'); }} />}
         {tab === 'treinos'       && <Treinos pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
-        {tab === 'financeiro'    && <FinanceiroPaciente pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} pacienteTipoPlano={paciente.tipo_plano} />}
+        {tab === 'financeiro'    && <FinanceiroPaciente pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} pacienteTipoPlano={paciente.tipo_plano} paciente={paciente} onDadosSalvos={carregar} />}
       </Suspense>
 
       <div style={{ marginTop: 32, paddingTop: 16, borderTop: '0.5px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20 }}>
@@ -2158,6 +2264,75 @@ function parseBrData(raw) {
     return { iso: null, erro: `Ano fora da faixa (1900–${anoAtual}).` };
   }
   return { iso, erro: null };
+}
+
+/**
+ * Migra uma paciente AVULSA para o Essentia: troca o plano e cria o contrato
+ * pendente com o valor informado. Mesma regra do ModalEditarDados (que também
+ * cria o contrato ao virar essentia), só que em um clique e sem mexer em
+ * outros dados. As consultas que ela já tem continuam: a 1ª consulta ocupa a
+ * primeira posição e passam a aparecer as Consultas 2 a 6, para agendar.
+ */
+function ModalMigrarEssentia({ paciente, onClose, onSaved }) {
+  const [valor, setValor] = useState('');
+  const [busy, setBusy]   = useState(false);
+  const [erro, setErro]   = useState(null);
+  const valorNum = parseValorContrato(valor);
+
+  async function migrar() {
+    if (!(valorNum > 0)) return setErro('Informe o valor do contrato (ex: 2700,00).');
+    setBusy(true); setErro(null);
+    // Plano primeiro, contrato depois: se o contrato falhar, a migração fica
+    // salva e o aviso diz o que fazer (mesmo precedente do ModalEditarDados).
+    const r = await gravar(
+      supabase.from('pacientes').update({ tipo_plano: 'essentia' }).eq('id', paciente.id),
+      { rotulo: 'migrar a paciente para o Essentia' },
+    );
+    if (!r.ok) { setBusy(false); return setErro(r.msg); }
+    const { erro: erroContrato } = await criarContratoPendente(supabase, {
+      nutriId:    paciente.nutri_id,
+      pacienteId: paciente.id,
+      valor:      valorNum,
+    });
+    setBusy(false);
+    if (erroContrato) {
+      setErro(`A paciente já está no Essentia, mas ${erroContrato.charAt(0).toLowerCase()}${erroContrato.slice(1)}`);
+      onSaved();
+      return;
+    }
+    onSaved();
+  }
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(28,23,18,.55)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      zIndex: 1100, padding: 16,
+    }}>
+      <div style={{
+        background: 'var(--white)', borderRadius: 12, padding: 24,
+        width: 440, maxWidth: '92vw', border: '0.5px solid var(--border)',
+      }}>
+        <div style={{ fontFamily: 'var(--font-serif)', fontSize: 18, marginBottom: 4 }}>
+          Migrar para o Essentia
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 14 }}>{paciente.nome}</div>
+        <div style={{ fontSize: 13, lineHeight: 1.5, color: 'var(--text2)', marginBottom: 14 }}>
+          O plano passa de avulsa para Essentia e o contrato fica pendente para
+          a paciente aceitar. As consultas que ela já tem continuam, e a lista
+          passa a mostrar a 1ª consulta e as Consultas 2 a 6.
+        </div>
+        <CampoValorContrato valor={valor} valorNum={valorNum} onChange={setValor} />
+        {erro && <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 10 }}>{erro}</div>}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
+          <button className="btn-outline" onClick={onClose} disabled={busy}>Cancelar</button>
+          <button className="btn" onClick={migrar} disabled={busy}>
+            {busy ? 'Migrando…' : 'Migrar para o Essentia'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /**
@@ -7468,7 +7643,7 @@ function AvisoHorariosNaoConferidos() {
   );
 }
 
-function ModalAgendarAvulsa({ pacienteId, nutriId, modalidadePaciente, onClose, onSalvo }) {
+function ModalAgendarAvulsa({ pacienteId, nutriId, modalidadePaciente, tipo = 'avulsa', titulo = 'Agendar consulta avulsa', onClose, onSalvo }) {
   const [data, setData] = useState(() => dataLocalISO(7));
   const [hora, setHora] = useState(HORARIO_CONSULTA_PADRAO);
   const [duracao, setDuracao] = useState(30);
@@ -7538,7 +7713,7 @@ function ModalAgendarAvulsa({ pacienteId, nutriId, modalidadePaciente, onClose, 
       duracao_min:    duracao,
       modalidade,
       local_id:       modalidade === 'presencial' && !semData ? (localPadrao(locais, data) || null) : null,
-      tipo:           'avulsa',
+      tipo,
       status:         'agendada',
       lembrete_ativo: true,
     });
@@ -7564,7 +7739,7 @@ function ModalAgendarAvulsa({ pacienteId, nutriId, modalidadePaciente, onClose, 
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
           <span style={{ fontFamily: 'var(--font-serif)', fontSize: 18, color: 'var(--ink)' }}>
-            Agendar consulta avulsa
+            {titulo}
           </span>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: 'var(--muted)', padding: 4 }}>
             <i className="ti ti-x" aria-hidden="true" />

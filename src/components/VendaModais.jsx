@@ -21,12 +21,13 @@ import { useSession } from '../lib/session.jsx';
    O tipo_plano entra pelas duas portas — no pacienteFixo, ou em cada item de
    `pacientes` — porque o teto de parcelas no cartão depende dele.
    ============================================================ */
-export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo, onClose, onSaved }) {
+export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo, valorInicial = null, servicoInicial = '', onClose, onSaved }) {
   const hoje = dataLocalISO();
   const [pacienteId, setPacienteId] = useState(pacienteFixo?.id ?? '');
   const [servicoId, setServicoId] = useState('');  // '' = manual/custom
-  const [servico, setServico] = useState('');
-  const [valor, setValor] = useState('');
+  const [servico, setServico] = useState(servicoInicial ?? '');
+  // `valorInicial` (ex.: valor do contrato) pré-preenche, mas segue editável.
+  const [valor, setValor] = useState(valorInicial > 0 ? String(valorInicial).replace('.', ',') : '');
   const [data, setData] = useState(hoje);
   const [forma, setForma] = useState('pix');
   const [nParcelas, setNParcelas] = useState(3);

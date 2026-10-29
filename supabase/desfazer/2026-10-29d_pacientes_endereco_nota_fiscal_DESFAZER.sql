@@ -1,0 +1,9 @@
+alter table public.pacientes drop constraint if exists pacientes_end_cep_chk;
+alter table public.pacientes drop constraint if exists pacientes_end_uf_chk;
+alter table public.pacientes drop column if exists end_cep;
+alter table public.pacientes drop column if exists end_logradouro;
+alter table public.pacientes drop column if exists end_numero;
+alter table public.pacientes drop column if exists end_complemento;
+alter table public.pacientes drop column if exists end_bairro;
+alter table public.pacientes drop column if exists end_cidade;
+alter table public.pacientes drop column if exists end_uf;
