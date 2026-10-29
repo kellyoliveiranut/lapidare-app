@@ -68,7 +68,7 @@ export default function PacientePerfil() {
   const voltar = () => (state?.from ? navigate(-1) : navigate('/nutri/pacientes'));
   const { user } = useSession();
   const [paciente, setPaciente] = useState(null);
-  const [tab, setTab] = useState('plano');
+  const [tab, setTab] = useState('planejamento');
   const [chatAberto, setChatAberto] = useState(false);
   const [calculosImportados, setCalculosImportados] = useState(null);
   const [editandoNasc, setEditandoNasc] = useState(false);
@@ -1318,13 +1318,9 @@ export default function PacientePerfil() {
             { id: 'evolucao',      label: 'Evolução',      icon: 'chart-line' },
             { id: 'oncologia',     label: isOnco ? 'Oncologia' : 'Histórico onco', icon: 'dna' },
             { id: 'emagrecimento', label: 'Emagrecimento', icon: 'trending-down' },
-            // Bloco do plano, nesta ordem (pedido de 2026-10-29). A Lista de substituição
-            // fica dentro de "Plano alimentar" e é publicada junto com ele.
-            { id: 'calculos',      label: 'Cálculos',      icon: 'calculator' },
-            { id: 'plano',         label: 'Plano alimentar', icon: 'salad' },
-            { id: 'compras',       label: 'Lista de compras', icon: 'shopping-cart' },
-            { id: 'suplementacao', label: 'Suplementação', icon: 'pill' },
-            { id: 'treinos',       label: 'Treinos',       icon: 'run' },
+            // Planejamento reúne, um abaixo do outro: Cálculos, Plano alimentar (com a
+            // Lista de substituição), Lista de compras, Suplementação e Treinos.
+            { id: 'planejamento', label: 'Planejamento', icon: 'salad' },
             { id: 'anamnese',      label: 'Anamnese',      icon: 'clipboard-text' },
             { id: 'followup',      label: 'Follow-up',     icon: 'notebook' },
             { id: 'habitos',       label: 'Hábitos',       icon: 'checklist' },
@@ -1369,17 +1365,34 @@ export default function PacientePerfil() {
         {tab === 'emagrecimento' && <Emagrecimento pacienteId={paciente.id} nutriId={user.id} />}
         {tab === 'anamnese'      && <Anamnese pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
         {tab === 'followup'      && <FollowUp pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
-        {tab === 'suplementacao' && <Suplementacao pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
         {tab === 'habitos'       && <Habitos pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
-        {tab === 'plano'         && <PublicarPlano pacienteId={paciente.id} nutriId={user.id} calculosImportados={calculosImportados} onLimparImportados={() => setCalculosImportados(null)} />}
-        {tab === 'compras'       && <PublicarLista pacienteId={paciente.id} nutriId={user.id} />}
         {tab === 'ebooks'        && <EbooksDaPaciente pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
         {tab === 'avaliacao'     && <RegistrarAvaliacao pacienteId={paciente.id} nutriId={user.id} paciente={paciente} />}
         {/* `paciente` inteiro além do id: perguntasParaPaciente precisa de sexo
             e objetivo. Mesmo idioma de RegistrarAvaliacao, abaixo. */}
         {tab === 'checkin'       && <CheckinPersonalizado pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} paciente={paciente} />}
-        {tab === 'calculos'      && <Calculos pacienteId={paciente.id} nutriId={user.id} paciente={paciente} onUsarNaDieta={(vals) => { setCalculosImportados(vals); setTab('plano'); }} />}
-        {tab === 'treinos'       && <Treinos pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
+        {tab === 'planejamento' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
+            {[
+              ['plan-calculos', 'Cálculos', 'calculator'],
+              ['plan-plano', 'Plano alimentar e lista de substituição', 'salad'],
+              ['plan-compras', 'Lista de compras', 'shopping-cart'],
+              ['plan-suplementacao', 'Suplementação', 'pill'],
+              ['plan-treinos', 'Treinos', 'run'],
+            ].map(([id, titulo, icone]) => (
+              <section key={id} id={id} style={{ scrollMarginTop: 70 }}>
+                <h3 style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 16, margin: '0 0 10px', paddingBottom: 6, borderBottom: '1px solid var(--border)' }}>
+                  <i className={`ti ti-${icone}`} aria-hidden="true" /> {titulo}
+                </h3>
+                {id === 'plan-calculos' && <Calculos pacienteId={paciente.id} nutriId={user.id} paciente={paciente} onUsarNaDieta={(vals) => { setCalculosImportados(vals); setTimeout(() => document.getElementById('plan-plano')?.scrollIntoView({ behavior: 'smooth' }), 50); }} />}
+                {id === 'plan-plano' && <PublicarPlano pacienteId={paciente.id} nutriId={user.id} calculosImportados={calculosImportados} onLimparImportados={() => setCalculosImportados(null)} />}
+                {id === 'plan-compras' && <PublicarLista pacienteId={paciente.id} nutriId={user.id} />}
+                {id === 'plan-suplementacao' && <Suplementacao pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
+                {id === 'plan-treinos' && <Treinos pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
+              </section>
+            ))}
+          </div>
+        )}
       </Suspense>
 
       <div style={{ marginTop: 32, paddingTop: 16, borderTop: '0.5px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20 }}>
