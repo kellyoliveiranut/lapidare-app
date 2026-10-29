@@ -5,11 +5,10 @@ import { useSession } from '../../lib/session.jsx';
 import {
   brl, dataBR, iniciais, horaConsultaBR, TZ_CLINICA,
   validarPlano, validarLista, contarItensLista,
-  HORARIOS_CONSULTA, HORARIO_CONSULTA_PADRAO, horaConsultaValida,
+HORARIO_CONSULTA_PADRAO, horaConsultaValida,
   dataLocalISO, montarDataHoraISO, partesLocaisISO,
   soDigitos, formatarCpf,
 } from '../../lib/utils.js';
-import { TEMPLATE_PADRAO } from '../../lib/checkinDefault.js';
 import { mensagemAcesso, mensagemSenhaDefinida } from '../../lib/mensagemAcesso.js';
 import { OBJETIVOS } from '../../lib/objetivos.js';
 import { SEXOS, PLANOS, modalidadeDaPaciente, localPadrao, datasSemLocal, localParaDefinirData, gradeDoDia } from '../../lib/opcoesPaciente.js';
@@ -36,7 +35,6 @@ import { buscarAlimento, medidaCaseira, kcalDoAlimento, kcalEquivalente, parseGr
 import { MODELO_PLANO, MAX_TOKENS_PLANO, motivoBloqueio, faltaMeta, lerRespostaPlano, alimentosForaDaTaco, avisoKcal } from '../../lib/planoAutomatico.js';
 import { dividirSubs } from '../../lib/subsTexto.js';
 import DateInput, { parseDatePaste } from '../../components/DateInput.jsx';
-import CheckinForm from '../../components/CheckinForm.jsx';
 const Evolucao             = lazy(() => import('./_Evolucao.jsx'));
 const FollowUp             = lazy(() => import('./_FollowUp.jsx'));
 const Suplementacao        = lazy(() => import('./_Suplementacao.jsx'));
@@ -51,7 +49,6 @@ const AnalisarAvaliacao    = lazy(() => import('./_AnalisarAvaliacao.jsx'));
 const Treinos              = lazy(() => import('./_Treinos.jsx'));
 const FinanceiroPaciente   = lazy(() => import('./_Financeiro.jsx'));
 const ChatFlutuante        = lazy(() => import('./_ChatFlutuante.jsx'));
-import DicaJSON from '../../components/DicaJSON.jsx';
 import { TERMO_VERSAO } from '../../components/TermoConsentimento.jsx';
 import { criarContratoPendente, parseValorContrato } from '../../lib/contratoEssentia.js';
 import { convitePendenteVencido } from '../../lib/convite.js';
@@ -6029,7 +6026,7 @@ Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (e
     const resultado = parsearJSON(raw);
     if (!resultado) {
       let chaves = '(nenhuma)';
-      try { const d = JSON.parse(raw); chaves = Array.isArray(d) ? '(array raiz)' : Object.keys(d).join(', '); } catch {}
+      try { const d = JSON.parse(raw); chaves = Array.isArray(d) ? '(array raiz)' : Object.keys(d).join(', '); } catch { /* ignora */ }
       return setErroJson(
         `Formato não reconhecido. Chaves: ${chaves}. ` +
         `Aceitos: lista_de_compras · lista_compras · listadecompras · shopping_list · compras · categorias · lista · items · plano_alimentar · plano · dieta · cardapio · array direto · objeto de categorias.`

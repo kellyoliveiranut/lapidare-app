@@ -3,7 +3,7 @@ export function parseDatePaste(raw) {
   // ISO: YYYY-MM-DD
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
   // DD/MM/YYYY, D/M/YYYY, DD-MM-YYYY, DD.MM.YYYY, DD/MM/YY
-  const m = s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})$/);
+  const m = s.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})$/);
   if (m) {
     const [, d, mo, y] = m;
     const year = y.length === 2 ? (parseInt(y) < 50 ? '20' + y : '19' + y) : y;

@@ -67,7 +67,7 @@ export default function Compras() {
     try {
       const saved = localStorage.getItem(`compras_${profile.id}_${publicadoEm}`);
       if (saved) setMarcados(JSON.parse(saved));
-    } catch {}
+    } catch { /* ignora */ }
   }, [profile?.id, publicadoEm]);
 
   // Lista limpa: sem quantidades, sem substitutos, sem duplicados.
@@ -97,7 +97,7 @@ export default function Compras() {
     if (profile?.id && publicadoEm) {
       try {
         localStorage.setItem(`compras_${profile.id}_${publicadoEm}`, JSON.stringify(next));
-      } catch {}
+      } catch { /* ignora */ }
     }
     return next;
   });

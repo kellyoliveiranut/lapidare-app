@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import {
-  brl, dataBR, iniciais, statusParcela, liquidoParcela, TZ_CLINICA,
+  brl, dataBR, statusParcela, liquidoParcela, TZ_CLINICA,
   dataLocalISO, horaConsultaBR, partesLocaisISO,
 } from '../../lib/utils.js';
 import { janelasDaVisao } from '../../lib/visaoJanelas.js';

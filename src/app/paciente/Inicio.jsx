@@ -14,7 +14,6 @@ import { CardJornadaResumo } from './_Jornada.jsx';
 import { MENSAGEM_DO_DIA_PAUSADA } from '../../lib/pausas.js';
 
 
-const DIAS_SEG = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
 
 const HUMOR_OPCOES = [
   { label: 'Cansada', emoji: '😔', valEscala: 1, valMon: 2 },

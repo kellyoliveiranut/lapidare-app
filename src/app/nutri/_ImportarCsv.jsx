@@ -409,7 +409,7 @@ function parseDataBR(s) {
   // Tenta YYYY-MM-DD direto
   if (/^\d{4}-\d{2}-\d{2}$/.test(txt)) return txt;
   // DD/MM/YYYY ou DD-MM-YYYY
-  const m = txt.match(/^(\d{2})[\/\-](\d{2})[\/\-](\d{4})$/);
+  const m = txt.match(/^(\d{2})[/-](\d{2})[/-](\d{4})$/);
   if (m) return `${m[3]}-${m[2]}-${m[1]}`;
   return null;
 }
