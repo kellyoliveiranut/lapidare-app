@@ -43,6 +43,22 @@ export async function ativarNotificacoes() {
   } = await supabase.auth.getUser();
   if (userError || !user) throw new Error('Usuário não autenticado.');
 
+  // Caminho preferido: função no banco que move a assinatura para esta conta
+  // mesmo que o aparelho tenha sido usado por outra (o upsert direto é barrado
+  // pelo RLS nesse caso). Se a função ainda não existir, cai no upsert antigo.
+  const { error: rpcError } = await supabase.rpc('registrar_push_aparelho', {
+    p_endpoint: subscription.endpoint,
+    p_subscription: subscription.toJSON(),
+    p_user_agent: navigator.userAgent,
+  });
+  if (!rpcError) return { subscription, reaproveitada };
+  const semFuncao = rpcError.code === 'PGRST202' || rpcError.code === '42883';
+  if (!semFuncao) {
+    throw new Error(
+      'Erro ao salvar assinatura (endpoint …' + subscription.endpoint.slice(-12) + '): ' + rpcError.message
+    );
+  }
+
   const { error, count } = await supabase.from('push_subscriptions').upsert(
     {
       user_id: user.id,
