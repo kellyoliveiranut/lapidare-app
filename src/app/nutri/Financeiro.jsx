@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { brl, statusParcela, liquidoParcela, taxaSugerida } from '../../lib/utils.js';
 import ListaVendas from '../../components/ListaVendas.jsx';
+import NotasAEmitir from './_NotasAEmitir.jsx';
 import { NovaVendaModal, EditarParcelaModal, EditarVendaModal } from '../../components/VendaModais.jsx';
 import Gastos from './Gastos.jsx';
 import { gravar } from '../../lib/gravar.js';
@@ -198,6 +199,8 @@ export default function Financeiro() {
           </div>
         </div>
       )}
+
+      <NotasAEmitir vendas={vendas} parcelasPorVenda={parcelasPorVenda} onMudou={carregar} />
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
         <div style={{ display: 'flex', gap: 6 }}>

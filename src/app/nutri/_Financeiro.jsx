@@ -115,7 +115,7 @@ export default function Financeiro({ pacienteId, nutriId, pacienteNome, paciente
 
   return (
     <>
-      {paciente && <DadosNotaFiscal paciente={paciente} onSalvo={onDadosSalvos} />}
+      {paciente && <DadosNotaFiscal paciente={paciente} vendaRecente={vendas[0] ?? null} onSalvo={onDadosSalvos} />}
 
       {vendas.length === 0 && valorContrato > 0 && (
         <div className="al-b" style={{ marginBottom: 12 }}>

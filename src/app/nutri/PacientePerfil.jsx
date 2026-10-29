@@ -88,13 +88,14 @@ export default function PacientePerfil() {
   const [consultaAtiva, setConsultaAtiva] = useState(undefined);
   const [busyConsulta, setBusyConsulta] = useState(false);
   const [agendarAcompOpen, setAgendarAcompOpen] = useState(false);
-  const [agendarAvulsaOpen, setAgendarAvulsaOpen] = useState(false);
   const [definirDataConsulta, setDefinirDataConsulta] = useState(null); // consulta "a definir" sendo datada
   const [acompList, setAcompList] = useState(null);
   // Modal de agendar UMA consulta (posição vazia da lista, ou avulsa) e modal
   // de migração para o Essentia.
   const [agendarTipo, setAgendarTipo] = useState(null);   // { tipo, titulo } | null
   const [migrarOpen, setMigrarOpen] = useState(false);
+  // Depois da migração: lembrete dos próximos passos (agendar 2 a 6, lançar a venda).
+  const [avisoMigracao, setAvisoMigracao] = useState(false);
   const [erroAcomp, setErroAcomp] = useState(null);
   const [erroCarregar, setErroCarregar] = useState(false);
   const [linkConviteCopiado, setLinkConviteCopiado] = useState(false);
@@ -945,7 +946,7 @@ export default function PacientePerfil() {
         <ModalMigrarEssentia
           paciente={paciente}
           onClose={() => setMigrarOpen(false)}
-          onSaved={() => { setMigrarOpen(false); carregar(); }}
+          onSaved={() => { setMigrarOpen(false); setAvisoMigracao(true); carregar(); }}
         />
       )}
 
@@ -966,6 +967,35 @@ export default function PacientePerfil() {
             return r;
           }}
         />
+      )}
+
+      {/* Próximos passos depois de migrar para o Essentia */}
+      {avisoMigracao && planoEssentia && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+          padding: '10px 14px', borderRadius: 10, marginBottom: 14,
+          background: '#f0fdf4', border: '0.5px solid var(--green, #3a7a46)',
+        }}>
+          <i className="ti ti-circle-check" style={{ fontSize: 17, color: 'var(--green, #3a7a46)' }} aria-hidden="true" />
+          <div style={{ flex: 1, minWidth: 200, fontSize: 13, color: 'var(--text2)' }}>
+            <strong>Migrada para o Essentia.</strong> Próximos passos:{' '}
+            {acompList && acompList.length === 0
+              ? 'agende o acompanhamento de 6 consultas'
+              : 'agende as Consultas 2 a 6 na lista abaixo'}
+            {' '}e registre a venda no Financeiro.
+          </div>
+          {acompList && acompList.length === 0 && (
+            <button className="btn" onClick={() => setAgendarAcompOpen(true)} style={{ whiteSpace: 'nowrap' }}>
+              Agendar 6 consultas
+            </button>
+          )}
+          <button className="btn-outline" onClick={() => setTab('financeiro')} style={{ whiteSpace: 'nowrap' }}>
+            Abrir Financeiro
+          </button>
+          <button className="btn-outline" onClick={() => setAvisoMigracao(false)} aria-label="Fechar aviso">
+            <i className="ti ti-x" aria-hidden="true" />
+          </button>
+        </div>
       )}
 
       {/* Aviso do Financeiro: venda não registrada ou dados da nota incompletos */}

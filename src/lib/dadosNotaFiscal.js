@@ -1,4 +1,5 @@
 // Dados da paciente exigidos para emitir a nota fiscal. Funções puras.
+import { brl, dataBR } from './utils.js';
 
 export const CAMPOS_ENDERECO = [
   'end_cep', 'end_logradouro', 'end_numero', 'end_complemento', 'end_bairro', 'end_cidade', 'end_uf',
@@ -63,4 +64,50 @@ export function montarPayloadNota(f) {
       end_uf: uf || null,
     },
   };
+}
+
+export function formatarCpf(v) {
+  const d = soDigitos(v).slice(0, 11);
+  if (d.length !== 11) return d;
+  return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
+}
+
+/** Endereço em uma linha; sem os campos novos, cai no texto livre do cadastro. */
+export function enderecoEmUmaLinha(p) {
+  const rua = [texto(p?.end_logradouro), texto(p?.end_numero)].filter(Boolean).join(', ');
+  const partes = [
+    rua,
+    texto(p?.end_complemento),
+    texto(p?.end_bairro),
+    [texto(p?.end_cidade), texto(p?.end_uf).toUpperCase()].filter(Boolean).join('/'),
+    soDigitos(p?.end_cep).length === 8 ? `CEP ${formatarCep(p.end_cep)}` : '',
+  ].filter(Boolean);
+  return partes.length ? partes.join(' - ') : texto(p?.endereco);
+}
+
+/** Texto pronto para colar no sistema de emissão da nota. */
+export function textoNota({ paciente, venda }) {
+  const linhas = [
+    `Tomador: ${texto(paciente?.nome) || '—'}`,
+    `CPF: ${formatarCpf(paciente?.cpf) || '—'}`,
+    `Endereço: ${enderecoEmUmaLinha(paciente) || '—'}`,
+  ];
+  if (texto(paciente?.email)) linhas.push(`E-mail: ${texto(paciente.email)}`);
+  if (texto(paciente?.telefone)) linhas.push(`Telefone: ${texto(paciente.telefone)}`);
+  if (venda) {
+    linhas.push(`Serviço: ${texto(venda.servico) || '—'}`);
+    linhas.push(`Valor: ${brl(Number(venda.valor_total))}`);
+    if (venda.data_venda) linhas.push(`Data da venda: ${dataBR(venda.data_venda)}`);
+  }
+  return linhas.join('\n');
+}
+
+/**
+ * Vendas de paciente com ao menos uma parcela paga e sem nota emitida.
+ * `parcelasPorVenda`: { [venda.id]: parcelas[] }.
+ */
+export function vendasSemNota(vendas, parcelasPorVenda) {
+  return (vendas ?? []).filter(v =>
+    !v.nf_emitida && v.paciente_id &&
+    (parcelasPorVenda?.[v.id] ?? []).some(p => p.status === 'pago'));
 }

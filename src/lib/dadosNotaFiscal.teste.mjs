@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { formatarCep, cpfValido, faltandoParaNota, montarPayloadNota } from './dadosNotaFiscal.js';
+import { formatarCep, cpfValido, faltandoParaNota, montarPayloadNota, formatarCpf, enderecoEmUmaLinha, textoNota, vendasSemNota } from './dadosNotaFiscal.js';
 
 assert.equal(formatarCep('66010000'), '66010-000');
 assert.equal(formatarCep('660'), '660');
@@ -31,4 +31,33 @@ assert.match(montarPayloadNota({ end_uf: 'PAR' }).erro, /UF/);
 const vazio = montarPayloadNota({});
 assert.equal(vazio.payload.cpf, null);
 assert.equal(vazio.payload.end_uf, null);
+
+assert.equal(formatarCpf('52998224725'), '529.982.247-25');
+assert.equal(formatarCpf('123'), '123');
+assert.equal(
+  enderecoEmUmaLinha({ ...completa, end_complemento: 'Apto 2' }),
+  'Rua A, 10 - Apto 2 - Centro - Belém/PA - CEP 66010-000',
+);
+assert.equal(enderecoEmUmaLinha({ endereco: ' Rua antiga, 5 ' }), 'Rua antiga, 5');
+assert.equal(enderecoEmUmaLinha({}), '');
+
+const t = textoNota({
+  paciente: { ...completa, nome: 'Maria Souza', email: 'm@x.com', telefone: '91999998888' },
+  venda: { servico: 'Essentia', valor_total: 2700, data_venda: '2026-10-29' },
+});
+assert.match(t, /^Tomador: Maria Souza\nCPF: 529\.982\.247-25\nEndereço: Rua A, 10 - Centro - Belém\/PA - CEP 66010-000/);
+assert.match(t, /Serviço: Essentia/);
+assert.match(t, /Valor: R\$\s?2\.700,00/);
+assert.match(t, /Data da venda: 29\/10\/2026/);
+assert.match(textoNota({ paciente: {} }), /CPF: —/);
+
+const vendas = [
+  { id: 1, paciente_id: 'p', nf_emitida: false },
+  { id: 2, paciente_id: 'p', nf_emitida: true },
+  { id: 3, paciente_id: null, nf_emitida: false },
+  { id: 4, paciente_id: 'p', nf_emitida: false },
+];
+const ps = { 1: [{ status: 'pago' }], 2: [{ status: 'pago' }], 3: [{ status: 'pago' }], 4: [{ status: 'pendente' }] };
+assert.deepEqual(vendasSemNota(vendas, ps).map(v => v.id), [1]);
+assert.deepEqual(vendasSemNota(undefined, undefined), []);
 console.log('dadosNotaFiscal: ok');

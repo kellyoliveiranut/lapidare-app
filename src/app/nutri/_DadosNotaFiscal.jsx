@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { gravar } from '../../lib/gravar.js';
-import { formatarCep, faltandoParaNota, montarPayloadNota } from '../../lib/dadosNotaFiscal.js';
+import { formatarCep, faltandoParaNota, montarPayloadNota, textoNota } from '../../lib/dadosNotaFiscal.js';
+import { copiarTexto } from '../../lib/copiarTexto.js';
 
 /* ============================================================
    DADOS PARA A NOTA FISCAL (aba Financeiro do perfil)
@@ -22,11 +23,12 @@ const CAMPOS_INICIAIS = (p) => ({
   end_uf: p.end_uf ?? '',
 });
 
-export default function DadosNotaFiscal({ paciente, onSalvo }) {
+export default function DadosNotaFiscal({ paciente, vendaRecente = null, onSalvo }) {
   const [aberto, setAberto] = useState(() => faltandoParaNota(paciente).length > 0);
   const [f, setF] = useState(() => CAMPOS_INICIAIS(paciente));
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState(null);
+  const [buscandoCep, setBuscandoCep] = useState(false);
   const faltando = faltandoParaNota(paciente);
   const set = (k) => (e) => setF(prev => ({ ...prev, [k]: e.target.value }));
 
@@ -43,6 +45,37 @@ export default function DadosNotaFiscal({ paciente, onSalvo }) {
     if (!r.ok) { setMsg({ tipo: 'erro', texto: r.msg }); return; }
     setMsg({ tipo: 'ok', texto: 'Dados salvos.' });
     onSalvo?.();
+  }
+
+  // Preenche rua, bairro, cidade e UF a partir do CEP (ViaCEP, serviço público:
+  // recebe só o CEP). Só completa campo VAZIO: o que a Kelly já digitou fica.
+  // Qualquer falha é silenciosa, e ela segue preenchendo à mão.
+  async function buscarCep(cepFormatado) {
+    const cep = cepFormatado.replace(/\D/g, '');
+    if (cep.length !== 8) return;
+    setBuscandoCep(true);
+    try {
+      const resp = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+      const d = resp.ok ? await resp.json() : null;
+      if (d && !d.erro) {
+        setF(prev => ({
+          ...prev,
+          end_logradouro: prev.end_logradouro.trim() || d.logradouro || '',
+          end_bairro: prev.end_bairro.trim() || d.bairro || '',
+          end_cidade: prev.end_cidade.trim() || d.localidade || '',
+          end_uf: prev.end_uf.trim() || (d.uf ?? ''),
+        }));
+      }
+    } catch { /* sem internet ou serviço fora: preenche à mão */ } finally {
+      setBuscandoCep(false);
+    }
+  }
+
+  async function copiar() {
+    const ok = await copiarTexto(textoNota({ paciente: { ...paciente, ...f }, venda: vendaRecente }));
+    setMsg(ok
+      ? { tipo: 'ok', texto: 'Dados copiados. É só colar no sistema da nota.' }
+      : { tipo: 'erro', texto: 'Não consegui copiar. Selecione e copie manualmente.' });
   }
 
   const campo = (rotulo, k, extra = {}) => (
@@ -80,7 +113,7 @@ export default function DadosNotaFiscal({ paciente, onSalvo }) {
           )}
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
             {campo('CPF', 'cpf', { min: 150, input: { inputMode: 'numeric', placeholder: '000.000.000-00' } })}
-            {campo('CEP', 'end_cep', { min: 120, input: { inputMode: 'numeric', placeholder: '00000-000', onChange: (e) => setF(prev => ({ ...prev, end_cep: formatarCep(e.target.value) })) } })}
+            {campo(buscandoCep ? 'CEP (buscando endereço…)' : 'CEP', 'end_cep', { min: 120, input: { inputMode: 'numeric', placeholder: '00000-000', onChange: (e) => { const v = formatarCep(e.target.value); setF(prev => ({ ...prev, end_cep: v })); buscarCep(v); } } })}
           </div>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
             {campo('Rua / avenida', 'end_logradouro', { flex: 3, min: 200 })}
@@ -97,7 +130,12 @@ export default function DadosNotaFiscal({ paciente, onSalvo }) {
           {msg && (
             <div style={{ fontSize: 12, marginBottom: 10, color: msg.tipo === 'ok' ? 'var(--green)' : 'var(--red)' }}>{msg.texto}</div>
           )}
-          <button className="btn" onClick={salvar} disabled={busy}>{busy ? 'Salvando…' : 'Salvar dados'}</button>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button className="btn" onClick={salvar} disabled={busy}>{busy ? 'Salvando…' : 'Salvar dados'}</button>
+            <button className="btn-outline" onClick={copiar}>
+              <i className="ti ti-copy" aria-hidden="true" /> Copiar dados para a nota
+            </button>
+          </div>
         </div>
       )}
     </div>
