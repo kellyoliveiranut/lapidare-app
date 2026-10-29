@@ -45,7 +45,6 @@ const SolicitacaoExames    = lazy(() => import('./_SolicitacaoExames.jsx'));
 const Habitos              = lazy(() => import('./_Habitos.jsx'));
 const Anamnese             = lazy(() => import('./_Anamnese.jsx'));
 const TratamentoOncologico = lazy(() => import('./_TratamentoOncologico.jsx'));
-const RelatorioEvolucao    = lazy(() => import('./_RelatorioEvolucao.jsx'));
 const Emagrecimento        = lazy(() => import('./_Emagrecimento.jsx'));
 const Calculos             = lazy(() => import('./_Calculos.jsx'));
 const AnalisarAvaliacao    = lazy(() => import('./_AnalisarAvaliacao.jsx'));
@@ -1318,7 +1317,6 @@ export default function PacientePerfil() {
           const isOnco = paciente.objetivo === 'Oncologia';
           const todas = [
             { id: 'evolucao',      label: 'Evolução',      icon: 'chart-line' },
-            { id: 'relatorio',     label: 'Relatório',     icon: 'report-analytics' },
             { id: 'oncologia',     label: isOnco ? 'Oncologia' : 'Histórico onco', icon: 'dna' },
             { id: 'emagrecimento', label: 'Emagrecimento', icon: 'trending-down' },
             { id: 'calculos',      label: 'Cálculos',      icon: 'calculator' },
@@ -1341,11 +1339,11 @@ export default function PacientePerfil() {
           }
           // O Financeiro saiu da barra de abas (pedido de 2026-10-29): abre pela
           // faixa "Financeiro" no topo do perfil.
-          // Exames entra logo depois de Relatório, onde sempre esteve em relação
+          // Exames entra logo depois de Evolução (o Relatório agora vive dentro dela). Antes ficava
           // às abas de análise. Nasceu ao lado de Suplementação por afinidade e
           // ali caía na 12ª de 17 posições: ~1300px de rolagem num aparelho de
           // ~360px. Afinidade conceitual não paga o preço de ser inencontrável.
-          todas.splice(todas.findIndex(t => t.id === 'relatorio') + 1, 0,
+          todas.splice(todas.findIndex(t => t.id === 'evolucao') + 1, 0,
             { id: 'exames', label: 'Exames', icon: 'test-pipe' });
           return todas;
         })().map(t => (
@@ -1371,7 +1369,6 @@ export default function PacientePerfil() {
 
       <Suspense fallback={<div className="card empty-card"><div className="empty-sub">Carregando…</div></div>}>
         {tab === 'evolucao'      && <Evolucao pacienteId={paciente.id} paciente={paciente} nutriId={user.id} />}
-        {tab === 'relatorio'     && <RelatorioEvolucao pacienteId={paciente.id} paciente={paciente} nutriId={user.id} />}
         {tab === 'oncologia'     && <TratamentoOncologico pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} pacienteSexo={paciente.sexo} />}
         {tab === 'emagrecimento' && <Emagrecimento pacienteId={paciente.id} nutriId={user.id} />}
         {tab === 'anamnese'      && <Anamnese pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}

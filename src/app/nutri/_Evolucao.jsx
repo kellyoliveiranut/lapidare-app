@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { gravar } from '../../lib/gravar.js';
 import { dataBR } from '../../lib/utils.js';
@@ -8,6 +8,7 @@ import {
   composicaoCorporal, fmtDelta, fmtValor,
   normalizarAvaliacoes, idadeEm, classificarImc,
 } from '../../lib/evolucaoAvaliacoes.js';
+const RelatorioEvolucao = lazy(() => import('./_RelatorioEvolucao.jsx'));
 import { tempoDe } from '../../lib/sinaleira.js';
 import { METAS, TEMAS, MAX_METAS, MAX_TEXTO_AJUSTE, temaDoObjetivo, lerEntrada, gravarEntrada } from '../../lib/metasEvolucao.js';
 import {
@@ -253,6 +254,8 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
         campoGrafico={campoGrafico} metricasDoGrafico={metricasDoGrafico} onTrocar={setMetricaGrafico}
         composicao={composicao} registros={validas} />
 
+      <CaixaRelatorio pacienteId={pacienteId} paciente={paciente} nutriId={nutriId} />
+
       <ListaAvaliacoes avaliacoes={avaliacoes} ignoradas={ignoradas} suspeitas={suspeitas} onAlternar={alternarIgnorada} />
 
       <TabelaCalculos campos={TABELA} series={series} comps={comparacoes} pesoNeutro={pesoNeutro}
@@ -458,6 +461,35 @@ function ModoApresentacao({ paciente, sexo, frase, registros, avaliacoes, series
         <TabelaCalculos campos={TABELA} series={series} comps={comparacoes} pesoNeutro={pesoNeutro}
           rotuloPeriodo={rotuloPeriodo} imc={imc} />
       </div>
+    </div>
+  );
+}
+
+
+function CaixaRelatorio({ pacienteId, paciente, nutriId }) {
+  const [aberto, setAberto] = useState(false);
+  return (
+    <div className="card" style={{ padding: '14px 16px', marginTop: 12 }}>
+      {!aberto ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <i className="ti ti-report-analytics" aria-hidden="true" style={{ fontSize: 22 }} />
+          <div style={{ flex: 1, minWidth: 180 }}>
+            <div style={{ fontWeight: 600 }}>Relatório da paciente</div>
+            <div style={{ fontSize: 13, opacity: 0.75 }}>Clique aqui e gere o relatório dessa paciente</div>
+          </div>
+          <button type="button" className="btn" onClick={() => setAberto(true)}>Gerar relatório</button>
+        </div>
+      ) : (
+        <>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <strong>Relatório da paciente</strong>
+            <button type="button" className="btn-outline" onClick={() => setAberto(false)}>Fechar</button>
+          </div>
+          <Suspense fallback={<div style={{ padding: 12 }}>Carregando…</div>}>
+            <RelatorioEvolucao pacienteId={pacienteId} paciente={paciente} nutriId={nutriId} />
+          </Suspense>
+        </>
+      )}
     </div>
   );
 }
