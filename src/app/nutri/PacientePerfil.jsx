@@ -1316,26 +1316,24 @@ export default function PacientePerfil() {
       <BarraDeAbas>
         {(() => {
           const isOnco = paciente.objetivo === 'Oncologia';
+          // Ordem pedida em 2026-10-29: Anamnese, Avaliação, Oncologia (ou Emagrecimento,
+          // conforme o objetivo da paciente), Planejamento, Evolução, Check-in e Follow-up
+          // juntos, e os demais. A aba que não é a principal vai para o fim.
+          const onco = { id: 'oncologia',     label: isOnco ? 'Oncologia' : 'Histórico onco', icon: 'dna' };
+          const emag = { id: 'emagrecimento', label: 'Emagrecimento', icon: 'trending-down' };
           const todas = [
-            { id: 'evolucao',      label: 'Evolução',      icon: 'chart-line' },
-            { id: 'oncologia',     label: isOnco ? 'Oncologia' : 'Histórico onco', icon: 'dna' },
-            { id: 'emagrecimento', label: 'Emagrecimento', icon: 'trending-down' },
-            // Planejamento reúne, um abaixo do outro: Cálculos, Plano alimentar (com a
-            // Lista de substituição), Lista de compras, Suplementação e Treinos.
-            { id: 'planejamento', label: 'Planejamento', icon: 'salad' },
             { id: 'anamnese',      label: 'Anamnese',      icon: 'clipboard-text' },
-            { id: 'followup',      label: 'Follow-up',     icon: 'notebook' },
+            { id: 'avaliacao',     label: 'Avaliação',     icon: 'ruler-measure' },
+            isOnco ? onco : emag,
+            // Planejamento reúne, um abaixo do outro: Cálculos, Plano alimentar, Lista de
+            // substituição, Lista de compras, Suplementação e Treinos.
+            { id: 'planejamento',  label: 'Planejamento',  icon: 'salad' },
+            { id: 'evolucao',      label: 'Evolução',      icon: 'chart-line' },
+            { id: 'acompanhamento', label: 'Check-in e Follow-up', icon: 'clipboard-check' },
             { id: 'habitos',       label: 'Hábitos',       icon: 'checklist' },
             { id: 'ebooks',        label: 'E-books',       icon: 'book-2' },
-            { id: 'avaliacao',     label: 'Avaliação',     icon: 'ruler-measure' },
-            { id: 'checkin',       label: 'Check-in',      icon: 'clipboard-check' },
+            isOnco ? emag : onco,
           ];
-          if (!isOnco) {
-            const ema  = todas.splice(todas.findIndex(t => t.id === 'emagrecimento'), 1)[0];
-            todas.splice(1, 0, ema);
-            const onco = todas.splice(todas.findIndex(t => t.id === 'oncologia'), 1)[0];
-            todas.push(onco);
-          }
           // O Financeiro saiu da barra de abas (pedido de 2026-10-29): abre pela
           // faixa "Financeiro" no topo do perfil.
           // Solicitação de exames agora vive em Oncologia > Exames Laboratoriais.
@@ -1366,13 +1364,27 @@ export default function PacientePerfil() {
         {tab === 'oncologia'     && <TratamentoOncologico pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} pacienteSexo={paciente.sexo} />}
         {tab === 'emagrecimento' && <Emagrecimento pacienteId={paciente.id} nutriId={user.id} />}
         {tab === 'anamnese'      && <Anamnese pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
-        {tab === 'followup'      && <FollowUp pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
         {tab === 'habitos'       && <Habitos pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
         {tab === 'ebooks'        && <EbooksDaPaciente pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
         {tab === 'avaliacao'     && <RegistrarAvaliacao pacienteId={paciente.id} nutriId={user.id} paciente={paciente} />}
         {/* `paciente` inteiro além do id: perguntasParaPaciente precisa de sexo
             e objetivo. Mesmo idioma de RegistrarAvaliacao, abaixo. */}
-        {tab === 'checkin'       && <CheckinPersonalizado pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} paciente={paciente} />}
+        {tab === 'acompanhamento' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
+            <section>
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 16, margin: '0 0 10px', paddingBottom: 6, borderBottom: '1px solid var(--border)' }}>
+                <i className="ti ti-clipboard-check" aria-hidden="true" /> Check-in
+              </h3>
+              <CheckinPersonalizado pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} paciente={paciente} />
+            </section>
+            <section>
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 16, margin: '0 0 10px', paddingBottom: 6, borderBottom: '1px solid var(--border)' }}>
+                <i className="ti ti-notebook" aria-hidden="true" /> Follow-up
+              </h3>
+              <FollowUp pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />
+            </section>
+          </div>
+        )}
         {tab === 'planejamento' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
             {[
