@@ -41,7 +41,6 @@ import DateInput, { parseDatePaste } from '../../components/DateInput.jsx';
 const Evolucao             = lazy(() => import('./_Evolucao.jsx'));
 const FollowUp             = lazy(() => import('./_FollowUp.jsx'));
 const Suplementacao        = lazy(() => import('./_Suplementacao.jsx'));
-const SolicitacaoExames    = lazy(() => import('./_SolicitacaoExames.jsx'));
 const Habitos              = lazy(() => import('./_Habitos.jsx'));
 const Anamnese             = lazy(() => import('./_Anamnese.jsx'));
 const TratamentoOncologico = lazy(() => import('./_TratamentoOncologico.jsx'));
@@ -1339,12 +1338,7 @@ export default function PacientePerfil() {
           }
           // O Financeiro saiu da barra de abas (pedido de 2026-10-29): abre pela
           // faixa "Financeiro" no topo do perfil.
-          // Exames entra logo depois de Evolução (o Relatório agora vive dentro dela). Antes ficava
-          // às abas de análise. Nasceu ao lado de Suplementação por afinidade e
-          // ali caía na 12ª de 17 posições: ~1300px de rolagem num aparelho de
-          // ~360px. Afinidade conceitual não paga o preço de ser inencontrável.
-          todas.splice(todas.findIndex(t => t.id === 'evolucao') + 1, 0,
-            { id: 'exames', label: 'Exames', icon: 'test-pipe' });
+          // Solicitação de exames agora vive em Oncologia > Exames Laboratoriais.
           return todas;
         })().map(t => (
           <button
@@ -1374,7 +1368,6 @@ export default function PacientePerfil() {
         {tab === 'anamnese'      && <Anamnese pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
         {tab === 'followup'      && <FollowUp pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
         {tab === 'suplementacao' && <Suplementacao pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
-        {tab === 'exames'        && <SolicitacaoExames pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
         {tab === 'habitos'       && <Habitos pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
         {tab === 'plano'         && <PublicarPlano pacienteId={paciente.id} nutriId={user.id} calculosImportados={calculosImportados} onLimparImportados={() => setCalculosImportados(null)} />}
         {tab === 'compras'       && <PublicarLista pacienteId={paciente.id} nutriId={user.id} />}

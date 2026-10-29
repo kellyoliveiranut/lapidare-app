@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { dataBR, dataLocalISO } from '../../lib/utils.js';
 import { callAnthropic } from '../../lib/anthropic.js';
@@ -10,6 +10,7 @@ import protocolosEfeitosData from '../../data/protocolos_efeitos.json';
 import { CAMPOS_EXAME, CHAVES_EXAME, textoRef } from '../../data/exames_referencia.js';
 import ValorExame, { LegendaExames } from '../../components/ValorExame.jsx';
 import GraficosExames from '../../components/GraficosExames.jsx';
+const SolicitacaoExames = lazy(() => import('./_SolicitacaoExames.jsx'));
 import { getProtocolo, chaveProtocolo, temEstruturaCiclo, janelaRisco, rotuloJanelaRisco, marcosDoProtocolo, marcosEfeitoAplicacao, datasAplicacoesCiclo, datasSerieCiclos, intervaloMinimoSerie, linhasDoCiclo, protocoloPendentePrescricao, protocoloAguardandoConferencia, registroPendente, marcosProvisorios, proximaAplicacao, pontaFinalProxima } from '../../lib/protocoloCiclo.js';
 import { validarConferencia, gravacaoConfirmar, gravacaoPendente, textoConfirmacao } from '../../lib/registroConferencia.js';
 
@@ -1208,6 +1209,17 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
       {/* ── Exames Laboratoriais ── */}
       {secao === 'exames' && (
         <>
+          <details className="card" style={{ marginBottom: 12, padding: '12px 16px' }}>
+            <summary style={{ cursor: 'pointer', fontWeight: 600 }}>
+              📋 Solicitar exames <span style={{ fontWeight: 400, opacity: 0.7, fontSize: 13 }}>— gerar o pedido para a paciente</span>
+            </summary>
+            <div style={{ marginTop: 12 }}>
+              <Suspense fallback={<div style={{ padding: 12 }}>Carregando…</div>}>
+                <SolicitacaoExames pacienteId={pacienteId} nutriId={nutriId} pacienteNome={pacienteNome} />
+              </Suspense>
+            </div>
+          </details>
+
           <div className="card" style={{ marginBottom: 12 }}>
             <div className="card-header">
               <div className="card-title">🔬 Registrar exame</div>
