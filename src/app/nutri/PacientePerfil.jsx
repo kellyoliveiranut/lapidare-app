@@ -1333,7 +1333,8 @@ export default function PacientePerfil() {
             { id: 'habitos',       label: 'Hábitos',       icon: 'checklist' },
             { id: 'ebooks',        label: 'E-books',       icon: 'book-2' },
             isOnco ? emag : onco,
-          ];
+          ].filter(t => !(t.id === 'emagrecimento' && isOnco && ehPlanoEssentia(paciente.tipo_plano)));
+          // Paciente Essentia oncológica não tem a aba Emagrecimento (pedido de 2026-10-29).
           // O Financeiro saiu da barra de abas (pedido de 2026-10-29): abre pela
           // faixa "Financeiro" no topo do perfil.
           // Solicitação de exames agora vive em Oncologia > Exames Laboratoriais.
@@ -1400,7 +1401,7 @@ export default function PacientePerfil() {
                 </h3>
                 {id === 'plan-calculos' && <Calculos pacienteId={paciente.id} nutriId={user.id} paciente={paciente} onUsarNaDieta={(vals) => { setCalculosImportados(vals); setTimeout(() => document.getElementById('plan-plano')?.scrollIntoView({ behavior: 'smooth' }), 50); }} />}
                 {id === 'plan-plano' && <PublicarPlano pacienteId={paciente.id} nutriId={user.id} calculosImportados={calculosImportados} onLimparImportados={() => setCalculosImportados(null)} />}
-                {id === 'plan-compras' && <PublicarLista pacienteId={paciente.id} nutriId={user.id} />}
+                {id === 'plan-compras' && <PublicarLista pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
                 {id === 'plan-suplementacao' && <Suplementacao pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
                 {id === 'plan-treinos' && <Treinos pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
               </section>
@@ -5988,7 +5989,7 @@ function categorizarAlimento(nome) {
 /* ============================================================
    PUBLICAR LISTA DE COMPRAS
    ============================================================ */
-function PublicarLista({ pacienteId, nutriId }) {
+function PublicarLista({ pacienteId, nutriId, pacienteNome }) {
   const [preview, setPreview]         = useState(null);
   const [marcados, setMarcados]       = useState({});
   const [gerando, setGerando]         = useState(false);
@@ -6005,6 +6006,8 @@ function PublicarLista({ pacienteId, nutriId }) {
   const [promptComprasCopiado, setPromptComprasCopiado] = useState(false);
   const [supsExcluidos, setSupsExcluidos]               = useState([]);
   const [verLista, setVerLista]                         = useState(null);
+  const [validadeLista, setValidadeLista]               = useState('');
+  const [busyPdfLista, setBusyPdfLista]                 = useState(false);
 
   useEffect(() => { carregar(); }, [pacienteId]);
 
@@ -6074,11 +6077,10 @@ Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (e
     });
   }
 
-  async function publicar() {
-    if (!preview) return;
-    setFeedback(null);
-
-    const dados = {
+  // Mesmo `dados` para publicar, pré-visualizar e gerar o PDF.
+  function montarDadosLista() {
+    if (!preview) return null;
+    return {
       lista: preview.lista.map(cat => ({
         categoria: cat.categoria,
         emoji: cat.emoji,
@@ -6086,7 +6088,43 @@ Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (e
           item.quantidade ? `${item.nome} — ${item.quantidade}` : item.nome
         ),
       })),
+      ...(validadeLista ? { validade: validadeLista } : {}),
     };
+  }
+
+  function preVisualizarLista() {
+    const dados = montarDadosLista();
+    if (!dados) return;
+    const v = validarLista(dados);
+    if (!v.ok) return setFeedback({ tipo: 'erro', msg: v.erro });
+    setVerLista({ dados, publicado_em: new Date().toISOString(), _previa: true });
+  }
+
+  async function gerarPdfLista() {
+    if (busyPdfLista) return;
+    const dados = montarDadosLista();
+    if (!dados) return;
+    const v = validarLista(dados);
+    if (!v.ok) return setFeedback({ tipo: 'erro', msg: v.erro });
+    setBusyPdfLista(true);
+    setFeedback(null);
+    try {
+      const { data: pac } = await supabase.from('pacientes').select('telefone').eq('id', pacienteId).maybeSingle();
+      const { gerarPDFListaCompras } = await import('../../lib/pdfListaCompras.js');
+      const blob = await gerarPDFListaCompras({ pacienteNome, contato: pac ?? null, dados });
+      baixarBlob(blob, nomeArquivoPdf('lista-de-compras', pacienteNome));
+    } catch (err) {
+      setFeedback({ tipo: 'erro', msg: `Não consegui gerar o PDF: ${err?.message ?? err}` });
+    } finally {
+      setBusyPdfLista(false);
+    }
+  }
+
+  async function publicar() {
+    if (!preview) return;
+    setFeedback(null);
+
+    const dados = montarDadosLista();
 
     const v = validarLista(dados);
     if (!v.ok) return setFeedback({ tipo: 'erro', msg: v.erro });
@@ -6100,6 +6138,7 @@ Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (e
       setFeedback({ tipo: 'ok', msg: 'Lista publicada! A paciente já pode ver.' });
       setPreview(null);
       setMarcados({});
+      setValidadeLista('');
       carregar();
     } catch (err) {
       setFeedback({ tipo: 'erro', msg: err?.message || 'Erro ao publicar lista' });
@@ -6656,7 +6695,19 @@ Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (e
             </div>
 
             {/* Publicar */}
-            <div style={{ paddingTop: 14, borderTop: '0.5px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ paddingTop: 14, borderTop: '0.5px solid var(--border)', display: 'flex', alignItems: 'flex-end', gap: 10, flexWrap: 'wrap' }}>
+              <div>
+                <label className="field-label">Validade (opcional)</label>
+                <DateInput value={validadeLista} onChange={e => setValidadeLista(e.target.value)} style={{ maxWidth: 180 }} />
+              </div>
+              <button className="btn-outline" style={{ gap: 6 }} onClick={preVisualizarLista}>
+                <i className="ti ti-eye" aria-hidden="true" />
+                Pré-visualizar
+              </button>
+              <button className="btn-outline" style={{ gap: 6 }} onClick={gerarPdfLista} disabled={busyPdfLista}>
+                <i className="ti ti-file-type-pdf" aria-hidden="true" />
+                {busyPdfLista ? 'Gerando...' : 'Gerar PDF'}
+              </button>
               <button className="btn" style={{ gap: 6 }} onClick={publicar} disabled={busy}>
                 <i className="ti ti-send" aria-hidden="true" />
                 {busy ? 'Publicando...' : `Publicar para a paciente (${totalPreview} itens)`}
@@ -6811,7 +6862,7 @@ function ModalVerLista({ lista, onClose }) {
           <div>
             <div style={{ fontSize: 14, fontWeight: 600 }}>Lista de compras</div>
             <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 1 }}>
-              Publicada em {dataBR(lista.publicado_em)} · {totalItens} itens
+              {lista._previa ? 'Pré-visualização' : `Publicada em ${dataBR(lista.publicado_em)}`} · {totalItens} itens{lista.dados?.validade ? ` · válida até ${dataBR(lista.dados.validade)}` : ''}
             </div>
           </div>
           <button onClick={onClose} style={{

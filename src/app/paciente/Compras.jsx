@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
+import { dataBR } from '../../lib/utils.js';
 
 // Parseia um item string ("Frango — 800g" ou "Frango") num objeto { nome, quantidade }.
 // Retorna null se for substituto ou inválido.
@@ -114,6 +115,9 @@ export default function Compras() {
         <div className="bar">
           <i style={{ width: `${totalItens > 0 ? (totalMarcados / totalItens) * 100 : 0}%`, background: 'var(--green)' }}></i>
         </div>
+        {compras?.validade && (
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8 }}>Lista válida até {dataBR(compras.validade)}</div>
+        )}
       </div>
 
       {comprasLimpas.lista?.map((cat, ci) => (
