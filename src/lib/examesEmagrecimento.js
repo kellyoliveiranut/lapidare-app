@@ -70,6 +70,12 @@ function dentro(ref, v) {
  */
 export function aplicarReferencias(campos, refs) {
   return campos.map(c => {
+    if (c.tipo === 'texto') {
+      return { ...c, personalizada: false, fonte: '', nivel: (valor) => {
+        if (valor == null || !c.esperado) return null;
+        return c.esperado.includes(semAcento(valor)) ? 'normal' : 'atencao';
+      } };
+    }
     const r = refs?.[c.key];
     const temFaixa = r && (r.min != null || r.max != null);
     const temAlerta = r && ['baixo', 'critico', 'alto', 'criticoAlto'].some(k => r[k] != null);
@@ -133,4 +139,20 @@ export function compararExames(a, b, campos) {
     linhas.push({ campo: c, a: va, b: vb, dif, pct: va !== 0 ? (dif / va) * 100 : null });
   }
   return linhas;
+}
+
+const semAcento = (v) => String(v ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+
+/**
+ * Texto digitado → valor gravado. Numérico: número (ou null). Texto: string aparada (ou null).
+ * Densidade urinária: o laudo traz "1.020" e muita gente digita "1020"; ambos viram 1,020.
+ */
+export function valorDoCampo(campo, texto) {
+  if (campo?.tipo === 'texto') {
+    const t = String(texto ?? '').trim().slice(0, 80);
+    return t || null;
+  }
+  let n = numeroDe(texto);
+  if (n != null && campo?.densidade && n >= 100) n = n / 1000;
+  return n;
 }

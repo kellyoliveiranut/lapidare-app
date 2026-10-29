@@ -41,6 +41,9 @@ export const GRUPOS_EXAME_EMAG = [
   { id: 'renal', label: 'Função renal e eletrólitos',
     nota: 'A avaliação renal pode ser complementada pela relação albumina/creatinina urinária (recomendações KDIGO).',
     aviso: 'Com maior massa muscular, uso de creatina ou ingestão elevada de proteínas, a creatinina tem particularidades de interpretação. A eTFG também precisa ser contextualizada.' },
+  { id: 'urina', label: 'Urina tipo 1 (EAS)',
+    nota: 'Parâmetros físicos, químicos e do sedimento urinário. Os resultados qualitativos são digitados como vêm no laudo (por exemplo, "Negativo").',
+    aviso: 'Os limites microscópicos variam conforme técnica, equipamento, centrifugação e forma de apresentação do resultado.' },
   { id: 'tireoide', label: 'Função tireoidiana',
     nota: 'Os hormônios tireoidianos participam da regulação do metabolismo energético, termogênese, frequência cardíaca e metabolismo de proteínas, lipídios e carboidratos.',
     aviso: 'Considerar medicamentos, gestação, idade, biotina e histórico tireoidiano. T3 reverso não é exame de rotina para avaliar função tireoidiana.' },
@@ -63,6 +66,12 @@ export const GRUPOS_EXAME_EMAG = [
 const MF = (masc, fem) => ({ masculino: masc, feminino: fem });
 function c(key, grupo, label, curto, unidade, dec, extra = {}) {
   return { key, grupo, label, curto, unidade, dec, ...extra };
+}
+
+// Parâmetro de texto (urina tipo 1): o valor é o que está no laudo. `esperado` = o resultado
+// de referência; igual → "dentro da referência", diferente → "fora". Sem `esperado`, só mostra.
+function t(key, label, curto, refTexto, extra = {}) {
+  return c(key, 'urina', label, curto, '', 0, { tipo: 'texto', refTexto, ...extra });
 }
 
 export const CAMPOS_EMAG = [
@@ -140,6 +149,27 @@ export const CAMPOS_EMAG = [
   c('calcio_ionizado', 'renal', 'Cálcio ionizado', 'Ca iôn', 'mmol/L', 2, { ref: { min: 1.12, max: 1.32 } }),
   c('fosforo', 'renal', 'Fósforo', 'P', 'mg/dL', 1, { ref: { min: 2.5, max: 4.5 } }),
   c('rac_urinaria', 'renal', 'Relação albumina/creatinina urinária', 'RAC', 'mg/g', 0, { ref: { max: 30 }, refNota: 'Abaixo de 30.' }),
+
+  // ── Urina tipo 1 (EAS) ──
+  t('urina_cor', 'Cor', 'Cor', 'Amarelo', { esperado: ['amarelo'] }),
+  t('urina_aspecto', 'Aspecto', 'Aspecto', 'Límpido', { esperado: ['limpido'] }),
+  c('urina_densidade', 'urina', 'Densidade', 'Dens', '', 3, { ref: { min: 1.005, max: 1.030 }, densidade: true }),
+  c('urina_ph', 'urina', 'pH', 'pH', '', 1, { ref: { min: 5.0, max: 8.0 } }),
+  t('urina_proteinas', 'Proteínas', 'Prot', 'Negativo', { esperado: ['negativo'], opcoes: ['Negativo', 'Positivo'] }),
+  t('urina_glicose', 'Glicose', 'Gli', 'Negativo', { esperado: ['negativo'], opcoes: ['Negativo', 'Positivo'] }),
+  t('urina_cetonicos', 'Corpos cetônicos', 'Cetonas', 'Negativo', { esperado: ['negativo'], opcoes: ['Negativo', 'Positivo'] }),
+  t('urina_bilirrubina', 'Bilirrubina', 'Bili', 'Negativo', { esperado: ['negativo'], opcoes: ['Negativo', 'Positivo'] }),
+  t('urina_urobilinogenio', 'Urobilinogênio', 'Urobil', 'Normal', { esperado: ['normal'] }),
+  t('urina_nitrito', 'Nitrito', 'Nitrito', 'Negativo', { esperado: ['negativo'], opcoes: ['Negativo', 'Positivo'] }),
+  t('urina_hemoglobina', 'Hemoglobina', 'Hb urina', 'Negativo', { esperado: ['negativo'], opcoes: ['Negativo', 'Positivo'] }),
+  c('urina_hemacias', 'urina', 'Hemácias (sedimento)', 'Hem/campo', '/campo', 0, { ref: { min: 0, max: 2 }, refNota: 'Geralmente 0–2 por campo.' }),
+  c('urina_leucocitos', 'urina', 'Leucócitos (sedimento)', 'Leuc/campo', '/campo', 0, { ref: { min: 0, max: 5 }, refNota: 'Geralmente 0–5 por campo.' }),
+  t('urina_celulas_epiteliais', 'Células epiteliais', 'Céls epit', 'Ausentes ou raras'),
+  t('urina_cilindros', 'Cilindros', 'Cilindros', 'Ausentes ou ocasionais hialinos'),
+  t('urina_cristais', 'Cristais', 'Cristais', 'Ausentes ou conforme contexto'),
+  t('urina_bacterias', 'Bactérias', 'Bactérias', 'Ausentes ou raras'),
+  t('urina_muco', 'Muco', 'Muco', 'Ausente ou discreto'),
+  t('urina_leveduras', 'Leveduras', 'Leveduras', 'Ausentes', { esperado: ['ausentes', 'ausente'] }),
 
   // ── Tireoide ──
   c('tsh', 'tireoide', 'TSH', 'TSH', 'µUI/mL', 2, { ref: { min: 0.4, max: 4.5 } }),

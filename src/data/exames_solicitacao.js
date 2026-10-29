@@ -54,6 +54,7 @@ export const CATEGORIAS_EXAME = [
       'Eletrólitos e minerais séricos (sódio, potássio, cálcio, magnésio, fósforo)',
       'Ácido úrico',
       'PCR ultrassensível',
+      'Urina tipo 1 (EAS)',
       'TSH',
       'T4 livre',
     ],

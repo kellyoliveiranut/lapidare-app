@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { numeroDe, homaIr, achatarExame, chavesAtivas, normalizarRefs, aplicarReferencias, compararExames, rotuloCriterio } from './examesEmagrecimento.js';
+import { valorDoCampo, numeroDe, homaIr, achatarExame, chavesAtivas, normalizarRefs, aplicarReferencias, compararExames, rotuloCriterio } from './examesEmagrecimento.js';
 import { textoRef } from '../data/exames_referencia.js';
 import { CAMPOS_EMAG, CHAVES_PADRAO_EMAG, CHAVES_EMAG, PEDIDO_EMAGRECIMENTO } from '../data/exames_emagrecimento.js';
 import { CATEGORIAS_EXAME } from '../data/exames_solicitacao.js';
@@ -64,4 +64,18 @@ assert.equal(rotuloCriterio(ldl, 100), null);
 
 const cmp = compararExames({ ldl: 100, hdl: 50 }, { ldl: 90, tsh: 2 }, CAMPOS_EMAG);
 assert.equal(cmp.length, 1); assert.equal(cmp[0].dif, -10); assert.equal(cmp[0].pct, -10);
+// Urina tipo 1: texto do laudo, comparado ao esperado sem depender de acento/caixa
+const urina = aplicarReferencias(CAMPOS_EMAG, {});
+const prot = urina.find(c => c.key === 'urina_proteinas');
+assert.equal(prot.nivel('Negativo'), 'normal'); assert.equal(prot.nivel(' negativo '), 'normal');
+assert.equal(prot.nivel('Positivo'), 'atencao');
+assert.equal(urina.find(c => c.key === 'urina_aspecto').nivel('Límpido'), 'normal');
+assert.equal(urina.find(c => c.key === 'urina_aspecto').nivel('Turvo'), 'atencao');
+assert.equal(urina.find(c => c.key === 'urina_cristais').nivel('Oxalato'), null); // sem esperado: só mostra
+assert.equal(valorDoCampo(prot, '  Negativo '), 'Negativo'); assert.equal(valorDoCampo(prot, ''), null);
+const dens = urina.find(c => c.key === 'urina_densidade');
+assert.equal(valorDoCampo(dens, '1020'), 1.02); assert.equal(valorDoCampo(dens, '1,020'), 1.02); assert.equal(valorDoCampo(dens, '1.020'), 1.02);
+assert.equal(dens.nivel(1.02), 'normal'); assert.equal(dens.nivel(1.035), 'atencao');
+assert.equal(textoRef(dens, null), '1,005–1,030');
+assert.equal(urina.find(c => c.key === 'urina_ph').nivel(6), 'normal');
 console.log('ok examesEmagrecimento');

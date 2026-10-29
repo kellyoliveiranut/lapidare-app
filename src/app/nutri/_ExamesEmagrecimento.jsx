@@ -10,7 +10,7 @@ import GraficosExames from '../../components/GraficosExames.jsx';
 import DateInput from '../../components/DateInput.jsx';
 import { CAMPOS_EMAG, GRUPOS_EXAME_EMAG, PAINEIS_EMAG, CHAVES_PADRAO_EMAG, PEDIDO_EMAGRECIMENTO, AVISO_GERAL_EXAMES } from '../../data/exames_emagrecimento.js';
 import {
-  numeroDe, homaIr, achatarExame, chavesAtivas, normalizarRefs, aplicarReferencias, compararExames, rotuloCriterio,
+  numeroDe, valorDoCampo, homaIr, achatarExame, chavesAtivas, normalizarRefs, aplicarReferencias, compararExames, rotuloCriterio,
 } from '../../lib/examesEmagrecimento.js';
 
 const SolicitacaoExames = lazy(() => import('./_SolicitacaoExames.jsx'));
@@ -113,7 +113,7 @@ export default function ExamesEmagrecimento({ pacienteId, nutriId, pacienteNome,
     if (!novo.data_exame) return setFeedback({ tipo: 'erro', msg: 'Informe a data do exame.' });
     const valores = {};
     for (const c of CAMPOS_EMAG) {
-      const n = numeroDe(novo[c.key]);
+      const n = valorDoCampo(c, novo[c.key]);
       if (n != null) valores[c.key] = n;
     }
     if (Object.keys(valores).length === 0) return setFeedback({ tipo: 'erro', msg: 'Preencha ao menos um valor.' });
@@ -152,9 +152,11 @@ export default function ExamesEmagrecimento({ pacienteId, nutriId, pacienteNome,
         ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } }
         : { type: 'image', source: { type: 'base64', media_type: file.type, data: base64 } };
       const lista = camposAtivos.filter(c => !c.calculado)
-        .map(c => `  "${c.key}": number ou null   // ${c.label}, em ${c.unidade}`).join(',\n');
+        .map(c => (c.tipo === 'texto'
+          ? `  "${c.key}": "texto exato do laudo" ou null   // ${c.label}`
+          : `  "${c.key}": number ou null   // ${c.label}${c.unidade ? `, em ${c.unidade}` : ''}`)).join(',\n');
       const prompt = `Analise este exame laboratorial e extraia APENAS os valores abaixo, em JSON puro, sem markdown e sem texto extra.
-Regras: use o número exatamente como está no laudo. Se o laudo trouxer a unidade diferente da indicada, ou o exame não estiver no laudo, retorne null (nunca converta unidades). Use ponto como separador decimal.
+Regras: use o número (ou, nos campos de texto, a palavra) exatamente como está no laudo. Se o laudo trouxer a unidade diferente da indicada, ou o exame não estiver no laudo, retorne null (nunca converta unidades). Use ponto como separador decimal.
 {
   "data_exame": "YYYY-MM-DD ou null",
 ${lista},
@@ -168,6 +170,11 @@ ${lista},
         const prox = { ...prev, data_exame: parsed.data_exame || prev.data_exame, obs: parsed.obs || prev.obs };
         for (const c of camposAtivos) {
           if (c.calculado) continue;
+          if (c.tipo === 'texto') {
+            const tx = valorDoCampo(c, parsed[c.key]);
+            if (tx != null) prox[c.key] = tx;
+            continue;
+          }
           const n = numeroDe(parsed[c.key]);
           if (n != null) prox[c.key] = String(n).replace('.', ',');
         }
@@ -237,7 +244,15 @@ ${lista},
                 {cs.map(c => (
                   <label key={c.key} style={{ fontSize: 12 }}>
                     {c.curto}{c.unidade ? ` (${c.unidade})` : ''}{c.calculado ? ' · calculado' : ''}
-                    <input style={inputNum} inputMode="decimal" value={novo[c.key] ?? ''} onChange={e => setValor(c.key, e.target.value)} />
+                    {c.tipo === 'texto'
+                      ? (
+                        <>
+                          <input style={inputNum} list={c.opcoes ? `op-${c.key}` : undefined} placeholder={c.refTexto}
+                            value={novo[c.key] ?? ''} onChange={e => setValor(c.key, e.target.value)} />
+                          {c.opcoes && <datalist id={`op-${c.key}`}>{c.opcoes.map(o => <option key={o} value={o} />)}</datalist>}
+                        </>
+                      )
+                      : <input style={inputNum} inputMode="decimal" value={novo[c.key] ?? ''} onChange={e => setValor(c.key, e.target.value)} />}
                   </label>
                 ))}
               </div>
@@ -263,7 +278,7 @@ ${lista},
                 <tr>
                   <th>Data</th>
                   {camposAtivos.map(c => {
-                    const ref = textoRef(c, pacienteSexo);
+                    const ref = textoRef(c, pacienteSexo) ?? c.refTexto;
                     return (
                       <th key={c.key} style={{ whiteSpace: 'nowrap' }} title={c.refNota || undefined}>
                         {c.curto}
@@ -309,7 +324,7 @@ ${lista},
         </div>
       )}
 
-      <GraficosExames exames={exames} sexo={pacienteSexo} campos={camposAtivos} />
+      <GraficosExames exames={exames} sexo={pacienteSexo} campos={camposAtivos.filter(c => c.tipo !== 'texto')} />
 
       {/* Comparar duas datas */}
       {exames.length >= 2 && (
@@ -433,9 +448,9 @@ ${lista},
                       {c.label} {c.unidade && <span style={{ opacity: 0.6, fontWeight: 400 }}>({c.unidade})</span>}
                     </div>
                     <div style={{ fontSize: 11, opacity: 0.65, marginBottom: 4 }}>
-                      Orientativa: {padrao ?? 'sem faixa fixa'}{c.refNota ? ` · ${c.refNota}` : ''}
+                      Orientativa: {padrao ?? c.refTexto ?? 'sem faixa fixa'}{c.refNota ? ` · ${c.refNota}` : ''}
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 6 }}>
+                    {c.tipo !== 'texto' && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 6 }}>
                       {LIMITES.map(([k, rot]) => (
                         <label key={k} style={{ fontSize: 11, opacity: 0.85 }}>
                           {rot}
@@ -444,10 +459,10 @@ ${lista},
                             onChange={e => setRefsEdit(p => ({ ...p, [c.key]: { ...(p[c.key] ?? {}), [k]: e.target.value } }))} />
                         </label>
                       ))}
-                    </div>
-                    <input style={{ ...inputNum, marginTop: 6, fontSize: 12 }} placeholder="Fonte ou justificativa da sua faixa (opcional)"
+                    </div>}
+                    {c.tipo !== 'texto' && <input style={{ ...inputNum, marginTop: 6, fontSize: 12 }} placeholder="Fonte ou justificativa da sua faixa (opcional)"
                       value={refsEdit[c.key]?.fonte ?? ''}
-                      onChange={e => setRefsEdit(p => ({ ...p, [c.key]: { ...(p[c.key] ?? {}), fonte: e.target.value } }))} />
+                      onChange={e => setRefsEdit(p => ({ ...p, [c.key]: { ...(p[c.key] ?? {}), fonte: e.target.value } }))} />}
                   </div>
                 );
               })}

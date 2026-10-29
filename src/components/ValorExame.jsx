@@ -45,7 +45,7 @@ export default function ValorExame({ campo, valor, sexo, mostrarRef = false, mos
   return (
     <span style={{ fontVariantNumeric: 'tabular-nums' }}>
       <span style={{ color: cor, fontWeight: nivel === 'normal' ? 400 : 600 }}>
-        {fmtNumExame(valor, campo.dec ?? 0)}
+        {typeof valor === 'string' ? valor : fmtNumExame(valor, campo.dec ?? 0)}
       </span>
       {mostrarUnidade && campo.unidade && (
         <span style={{ fontSize: '.85em', opacity: .6, marginLeft: 3 }}>{campo.unidade}</span>
