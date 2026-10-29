@@ -1388,27 +1388,8 @@ export default function PacientePerfil() {
           </div>
         )}
         {tab === 'planejamento' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
-            {[
-              ['plan-calculos', 'Cálculos', 'calculator'],
-              ['plan-plano', 'Plano alimentar', 'salad'],
-              ['plan-compras', 'Lista de compras', 'shopping-cart'],
-              ['plan-suplementacao', 'Suplementação', 'pill'],
-              ['plan-treinos', 'Treinos', 'run'],
-            ].map(([id, titulo, icone]) => (
-              <section key={id} id={id} style={{ scrollMarginTop: 70 }}>
-                <h3 style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 16, margin: '0 0 10px', paddingBottom: 6, borderBottom: '1px solid var(--border)' }}>
-                  <i className={`ti ti-${icone}`} aria-hidden="true" /> {titulo}
-                </h3>
-                {id === 'plan-calculos' && <Calculos pacienteId={paciente.id} nutriId={user.id} paciente={paciente} onUsarNaDieta={(vals) => { setCalculosImportados(vals); setTimeout(() => document.getElementById('plan-plano')?.scrollIntoView({ behavior: 'smooth' }), 50); }} />}
-                {id === 'plan-plano' && <PublicarPlano pacienteId={paciente.id} nutriId={user.id} calculosImportados={calculosImportados} onLimparImportados={() => setCalculosImportados(null)} />}
-                {id === 'plan-compras' && <PublicarLista pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
-                {id === 'plan-suplementacao' && <Suplementacao pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
-                {id === 'plan-treinos' && <Treinos pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
-                {(id === 'plan-plano' || id === 'plan-treinos') && <BotaoVoltarAoTopo />}
-              </section>
-            ))}
-          </div>
+          <AreaPlanejamento paciente={paciente} user={user}
+            calculosImportados={calculosImportados} setCalculosImportados={setCalculosImportados} />
         )}
       </Suspense>
 
@@ -5639,7 +5620,7 @@ Estrutura JSON obrigatória:
       </div>
 
       {/* ── Lista de substituição (cartão próprio; compartilha estado e publicação com o plano) ── */}
-      <div className="card" style={{ marginTop: 16 }}>
+      <div id="plan-substituicao" className="card" style={{ marginTop: 16, scrollMarginTop: 70 }}>
         <div className="card-header">
           <div className="card-title">Lista de substituição</div>
         </div>
@@ -7876,6 +7857,94 @@ function AvisoHorariosNaoConferidos() {
     <span style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.4 }}>
       Não consegui conferir os horários ocupados. A conferência final acontece ao salvar.
     </span>
+  );
+}
+
+const SECOES_PLANEJAMENTO = [
+  { id: 'plan-calculos',      titulo: 'Cálculos',          icone: 'calculator' },
+  { id: 'plan-plano',         titulo: 'Plano alimentar',   icone: 'salad' },
+  { id: 'plan-compras',       titulo: 'Lista de compras',  icone: 'shopping-cart' },
+  { id: 'plan-suplementacao', titulo: 'Suplementação',     icone: 'pill' },
+  { id: 'plan-treinos',       titulo: 'Treinos',           icone: 'run' },
+];
+// Atalhos da barra fixa. "Substituição" mora dentro do Plano alimentar.
+const ATALHOS_PLANEJAMENTO = [
+  { rotulo: 'Cálculos',      secao: 'plan-calculos',      alvo: 'plan-calculos' },
+  { rotulo: 'Plano',         secao: 'plan-plano',         alvo: 'plan-plano' },
+  { rotulo: 'Substituição',  secao: 'plan-plano',         alvo: 'plan-substituicao' },
+  { rotulo: 'Compras',       secao: 'plan-compras',       alvo: 'plan-compras' },
+  { rotulo: 'Suplementação', secao: 'plan-suplementacao', alvo: 'plan-suplementacao' },
+  { rotulo: 'Treinos',       secao: 'plan-treinos',       alvo: 'plan-treinos' },
+];
+const CHAVE_SECOES = 'planejamento_secoes_abertas';
+
+function AreaPlanejamento({ paciente, user, calculosImportados, setCalculosImportados }) {
+  // Seções recolhíveis, lembradas neste aparelho. Só o Plano alimentar abre por
+  // padrão. Recolher NÃO desmonta: o conteúdo continua montado (display:none),
+  // senão um plano em edição perderia o que ainda não foi publicado.
+  const [abertas, setAbertas] = useState(() => {
+    try {
+      const salvo = JSON.parse(localStorage.getItem(CHAVE_SECOES) ?? 'null');
+      if (salvo && typeof salvo === 'object') return salvo;
+    } catch { /* sem storage: usa o padrão */ }
+    return { 'plan-plano': true };
+  });
+  const salvar = (novo) => {
+    setAbertas(novo);
+    try { localStorage.setItem(CHAVE_SECOES, JSON.stringify(novo)); } catch { /* ignora */ }
+  };
+  const alternar = (id) => salvar({ ...abertas, [id]: !abertas[id] });
+  const todasAbertas = SECOES_PLANEJAMENTO.every(sc => abertas[sc.id]);
+  const alternarTodas = () => salvar(Object.fromEntries(SECOES_PLANEJAMENTO.map(sc => [sc.id, !todasAbertas])));
+
+  function irPara(secao, alvo) {
+    if (!abertas[secao]) salvar({ ...abertas, [secao]: true });
+    // Espera o React mostrar a seção antes de rolar.
+    setTimeout(() => document.getElementById(alvo)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
+  }
+
+  const chip = {
+    flex: '0 0 auto', padding: '6px 12px', fontSize: 12, fontWeight: 500, borderRadius: 999,
+    border: '1px solid var(--border)', background: 'var(--white)', color: 'var(--dark)', cursor: 'pointer',
+  };
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{
+        position: 'sticky', top: 0, zIndex: 20, display: 'flex', gap: 6, alignItems: 'center',
+        overflowX: 'auto', whiteSpace: 'nowrap', padding: '8px 0', background: 'var(--bg, #faf8f5)',
+        borderBottom: '1px solid var(--border)',
+      }}>
+        {ATALHOS_PLANEJAMENTO.map(a => (
+          <button key={a.rotulo} type="button" style={chip} onClick={() => irPara(a.secao, a.alvo)}>{a.rotulo}</button>
+        ))}
+        <button type="button" style={{ ...chip, marginLeft: 'auto', color: 'var(--text3)' }} onClick={alternarTodas}>
+          {todasAbertas ? 'Recolher tudo' : 'Abrir tudo'}
+        </button>
+      </div>
+
+      {SECOES_PLANEJAMENTO.map(({ id, titulo, icone }) => (
+        <section key={id} id={id} style={{ scrollMarginTop: 70 }}>
+          <button type="button" onClick={() => alternar(id)} aria-expanded={!!abertas[id]}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left',
+              fontSize: 16, fontWeight: 600, fontFamily: 'inherit', color: 'var(--dark)',
+              background: 'none', border: 'none', borderBottom: '1px solid var(--border)',
+              padding: '0 0 6px', margin: '0 0 10px', cursor: 'pointer',
+            }}>
+            <i className={`ti ti-${icone}`} aria-hidden="true" /> {titulo}
+            <i className={`ti ti-chevron-${abertas[id] ? 'up' : 'down'}`} aria-hidden="true" style={{ marginLeft: 'auto', color: 'var(--text3)' }} />
+          </button>
+          <div style={{ display: abertas[id] ? 'block' : 'none' }}>
+            {id === 'plan-calculos' && <Calculos pacienteId={paciente.id} nutriId={user.id} paciente={paciente} onUsarNaDieta={(vals) => { setCalculosImportados(vals); irPara('plan-plano', 'plan-plano'); }} />}
+            {id === 'plan-plano' && <PublicarPlano pacienteId={paciente.id} nutriId={user.id} calculosImportados={calculosImportados} onLimparImportados={() => setCalculosImportados(null)} />}
+            {id === 'plan-compras' && <PublicarLista pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
+            {id === 'plan-suplementacao' && <Suplementacao pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
+            {id === 'plan-treinos' && <Treinos pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
+            {(id === 'plan-plano' || id === 'plan-treinos') && <BotaoVoltarAoTopo />}
+          </div>
+        </section>
+      ))}
+    </div>
   );
 }
 
