@@ -16,6 +16,7 @@ import { pacientesComCancelada } from '../../lib/agendaListas.js';
 import { desdeISO, filtroJanela } from '../../lib/janelaAgenda.js';
 import { gravar } from '../../lib/gravar.js';
 import ReguaDoDia from './_ReguaDoDia.jsx';
+import ReagendarLote from './_ReagendarLote.jsx';
 import SemConsultaAgenda from './_SemConsultaAgenda.jsx';
 import { confirmar as confirmarJanela } from '../../lib/dialogos.js';
 import { HORARIOS_TAREFA, hhmm } from '../../lib/reguaDoDia.js';
@@ -181,6 +182,7 @@ export default function Agenda() {
   const [consultas, setConsultas] = useState(undefined);
   const [pacientes, setPacientes] = useState([]);
   const [locais, setLocais] = useState([]);
+  const [loteAberto, setLoteAberto] = useState(false);
   const [modalState, setModalState] = useState({ open: false, consulta: null, pacienteInicialId: null, remarcando: false });
   const [buscaADefinir, setBuscaADefinir] = useState('');   // filtro da seção "A definir"
 
@@ -987,6 +989,9 @@ export default function Agenda() {
         <button className="btn-outline" onClick={() => setBloqueioModalOpen(true)}>
           <i className="ti ti-calendar-off" style={{ fontSize: 15 }} aria-hidden="true"></i> Bloquear
         </button>
+        <button className="btn-outline" onClick={() => setLoteAberto(true)}>
+          <i className="ti ti-calendar-event" style={{ fontSize: 15 }} aria-hidden="true"></i> Reagendar em lote
+        </button>
         <div style={{
           display: 'inline-flex', gap: 2, padding: 2, borderRadius: 8,
           background: 'var(--bg2)',
@@ -1240,6 +1245,16 @@ export default function Agenda() {
             </details>
           )}
         </>
+      )}
+
+      {loteAberto && (
+        <ReagendarLote
+          consultas={consultas ?? []}
+          locais={locais}
+          nutriId={user.id}
+          onClose={() => setLoteAberto(false)}
+          onSaved={carregar}
+        />
       )}
 
       {modalState.open && (

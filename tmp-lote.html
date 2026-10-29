@@ -1,0 +1,15 @@
+<!doctype html><html><body><div id="r"></div>
+<script type="module">
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import ReagendarLote from '/src/app/nutri/_ReagendarLote.jsx';
+import DialogoHost from '/src/components/DialogoHost.jsx';
+const consultas=[
+ {id:'1',status:'agendada',data_hora:'2026-11-03T17:00:00Z',duracao_min:30,local_id:null,paciente:{id:'p1',nome:'Louise Silva'}},
+ {id:'2',status:'agendada',data_hora:'2026-11-04T12:00:00Z',duracao_min:30,local_id:null,paciente:{id:'p2',nome:'Ana Maria'}},
+];
+window.__hoje=1;
+createRoot(document.getElementById('r')).render(React.createElement(React.Fragment,null,
+ React.createElement(ReagendarLote,{consultas,locais:[],nutriId:'n',onClose(){},onSaved(){}}),
+ React.createElement(DialogoHost)));
+</script></body></html>
