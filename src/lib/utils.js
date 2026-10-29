@@ -313,9 +313,16 @@ export function gerarParcelas({ forma_pgto, valor_total, data_venda, n_parcelas,
   const valor = Number(valor_total);
   const dv = new Date(data_venda + 'T00:00:00');
 
+  // Soma meses sem estourar o fim do mês: 31/01 + 1 mês é 28/02 (ou 29/02), e
+  // não 03/03. O setMonth puro "transborda" para o mês seguinte, e as parcelas
+  // de uma venda feita nos dias 29 a 31 pulavam um mês inteiro.
   const addMonths = (date, m) => {
     const d = new Date(date);
+    const dia = d.getDate();
+    d.setDate(1);
     d.setMonth(d.getMonth() + m);
+    const ultimo = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+    d.setDate(Math.min(dia, ultimo));
     return d;
   };
   const fmtDate = (d) => {
