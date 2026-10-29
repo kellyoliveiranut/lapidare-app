@@ -1388,7 +1388,7 @@ export default function PacientePerfil() {
           </div>
         )}
         {tab === 'planejamento' && (
-          <div id="planejamento-topo" style={{ display: 'flex', flexDirection: 'column', gap: 28, scrollMarginTop: 70 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
             {[
               ['plan-calculos', 'Cálculos', 'calculator'],
               ['plan-plano', 'Plano alimentar', 'salad'],
@@ -1405,14 +1405,6 @@ export default function PacientePerfil() {
                 {id === 'plan-compras' && <PublicarLista pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
                 {id === 'plan-suplementacao' && <Suplementacao pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
                 {id === 'plan-treinos' && <Treinos pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
-                {id !== 'plan-calculos' && (
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
-                    <button type="button" className="btn-outline" style={{ gap: 6, fontSize: 12 }}
-                      onClick={() => document.getElementById('planejamento-topo')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
-                      <i className="ti ti-arrow-up" aria-hidden="true" /> Voltar ao topo
-                    </button>
-                  </div>
-                )}
                 {(id === 'plan-plano' || id === 'plan-treinos') && <BotaoVoltarAoTopo />}
               </section>
             ))}
