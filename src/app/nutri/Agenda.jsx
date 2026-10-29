@@ -2079,6 +2079,8 @@ function ConsultaRow({ c, isLast, onClick, onToggleConfirmada, onToggleNaoConfir
   // contador do topo e do painel de lembretes.
   const semResposta = !confirmada && !naoConfirmou;
   const mod = modalidadeInfo(c.modalidade);
+  // Consulta já realizada aparece riscada, como no card do dia na Visão geral.
+  const feita = c.status === 'realizada';
 
   // A condição de status espelha a do botão dentro do modal. O teste de
   // data_hora é próprio da linha: em "A definir" não há data para remarcar — ali
@@ -2152,7 +2154,7 @@ function ConsultaRow({ c, isLast, onClick, onToggleConfirmada, onToggleNaoConfir
         fontSize: 13, fontWeight: 600, color: 'var(--dark)', flexShrink: 0,
       }}>{iniciais(c.paciente?.nome)}</div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: 500 }}>
+        <div style={{ fontSize: 14, fontWeight: 500, textDecoration: feita ? 'line-through' : 'none' }}>
           {c.paciente?.id ? (
             <button
               type="button"
@@ -2161,7 +2163,7 @@ function ConsultaRow({ c, isLast, onClick, onToggleConfirmada, onToggleNaoConfir
               style={{
                 background: 'none', border: 'none', padding: 0, margin: 0,
                 font: 'inherit', color: 'inherit', textAlign: 'left',
-                cursor: 'pointer',
+                textDecoration: 'inherit', cursor: 'pointer',
               }}>
               {c.paciente.nome}
             </button>
@@ -2171,7 +2173,7 @@ function ConsultaRow({ c, isLast, onClick, onToggleConfirmada, onToggleNaoConfir
           fontSize: 12, color: 'var(--text3)', marginTop: 2,
           display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap',
         }}>
-          <span>
+          <span style={{ textDecoration: feita ? 'line-through' : 'none' }}>
             {c.data_hora ? dataConsultaBR(c.data_hora) : 'A definir'} · {c.duracao_min}min
             {c.status === 'realizada' && ' · ✓ realizada'}
           </span>

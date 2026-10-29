@@ -66,7 +66,7 @@ export default function Visao() {
   // "Acompanhamento das pacientes" recolhível. Guarda a escolha neste navegador;
   // com o armazenamento bloqueado a seção só abre expandida, sem erro.
   const [recolherAcomp, setRecolherAcomp] = useState(() => {
-    try { return localStorage.getItem(STORAGE_RECOLHER_ACOMP) === '1'; } catch { return false; }
+    try { return localStorage.getItem(STORAGE_RECOLHER_ACOMP) !== '0'; } catch { return true; }
   });
 
   function toggleRecolherAcomp() {
