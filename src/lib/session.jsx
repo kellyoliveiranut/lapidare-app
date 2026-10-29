@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from './supabase.js';
 import { gravar } from './gravar.js';
+import { deveCarimbarAcesso } from './ultimoAcesso.js';
 
 /**
  * SessionContext expõe:
@@ -58,7 +59,13 @@ export function SessionProvider({ children }) {
       // nem deixamos um erro (rede/RLS) afetar a hidratação da sessão. Sem
       // await: o login segue na hora. gravar() nunca rejeita, então nada chega
       // ao fluxo de login; a falha (inclusive 0 linhas) só vai para o console.
-      if (role === 'paciente' && profile?.id) {
+      // Só com a aba visível e se o último carimbo tem 3 h ou mais (ultimoAcesso.js):
+      // renovar o token em segundo plano não conta como abrir o app.
+      if (role === 'paciente' && profile?.id && deveCarimbarAcesso({
+        ultimoCarimbo: profile.ultimo_acesso,
+        agora: Date.now(),
+        visivel: typeof document === 'undefined' || document.visibilityState === 'visible',
+      })) {
         gravar(supabase
           .from('pacientes')
           .update({ ultimo_acesso: new Date().toISOString() })
