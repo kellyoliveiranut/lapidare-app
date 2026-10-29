@@ -737,10 +737,28 @@ function NotificacoesItem() {
    Aparece apenas em modo standalone (PWA instalado),
    permissão ainda não decidida, e se não foi dispensado.
    ───────────────────────────────────────────────────────── */
+const TEXTOS_AVISO = {
+  convite: {
+    titulo: 'Ativar avisos do app',
+    texto: 'Quer receber avisos quando sua nutri enviar seu plano, materiais e lembretes de consulta?',
+  },
+  bloqueado: {
+    titulo: 'Seus avisos estão desligados',
+    texto: 'Você bloqueou as notificações deste app. Para voltar a receber os avisos da sua nutri, libere as notificações nos ajustes do navegador (ícone de cadeado ao lado do endereço) e abra o app de novo.',
+  },
+  instalar: {
+    titulo: 'Para receber os avisos, instale o app',
+    texto: 'No iPhone, toque em Compartilhar → Adicionar à Tela de Início e abra o app por lá. Depois é só tocar em "Ativar avisos".',
+  },
+};
+
 function AtivarNotificacoesPaciente() {
-  const [visivel, setVisivel] = useState(false);
+  // modo: 'convite' (pode pedir permissão agora), 'bloqueado' (ela negou antes)
+  // ou 'instalar' (iPhone fora da tela de início). Os dois últimos só explicam.
+  const [modo, setModo] = useState(null);
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState(null);
+  const visivel = modo !== null;
 
   useEffect(() => {
     const standalone =
@@ -756,15 +774,33 @@ function AtivarNotificacoesPaciente() {
     const permissao = suporte ? Notification.permission : null;
     const ehIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
 
-    // iOS só entrega push com o app instalado na tela de início; nos demais, a
-    // aba comum basta. Enquanto o gate era `standalone` para todo mundo, quem
-    // usa Android pelo navegador nunca via o convite — e não havia outro
-    // caminho para ativar depois.
-    if ((standalone || !ehIOS) && suporte && permissao === 'default' && !dispensado) {
+    // Quem já deu permissão mas perdeu a assinatura (aparelho trocado, dados
+    // limpos) é religada sem perguntar nada: com a permissão concedida o
+    // navegador não abre diálogo. No máximo uma vez por dia.
+    if (suporte && permissao === 'granted') {
+      const ultima = Number(localStorage.getItem('push_reconferido_em') ?? 0);
+      if (Date.now() - ultima > 86_400_000) {
+        localStorage.setItem('push_reconferido_em', String(Date.now()));
+        ativarNotificacoes().catch(() => {});
+      }
+      return undefined;
+    }
+
+    if (dispensado) return undefined;
+
+    let proximo = null;
+    // iOS só entrega push com o app instalado na tela de início.
+    if (ehIOS && !standalone) proximo = 'instalar';
+    else if (suporte && permissao === 'denied') proximo = 'bloqueado';
+    // Nos demais, a aba comum basta (Android pelo navegador também vê o convite).
+    else if (suporte && permissao === 'default') proximo = 'convite';
+
+    if (proximo) {
       // Pequeno delay para não disputar atenção com o carregamento inicial
-      const t = setTimeout(() => setVisivel(true), 1500);
+      const t = setTimeout(() => setModo(proximo), 1500);
       return () => clearTimeout(t);
     }
+    return undefined;
   }, []);
 
   if (!visivel) return null;
@@ -774,7 +810,7 @@ function AtivarNotificacoesPaciente() {
     setErro(null);
     try {
       await ativarNotificacoes();
-      setVisivel(false);
+      setModo(null);
     } catch (err) {
       setErro(err.message);
       setBusy(false);
@@ -783,7 +819,7 @@ function AtivarNotificacoesPaciente() {
 
   function handleDispensado() {
     localStorage.setItem('push_convite_soneca', String(Date.now()));
-    setVisivel(false);
+    setModo(null);
   }
 
   return (
@@ -814,13 +850,13 @@ function AtivarNotificacoesPaciente() {
             marginBottom: 3, fontFamily: 'var(--font-sans)',
             lineHeight: 1.3,
           }}>
-            Ativar avisos do app
+            {TEXTOS_AVISO[modo].titulo}
           </div>
           <div style={{
             fontSize: 12, color: 'rgba(253,251,248,.7)',
             lineHeight: 1.5, fontFamily: 'var(--font-sans)',
           }}>
-            Quer receber avisos quando sua nutri enviar seu plano, materiais e lembretes de consulta?
+            {TEXTOS_AVISO[modo].texto}
           </div>
         </div>
       </div>
@@ -838,6 +874,7 @@ function AtivarNotificacoesPaciente() {
 
       {/* Botões */}
       <div style={{ display: 'flex', gap: 8 }}>
+        {modo === 'convite' && (
         <button
           onClick={handleAtivar}
           disabled={busy}
@@ -854,6 +891,7 @@ function AtivarNotificacoesPaciente() {
           <i className="ti ti-bell" style={{ fontSize: 14 }} aria-hidden="true" />
           {busy ? 'Ativando…' : 'Ativar avisos'}
         </button>
+        )}
         <button
           onClick={handleDispensado}
           disabled={busy}
@@ -866,7 +904,7 @@ function AtivarNotificacoesPaciente() {
             whiteSpace: 'nowrap',
           }}
         >
-          Agora não
+          {modo === 'convite' ? 'Agora não' : 'Entendi'}
         </button>
       </div>
     </div>
