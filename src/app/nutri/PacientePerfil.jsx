@@ -117,8 +117,10 @@ export default function PacientePerfil() {
   }
 
   // Quantas vendas a paciente tem (para o aviso do Financeiro). Recontado ao
-  // trocar de aba: ela pode ter lançado a venda na aba Financeiro agora.
+  // abrir/fechar o Financeiro: ela pode ter lançado a venda lá agora.
   const [qtdVendas, setQtdVendas] = useState(null);
+  // O Financeiro NÃO é aba: abre pela faixa "Financeiro" abaixo, no topo do perfil.
+  const [financeiroAberto, setFinanceiroAberto] = useState(false);
   useEffect(() => {
     if (!id || !user?.id) return;
     let vivo = true;
@@ -126,7 +128,7 @@ export default function PacientePerfil() {
       .eq('paciente_id', id).eq('nutri_id', user.id)
       .then(({ count, error }) => { if (vivo && !error) setQtdVendas(count ?? 0); });
     return () => { vivo = false; };
-  }, [id, user?.id, tab]);
+  }, [id, user?.id, financeiroAberto]);
   const faltaNota = paciente ? faltandoParaNota(paciente) : [];
   const avisoFinanceiro = paciente?.status_paciente === 'ativo'
     ? [
@@ -989,7 +991,7 @@ export default function PacientePerfil() {
               Agendar 6 consultas
             </button>
           )}
-          <button className="btn-outline" onClick={() => setTab('financeiro')} style={{ whiteSpace: 'nowrap' }}>
+          <button className="btn-outline" onClick={() => setFinanceiroAberto(true)} style={{ whiteSpace: 'nowrap' }}>
             Abrir Financeiro
           </button>
           <button className="btn-outline" onClick={() => setAvisoMigracao(false)} aria-label="Fechar aviso">
@@ -998,20 +1000,38 @@ export default function PacientePerfil() {
         </div>
       )}
 
-      {/* Aviso do Financeiro: venda não registrada ou dados da nota incompletos */}
-      {avisoFinanceiro.length > 0 && tab !== 'financeiro' && (
+      {/* Faixa do Financeiro: sempre visível (o Financeiro não é mais uma aba).
+          Mostra o que falta (venda, dados da nota) ou "em dia", e o botão abre
+          e fecha a área logo abaixo. */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+        padding: '10px 14px', borderRadius: 10, marginBottom: financeiroAberto ? 0 : 14,
+        background: avisoFinanceiro.length > 0 ? 'var(--amber-bg, #fdf8ee)' : 'var(--white)',
+        border: `0.5px solid ${avisoFinanceiro.length > 0 ? 'var(--gold-deep, #a08456)' : 'var(--border)'}`,
+        ...(financeiroAberto ? { borderBottomLeftRadius: 0, borderBottomRightRadius: 0 } : null),
+      }}>
+        <i className="ti ti-cash" style={{ fontSize: 17, color: 'var(--gold-deep, #a08456)' }} aria-hidden="true" />
+        <div style={{ flex: 1, minWidth: 200, fontSize: 13, color: 'var(--text2)' }}>
+          <strong>Financeiro:</strong>{' '}
+          {avisoFinanceiro.length > 0 ? `${avisoFinanceiro.join(' · ')}.` : 'vendas e dados da nota em dia.'}
+        </div>
+        <button
+          className="btn-outline"
+          onClick={() => setFinanceiroAberto(v => !v)}
+          aria-expanded={financeiroAberto}
+          style={{ whiteSpace: 'nowrap' }}
+        >
+          {financeiroAberto ? 'Fechar Financeiro' : 'Abrir Financeiro'}
+        </button>
+      </div>
+      {financeiroAberto && (
         <div style={{
-          display: 'flex', alignItems: 'center', gap: 10,
-          padding: '10px 14px', borderRadius: 10, marginBottom: 14,
-          background: 'var(--amber-bg, #fdf8ee)', border: '0.5px solid var(--gold-deep, #a08456)',
+          border: '0.5px solid var(--border)', borderTop: 'none',
+          borderRadius: '0 0 10px 10px', padding: 14, marginBottom: 14,
         }}>
-          <i className="ti ti-cash" style={{ fontSize: 17, color: 'var(--gold-deep, #a08456)' }} aria-hidden="true" />
-          <div style={{ flex: 1, fontSize: 13, color: 'var(--text2)' }}>
-            <strong>Financeiro:</strong> {avisoFinanceiro.join(' · ')}.
-          </div>
-          <button className="btn-outline" onClick={() => setTab('financeiro')} style={{ whiteSpace: 'nowrap' }}>
-            Abrir Financeiro
-          </button>
+          <Suspense fallback={<div className="card empty-card"><div className="empty-sub">Carregando…</div></div>}>
+            <FinanceiroPaciente pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} pacienteTipoPlano={paciente.tipo_plano} paciente={paciente} onDadosSalvos={carregar} />
+          </Suspense>
         </div>
       )}
 
@@ -1319,11 +1339,8 @@ export default function PacientePerfil() {
             const onco = todas.splice(todas.findIndex(t => t.id === 'oncologia'), 1)[0];
             todas.push(onco);
           }
-          // Financeiro é a PRIMEIRA aba (pedido de 2026-10-29): é onde ficam os
-          // dados da nota fiscal e o valor das vendas, e na posição antiga —
-          // depois de Relatório — ficava escondido no meio da barra, que rola na
-          // horizontal. Entra depois da reordenação acima.
-          todas.unshift({ id: 'financeiro', label: 'Financeiro', icon: 'cash' });
+          // O Financeiro saiu da barra de abas (pedido de 2026-10-29): abre pela
+          // faixa "Financeiro" no topo do perfil.
           // Exames entra logo depois de Relatório, onde sempre esteve em relação
           // às abas de análise. Nasceu ao lado de Suplementação por afinidade e
           // ali caía na 12ª de 17 posições: ~1300px de rolagem num aparelho de
@@ -1371,7 +1388,6 @@ export default function PacientePerfil() {
         {tab === 'checkin'       && <CheckinPersonalizado pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} paciente={paciente} />}
         {tab === 'calculos'      && <Calculos pacienteId={paciente.id} nutriId={user.id} paciente={paciente} onUsarNaDieta={(vals) => { setCalculosImportados(vals); setTab('plano'); }} />}
         {tab === 'treinos'       && <Treinos pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
-        {tab === 'financeiro'    && <FinanceiroPaciente pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} pacienteTipoPlano={paciente.tipo_plano} paciente={paciente} onDadosSalvos={carregar} />}
       </Suspense>
 
       <div style={{ marginTop: 32, paddingTop: 16, borderTop: '0.5px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20 }}>
