@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
+const ExamesEmagrecimento = lazy(() => import('./_ExamesEmagrecimento.jsx'));
 import { supabase } from '../../lib/supabase.js';
 import { dataLocalISO } from '../../lib/utils.js';
 
@@ -131,7 +132,7 @@ const CATEGORIAS = [
   },
 ];
 
-export default function Emagrecimento({ pacienteId, nutriId }) {
+function SintomasEmagrecimento({ pacienteId, nutriId }) {
   const [secao, setSecao]       = useState('corpo');
   const [registros, setRegistros] = useState({});
   const [busy, setBusy]         = useState(false);
@@ -434,6 +435,40 @@ function Campo({ campo, value, onChange }) {
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
       />
+    </div>
+  );
+}
+
+// Aba Emagrecimento: Sintomas (o que já existia) e Exames Laboratoriais, no mesmo
+// desenho da aba Oncologia (sub-abas no topo).
+const VISOES = [
+  { id: 'sintomas', label: 'Sintomas',             icon: 'activity' },
+  { id: 'exames',   label: 'Exames Laboratoriais', icon: 'microscope' },
+];
+
+export default function Emagrecimento({ pacienteId, nutriId, pacienteNome, pacienteSexo }) {
+  const [visao, setVisao] = useState('sintomas');
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 4, marginBottom: 14, background: 'var(--bg2)', padding: 4, borderRadius: 10, width: 'fit-content', maxWidth: '100%', overflowX: 'auto' }}>
+        {VISOES.map(v => (
+          <button key={v.id} type="button" onClick={() => setVisao(v.id)} style={{
+            flex: '0 0 auto', padding: '7px 14px', fontSize: 13, fontWeight: 500, borderRadius: 8, border: 'none', cursor: 'pointer',
+            background: visao === v.id ? 'var(--white)' : 'transparent',
+            color: visao === v.id ? 'var(--dark)' : 'var(--text3)',
+            boxShadow: visao === v.id ? '0 1px 3px rgba(0,0,0,.08)' : 'none',
+            display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-sans)',
+          }}>
+            <i className={`ti ti-${v.icon}`} aria-hidden="true" /> {v.label}
+          </button>
+        ))}
+      </div>
+      {visao === 'sintomas' && <SintomasEmagrecimento pacienteId={pacienteId} nutriId={nutriId} />}
+      {visao === 'exames' && (
+        <Suspense fallback={<div style={{ padding: 16, opacity: 0.7 }}>Carregando…</div>}>
+          <ExamesEmagrecimento pacienteId={pacienteId} nutriId={nutriId} pacienteNome={pacienteNome} pacienteSexo={pacienteSexo} />
+        </Suspense>
+      )}
     </div>
   );
 }

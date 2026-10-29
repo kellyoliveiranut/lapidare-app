@@ -47,11 +47,13 @@ export const CATEGORIAS_EXAME = [
     itens: [
       'Glicemia de jejum',
       'Hemoglobina glicada (HbA1c)',
+      'Insulina de jejum e HOMA-IR',
       'Perfil lipídico completo (colesterol total, HDL, LDL, triglicerídeos)',
       'Hepático (TGO/AST, TGP/ALT, gama-GT, fosfatase alcalina, bilirrubinas)',
       'Função renal (ureia, creatinina, taxa de filtração glomerular)',
       'Eletrólitos e minerais séricos (sódio, potássio, cálcio, magnésio, fósforo)',
       'Ácido úrico',
+      'PCR ultrassensível',
       'TSH',
       'T4 livre',
     ],

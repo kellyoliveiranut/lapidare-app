@@ -20,19 +20,19 @@ import ValorExame from './ValorExame.jsx';
 // O mesmo dourado da borda dos cards de exame na tela da paciente.
 const COR_EXAME = '#9A7B3F';
 
-export default function GraficosExames({ exames, sexo, style }) {
+export default function GraficosExames({ exames, sexo, style, campos = CAMPOS_EXAME }) {
   // As duas telas carregam em data_exame DESC (mais recente primeiro) e o
   // gráfico precisa do tempo crescendo para a direita.
   const asc = useMemo(() => [...(exames ?? [])].reverse(), [exames]);
 
-  const series = useMemo(() => CAMPOS_EXAME.map(campo => {
+  const series = useMemo(() => campos.map(campo => {
     const pontos = asc
       // Number() de defesa: se o PostgREST devolver o numeric como string,
       // o toFixed do gráfico quebraria em silêncio.
       .map(e => ({ x: xLabel(e.data_exame), v: e[campo.key] == null ? null : Number(e[campo.key]) }))
       .filter(p => p.v != null);
     return { campo, pontos };
-  }).filter(s => s.pontos.length > 0), [asc]);
+  }).filter(s => s.pontos.length > 0), [asc, campos]);
 
   if (series.length === 0) return null;
 

@@ -23,7 +23,7 @@ import { gravar } from '../../lib/gravar.js';
    resultado é dado — coisas de natureza diferente.
    ============================================================ */
 
-export default function SolicitacaoExames({ pacienteId, nutriId, pacienteNome }) {
+export default function SolicitacaoExames({ pacienteId, nutriId, pacienteNome, preSelecao = null, rotuloPreSelecao = 'Pré-selecionar' }) {
   const [selecionados, setSelecionados] = useState(() => new Set());
   const [observacao, setObservacao] = useState('');
   const [historico, setHistorico] = useState(undefined);   // undefined = carregando
@@ -182,6 +182,15 @@ export default function SolicitacaoExames({ pacienteId, nutriId, pacienteNome })
             color: feedback.tipo === 'ok' ? 'var(--green, #3f6b46)' : 'var(--orange, #b45309)',
           }}>
             {feedback.msg}
+          </div>
+        )}
+
+        {preSelecao && (
+          <div style={{ marginBottom: 12 }}>
+            <button type="button" className="btn-outline" onClick={() => setSelecionados(new Set(preSelecao))} disabled={busy}>
+              <i className="ti ti-list-check" aria-hidden="true" /> {rotuloPreSelecao}
+            </button>
+            <span style={{ fontSize: 12, opacity: 0.7, marginLeft: 8 }}>Marca a lista sugerida; você ajusta antes de gerar.</span>
           </div>
         )}
 

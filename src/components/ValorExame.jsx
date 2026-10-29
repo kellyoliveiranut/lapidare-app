@@ -35,7 +35,9 @@ export default function ValorExame({ campo, valor, sexo, mostrarRef = false, mos
   if (valor == null) {
     return <span style={{ opacity: .45 }}>—</span>;
   }
-  const nivel = nivelExame(campo, valor);
+  // Campo sem limite de alerta (ex.: exames do Emagrecimento antes da nutri definir a faixa):
+  // sem cor, em vez de pintar de verde um valor que ninguém avaliou.
+  const nivel = campo?.alerta ? nivelExame(campo, valor) : null;
   const cor = CORES_NIVEL[nivel] ?? 'inherit';
   const ref = mostrarRef ? textoRef(campo, sexo) : null;
   return (
