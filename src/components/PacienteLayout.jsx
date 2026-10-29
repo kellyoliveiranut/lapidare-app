@@ -6,7 +6,7 @@ import { useTheme } from '../lib/theme.jsx';
 import { supabase } from '../lib/supabase.js';
 import { avisarStatus } from '../lib/realtime.js';
 import { iniciais, diasAte, horaConsultaBR } from '../lib/utils.js';
-import { ativarNotificacoes } from '../lib/push.js';
+import { ativarNotificacoes, desativarNotificacoes } from '../lib/push.js';
 import { bloqueadoNoPlano, ehAvulsa } from '../lib/planoPaciente.js';
 import { gravar } from '../lib/gravar.js';
 import { EVENTO_EBOOKS_VISTOS } from '../lib/avisosNutri.js';
@@ -685,9 +685,26 @@ function NotificacoesItem() {
       // reescreve a linha em push_subscriptions — que é exatamente o conserto
       // de quem tem permissão concedida mas perdeu a linha no banco.
       await ativarNotificacoes();
+      try { localStorage.removeItem('push_desativado_pela_paciente'); } catch { /* ignora */ }
       setAtivo(true);
       setPermissao('granted');
       setMsg({ tipo: 'ok', texto: 'Pronto! Você vai receber os avisos da sua nutri neste aparelho.' });
+    } catch (err) {
+      setMsg({ tipo: 'erro', texto: err.message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function desativar() {
+    setMsg(null);
+    setBusy(true);
+    try {
+      await desativarNotificacoes();
+      // Escolha dela: o religamento automático do convite não deve desfazê-la.
+      try { localStorage.setItem('push_desativado_pela_paciente', '1'); } catch { /* ignora */ }
+      setAtivo(false);
+      setMsg({ tipo: 'ok', texto: 'Avisos desativados neste aparelho. Você pode ativar de novo quando quiser.' });
     } catch (err) {
       setMsg({ tipo: 'erro', texto: err.message });
     } finally {
@@ -721,6 +738,15 @@ function NotificacoesItem() {
           <div className="sub">{sub}</div>
         </div>
       </button>
+      {ativo && !precisaInstalar && !bloqueado && !indisponivel && (
+        <button className="sheet-item" disabled={busy} onClick={desativar}>
+          <div className="icon-wrap"><i className="ti ti-bell-off" style={{ color: 'var(--muted)' }} aria-hidden="true" /></div>
+          <div style={{ flex: 1 }}>
+            <div className="label" style={{ color: 'var(--muted)' }}>Desativar notificações</div>
+            <div className="sub">Parar de receber avisos neste aparelho</div>
+          </div>
+        </button>
+      )}
       {msg && (
         <div style={{
           fontSize: 11, borderRadius: 8, padding: '6px 10px', margin: '-4px 0 8px',
@@ -778,6 +804,7 @@ function AtivarNotificacoesPaciente() {
     // limpos) é religada sem perguntar nada: com a permissão concedida o
     // navegador não abre diálogo. No máximo uma vez por dia.
     if (suporte && permissao === 'granted') {
+      if (localStorage.getItem('push_desativado_pela_paciente')) return undefined;
       const ultima = Number(localStorage.getItem('push_reconferido_em') ?? 0);
       if (Date.now() - ultima > 86_400_000) {
         localStorage.setItem('push_reconferido_em', String(Date.now()));
