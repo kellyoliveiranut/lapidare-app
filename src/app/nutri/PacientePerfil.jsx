@@ -1375,7 +1375,7 @@ export default function PacientePerfil() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
             {[
               ['plan-calculos', 'Cálculos', 'calculator'],
-              ['plan-plano', 'Plano alimentar e lista de substituição', 'salad'],
+              ['plan-plano', 'Plano alimentar', 'salad'],
               ['plan-compras', 'Lista de compras', 'shopping-cart'],
               ['plan-suplementacao', 'Suplementação', 'pill'],
               ['plan-treinos', 'Treinos', 'run'],
@@ -5558,8 +5558,53 @@ Estrutura JSON obrigatória:
             />
           </div>
 
+          {/* ── Validade + publicar ── */}
+          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            <div>
+              <label className="field-label">Validade (opcional)</label>
+              <DateInput value={validade} onChange={e => setValidade(e.target.value)} style={{ maxWidth: 180 }} />
+            </div>
+            <button
+              className="btn-outline"
+              style={{ gap: 6 }}
+              onClick={abrirPreview}
+              disabled={refeicoes.length === 0}
+            >
+              <i className="ti ti-eye" aria-hidden="true" />
+              Pré-visualizar
+            </button>
+            <button
+              className="btn-outline"
+              style={{ gap: 6 }}
+              onClick={gerarPdf}
+              disabled={busyPdf || refeicoes.length === 0}
+            >
+              <i className="ti ti-file-type-pdf" aria-hidden="true" />
+              {busyPdf ? 'Gerando...' : 'Gerar PDF'}
+            </button>
+            <button
+              className="btn"
+              style={{ gap: 6 }}
+              onClick={publicar}
+              disabled={busy || refeicoes.length === 0}
+            >
+              <i className="ti ti-send" aria-hidden="true" />
+              {busy ? 'Publicando...' : 'Publicar plano'}
+            </button>
+          </div>
+
+          {feedback && feedback.tipo !== 'importado' && <FeedbackInline f={feedback} />}
+        </div>
+      </div>
+
+      {/* ── Lista de substituição (cartão próprio; compartilha estado e publicação com o plano) ── */}
+      <div className="card" style={{ marginTop: 16 }}>
+        <div className="card-header">
+          <div className="card-title">Lista de substituição</div>
+        </div>
+        <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           {/* ── Lista de Substituições ── */}
-          <div style={{ borderTop: '1px dashed var(--border)', paddingTop: 16 }}>
+          <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--amber)', letterSpacing: 1.2, textTransform: 'uppercase' }}>
                 Lista de Substituições
@@ -5685,7 +5730,7 @@ Estrutura JSON obrigatória:
             )}
           </div>
 
-          {/* ── Validade + publicar ── */}
+          {/* ── Publicar (mesmo botão do plano) ── */}
           <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
             <div>
               <label className="field-label">Validade (opcional)</label>
