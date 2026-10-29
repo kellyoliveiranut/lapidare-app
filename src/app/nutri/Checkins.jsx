@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { lerTodasPaginas } from '../../lib/lerPaginas.js';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { dataBR, iniciais, dataLocalISO } from '../../lib/utils.js';
@@ -52,10 +53,12 @@ export default function Checkins() {
       // sexo e objetivo alimentam perguntasParaPaciente nos envios avulso e em
       // lote — sem eles, toda paciente cairia na versão neutra.
       supabase.from('pacientes').select('id, nome, telefone, sexo, objetivo').eq('nutri_id', user.id).order('nome'),
-      supabase.from('checkin_envios')
+      // Todas as páginas (lerPaginas.js); desempate por id para a virada de página.
+      lerTodasPaginas(() => supabase.from('checkin_envios')
         .select('id, paciente_id, perguntas, enviado_em, respondido_em, respostas, lembrete_enviado_em, paciente:pacientes(id, nome)')
         .eq('nutri_id', user.id)
-        .order('enviado_em', { ascending: false }),
+        .order('enviado_em', { ascending: false })
+        .order('id', { ascending: false })),
       supabase.from('checkin_templates').select('id, nome, perguntas, is_padrao, paciente_id, created_at').eq('nutri_id', user.id)
         .or('tipo.eq.recorrente,tipo.is.null')
         .order('created_at'),

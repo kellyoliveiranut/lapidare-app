@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { lerTodasPaginas } from '../../lib/lerPaginas.js';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
@@ -160,8 +161,10 @@ export default function Visao() {
           .eq('nutri_id', user.id).eq('status', 'pago')
           .gte('data_pgto', inicioMes).lte('data_pgto', fimMes),
         // consultas já realizadas (para medir o avanço do pacote de cada paciente)
-        supabase.from('consultas').select('paciente_id, tipo')
-          .eq('nutri_id', user.id).eq('status', 'realizada'),
+        // Todas as páginas: o total de realizadas cresce sem teto e o Supabase
+        // corta em 1000 linhas (lerPaginas.js).
+        lerTodasPaginas(() => supabase.from('consultas').select('paciente_id, tipo')
+          .eq('nutri_id', user.id).eq('status', 'realizada').order('id')),
         // perfil da nutri (meta_mensal)
         supabase.from('nutris').select('meta_mensal').eq('id', user.id).maybeSingle(),
         // mensagens das pacientes (últimos 30 dias) — pra detectar quem sumiu
