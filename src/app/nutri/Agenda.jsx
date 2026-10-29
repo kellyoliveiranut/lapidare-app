@@ -13,6 +13,7 @@ import {
 import { tipoColor, tipoColorSoft, MODALIDADES_CONSULTA, modalidadeInfo, opcoesTipoConsulta, tipoSugerido } from '../../lib/consultaVisual.js';
 import { modalidadeDaPaciente, localPadrao } from '../../lib/opcoesPaciente.js';
 import { pacientesComCancelada } from '../../lib/agendaListas.js';
+import { desdeISO, filtroJanela } from '../../lib/janelaAgenda.js';
 import { gravar } from '../../lib/gravar.js';
 import ReguaDoDia from './_ReguaDoDia.jsx';
 import SemConsultaAgenda from './_SemConsultaAgenda.jsx';
@@ -361,18 +362,44 @@ export default function Agenda() {
     try { localStorage.setItem(CHAVE_VISAO, id); } catch { /* modo privado */ }
   }
 
+  // Início da janela de consultas carregadas; cresce quando o calendário vai
+  // para um mês antigo. O efeito vem ANTES do que chama carregar() ao abrir.
+  const desdeRef = useRef(null);
+  useEffect(() => {
+    const novo = desdeISO({ hoje: new Date(), gradeDe: faixaGrade.de });
+    if (desdeRef.current && novo >= desdeRef.current) return;
+    const primeira = desdeRef.current === null;
+    desdeRef.current = novo;
+    if (!primeira) carregar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [faixaGrade.de]);
+
   async function carregar() {
     if (!user) return;
-    const { data } = await supabase
-      .from('consultas')
-      .select(`
+    const colunas = `
         id, data_hora, duracao_min, tipo, status, modalidade, local_id, obs,
         lembrete_ativo, lembrete_enviado,
         confirmada_em, confirmada_por, nao_confirmada_em, nao_confirmada_por, remarcada_de, oculta_paciente,
         paciente:pacientes(id, nome)
-      `)
+      `;
+    // Janela, não tudo: o Supabase corta em 1000 linhas e esconderia as
+    // futuras (janelaAgenda.js).
+    let { data, error } = await supabase
+      .from('consultas')
+      .select(colunas)
       .eq('nutri_id', user.id)
+      .or(filtroJanela(desdeRef.current ?? desdeISO({ hoje: new Date() })))
       .order('data_hora', { ascending: true });
+    if (error) {
+      // Rede de segurança: se o filtro da janela falhar por qualquer motivo, a
+      // Agenda volta ao comportamento de antes em vez de ficar vazia.
+      console.warn('Agenda: janela de consultas falhou, carregando tudo:', error.message);
+      ({ data } = await supabase
+        .from('consultas')
+        .select(colunas)
+        .eq('nutri_id', user.id)
+        .order('data_hora', { ascending: true }));
+    }
     setConsultas(data ?? []);
   }
 
