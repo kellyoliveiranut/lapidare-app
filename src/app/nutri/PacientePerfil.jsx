@@ -1318,17 +1318,19 @@ export default function PacientePerfil() {
             { id: 'evolucao',      label: 'Evolução',      icon: 'chart-line' },
             { id: 'oncologia',     label: isOnco ? 'Oncologia' : 'Histórico onco', icon: 'dna' },
             { id: 'emagrecimento', label: 'Emagrecimento', icon: 'trending-down' },
+            // Bloco do plano, nesta ordem (pedido de 2026-10-29). A Lista de substituição
+            // fica dentro de "Plano alimentar" e é publicada junto com ele.
             { id: 'calculos',      label: 'Cálculos',      icon: 'calculator' },
+            { id: 'plano',         label: 'Plano alimentar', icon: 'salad' },
+            { id: 'compras',       label: 'Lista de compras', icon: 'shopping-cart' },
+            { id: 'suplementacao', label: 'Suplementação', icon: 'pill' },
+            { id: 'treinos',       label: 'Treinos',       icon: 'run' },
             { id: 'anamnese',      label: 'Anamnese',      icon: 'clipboard-text' },
             { id: 'followup',      label: 'Follow-up',     icon: 'notebook' },
-            { id: 'plano',         label: 'Plano',         icon: 'salad' },
-            { id: 'compras',       label: 'Compras',       icon: 'shopping-cart' },
-            { id: 'suplementacao', label: 'Suplementação', icon: 'pill' },
             { id: 'habitos',       label: 'Hábitos',       icon: 'checklist' },
             { id: 'ebooks',        label: 'E-books',       icon: 'book-2' },
             { id: 'avaliacao',     label: 'Avaliação',     icon: 'ruler-measure' },
             { id: 'checkin',       label: 'Check-in',      icon: 'clipboard-check' },
-            { id: 'treinos',       label: 'Treinos',       icon: 'run' },
           ];
           if (!isOnco) {
             const ema  = todas.splice(todas.findIndex(t => t.id === 'emagrecimento'), 1)[0];
