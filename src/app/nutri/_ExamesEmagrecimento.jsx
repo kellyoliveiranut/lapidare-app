@@ -292,6 +292,16 @@ ${catalogo}`;
                         </>
                       )
                       : <input style={inputNum} inputMode="decimal" value={novo[c.key] ?? ''} onChange={e => setValor(c.key, e.target.value)} />}
+                    {/* A faixa fica à vista já na digitação, como na Oncologia:
+                        é onde se percebe o valor estranho antes de gravar. */}
+                    {(() => {
+                      const ref = textoRef(c, pacienteSexo) ?? c.refTexto;
+                      return ref ? (
+                        <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }} title={c.refNota || undefined}>
+                          ref. {ref}{c.personalizada ? ' (sua)' : ''}
+                        </div>
+                      ) : null;
+                    })()}
                   </label>
                 ))}
               </div>
