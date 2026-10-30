@@ -4,6 +4,7 @@ import { useSession } from '../../lib/session.jsx';
 import { escolherDaSemana, estaFixada, restanteFixada } from '../../lib/rotacaoMensagens.js';
 import { gravar } from '../../lib/gravar.js';
 
+import { confirmar as confirmarJanela } from '../../lib/dialogos.js';
 // A mecânica de UMA aba de mensagem motivacional guardada em mensagens_ciclo:
 // LISTA de mensagens com rotação semanal e fixação temporária, opcionalmente
 // dividida por sub-fase do ciclo.
@@ -200,7 +201,7 @@ export default function MensagemPorFase({ fase, titulo, descricao, grupos = null
 
   async function excluir(m) {
     if (!user) return;
-    if (!window.confirm('Excluir esta mensagem? Essa ação não pode ser desfeita.')) return;
+    if (!(await confirmarJanela('Excluir esta mensagem? Essa ação não pode ser desfeita.'))) return;
     setBusy(true);
     const r = await gravar(supabase
       .from('mensagens_ciclo')

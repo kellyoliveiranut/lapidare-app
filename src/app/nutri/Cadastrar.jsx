@@ -12,6 +12,7 @@ import { SEXOS, PLANOS, MODALIDADES } from '../../lib/opcoesPaciente.js';
 import { perguntasParaPaciente } from '../../lib/checkinVariacao.js';
 import DateInput from '../../components/DateInput.jsx';
 
+import { confirmar as confirmarJanela, avisar as avisarJanela } from '../../lib/dialogos.js';
 // O "— não informado —" é opção de tela, não valor de banco: por isso mora
 // aqui e não em SEXOS. Hoisted para não remontar o array a cada render.
 const SEXOS_COM_VAZIO = [{ v: '', l: '— selecione —' }, ...SEXOS];
@@ -351,7 +352,7 @@ export default function Cadastrar() {
   async function copiarLink(p) {
     try {
       await navigator.clipboard.writeText(linkDe(p));
-      alert('Link copiado!');
+      avisarJanela('Link copiado!');
     } catch {
       prompt('Copie o link abaixo:', linkDe(p));
     }
@@ -360,15 +361,15 @@ export default function Cadastrar() {
     const r = await gravar(supabase.from('pacientes_pendentes')
       .update({ status: 'enviado' }).eq('id', p.id),
       { rotulo: 'marcar o convite como enviado' });
-    if (!r.ok) { alert(r.msg); return; }
+    if (!r.ok) { avisarJanela(r.msg); return; }
     carregarPendentes();
   }
 
   async function excluirPendente(pendente) {
-    if (!window.confirm(`Excluir cadastro pendente de "${pendente.nome}"?`)) return;
+    if (!(await confirmarJanela(`Excluir cadastro pendente de "${pendente.nome}"?`))) return;
     const r = await gravar(supabase.from('pacientes_pendentes').delete().eq('id', pendente.id),
       { rotulo: 'excluir o cadastro pendente' });
-    if (!r.ok) { alert(r.msg); return; }
+    if (!r.ok) { avisarJanela(r.msg); return; }
     carregarPendentes();
   }
 
@@ -786,7 +787,7 @@ export default function Cadastrar() {
                         const r = await gravar(supabase.from('pacientes_pendentes')
                           .update({ status: 'enviado' }).eq('id', p.id),
                           { rotulo: 'marcar o convite como enviado' });
-                        if (!r.ok) { alert(r.msg); return; }
+                        if (!r.ok) { avisarJanela(r.msg); return; }
                         carregarPendentes();
                       }}
                       style={{ fontSize: 11, padding: '4px 10px', textDecoration: 'none' }}>

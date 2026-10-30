@@ -24,7 +24,7 @@ import { ehFeriado } from '../../lib/feriados.js';
 import { verificarAgenda, textoImpedimentos, textoConfirmacao, opcoesHorario, horariosLivres } from '../../lib/agendaConflitos.js';
 import { useHorariosLivres, useOcupacaoDeDatas } from '../../lib/useHorariosLivres.js';
 import { gravar } from '../../lib/gravar.js';
-import { confirmar as confirmarJanela } from '../../lib/dialogos.js';
+import { confirmar as confirmarJanela, avisar as avisarJanela } from '../../lib/dialogos.js';
 import ModalShell from '../../components/ModalShell.jsx';
 import { CATEGORIAS_SUGERIDAS, mover as moverItem, resumo as resumoSubs, importarSubstituicoes } from '../../lib/substituicoes.js';
 import { montarSlots, rotuloTipo, ehPlanoEssentia } from '../../lib/slotsConsultas.js';
@@ -158,7 +158,7 @@ export default function PacientePerfil() {
       .update({ iniciada_em: agora })
       .eq('id', consultaAtiva.id), { rotulo: 'iniciar a consulta' });
     setBusyConsulta(false);
-    if (!r.ok) { alert(r.msg); return; }
+    if (!r.ok) { avisarJanela(r.msg); return; }
     setConsultaAtiva(c => c ? { ...c, iniciada_em: agora } : c);
   }
 
@@ -170,7 +170,7 @@ export default function PacientePerfil() {
       .update({ status: 'realizada', encerrada_em: agora })
       .eq('id', consultaAtiva.id), { rotulo: 'encerrar a consulta' });
     setBusyConsulta(false);
-    if (!r.ok) { alert(r.msg); return; }
+    if (!r.ok) { avisarJanela(r.msg); return; }
     setConsultaAtiva(c => c ? { ...c, status: 'realizada', encerrada_em: agora } : c);
   }
 
@@ -341,11 +341,10 @@ export default function PacientePerfil() {
 
   async function enviarRedefinicaoSenha() {
     if (!paciente?.email) return;
-    const ok = window.confirm(
-      `Enviar email de redefinição de senha para ${paciente.email}?\n\n` +
+    const ok = (await confirmarJanela(`Enviar email de redefinição de senha para ${paciente.email}?\n\n` +
       `A paciente vai receber um link válido por 1 hora pra criar uma nova senha. ` +
       `Você não precisa fazer mais nada.`
-    );
+    ));
     if (!ok) return;
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(paciente.email, {
@@ -353,15 +352,15 @@ export default function PacientePerfil() {
       });
       if (error) {
         if (/rate limit/i.test(error.message)) {
-          alert('Limite de emails atingido (3/hora no plano grátis do Supabase). Tente de novo daqui a pouco ou configure SMTP próprio em Project Settings → Authentication → SMTP.');
+          avisarJanela('Limite de emails atingido (3/hora no plano grátis do Supabase). Tente de novo daqui a pouco ou configure SMTP próprio em Project Settings → Authentication → SMTP.');
         } else {
-          alert('Erro ao enviar: ' + error.message);
+          avisarJanela('Erro ao enviar: ' + error.message);
         }
         return;
       }
-      alert(`✅ Email enviado pra ${paciente.email}!\n\nPede pra paciente verificar a caixa de entrada (e o spam). O link funciona por 1 hora.`);
+      avisarJanela(`✅ Email enviado pra ${paciente.email}!\n\nPede pra paciente verificar a caixa de entrada (e o spam). O link funciona por 1 hora.`);
     } catch (err) {
-      alert('Erro inesperado: ' + (err?.message || 'tente de novo'));
+      avisarJanela('Erro inesperado: ' + (err?.message || 'tente de novo'));
     }
   }
 
@@ -396,7 +395,7 @@ export default function PacientePerfil() {
     if (!paciente.email?.trim()) return;
     const link = await gerarLinkConvite();
     if (!link) {
-      alert('Não consegui gerar o link agora, tente novamente.');
+      avisarJanela('Não consegui gerar o link agora, tente novamente.');
       return;
     }
     const primeiroNome = paciente.nome?.split(' ')[0] ?? '';
@@ -425,7 +424,7 @@ export default function PacientePerfil() {
       setTimeout(() => setLinkConviteCopiado(false), 2000);
     } catch {
       // 3. Fallback final: mostra o link para copiar na mão
-      alert('Não consegui copiar. Link:\n\n' + link);
+      avisarJanela('Não consegui copiar. Link:\n\n' + link);
     }
   }
 
@@ -446,7 +445,7 @@ export default function PacientePerfil() {
       link = await gerarLinkConvite();      // sem conta: link de criar senha
       if (!link) {
         janela?.close();
-        alert('Não consegui gerar o link agora, tente novamente.');
+        avisarJanela('Não consegui gerar o link agora, tente novamente.');
         return;
       }
     } else {
@@ -470,16 +469,16 @@ export default function PacientePerfil() {
   async function alternarPausa() {
     const pausar = !paciente.acesso_pausado;
     const primeiro = paciente.nome.split(' ')[0];
-    const ok = window.confirm(pausar
+    const ok = (await confirmarJanela(pausar
       ? `Pausar o acesso de ${primeiro}?\n\nEla continua conseguindo entrar no app, mas vê uma mensagem pedindo pra falar com você, em vez das telas.`
-      : `Reativar o acesso de ${primeiro}?\n\nEla volta a ver o app normalmente.`);
+      : `Reativar o acesso de ${primeiro}?\n\nEla volta a ver o app normalmente.`));
     if (!ok) return;
     setPausando(true);
     const r = await gravar(supabase.from('pacientes')
       .update({ acesso_pausado: pausar }).eq('id', paciente.id),
       { rotulo: pausar ? 'pausar o acesso' : 'reativar o acesso' });
     setPausando(false);
-    if (!r.ok) { alert(r.msg); return; }
+    if (!r.ok) { avisarJanela(r.msg); return; }
     carregar();
   }
 
@@ -488,16 +487,15 @@ export default function PacientePerfil() {
   // O acesso_pausado_em é zerado pelo trigger — não mandamos daqui.
   async function desarquivar() {
     const primeiro = paciente.nome.split(' ')[0];
-    const ok = window.confirm(
-      `Desarquivar ${primeiro}?\n\nEla volta para a lista de pacientes ativas e recupera o acesso ao app.`
-    );
+    const ok = (await confirmarJanela(`Desarquivar ${primeiro}?\n\nEla volta para a lista de pacientes ativas e recupera o acesso ao app.`
+    ));
     if (!ok) return;
     setDesarquivando(true);
     const r = await gravar(supabase.from('pacientes')
       .update({ status_paciente: 'ativo', acesso_pausado: false }).eq('id', paciente.id),
       { rotulo: 'desarquivar a paciente' });
     setDesarquivando(false);
-    if (!r.ok) { alert(r.msg); return; }
+    if (!r.ok) { avisarJanela(r.msg); return; }
     carregar();
   }
 
@@ -510,7 +508,7 @@ export default function PacientePerfil() {
       setEditandoCampo(null);
       carregar();
     } catch (err) {
-      alert('Erro: ' + (err?.message || 'tente novamente'));
+      avisarJanela('Erro: ' + (err?.message || 'tente novamente'));
     } finally {
       setSalvandoCampo(false);
     }
@@ -525,7 +523,7 @@ export default function PacientePerfil() {
       setEditandoNasc(false);
       carregar();
     } catch (err) {
-      alert('Erro: ' + (err?.message || 'tente novamente'));
+      avisarJanela('Erro: ' + (err?.message || 'tente novamente'));
     } finally {
       setSalvandoNasc(false);
     }
@@ -1810,11 +1808,10 @@ function MenuSenha({ paciente, onEnviarEmail }) {
   }
 
   async function definir() {
-    const ok = window.confirm(
-      `Definir uma senha nova para ${paciente.nome}?\n\n`
+    const ok = (await confirmarJanela(`Definir uma senha nova para ${paciente.nome}?\n\n`
       + `A senha atual dela para de funcionar na hora. Nenhum e-mail é enviado — `
       + `a senha aparece na tela e você entrega a ela.`
-    );
+    ));
     if (!ok) return;
     setBusy(true);
     try {
@@ -1822,7 +1819,7 @@ function MenuSenha({ paciente, onEnviarEmail }) {
       setAberto(false);
       setSenhaDados(d);
     } catch (e) {
-      alert('Erro ao definir a senha: ' + (e?.message ?? 'tente de novo'));
+      avisarJanela('Erro ao definir a senha: ' + (e?.message ?? 'tente de novo'));
     } finally {
       setBusy(false);
     }
@@ -1832,13 +1829,12 @@ function MenuSenha({ paciente, onEnviarEmail }) {
   // mandado no body: quem o lê é o servidor, na linha do cadastro. Ver o
   // comentário da ação atualizar_email em acesso-senha.js.
   async function alinharEmail() {
-    const ok = window.confirm(
-      `Trocar o e-mail de LOGIN de ${paciente.nome}?\n\n`
+    const ok = (await confirmarJanela(`Trocar o e-mail de LOGIN de ${paciente.nome}?\n\n`
       + `De:   ${diag.email_login}\n`
       + `Para: ${diag.email_cadastro}\n\n`
       + `A senha continua a mesma, mas ela vai precisar entrar com o endereço `
       + `novo. Nenhum e-mail é enviado — quem avisa é você.`
-    );
+    ));
     if (!ok) return;
     setBusy(true);
     try {
@@ -1847,11 +1843,11 @@ function MenuSenha({ paciente, onEnviarEmail }) {
         ...d, email_login: r.email_login, divergente: false,
         sintetico: !!r.email_login && r.email_login.endsWith('@essentia.local'),
       }));
-      alert(r.inalterado
+      avisarJanela(r.inalterado
         ? 'O e-mail de login já era esse.'
         : `Pronto. O login de ${paciente.nome} agora é ${r.email_login}.`);
     } catch (e) {
-      alert('Erro ao trocar o e-mail: ' + (e?.message ?? 'tente de novo'));
+      avisarJanela('Erro ao trocar o e-mail: ' + (e?.message ?? 'tente de novo'));
     } finally {
       setBusy(false);
     }
@@ -1967,7 +1963,7 @@ function ModalSenhaDefinida({ dados, paciente, onClose }) {
       setCopiada(true);
       setTimeout(() => setCopiada(false), 2000);
     } catch {
-      alert('Não consegui copiar. A senha é:\n\n' + dados.senha);
+      avisarJanela('Não consegui copiar. A senha é:\n\n' + dados.senha);
     }
   }
 
@@ -2081,9 +2077,9 @@ function ModalExcluir({ paciente, onClose, onExcluido }) {
     // lixeira de suplementos.
     const { data, error } = await supabase.from('pacientes').delete().eq('id', paciente.id).select('id');
     setBusy(false);
-    if (error) { alert('Erro ao excluir: ' + error.message); return; }
+    if (error) { avisarJanela('Erro ao excluir: ' + error.message); return; }
     if (!data?.length) {
-      alert('Nada foi excluído. Tente de novo, ou recarregue a página e confira se a sessão continua ativa.');
+      avisarJanela('Nada foi excluído. Tente de novo, ou recarregue a página e confira se a sessão continua ativa.');
       return;
     }
     onExcluido();
@@ -2176,7 +2172,7 @@ function ModalArquivar({ paciente, onClose, onArquivado }) {
     const r = await gravar(supabase.from('pacientes')
       .update({ status_paciente: status }).eq('id', paciente.id), { rotulo: 'arquivar a paciente' });
     setBusy(false);
-    if (!r.ok) { alert(r.msg); return; }
+    if (!r.ok) { avisarJanela(r.msg); return; }
     onArquivado();
   }
 
@@ -2946,10 +2942,10 @@ function CheckinPersonalizado({ pacienteId, nutriId, pacienteNome, paciente }) {
   // banco — conferida em pg_policies, não pelo setup.sql.
   async function excluirEnvio(envio) {
     if (envio.respondido_em) return;
-    if (!window.confirm(
+    if (!(await confirmarJanela(
       `Excluir o check-in enviado em ${dataBR(envio.enviado_em)}?\n\n` +
       'A paciente deixa de vê-lo na hora. Não dá para desfazer.'
-    )) return;
+    ))) return;
     const { error, count } = await supabase
       .from('checkin_envios')
       .delete({ count: 'exact' })
@@ -3672,7 +3668,7 @@ function RegistrarAvaliacao({ pacienteId, nutriId, paciente }) {
   }
 
   async function remover(id) {
-    if (!window.confirm('Remover esta avaliação?')) return;
+    if (!(await confirmarJanela('Remover esta avaliação?'))) return;
     const r = await gravar(supabase.from('peso_registros').delete().eq('id', id), { rotulo: 'remover a avaliação' });
     if (!r.ok) { setFeedback({ tipo: 'erro', msg: r.msg }); return; }
     carregar();
@@ -4792,7 +4788,7 @@ Estrutura JSON obrigatória:
       const falta = faltaMeta({ kcal: metaKcal, prot: macros.proteinas_g, carbo: macros.carbo_g, gord: macros.gorduras_g });
       if (falta) return setFeedback({ tipo: 'erro', msg: falta });
 
-      if (refeicoes.length > 0 && !window.confirm('O editor já tem refeições. Gerar um plano novo substitui o que está nele. Continuar?')) return;
+      if (refeicoes.length > 0 && !(await confirmarJanela('O editor já tem refeições. Gerar um plano novo substitui o que está nele. Continuar?'))) return;
 
       const { texto } = await gerarPrompt({ semNome: true, silencioso: true });
       const resposta = await callAnthropicComRetry(
@@ -4927,7 +4923,7 @@ Estrutura JSON obrigatória:
   }
 
   async function excluirPlano(p) {
-    if (!window.confirm(`Excluir plano publicado em ${dataBR(p.publicado_em)}?`)) return;
+    if (!(await confirmarJanela(`Excluir plano publicado em ${dataBR(p.publicado_em)}?`))) return;
     const r = await gravar(supabase.from('planos').delete().eq('id', p.id),
       { rotulo: 'excluir o plano' });
     if (!r.ok) return setFeedback({ tipo: 'erro', msg: r.msg });
@@ -6224,7 +6220,7 @@ Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (e
 </html>`;
 
     const win = window.open('', '_blank', 'width=820,height=640');
-    if (!win) { alert('Permita pop-ups para gerar o PDF.'); return; }
+    if (!win) { avisarJanela('Permita pop-ups para gerar o PDF.'); return; }
     win.document.write(html);
     win.document.close();
     setTimeout(() => win.print(), 500);
@@ -6433,7 +6429,7 @@ Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (e
   }
 
   async function excluirLista(l) {
-    if (!window.confirm(`Excluir lista publicada em ${dataBR(l.publicado_em)}?`)) return;
+    if (!(await confirmarJanela(`Excluir lista publicada em ${dataBR(l.publicado_em)}?`))) return;
     const r = await gravar(supabase.from('listas_compras').delete().eq('id', l.id),
       { rotulo: 'excluir a lista' });
     if (!r.ok) return setFeedback({ tipo: 'erro', msg: r.msg });
@@ -6962,8 +6958,8 @@ function HistoricoLista({ titulo, items, renderItem, onDelete, onView }) {
 function VerJsonModal({ item, dados, onClose }) {
   const pretty = JSON.stringify(dados, null, 2);
   async function copiar() {
-    try { await navigator.clipboard.writeText(pretty); alert('Copiado!'); }
-    catch (e) { alert('Não foi possível copiar.'); }
+    try { await navigator.clipboard.writeText(pretty); avisarJanela('Copiado!'); }
+    catch (e) { avisarJanela('Não foi possível copiar.'); }
   }
   return (
     <div style={{
@@ -7046,7 +7042,7 @@ function EbooksDaPaciente({ pacienteId, nutriId, pacienteNome }) {
           ebook_id: ebookId, paciente_id: pacienteId,
         }), { rotulo: 'atribuir o material à paciente' });
     // Esta lista não tem área de erro: alert, e recarrega para mostrar o estado real.
-    if (!r.ok) window.alert(r.msg);
+    if (!r.ok) avisarJanela(r.msg);
     carregar();
   }
 
@@ -7681,7 +7677,7 @@ function ModalAgendarAcompanhamento({ pacienteId, nutriId, consultaAtiva, modali
           setSalvando(false);
           return;
         }
-        if (avisos.length && !window.confirm(textoConfirmacao(avisos))) {
+        if (avisos.length && !(await confirmarJanela(textoConfirmacao(avisos)))) {
           setSalvando(false);
           return;
         }
@@ -8080,7 +8076,7 @@ function ModalAgendarAvulsa({ pacienteId, nutriId, modalidadePaciente, tipo = 'a
           setSalvando(false);
           return;
         }
-        if (avisos.length && !window.confirm(textoConfirmacao(avisos))) {
+        if (avisos.length && !(await confirmarJanela(textoConfirmacao(avisos)))) {
           setSalvando(false);
           return;
         }
@@ -8259,7 +8255,7 @@ function ModalDefinirData({
         ignorarIds: [consultaId],
       });
       if (impedimentos.length) { setErro(textoImpedimentos(impedimentos)); return; }
-      if (avisos.length && !window.confirm(textoConfirmacao(avisos))) return;
+      if (avisos.length && !(await confirmarJanela(textoConfirmacao(avisos)))) return;
       // Falha volta como texto e aparece aqui dentro, e não só no card do
       // perfil, que fica atrás deste modal.
       const msg = await onSalvar(montarDataHoraISO(data, horaEscolhida));

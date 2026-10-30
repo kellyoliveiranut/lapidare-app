@@ -4,6 +4,7 @@ import { useSession } from '../../lib/session.jsx';
 import { estaFixada, restanteFixada } from '../../lib/rotacaoMensagens.js';
 import { gravar } from '../../lib/gravar.js';
 
+import { confirmar as confirmarJanela } from '../../lib/dialogos.js';
 // Mensagens semanais de Emagrecimento (tabela mensagens_emagrecimento).
 // Lista única, sem categorias. O placeholder {nome} é trocado pelo primeiro
 // nome da paciente na hora de exibir (ver Inicio.jsx) — aqui salvamos literal.
@@ -137,7 +138,7 @@ export default function MensagemEmagrecimento() {
 
   async function excluir(m) {
     if (!user) return;
-    if (!window.confirm('Excluir esta mensagem? Essa ação não pode ser desfeita.')) return;
+    if (!(await confirmarJanela('Excluir esta mensagem? Essa ação não pode ser desfeita.'))) return;
     setBusy(true);
     const r = await gravar(supabase
       .from('mensagens_emagrecimento')

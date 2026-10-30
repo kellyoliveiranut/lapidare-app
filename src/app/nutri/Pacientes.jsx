@@ -9,6 +9,7 @@ import { gravar } from '../../lib/gravar.js';
 import { idsComRegistroPendente, contarRegistroPendente } from '../../lib/registroPendente.js';
 import ImportarCsv from './_ImportarCsv.jsx';
 
+import { confirmar as confirmarJanela, avisar as avisarJanela } from '../../lib/dialogos.js';
 // Seções da lista, na ordem em que aparecem na tela.
 const SECOES_PLANO = [
   { id: 'onco',    titulo: 'Essentia · Oncologia' },
@@ -90,26 +91,26 @@ export default function Pacientes() {
     // e o token também gera o e-mail sintético de quem não tem e-mail.
     const link = linkConvite(user.id, p);
     await navigator.clipboard.writeText(link);
-    alert(`Link copiado! Envie pra ${p.nome.split(' ')[0]} por WhatsApp ou email.`);
+    avisarJanela(`Link copiado! Envie pra ${p.nome.split(' ')[0]} por WhatsApp ou email.`);
     const r = await gravar(supabase.from('pacientes_pendentes').update({ status: 'enviado' }).eq('id', p.id),
       { rotulo: 'marcar o convite como enviado' });
-    if (!r.ok) { alert(r.msg); return; }
+    if (!r.ok) { avisarJanela(r.msg); return; }
     carregar();
   }
 
   async function removerPendente(p) {
-    if (!window.confirm(`Remover "${p.nome}" da lista de pendentes?`)) return;
+    if (!(await confirmarJanela(`Remover "${p.nome}" da lista de pendentes?`))) return;
     const r = await gravar(supabase.from('pacientes_pendentes').delete().eq('id', p.id),
       { rotulo: 'remover da lista de pendentes' });
-    if (!r.ok) { alert(r.msg); return; }
+    if (!r.ok) { avisarJanela(r.msg); return; }
     carregar();
   }
 
   async function reativar(id) {
-    if (!window.confirm('Deseja reativar esta paciente?')) return;
+    if (!(await confirmarJanela('Deseja reativar esta paciente?'))) return;
     const r = await gravar(supabase.from('pacientes').update({ status_paciente: 'ativo' }).eq('id', id),
       { rotulo: 'reativar a paciente' });
-    if (!r.ok) { alert(r.msg); return; }
+    if (!r.ok) { avisarJanela(r.msg); return; }
     carregar();
   }
 

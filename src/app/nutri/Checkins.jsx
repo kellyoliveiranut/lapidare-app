@@ -16,6 +16,8 @@ import { gravar } from '../../lib/gravar.js';
 import CheckinForm from '../../components/CheckinForm.jsx';
 import DicaJSON from '../../components/DicaJSON.jsx';
 
+import { avisar as avisarJanela } from '../../lib/dialogos.js';
+import { confirmar as confirmarJanela } from '../../lib/dialogos.js';
 function normalizarTelefone(raw) {
   let n = (raw ?? '').replace(/\D/g, '');
   if (n.startsWith('0')) n = n.slice(1);
@@ -157,7 +159,7 @@ export default function Checkins() {
   async function enviarParaTodasPacientes(template) {
     if (!template) return mostraToast('Selecione um template.');
     if (pacientes.length === 0) return mostraToast('Sem pacientes cadastradas.');
-    if (!window.confirm(`Enviar "${template.nome}" para todas as ${pacientes.length} pacientes?`)) return;
+    if (!(await confirmarJanela(`Enviar "${template.nome}" para todas as ${pacientes.length} pacientes?`))) return;
     const linhas = pacientes.map(p => ({
       nutri_id: user.id,
       paciente_id: p.id,
@@ -632,7 +634,7 @@ function SelecionarTemplateModal({ templates, onClose, onEscolher, title, action
    ============================================================ */
 function TemplatesTab({ templates, pacientes, nutriId, onRecarregar, mostraToast, onEditar }) {
   async function excluir(t) {
-    if (!window.confirm(`Excluir o template "${t.nome}"?\n\nIsso também remove agendamentos que usavam este template.`)) return;
+    if (!(await confirmarJanela(`Excluir o template "${t.nome}"?\n\nIsso também remove agendamentos que usavam este template.`))) return;
     const r = await gravar(supabase.from('checkin_templates').delete().eq('id', t.id),
       { rotulo: 'excluir o template' });
     if (!r.ok) return mostraToast(r.msg);
@@ -927,7 +929,7 @@ function ProgramacaoTab({ agendamentos, templates, pacientes, nutriId, onRecarre
     onRecarregar();
   }
   async function excluir(ag) {
-    if (!window.confirm('Excluir este agendamento?')) return;
+    if (!(await confirmarJanela('Excluir este agendamento?'))) return;
     const r = await gravar(supabase.from('checkin_agendamentos').delete().eq('id', ag.id),
       { rotulo: 'excluir o agendamento' });
     if (!r.ok) return mostraToast(r.msg);
@@ -1162,7 +1164,7 @@ function RespostasModal({ envio, onClose }) {
 </html>`;
 
     const win = window.open('', '_blank');
-    if (!win) { alert('Permita pop-ups pra gerar o PDF.'); return; }
+    if (!win) { avisarJanela('Permita pop-ups pra gerar o PDF.'); return; }
     win.document.write(html);
     win.document.close();
   }

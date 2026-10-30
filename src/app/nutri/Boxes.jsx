@@ -4,6 +4,7 @@ import { useSession } from '../../lib/session.jsx';
 import { TZ_CLINICA } from '../../lib/utils.js';
 import { gravar } from '../../lib/gravar.js';
 
+import { confirmar as confirmarJanela } from '../../lib/dialogos.js';
 // Os dois tipos de box. A grafia é IDÊNTICA à de src/lib/objetivos.js e ao
 // check de box_tipo na migration 2026-08-22 — os três precisam concordar, e um
 // deles com caixa diferente faria o insert ser recusado pelo banco.
@@ -150,7 +151,7 @@ export default function Boxes() {
 
   async function excluirItem(item) {
     setErro(null);
-    if (!window.confirm(`Excluir "${item.nome}"? Esta ação não pode ser desfeita.`)) return;
+    if (!(await confirmarJanela(`Excluir "${item.nome}"? Esta ação não pode ser desfeita.`))) return;
     const { error } = await supabase.from('estoque_itens').delete().eq('id', item.id);
     if (error) {
       // 23503 = foreign_key_violation. O `on delete restrict` de box_receitas

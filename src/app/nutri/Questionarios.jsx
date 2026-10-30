@@ -7,6 +7,7 @@ import { validarTemplate, formatarResposta } from '../../lib/checkinDefault.js';
 import CheckinForm from '../../components/CheckinForm.jsx';
 import DicaJSON from '../../components/DicaJSON.jsx';
 
+import { confirmar as confirmarJanela, avisar as avisarJanela } from '../../lib/dialogos.js';
 export default function Questionarios() {
   const { user } = useSession();
   const [tab, setTab] = useState('modelos');
@@ -40,7 +41,7 @@ export default function Questionarios() {
   }
 
   async function excluirTemplate(t) {
-    if (!window.confirm(`Excluir modelo "${t.nome}"?`)) return;
+    if (!(await confirmarJanela(`Excluir modelo "${t.nome}"?`))) return;
     const r = await gravar(supabase.from('checkin_templates').delete().eq('id', t.id),
       { rotulo: 'excluir o modelo' });
     if (!r.ok) { showToast(r.msg); return; }
@@ -288,8 +289,8 @@ function EditorPreConsulta({ template, nutriId, onClose, onSaved }) {
       return novo;
     });
   }
-  function excluirPergunta(idx) {
-    if (!window.confirm('Excluir essa pergunta?')) return;
+  async function excluirPergunta(idx) {
+    if (!(await confirmarJanela('Excluir essa pergunta?'))) return;
     setPerguntas(arr => arr.filter((_, i) => i !== idx));
   }
   function duplicarPergunta(idx) {
@@ -775,7 +776,7 @@ function RespostaModal({ envio, onClose }) {
 </html>`;
 
     const win = window.open('', '_blank');
-    if (!win) { alert('Permita pop-ups pra gerar o PDF.'); return; }
+    if (!win) { avisarJanela('Permita pop-ups pra gerar o PDF.'); return; }
     win.document.write(html);
     win.document.close();
   }

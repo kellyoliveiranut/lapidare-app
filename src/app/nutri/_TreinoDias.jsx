@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase.js';
 import { dataBR } from '../../lib/utils.js';
 import { gravar } from '../../lib/gravar.js';
 
+import { confirmar as confirmarJanela } from '../../lib/dialogos.js';
 // Duplicado do _Treinos.jsx de propósito: exportar a constante de lá faria o
 // arquivo exportar algo que não é componente, que é exatamente o
 // react-refresh/only-export-components que o lint já acusa em session.jsx e
@@ -126,9 +127,9 @@ export default function TreinoDias({ treino, rascunhoInicial = null, onClose, on
 
   // Só entra na lista de remoção o que TEM id — o que nunca foi gravado
   // some do rascunho e acabou.
-  function removerDia(i) {
+  async function removerDia(i) {
     const d = dias[i];
-    if (d.id && !window.confirm(`Remover "${d.nome}" e os exercícios dele?`)) return;
+    if (d.id && !(await confirmarJanela(`Remover "${d.nome}" e os exercícios dele?`))) return;
     if (d.id) setDiasRemovidos(r => [...r, d.id]);
     setDias(ds => ds.filter((_, k) => k !== i));
   }

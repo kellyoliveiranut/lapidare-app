@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase.js';
 import { dataLocalISO } from '../../lib/utils.js';
 import { gravar } from '../../lib/gravar.js';
 
+import { avisar as avisarJanela } from '../../lib/dialogos.js';
 /* ── helpers ─────────────────────────────────────── */
 const r1 = (v) => Math.round(v * 10) / 10;
 const r0 = (v) => Math.round(v);
@@ -141,7 +142,7 @@ function NRS2002({ imc, idade, pacienteId, nutriId }) {
     }), { rotulo: 'salvar o rastreio' });
     setSalvando(false);
     // Esta tela não tem área de erro: a falha vai no alert, e o "Salvo!" não aparece.
-    if (!r.ok) { window.alert(r.msg); return; }
+    if (!r.ok) { avisarJanela(r.msg); return; }
     setMsgSalvo('Salvo!');
   }
 
@@ -489,7 +490,7 @@ function PGSGA({ pacienteId, nutriId }) {
     }), { rotulo: 'salvar o rastreio' });
     setSalvando(false);
     // Esta tela não tem área de erro: a falha vai no alert, e o "Salvo!" não aparece.
-    if (!r.ok) { window.alert(r.msg); return; }
+    if (!r.ok) { avisarJanela(r.msg); return; }
     setMsgSalvo('Salvo!');
   }
 

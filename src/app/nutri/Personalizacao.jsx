@@ -4,6 +4,7 @@ import { useSession } from '../../lib/session.jsx';
 import { ativarNotificacoes, desativarNotificacoes } from '../../lib/push.js';
 import { gravar } from '../../lib/gravar.js';
 
+import { confirmar as confirmarJanela, avisar as avisarJanela } from '../../lib/dialogos.js';
 const TIPOGRAFIAS = [
   { id: 'classica',  nome: 'Clássica',  desc: 'Cormorant + Inter — elegante e atemporal' },
   { id: 'modern',    nome: 'Modern',    desc: 'Manrope — geométrica e contemporânea' },
@@ -87,7 +88,7 @@ export default function Personalizacao() {
   async function uploadLogo(e) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) return alert('Imagem muito grande (máx 2 MB).');
+    if (file.size > 2 * 1024 * 1024) return avisarJanela('Imagem muito grande (máx 2 MB).');
     setUploading(true);
 
     // Remove logo antiga se existir
@@ -105,22 +106,22 @@ export default function Personalizacao() {
       .upload(path, file, { contentType: file.type, upsert: true });
     if (upErr) {
       setUploading(false);
-      return alert('Erro no upload: ' + upErr.message);
+      return avisarJanela('Erro no upload: ' + upErr.message);
     }
     const { data } = supabase.storage.from('logos').getPublicUrl(path);
     setForm(f => ({ ...f, logo_url: data.publicUrl }));
     setUploading(false);
   }
 
-  function removerLogo() {
-    if (!window.confirm('Remover logo?')) return;
+  async function removerLogo() {
+    if (!(await confirmarJanela('Remover logo?'))) return;
     setForm(f => ({ ...f, logo_url: null }));
   }
 
   async function uploadFoto(e) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) return alert('Imagem muito grande (máx 2 MB).');
+    if (file.size > 2 * 1024 * 1024) return avisarJanela('Imagem muito grande (máx 2 MB).');
     setUploading(true);
 
     if (form.foto_url) {
@@ -137,15 +138,15 @@ export default function Personalizacao() {
       .upload(path, file, { contentType: file.type, upsert: true });
     if (upErr) {
       setUploading(false);
-      return alert('Erro no upload: ' + upErr.message);
+      return avisarJanela('Erro no upload: ' + upErr.message);
     }
     const { data } = supabase.storage.from('logos').getPublicUrl(path);
     setForm(f => ({ ...f, foto_url: data.publicUrl }));
     setUploading(false);
   }
 
-  function removerFoto() {
-    if (!window.confirm('Remover foto?')) return;
+  async function removerFoto() {
+    if (!(await confirmarJanela('Remover foto?'))) return;
     setForm(f => ({ ...f, foto_url: null }));
   }
 

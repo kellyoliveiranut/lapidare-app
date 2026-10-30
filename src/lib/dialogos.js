@@ -25,3 +25,17 @@ export function confirmar(texto, { confirmarRotulo = 'Confirmar', cancelarRotulo
     ouvinte(pedido);
   });
 }
+
+// Aviso com um único botão (no lugar de window.alert). Devolve uma Promise que resolve quando a
+// pessoa fecha; quem não precisa esperar pode ignorá-la. Sem host montado, cai no alert do navegador.
+export function avisar(texto, { rotulo = 'OK' } = {}) {
+  return new Promise(resolve => {
+    const pedido = { texto, confirmarRotulo: rotulo, cancelarRotulo: null, aviso: true, resolve: () => resolve() };
+    if (!ouvinte) {
+      if (typeof window !== 'undefined' && typeof window.alert === 'function') window.alert(texto);
+      resolve();
+      return;
+    }
+    ouvinte(pedido);
+  });
+}

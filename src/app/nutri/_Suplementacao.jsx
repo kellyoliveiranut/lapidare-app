@@ -6,6 +6,7 @@ import { criarDocumento, cabecalho, cardPaciente, rodape, nomeArquivoPdf,
   M, W, TOPO, BRONZE, SEPIA, LINHA, LINHA2 } from '../../lib/pdfBase.js';
 import { gravar } from '../../lib/gravar.js';
 
+import { confirmar as confirmarJanela, avisar as avisarJanela } from '../../lib/dialogos.js';
 const HOJE_ISO = () => dataLocalISO();
 
 /**
@@ -146,7 +147,7 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
   }
 
   async function salvar(s, fotoFile) {
-    if (!s.nome?.trim()) { alert('Informe o nome do suplemento.'); return; }
+    if (!s.nome?.trim()) { avisarJanela('Informe o nome do suplemento.'); return; }
     setBusy(true);
     try {
       let foto_url = s.foto_url ?? null;
@@ -183,7 +184,7 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
         ? `Suplemento salvo! Foto não enviada: ${fotoAviso}`
         : 'Suplemento salvo com sucesso!');
     } catch (e) {
-      alert('Erro ao salvar suplemento: ' + (e?.message ?? 'tente novamente'));
+      avisarJanela('Erro ao salvar suplemento: ' + (e?.message ?? 'tente novamente'));
     } finally {
       setBusy(false);
     }
@@ -210,22 +211,22 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
       carregar();
       setFeedback(`${items.length} suplemento${items.length > 1 ? 's adicionados' : ' adicionado'} com sucesso!`);
     } catch (e) {
-      alert('Erro ao salvar suplementos: ' + (e?.message ?? 'tente novamente'));
+      avisarJanela('Erro ao salvar suplementos: ' + (e?.message ?? 'tente novamente'));
     } finally {
       setBusy(false);
     }
   }
 
   async function excluir(s) {
-    if (!window.confirm(`Excluir "${s.nome}"? Os logs de aderência também serão removidos.`)) return;
+    if (!(await confirmarJanela(`Excluir "${s.nome}"? Os logs de aderência também serão removidos.`))) return;
     // Sem o .select(), o PostgREST responde 204 também quando nada foi apagado
     // (linha filtrada pelo RLS ou requisição sem sessão). Pedir as linhas
     // apagadas é o único jeito de a tela saber.
     const { data, error } = await supabase.from('suplementos').delete().eq('id', s.id).select('id');
     if (error) {
-      alert('Erro ao excluir: ' + error.message);
+      avisarJanela('Erro ao excluir: ' + error.message);
     } else if (!data?.length) {
-      alert('Nada foi excluído. Tente de novo, ou recarregue a página e confira se a sessão continua ativa.');
+      avisarJanela('Nada foi excluído. Tente de novo, ou recarregue a página e confira se a sessão continua ativa.');
     }
     carregar();
   }
@@ -239,8 +240,8 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
       obs: s.obs?.trim() || null,
       foto_url: s.foto_url ?? null,
     });
-    if (error) { alert('Erro ao salvar: ' + error.message); return; }
-    alert('Salvo na Biblioteca!');
+    if (error) { avisarJanela('Erro ao salvar: ' + error.message); return; }
+    avisarJanela('Salvo na Biblioteca!');
     carregarFavoritos();
   }
 
@@ -261,7 +262,7 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
       setFeedback('Fórmula enviada para a farmácia!');
       carregar(); // atualiza "última enviada em"
     } catch (e) {
-      alert('Erro ao enviar: ' + (e?.message ?? 'tente novamente'));
+      avisarJanela('Erro ao enviar: ' + (e?.message ?? 'tente novamente'));
     } finally {
       setEnviandoFarmacia(false);
     }
@@ -289,7 +290,7 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
 
   function abrirEnviarFarmacia() {
     if (manipuladosAtivos.length === 0) {
-      alert('Nenhuma fórmula manipulada prescrita.');
+      avisarJanela('Nenhuma fórmula manipulada prescrita.');
       return;
     }
     setEnviarFarmaciaOpen(true);
@@ -297,7 +298,7 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
 
   function abrirEnviarLoja() {
     if (suplementosLoja.length === 0) {
-      alert('Nenhum suplemento para a prescrição de loja.');
+      avisarJanela('Nenhum suplemento para a prescrição de loja.');
       return;
     }
     setEnviarLojaOpen(true);
@@ -320,7 +321,7 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
         modo,
       });
     } catch (e) {
-      alert('Erro ao gerar o PDF: ' + (e?.message ?? 'tente novamente'));
+      avisarJanela('Erro ao gerar o PDF: ' + (e?.message ?? 'tente novamente'));
     } finally {
       setGerandoPdf(false);
     }

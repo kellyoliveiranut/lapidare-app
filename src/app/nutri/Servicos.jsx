@@ -4,6 +4,7 @@ import { useSession } from '../../lib/session.jsx';
 import { brl, valorBR } from '../../lib/utils.js';
 import { gravar } from '../../lib/gravar.js';
 
+import { confirmar as confirmarJanela } from '../../lib/dialogos.js';
 const NIVEIS = [
   { value: 'entrada',        label: 'Entrada',         desc: 'Baixo ticket — porta de entrada' },
   { value: 'intermediario',  label: 'Intermediário',   desc: 'Acompanhamento padrão' },
@@ -48,7 +49,7 @@ export default function Servicos() {
     carregar();
   }
   async function excluir(s) {
-    if (!window.confirm(`Excluir "${s.nome}"?`)) return;
+    if (!(await confirmarJanela(`Excluir "${s.nome}"?`))) return;
     const r = await gravar(supabase.from('servicos').delete().eq('id', s.id),
       { rotulo: 'excluir o serviço' });
     if (!r.ok) { mostraToast(r.msg); return; }

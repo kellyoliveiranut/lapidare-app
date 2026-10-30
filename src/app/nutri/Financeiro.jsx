@@ -8,6 +8,7 @@ import { NovaVendaModal, EditarParcelaModal, EditarVendaModal } from '../../comp
 import Gastos from './Gastos.jsx';
 import { gravar } from '../../lib/gravar.js';
 
+import { confirmar as confirmarJanela, avisar as avisarJanela } from '../../lib/dialogos.js';
 export default function Financeiro() {
   const { user, profile, refreshProfile } = useSession();
   const [tab, setTab] = useState('entradas');  // 'entradas' | 'gastos'
@@ -21,17 +22,16 @@ export default function Financeiro() {
   const [vendaEdit, setVendaEdit] = useState(null);
 
   async function excluirVenda(venda) {
-    const ok = window.confirm(
-      `Excluir a venda "${venda.servico}" de ${venda.paciente?.nome ?? 'Avulso'}?\n\n` +
+    const ok = (await confirmarJanela(`Excluir a venda "${venda.servico}" de ${venda.paciente?.nome ?? 'Avulso'}?\n\n` +
       `Todas as parcelas relacionadas também serão removidas. Essa ação não pode ser desfeita.`
-    );
+    ));
     if (!ok) return;
     // esperado 1 conta só a linha de vendas: as parcelas saem por CASCADE e
     // não entram no retorno.
     const r = await gravar(supabase.from('vendas').delete().eq('id', venda.id),
       { rotulo: 'excluir a venda' });
     if (!r.ok) {
-      alert(r.msg);
+      avisarJanela(r.msg);
       return;
     }
     await carregar();

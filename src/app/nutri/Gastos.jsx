@@ -9,6 +9,7 @@ import {
   FORMAS_PGTO_GASTO_LIST, labelFormaPgtoGasto, iconFormaPgtoGasto,
 } from '../../lib/utils.js';
 
+import { confirmar as confirmarJanela, avisar as avisarJanela } from '../../lib/dialogos.js';
 const MES_CURTO = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
 export default function Gastos() {
@@ -91,16 +92,16 @@ export default function Gastos() {
   }, [gastos, filtroTipo, filtroCat]);
 
   async function excluir(g) {
-    if (!window.confirm(`Excluir "${g.descricao}"?`)) return;
+    if (!(await confirmarJanela(`Excluir "${g.descricao}"?`))) return;
     const r = await gravar(supabase.from('gastos').delete().eq('id', g.id), { rotulo: 'excluir o gasto' });
-    if (!r.ok) { window.alert(r.msg); return; }
+    if (!r.ok) { avisarJanela(r.msg); return; }
     carregar();
   }
 
   async function toggleAtivo(g) {
     const r = await gravar(supabase.from('gastos').update({ ativo: !g.ativo }).eq('id', g.id),
       { rotulo: g.ativo ? 'pausar o gasto' : 'reativar o gasto' });
-    if (!r.ok) { window.alert(r.msg); return; }
+    if (!r.ok) { avisarJanela(r.msg); return; }
     carregar();
   }
 

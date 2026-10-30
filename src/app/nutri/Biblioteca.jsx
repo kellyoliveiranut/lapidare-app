@@ -5,6 +5,7 @@ import { dataBR, iniciais } from '../../lib/utils.js';
 import { iniciarTokenPush, avisarPaciente } from '../../lib/push.js';
 import { gravar } from '../../lib/gravar.js';
 
+import { confirmar as confirmarJanela, avisar as avisarJanela } from '../../lib/dialogos.js';
 const SECOES = [
   { id: 'receitas',    emoji: '📖', label: 'Receitas'    },
   { id: 'manipulados', emoji: '💊', label: 'Suplementação' },
@@ -68,12 +69,12 @@ export default function Biblioteca() {
     const aviso = nPac > 0
       ? `Excluir "${it.titulo}"? Atribuído a ${nPac} paciente${nPac !== 1 ? 's' : ''} — perderão acesso.`
       : `Excluir "${it.titulo}"?`;
-    if (!window.confirm(aviso)) return;
+    if (!(await confirmarJanela(aviso))) return;
     // Linha primeiro, arquivo depois: se o banco recusar, o arquivo fica e a
     // linha continua apontando para algo que existe.
     const r = await gravar(supabase.from('ebooks').delete().eq('id', it.id), { rotulo: 'excluir o material' });
     if (!r.ok) {
-      window.alert(r.msg);
+      avisarJanela(r.msg);
     } else if (it.storage_path) {
       // Falha aqui só deixa um arquivo órfão no Storage (inofensivo).
       const { error: stErr } = await supabase.storage.from('ebooks').remove([it.storage_path]);
@@ -593,7 +594,7 @@ function ModalAtribuir({ item, pacientes, atribuidos, onClose, onSaved }) {
         adicionar.map(paciente_id => ({ ebook_id: item.id, paciente_id }))
       ), { esperado: adicionar.length, rotulo: 'atribuir o material' });
       // Falhou: sem push, sem seguir para a remoção e sem fechar como salvo.
-      if (!rAdd.ok) { setBusy(false); window.alert(rAdd.msg); return; }
+      if (!rAdd.ok) { setBusy(false); avisarJanela(rAdd.msg); return; }
       // Uma tokenPush só para as N pacientes — o getSession não se repete.
       adicionar.forEach(paciente_id => avisarPaciente(tokenPush, paciente_id, 'material'));
     }
@@ -606,7 +607,7 @@ function ModalAtribuir({ item, pacientes, atribuidos, onClose, onSaved }) {
         // As atribuições novas (se houve) já foram gravadas: não finge que salvou
         // tudo, avisa e recarrega a lista.
         setBusy(false);
-        window.alert(adicionar.length > 0
+        avisarJanela(adicionar.length > 0
           ? `As pacientes marcadas receberam o material, mas as desmarcadas não foram removidas. ${rDel.msg}`
           : rDel.msg);
         onSaved();

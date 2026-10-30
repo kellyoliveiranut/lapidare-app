@@ -18,7 +18,7 @@ import { gravar } from '../../lib/gravar.js';
 import ReguaDoDia from './_ReguaDoDia.jsx';
 import ReagendarLote from './_ReagendarLote.jsx';
 import SemConsultaAgenda from './_SemConsultaAgenda.jsx';
-import { confirmar as confirmarJanela } from '../../lib/dialogos.js';
+import { confirmar as confirmarJanela, avisar as avisarJanela } from '../../lib/dialogos.js';
 import { HORARIOS_TAREFA, hhmm } from '../../lib/reguaDoDia.js';
 import {
   dataConsultaBR, horaConsultaBR, dataBR, TZ_CLINICA, textoDias, iniciais,
@@ -1328,7 +1328,7 @@ function FaixaConvite({ convite, nutriId, onDispensar }) {
     const r = await gravar(supabase.from('pacientes_pendentes')
       .update({ status: 'enviado' }).eq('id', pendente.id),
       { rotulo: 'marcar o convite como enviado' });
-    if (!r.ok) alert(r.msg);
+    if (!r.ok) avisarJanela(r.msg);
   }
 
   return (
@@ -1397,7 +1397,7 @@ function PainelLembretes({ lembretes, confirmadas = 0, semConfirmacao = 0, locai
 
   async function copiarMensagem(id, texto) {
     try { await navigator.clipboard.writeText(texto); }
-    catch { alert(texto); } // fallback caso sem permissão (mobile)
+    catch { avisarJanela(texto); } // fallback caso sem permissão (mobile)
     setCopiadoId(id);
     setTimeout(() => setCopiadoId(null), 2000);
   }

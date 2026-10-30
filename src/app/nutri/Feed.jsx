@@ -6,6 +6,7 @@ import { iniciarTokenPush, avisarPaciente } from '../../lib/push.js';
 import { gravar } from '../../lib/gravar.js';
 import { EVENTO_FEED_RECARREGAR } from '../../lib/avisosNutri.js';
 
+import { confirmar as confirmarJanela, avisar as avisarJanela } from '../../lib/dialogos.js';
 const PAGINA = 12;
 const TTL = 3600;   // era 300 — evitava a URL expirar antes do loading="lazy" puxar a imagem
 
@@ -133,7 +134,7 @@ export default function FeedNutri() {
       texto,
     });
     setSalvando(s => ({ ...s, [post.id]: false }));
-    if (error) { alert('Erro ao comentar: ' + error.message); return; }
+    if (error) { avisarJanela('Erro ao comentar: ' + error.message); return; }
     setComentarioEdit(e => {
       const novo = { ...e };
       delete novo[post.id];
@@ -154,7 +155,7 @@ export default function FeedNutri() {
       .update({ texto })
       .eq('id', comentario.id), { rotulo: 'editar o comentário' });
     setSalvandoEdicao(s => ({ ...s, [comentario.id]: false }));
-    if (!r.ok) { alert(r.msg); return; }
+    if (!r.ok) { avisarJanela(r.msg); return; }
     setEdicao(e => {
       const novo = { ...e };
       delete novo[comentario.id];
@@ -164,11 +165,11 @@ export default function FeedNutri() {
   }
 
   async function apagarComentario(comentario) {
-    if (!window.confirm('Apagar este comentário? A paciente deixa de vê-lo.')) return;
+    if (!(await confirmarJanela('Apagar este comentário? A paciente deixa de vê-lo.'))) return;
     const r = await gravar(supabase.from('feed_pratos_comentarios')
       .delete()
       .eq('id', comentario.id), { rotulo: 'apagar o comentário' });
-    if (!r.ok) { alert(r.msg); return; }
+    if (!r.ok) { avisarJanela(r.msg); return; }
     carregar();
   }
 
