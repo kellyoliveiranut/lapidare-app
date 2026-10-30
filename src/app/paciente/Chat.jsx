@@ -8,6 +8,7 @@ import { comprimirImagem, getAnexoUrl } from '../../lib/imagem.js';
 import { iniciarTokenPush, avisarNutri } from '../../lib/push.js';
 import { gravar } from '../../lib/gravar.js';
 
+import { avisar as avisarJanela } from '../../lib/dialogos.js';
 function fmtHora(iso) {
   if (!iso) return '';
   const d = new Date(iso);
@@ -146,8 +147,8 @@ export default function ChatPaciente() {
   function selecionarAnexo(e) {
     const f = e.target.files?.[0];
     if (!f) return;
-    if (!f.type.startsWith('image/')) { alert('Selecione uma imagem.'); return; }
-    if (f.size > 20 * 1024 * 1024) { alert('Imagem muito grande (máximo 20MB).'); return; }
+    if (!f.type.startsWith('image/')) { avisarJanela('Selecione uma imagem.'); return; }
+    if (f.size > 20 * 1024 * 1024) { avisarJanela('Imagem muito grande (máximo 20MB).'); return; }
     setAnexo(f);
     setAnexoPreview(URL.createObjectURL(f));
   }
@@ -171,7 +172,7 @@ export default function ChatPaciente() {
       const path = `${pacienteId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
       const { error: upErr } = await supabase.storage
         .from('chat_anexos').upload(path, blob, { contentType: 'image/jpeg' });
-      if (upErr) { setBusy(false); alert('Erro ao enviar a foto: ' + upErr.message); return; }
+      if (upErr) { setBusy(false); avisarJanela('Erro ao enviar a foto: ' + upErr.message); return; }
       imagem_path = path;
     }
 
@@ -185,7 +186,7 @@ export default function ChatPaciente() {
     setBusy(false);
     if (error) {
       if (imagem_path) await supabase.storage.from('chat_anexos').remove([imagem_path]);
-      alert('Erro ao enviar: ' + error.message);
+      avisarJanela('Erro ao enviar: ' + error.message);
       return;
     }
 

@@ -7,6 +7,7 @@ import { CAMPOS_EMAG } from '../../data/exames_emagrecimento.js';
 import { achatarExame, aplicarReferencias } from '../../lib/examesEmagrecimento.js';
 import { montarResumoRelatorio } from '../../lib/examesResumo.js';
 
+import { avisar as avisarJanela } from '../../lib/dialogos.js';
 export default function RelatorioEvolucao({ pacienteId, paciente, nutriId }) {
   const [dados, setDados] = useState(null);
   const [carregando, setCarregando] = useState(true);
@@ -589,7 +590,7 @@ ${checkinsStr}`;
 </html>`;
 
     const win = window.open('', '_blank', 'width=900,height=700');
-    if (!win) { alert('Permita pop-ups para gerar o PDF.'); return; }
+    if (!win) { avisarJanela('Permita pop-ups para gerar o PDF.'); return; }
     win.document.write(html);
     win.document.close();
     setTimeout(() => win.print(), 600);

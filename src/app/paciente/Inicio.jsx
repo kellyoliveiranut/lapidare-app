@@ -15,6 +15,7 @@ import { MENSAGEM_DO_DIA_PAUSADA } from '../../lib/pausas.js';
 
 
 
+import { avisar as avisarJanela } from '../../lib/dialogos.js';
 const HUMOR_OPCOES = [
   { label: 'Cansada', emoji: '😔', valEscala: 1, valMon: 2 },
   { label: 'Regular', emoji: '😐', valEscala: 2, valMon: 4 },
@@ -556,7 +557,7 @@ export default function Inicio() {
     const desfazer = (msg) => {
       setHabitosLogs(antesLogs);
       setTodosLogs(antesTodos);
-      window.alert(msg);
+      avisarJanela(msg);
     };
     setHabitosLogs(prev => ({ ...prev, [habito.id]: valor }));
     setTodosLogs(prev => {
@@ -595,7 +596,7 @@ export default function Inicio() {
           { paciente_id: pacienteId, nutri_id: profile.nutri_id, data: hoje, disposicao: opcao.valMon },
           { onConflict: 'paciente_id,data' }
         ), { rotulo: 'salvar como você está hoje' });
-      if (!r.ok) { window.alert(r.msg); return; }
+      if (!r.ok) { avisarJanela(r.msg); return; }
       setMonHoje({ id: r.data[0].id, disposicao: opcao.valMon });
     }
   }

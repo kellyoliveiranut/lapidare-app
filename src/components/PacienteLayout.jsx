@@ -10,6 +10,7 @@ import { ativarNotificacoes, desativarNotificacoes } from '../lib/push.js';
 import { bloqueadoNoPlano, ehAvulsa } from '../lib/planoPaciente.js';
 import { gravar } from '../lib/gravar.js';
 import { EVENTO_EBOOKS_VISTOS } from '../lib/avisosNutri.js';
+import { confirmar as confirmarJanela } from '../lib/dialogos.js';
 import '../styles/paciente.css';
 
 const TABS = [
@@ -594,7 +595,7 @@ export default function PacienteLayout() {
             <button
               className="sheet-item"
               onClick={async () => {
-                if (window.confirm('Tem certeza que deseja sair?')) {
+                if ((await confirmarJanela('Tem certeza que deseja sair?'))) {
                   setMoreOpen(false);
                   await handleSignOut();
                 }

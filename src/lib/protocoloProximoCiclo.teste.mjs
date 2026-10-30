@@ -158,11 +158,12 @@ t('nutri: continua um único update em tratamentos_oncologicos',
   nutri.split(/from\('tratamentos_oncologicos'\)\s*\.update\(/).length - 1, 1);
 
 // Por conteúdo, não por git diff (independe do working tree). A confirmação
-// não usa diálogo do navegador: na nutri só os dois window.confirm antigos.
+// não usa diálogo do navegador. Os dois window.confirm antigos da nutri foram trocados
+// pelas janelas do app em 30/10/2026: agora não resta nenhum.
 const dialogos = s => s.match(/window\.(confirm|alert|prompt)\([^)]*\)/g) ?? [];
-t('sem window.confirm/alert/prompt além dos dois antigos da nutri',
+t('sem window.confirm/alert/prompt (usa as janelas do app)',
   [dialogos(lerRaiz('src/lib/protocoloCiclo.js')), dialogos(lerRaiz('src/app/paciente/MonitoramentoOncologico.jsx')), dialogos(nutri)],
-  [[], [], ["window.confirm('Remover este ciclo?')", "window.confirm('Remover este exame?')"]]);
+  [[], [], []]);
 // O Início e as funções de push/lembrete nunca falam de próxima aplicação.
 const PROXIMA = /proximaAplicacao|pontaFinalProxima|agendamento_confirmado|Próxima aplicação|aguardando confirmação/;
 t('Inicio.jsx, lembretes-consulta, aniversarios e send-push sem próxima aplicação',

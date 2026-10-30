@@ -11,6 +11,7 @@ import { criarVendaComParcelas } from '../lib/vendas.js';
 import { gravar } from '../lib/gravar.js';
 import { useSession } from '../lib/session.jsx';
 
+import { confirmar as confirmarJanela } from '../lib/dialogos.js';
 /* ============================================================
    NOVA VENDA — modal
 
@@ -434,7 +435,7 @@ export function EditarParcelaModal({ parcela, venda, pacienteNome, onClose, onSa
   }
 
   async function excluirParcela() {
-    if (!window.confirm('Excluir esta parcela?')) return;
+    if (!(await confirmarJanela('Excluir esta parcela?'))) return;
     setBusy(true);
     const r = await gravar(supabase.from('parcelas').delete().eq('id', parcela.id),
       { rotulo: 'excluir a parcela' });

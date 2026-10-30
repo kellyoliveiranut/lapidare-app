@@ -41,7 +41,7 @@ export default function DialogoHost() {
       }}
     >
       <div
-        role="alertdialog"
+        role={atual.aviso ? 'dialog' : 'alertdialog'}
         aria-modal="true"
         onClick={e => e.stopPropagation()}
         style={{
@@ -55,13 +55,15 @@ export default function DialogoHost() {
           {atual.texto}
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button
-            type="button"
-            onClick={() => responder(false)}
-            style={{ ...BTN, background: '#ffffff', color: '#2a2218', border: '1px solid #d9d3c9' }}
-          >
-            {atual.cancelarRotulo}
-          </button>
+          {!atual.aviso && (
+            <button
+              type="button"
+              onClick={() => responder(false)}
+              style={{ ...BTN, background: '#ffffff', color: '#2a2218', border: '1px solid #d9d3c9' }}
+            >
+              {atual.cancelarRotulo}
+            </button>
+          )}
           <button
             type="button"
             autoFocus

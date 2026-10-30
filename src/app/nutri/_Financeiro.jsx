@@ -4,7 +4,7 @@ import { brl, statusParcela, liquidoParcela } from '../../lib/utils.js';
 import ListaVendas from '../../components/ListaVendas.jsx';
 import { NovaVendaModal, EditarParcelaModal, EditarVendaModal } from '../../components/VendaModais.jsx';
 import { gravar } from '../../lib/gravar.js';
-import { confirmar } from '../../lib/dialogos.js';
+import { confirmar, avisar as avisarJanela } from '../../lib/dialogos.js';
 import DadosNotaFiscal from './_DadosNotaFiscal.jsx';
 
 /**
@@ -103,7 +103,7 @@ export default function Financeiro({ pacienteId, nutriId, pacienteNome, paciente
     const r = await gravar(supabase.from('vendas').delete().eq('id', venda.id),
       { rotulo: 'excluir a venda' });
     if (!r.ok) {
-      alert(r.msg);
+      avisarJanela(r.msg);
       return;
     }
     await carregar();

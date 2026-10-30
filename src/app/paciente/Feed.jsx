@@ -7,6 +7,7 @@ import { comprimirImagem } from '../../lib/imagem.js';
 import { iniciarTokenPush, avisarNutri } from '../../lib/push.js';
 import { gravar } from '../../lib/gravar.js';
 
+import { confirmar as confirmarJanela, avisar as avisarJanela } from '../../lib/dialogos.js';
 const REFEICOES = ['Café da manhã', 'Lanche da manhã', 'Almoço', 'Lanche da tarde', 'Jantar', 'Ceia', 'Outro'];
 
 const PAGINA = 12;
@@ -195,7 +196,7 @@ export default function FeedPaciente() {
       nNutri === 0 ? 'Excluir esta foto?'
       : nNutri === 1 ? 'Excluir esta foto? O comentário da sua nutricionista nesta foto também será apagado.'
       : `Excluir esta foto? Os ${nNutri} comentários da sua nutricionista nesta foto também serão apagados.`;
-    if (!window.confirm(aviso)) return;
+    if (!(await confirmarJanela(aviso))) return;
 
     setExcluindo(post.id);
     const r = await gravar(supabase.from('feed_pratos').delete().eq('id', post.id),
@@ -205,7 +206,7 @@ export default function FeedPaciente() {
       // alert, e não setErro, mesmo com o bloco de erro agora fora do
       // formulário: ele fica no topo da tela, e o botão que falhou pode estar
       // no décimo card, longe da rolagem. Mesmo recurso do Chat.jsx:179.
-      alert(r.msg);
+      avisarJanela(r.msg);
       return;
     }
     // Sem await e sem checagem: a linha já foi (e os comentários com ela, por

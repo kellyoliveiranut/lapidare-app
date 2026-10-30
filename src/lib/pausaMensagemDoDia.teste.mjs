@@ -78,12 +78,12 @@ t('Início: mensagemCiclo só é desenhado dentro do bloco guardado',
 t('pausas.js: nenhuma string (nenhum texto para a paciente)', /['"`]/.test(pausas.split('\n').slice(1).join('\n')), false);
 
 // ── A origem da mensagem continua intacta ──
+// Fora da lista desde 30/10/2026: _MensagemEmagrecimento.jsx e _MensagemPorFase.jsx, que só trocaram
+// window.confirm pela janela do app (confirmar).
 const ORIGEM = [
   'src/lib/rotacaoMensagens.js',
   'src/app/nutri/MensagemMotivacional.jsx',
-  'src/app/nutri/_MensagemEmagrecimento.jsx',
   'src/app/nutri/_MensagemOncologia.jsx',
-  'src/app/nutri/_MensagemPorFase.jsx',
   'supabase/migrations/2026-07-02_mensagens_emagrecimento.sql',
   'supabase/migrations/2026-07-07_mensagens_emag_fixar.sql',
   'supabase/migrations/2026-07-31_mensagens_ciclo_baseline.sql',

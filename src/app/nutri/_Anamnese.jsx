@@ -6,6 +6,7 @@ import { ANAMNESE_LAPIDARE, QFA_LAPIDARE, RECORDATORIO_LAPIDARE, formatarRespost
 import DicaJSON from '../../components/DicaJSON.jsx';
 import DateInput from '../../components/DateInput.jsx';
 
+import { confirmar as confirmarJanela, avisar as avisarJanela } from '../../lib/dialogos.js';
 export default function Anamnese({ pacienteId, nutriId, pacienteNome }) {
   const [anamneses, setAnamneses] = useState(null);
   const [templates, setTemplates] = useState([]);
@@ -28,10 +29,10 @@ export default function Anamnese({ pacienteId, nutriId, pacienteNome }) {
   useEffect(() => { carregar(); }, [pacienteId, nutriId]);
 
   async function excluir(a) {
-    if (!window.confirm(`Excluir anamnese "${a.titulo}"?`)) return;
+    if (!(await confirmarJanela(`Excluir anamnese "${a.titulo}"?`))) return;
     const r = await gravar(supabase.from('anamneses').delete().eq('id', a.id),
       { rotulo: 'excluir a anamnese' });
-    if (!r.ok) { alert(r.msg); return; }
+    if (!r.ok) { avisarJanela(r.msg); return; }
     carregar();
   }
 
@@ -284,8 +285,8 @@ function ModalEditar({ a, pacienteId, nutriId, pacienteNome, onClose, onSaved })
       nome: nome.trim(),
       estrutura: a.estrutura,
     });
-    if (error) alert('Erro: ' + error.message);
-    else alert('Modelo salvo! Aparece na lista quando criar uma nova anamnese.');
+    if (error) avisarJanela('Erro: ' + error.message);
+    else avisarJanela('Modelo salvo! Aparece na lista quando criar uma nova anamnese.');
   }
 
   return (
@@ -467,7 +468,7 @@ function ModalVer({ a, pacienteNome, onClose }) {
 </html>`;
 
     const win = window.open('', '_blank');
-    if (!win) { alert('Permita pop-ups pra gerar o PDF.'); return; }
+    if (!win) { avisarJanela('Permita pop-ups pra gerar o PDF.'); return; }
     win.document.write(html);
     win.document.close();
   }
@@ -659,10 +660,10 @@ function ModalCriarModelo({ contexto, templates, nutriId, onClose, onSaved }) {
   }
 
   async function excluirTemplate(t) {
-    if (!window.confirm(`Excluir modelo "${t.nome}"?`)) return;
+    if (!(await confirmarJanela(`Excluir modelo "${t.nome}"?`))) return;
     const r = await gravar(supabase.from('anamnese_templates').delete().eq('id', t.id),
       { rotulo: 'excluir o modelo' });
-    if (!r.ok) { alert(r.msg); return; }
+    if (!r.ok) { avisarJanela(r.msg); return; }
     onSaved();
   }
 
@@ -798,8 +799,8 @@ function ModalCriarModelo({ contexto, templates, nutriId, onClose, onSaved }) {
                     [novo[sIdx], novo[i2]] = [novo[i2], novo[sIdx]];
                     return novo;
                   })}
-                  onExcluir={() => {
-                    if (!window.confirm(`Excluir seção "${s.titulo}" com ${s.perguntas?.length ?? 0} perguntas?`)) return;
+                  onExcluir={async () => {
+                    if (!(await confirmarJanela(`Excluir seção "${s.titulo}" com ${s.perguntas?.length ?? 0} perguntas?`))) return;
                     setSecoes(arr => arr.filter((_, i) => i !== sIdx));
                   }}
                 />

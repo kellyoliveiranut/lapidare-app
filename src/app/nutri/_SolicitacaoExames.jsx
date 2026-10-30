@@ -6,6 +6,7 @@ import { criarDocumento, cabecalho, cardPaciente, rodape,
   M, W, TOPO, BRONZE, SEPIA, LINHA, LINHA2 } from '../../lib/pdfBase.js';
 import { gravar } from '../../lib/gravar.js';
 
+import { confirmar as confirmarJanela } from '../../lib/dialogos.js';
 /* ============================================================
    SOLICITAÇÃO DE EXAMES — aba "Exames" do perfil da paciente
 
@@ -151,7 +152,7 @@ export default function SolicitacaoExames({ pacienteId, nutriId, pacienteNome, p
   }
 
   async function excluir(item) {
-    if (!window.confirm('Excluir esta solicitação? A paciente deixa de ver o documento.')) return;
+    if (!(await confirmarJanela('Excluir esta solicitação? A paciente deixa de ver o documento.'))) return;
     // Ordem inversa da criação, pelo mesmo raciocínio: some primeiro da tela da
     // paciente (a linha), e só depois o arquivo. Se o storage falhar, sobra um
     // órfão que ninguém enxerga — melhor que um card sem arquivo.

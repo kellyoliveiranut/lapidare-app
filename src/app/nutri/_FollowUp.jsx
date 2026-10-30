@@ -4,6 +4,7 @@ import { dataBR, dataLocalISO } from '../../lib/utils.js';
 import { gravar } from '../../lib/gravar.js';
 import DateInput from '../../components/DateInput.jsx';
 
+import { confirmar as confirmarJanela, avisar as avisarJanela } from '../../lib/dialogos.js';
 export default function FollowUp({ pacienteId, nutriId, pacienteNome }) {
   const [followups, setFollowups] = useState(null);
   const [templates, setTemplates] = useState([]);
@@ -26,10 +27,10 @@ export default function FollowUp({ pacienteId, nutriId, pacienteNome }) {
   useEffect(() => { carregar(); }, [pacienteId, nutriId]);
 
   async function excluir(fu) {
-    if (!window.confirm(`Excluir follow-up "${fu.titulo}"?`)) return;
+    if (!(await confirmarJanela(`Excluir follow-up "${fu.titulo}"?`))) return;
     const r = await gravar(supabase.from('followups').delete().eq('id', fu.id),
       { rotulo: 'excluir o follow-up' });
-    if (!r.ok) { window.alert(r.msg); return; }
+    if (!r.ok) { avisarJanela(r.msg); return; }
     carregar();
   }
 
@@ -305,10 +306,10 @@ function ModalModelos({ nutriId, templates, onClose, onChanged }) {
   const [edit, setEdit] = useState(null);   // null = nenhum / objeto = editando
 
   async function excluir(t) {
-    if (!window.confirm(`Excluir modelo "${t.nome}"?`)) return;
+    if (!(await confirmarJanela(`Excluir modelo "${t.nome}"?`))) return;
     const r = await gravar(supabase.from('followup_templates').delete().eq('id', t.id),
       { rotulo: 'excluir o modelo' });
-    if (!r.ok) { window.alert(r.msg); return; }
+    if (!r.ok) { avisarJanela(r.msg); return; }
     onChanged();
   }
 

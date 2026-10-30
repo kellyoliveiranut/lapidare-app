@@ -6,6 +6,7 @@ import { comprimirImagem, getAnexoUrl } from '../../lib/imagem.js';
 import { iniciarTokenPush, avisarPaciente } from '../../lib/push.js';
 import { gravar } from '../../lib/gravar.js';
 
+import { avisar as avisarJanela } from '../../lib/dialogos.js';
 // Uma conversa: histórico, envio, anexo e realtime de UMA paciente.
 //
 // Não sabe que existe lista, rota ou sessão — recebe `nutriId` pronto e do
@@ -138,8 +139,8 @@ export default function ConversaPanel({ paciente, nutriId, onAfterAction, onFech
   function selecionarAnexo(e) {
     const f = e.target.files?.[0];
     if (!f) return;
-    if (!f.type.startsWith('image/')) { alert('Selecione uma imagem.'); return; }
-    if (f.size > 20 * 1024 * 1024) { alert('Imagem muito grande (máximo 20MB).'); return; }
+    if (!f.type.startsWith('image/')) { avisarJanela('Selecione uma imagem.'); return; }
+    if (f.size > 20 * 1024 * 1024) { avisarJanela('Imagem muito grande (máximo 20MB).'); return; }
     setAnexo(f);
     setAnexoPreview(URL.createObjectURL(f));
   }
@@ -163,7 +164,7 @@ export default function ConversaPanel({ paciente, nutriId, onAfterAction, onFech
       const path = `${paciente.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
       const { error: upErr } = await supabase.storage
         .from('chat_anexos').upload(path, blob, { contentType: 'image/jpeg' });
-      if (upErr) { setBusy(false); alert('Erro ao enviar a foto: ' + upErr.message); return; }
+      if (upErr) { setBusy(false); avisarJanela('Erro ao enviar a foto: ' + upErr.message); return; }
       imagem_path = path;
     }
 
@@ -177,7 +178,7 @@ export default function ConversaPanel({ paciente, nutriId, onAfterAction, onFech
     setBusy(false);
     if (error) {
       if (imagem_path) await supabase.storage.from('chat_anexos').remove([imagem_path]);
-      alert('Erro: ' + error.message);
+      avisarJanela('Erro: ' + error.message);
       return;
     }
 

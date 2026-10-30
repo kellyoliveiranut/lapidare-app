@@ -5,6 +5,7 @@ import { gravar } from '../../lib/gravar.js';
 import { dataBR } from '../../lib/utils.js';
 import TreinoDias from './_TreinoDias.jsx';
 
+import { confirmar as confirmarJanela } from '../../lib/dialogos.js';
 const TIPOS = [
   'Aeróbico (caminhada, bicicleta ergométrica)',
   'Força/Resistência (musculação leve, faixas elásticas)',
@@ -331,7 +332,7 @@ export default function Treinos({ pacienteId, nutriId, pacienteNome }) {
   }
 
   async function desativar(id) {
-    if (!window.confirm('Desativar este treino?')) return;
+    if (!(await confirmarJanela('Desativar este treino?'))) return;
     setErroLista(null);
     const r = await gravar(supabase.from('treinos_prescritos').update({ ativo: false }).eq('id', id),
       { rotulo: 'desativar o treino' });
@@ -363,7 +364,7 @@ export default function Treinos({ pacienteId, nutriId, pacienteNome }) {
     const aviso = count > 0
       ? `Excluir o treino "${t.tipo}"?\n\nEste treino tem ${count} ${count === 1 ? 'sessão registrada' : 'sessões registradas'} por ${primeiro}. Excluir vai apagar esse histórico junto, e não pode ser desfeito.`
       : `Excluir o treino "${t.tipo}"?\n\nEsta ação não pode ser desfeita.`;
-    if (!window.confirm(aviso)) return;
+    if (!(await confirmarJanela(aviso))) return;
 
     // O .select() devolve as linhas efetivamente apagadas. Sem ele, um delete
     // barrado pela RLS volta como sucesso com zero linhas, e a tela recarregaria

@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase.js';
 import { dataLocalISO } from '../../lib/utils.js';
 import { gravar } from '../../lib/gravar.js';
 
+import { confirmar as confirmarJanela, avisar as avisarJanela } from '../../lib/dialogos.js';
 // Modelos prontos pra nutri adicionar rápido
 const MODELOS = [
   { nome: 'Beber água',          emoji: '💧', tipo: 'numero',  meta: 2,    unidade: 'L' },
@@ -42,7 +43,7 @@ export default function Habitos({ pacienteId, nutriId, pacienteNome }) {
   }, [pacienteId]);
 
   async function salvar(h) {
-    if (!h.nome?.trim()) { alert('Informe o nome do hábito.'); return; }
+    if (!h.nome?.trim()) { avisarJanela('Informe o nome do hábito.'); return; }
     setBusy(true);
     let r;
     if (h.novo) {
@@ -62,7 +63,7 @@ export default function Habitos({ pacienteId, nutriId, pacienteNome }) {
     }
     setBusy(false);
     // Falhou: o editor fica aberto com o que foi digitado.
-    if (!r.ok) { alert(r.msg); return; }
+    if (!r.ok) { avisarJanela(r.msg); return; }
     setEditar(null);
     carregar();
   }
@@ -76,14 +77,14 @@ export default function Habitos({ pacienteId, nutriId, pacienteNome }) {
       ordem: (habitos?.length ?? 0), ativo: true,
     }), { rotulo: 'adicionar o hábito' });
     setBusy(false);
-    if (!r.ok) { alert(r.msg); return; }
+    if (!r.ok) { avisarJanela(r.msg); return; }
     carregar();
   }
 
   async function excluir(h) {
-    if (!window.confirm(`Excluir "${h.nome}"? Os registros da paciente também serão removidos.`)) return;
+    if (!(await confirmarJanela(`Excluir "${h.nome}"? Os registros da paciente também serão removidos.`))) return;
     const r = await gravar(supabase.from('habitos').delete().eq('id', h.id), { rotulo: 'excluir o hábito' });
-    if (!r.ok) { alert(r.msg); return; }
+    if (!r.ok) { avisarJanela(r.msg); return; }
     carregar();
   }
 

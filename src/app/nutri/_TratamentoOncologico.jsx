@@ -302,7 +302,7 @@ export default function TratamentoOncologico({ pacienteId, nutriId, pacienteNome
   }
 
   async function removerCiclo(id) {
-    if (!window.confirm('Remover este ciclo?')) return;
+    if (!(await confirmarJanela('Remover este ciclo?'))) return;
     const r = await gravar(supabase.from('ciclos_quimio').delete().eq('id', id), { rotulo: 'remover o ciclo' });
     if (!r.ok) return setFeedback({ tipo: 'erro', msg: r.msg });
     carregar();
@@ -365,7 +365,7 @@ export default function TratamentoOncologico({ pacienteId, nutriId, pacienteNome
   }
 
   async function removerExame(id) {
-    if (!window.confirm('Remover este exame?')) return;
+    if (!(await confirmarJanela('Remover este exame?'))) return;
     const r = await gravar(supabase.from('exames_laboratoriais').delete().eq('id', id), { rotulo: 'remover o exame' });
     if (!r.ok) return setFeedback({ tipo: 'erro', msg: r.msg });
     carregar();
