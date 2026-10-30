@@ -1,4 +1,5 @@
 import { memo, useEffect, useMemo, useState } from 'react';
+import BaixarBackup from './_BaixarBackup.jsx';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
@@ -165,6 +166,7 @@ export default function Pacientes() {
           onChange={(e) => setBusca(e.target.value)}
         />
         <div style={{ display: 'flex', gap: 8 }}>
+          <BaixarBackup pacientes={pacientes} />
           <button className="btn-outline" onClick={() => setImporterOpen(true)}>
             <i className="ti ti-file-upload" aria-hidden="true"></i> Importar CSV
           </button>

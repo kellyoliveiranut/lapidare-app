@@ -16,6 +16,7 @@ import { MODALIDADES_CONSULTA } from '../../lib/consultaVisual.js';
 // Estatico de proposito: pdfPlano + pdfBase somam poucos kB. O peso real e o
 // jsPDF, que continua atras do import dinamico dentro do criarDocumento().
 import { gerarPDFPlano } from '../../lib/pdfPlano.js';
+import BaixarDadosPaciente from './_BaixarDadosPaciente.jsx';
 import { baixarBlob, nomeArquivoPdf } from '../../lib/pdfBase.js';
 import { gerarPdfContrato } from '../../lib/pdfContrato.js';
 import { perguntasParaPaciente } from '../../lib/checkinVariacao.js';
@@ -1430,6 +1431,7 @@ export default function PacientePerfil() {
             {desarquivando ? '…' : 'Desarquivar paciente'}
           </button>
         )}
+        <BaixarDadosPaciente pacienteId={paciente.id} pacienteNome={paciente.nome} />
         <button onClick={() => setExcluirOpen(true)} style={{
           background: 'none', border: 'none', cursor: 'pointer',
           fontSize: 12, color: 'var(--red)', fontFamily: 'var(--font-sans)',
