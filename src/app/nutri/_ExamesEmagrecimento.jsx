@@ -10,18 +10,12 @@ import GraficosExames from '../../components/GraficosExames.jsx';
 import DateInput from '../../components/DateInput.jsx';
 import { CAMPOS_EMAG, GRUPOS_EXAME_EMAG, PAINEIS_EMAG, CHAVES_PADRAO_EMAG, PEDIDO_EMAGRECIMENTO, AVISO_GERAL_EXAMES } from '../../data/exames_emagrecimento.js';
 import {
-  valorDoCampo, homaIr, achatarExame, chavesAtivas, normalizarRefs, aplicarReferencias, compararExames, rotuloCriterio,
+  valorDoCampo, homaIr, achatarExame, chavesAtivas, aplicarReferencias, compararExames, rotuloCriterio,
 } from '../../lib/examesEmagrecimento.js';
 
 const SolicitacaoExames = lazy(() => import('./_SolicitacaoExames.jsx'));
 
 const TABELA_AUSENTE = (err) => err && (err.code === '42P01' || err.code === 'PGRST205' || /does not exist|schema cache/i.test(err.message ?? ''));
-
-const LIMITES = [
-  ['min', 'Faixa: mínimo'], ['max', 'Faixa: máximo'],
-  ['baixo', 'Atenção se ≤'], ['critico', 'Crítico se ≤'],
-  ['alto', 'Atenção se ≥'], ['criticoAlto', 'Crítico se ≥'],
-];
 
 const vazio = () => ({ data_exame: dataLocalISO(), obs: '', ...Object.fromEntries(CAMPOS_EMAG.map(c => [c.key, ''])) });
 
@@ -32,7 +26,6 @@ export default function ExamesEmagrecimento({ pacienteId, nutriId, pacienteNome,
   const [semTabelas, setSemTabelas] = useState(false);
   const [carregando, setCarregando] = useState(true);
   const [novo, setNovo] = useState(vazio);
-  const [refsEdit, setRefsEdit] = useState({});
   const [busy, setBusy] = useState(false);
   const [lendo, setLendo] = useState(false);
   const [feedback, setFeedback] = useState(null);
@@ -51,7 +44,6 @@ export default function ExamesEmagrecimento({ pacienteId, nutriId, pacienteNome,
     }
     setExames((ex.data ?? []).map(achatarExame));
     setRefs(rf.data?.dados ?? {});
-    setRefsEdit(rf.data?.dados ?? {});
     setSalvasChaves(Array.isArray(mc.data?.chaves) ? mc.data.chaves : null);
     setCarregando(false);
   }
@@ -85,15 +77,6 @@ export default function ExamesEmagrecimento({ pacienteId, nutriId, pacienteNome,
   }
   function alternarGrupo(grupoId) {
     alternarPainel(CAMPOS_EMAG.filter(c => c.grupo === grupoId).map(c => c.key));
-  }
-
-  async function salvarReferencias() {
-    const limpas = normalizarRefs(refsEdit);
-    const { error } = await supabase.from('exames_emag_referencias')
-      .upsert({ nutri_id: nutriId, dados: limpas, updated_at: new Date().toISOString() });
-    if (error) return setFeedback({ tipo: 'erro', msg: `Não consegui salvar as referências: ${error.message}` });
-    setRefs(limpas); setRefsEdit(limpas);
-    setFeedback({ tipo: 'ok', msg: 'Referências salvas. Valem para todas as suas pacientes.' });
   }
 
   function setValor(chave, v) {
@@ -475,51 +458,6 @@ ${catalogo}`;
         ))}
       </details>
 
-      {/* Referências da nutri */}
-      <details className="card" style={{ padding: '12px 16px' }}>
-        <summary style={{ cursor: 'pointer', fontWeight: 600 }}>
-          Faixas de referência <span style={{ fontWeight: 400, opacity: 0.7, fontSize: 13 }}>— as da tabela e as suas</span>
-        </summary>
-        <div style={{ fontSize: 12, opacity: 0.75, margin: '10px 0' }}>
-          {AVISO_GERAL_EXAMES} Cada marcador começa com a referência orientativa da sua tabela. Se você preencher uma faixa abaixo,
-          ela substitui a orientativa daquele marcador (para todas as pacientes); informe a fonte ou a justificativa.
-          Os limites de atenção e crítico só existem se você os preencher.
-        </div>
-        {porGrupo(CAMPOS_EMAG).map(({ grupo, campos: cs }) => (
-          <details key={grupo.id} style={{ borderTop: '0.5px solid var(--border)', padding: '8px 0' }}>
-            <summary style={{ cursor: 'pointer', fontSize: 13, fontWeight: 500 }}>{grupo.label}</summary>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 8 }}>
-              {cs.map(c => {
-                const padrao = textoRef(aplicarReferencias([c], {})[0], pacienteSexo);
-                return (
-                  <div key={c.key}>
-                    <div style={{ fontSize: 13, fontWeight: 500 }}>
-                      {c.label} {c.unidade && <span style={{ opacity: 0.6, fontWeight: 400 }}>({c.unidade})</span>}
-                    </div>
-                    <div style={{ fontSize: 11, opacity: 0.65, marginBottom: 4 }}>
-                      Orientativa: {padrao ?? c.refTexto ?? 'sem faixa fixa'}{c.refNota ? ` · ${c.refNota}` : ''}
-                    </div>
-                    {c.tipo !== 'texto' && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 6 }}>
-                      {LIMITES.map(([k, rot]) => (
-                        <label key={k} style={{ fontSize: 11, opacity: 0.85 }}>
-                          {rot}
-                          <input style={inputNum} inputMode="decimal"
-                            value={refsEdit[c.key]?.[k] ?? ''}
-                            onChange={e => setRefsEdit(p => ({ ...p, [c.key]: { ...(p[c.key] ?? {}), [k]: e.target.value } }))} />
-                        </label>
-                      ))}
-                    </div>}
-                    {c.tipo !== 'texto' && <input style={{ ...inputNum, marginTop: 6, fontSize: 12 }} placeholder="Fonte ou justificativa da sua faixa (opcional)"
-                      value={refsEdit[c.key]?.fonte ?? ''}
-                      onChange={e => setRefsEdit(p => ({ ...p, [c.key]: { ...(p[c.key] ?? {}), fonte: e.target.value } }))} />}
-                  </div>
-                );
-              })}
-            </div>
-          </details>
-        ))}
-        <button className="btn" style={{ marginTop: 12 }} onClick={salvarReferencias}>Salvar minhas faixas</button>
-      </details>
     </div>
   );
 }
