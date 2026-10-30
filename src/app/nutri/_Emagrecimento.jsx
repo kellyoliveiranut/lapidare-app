@@ -1,5 +1,6 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 const ExamesEmagrecimento = lazy(() => import('./_ExamesEmagrecimento.jsx'));
+const PesoMedidasEmag = lazy(() => import('./_PesoMedidasEmag.jsx'));
 import { supabase } from '../../lib/supabase.js';
 import { dataLocalISO } from '../../lib/utils.js';
 
@@ -443,6 +444,7 @@ function Campo({ campo, value, onChange }) {
 // desenho da aba Oncologia (sub-abas no topo).
 const VISOES = [
   { id: 'sintomas', label: 'Sintomas',             icon: 'activity' },
+  { id: 'peso',     label: 'Peso e medidas',       icon: 'chart-line' },
   { id: 'exames',   label: 'Exames Laboratoriais', icon: 'microscope' },
 ];
 
@@ -464,6 +466,11 @@ export default function Emagrecimento({ pacienteId, nutriId, pacienteNome, pacie
         ))}
       </div>
       {visao === 'sintomas' && <SintomasEmagrecimento pacienteId={pacienteId} nutriId={nutriId} />}
+      {visao === 'peso' && (
+        <Suspense fallback={<div style={{ padding: 16, opacity: 0.7 }}>Carregando…</div>}>
+          <PesoMedidasEmag pacienteId={pacienteId} />
+        </Suspense>
+      )}
       {visao === 'exames' && (
         <Suspense fallback={<div style={{ padding: 16, opacity: 0.7 }}>Carregando…</div>}>
           <ExamesEmagrecimento pacienteId={pacienteId} nutriId={nutriId} pacienteNome={pacienteNome} pacienteSexo={pacienteSexo} />
