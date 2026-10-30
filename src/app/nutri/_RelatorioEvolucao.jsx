@@ -10,6 +10,7 @@ export default function RelatorioEvolucao({ pacienteId, paciente, nutriId }) {
   const [gerando, setGerando] = useState(false);
   const [copiado, setCopiado] = useState(false);
   const [erro, setErro] = useState(null);
+  const [baixando, setBaixando] = useState(false);
 
   useEffect(() => { buscarDados(); }, [pacienteId]);
 
@@ -245,6 +246,36 @@ ${checkinsStr}`;
     await navigator.clipboard.writeText(gerarTextoPlano());
     setCopiado(true);
     setTimeout(() => setCopiado(false), 2500);
+  }
+
+  async function baixarPDF() {
+    if (!dados || baixando) return;
+    setBaixando(true);
+    setErro(null);
+    try {
+      const [{ gerarPDFRelatorio }, { baixarBlob, nomeArquivoPdf }] = await Promise.all([
+        import('../../lib/pdfRelatorio.js'),
+        import('../../lib/pdfBase.js'),
+      ]);
+      const blob = await gerarPDFRelatorio({
+        pacienteNome: paciente.nome,
+        contato: paciente.telefone || paciente.email || '',
+        idade: calcIdade(),
+        consultas: dados.consultas.length,
+        macros: dados.plano?.dados?.macros,
+        pesos: dados.pesos,
+        suplementos: dados.suplementos.map(s => ({ ...s, adesao: aderenciaSup(s.id) })),
+        habitos: dados.habitos.map(h => ({ ...h, adesao: aderenciaHabito(h.id) })),
+        followups: dados.followups,
+        analise,
+      });
+      baixarBlob(blob, nomeArquivoPdf('relatorio-evolucao', paciente.nome));
+    } catch (e) {
+      console.error(e);
+      setErro('Não foi possível gerar o PDF. Tente novamente.');
+    } finally {
+      setBaixando(false);
+    }
   }
 
   function exportarPDF() {
@@ -559,9 +590,15 @@ ${checkinsStr}`;
              aria-hidden="true" />
           {gerando ? 'Gerando análise...' : 'Gerar análise IA'}
         </button>
+        <button className="btn" onClick={baixarPDF} disabled={baixando} style={{ gap: 6 }}>
+          <i className={`ti ti-${baixando ? 'loader-2' : 'download'}`}
+             style={baixando ? { animation: 'lapidare-spin .75s linear infinite' } : {}}
+             aria-hidden="true" />
+          {baixando ? 'Gerando PDF...' : 'Gerar relatório em PDF'}
+        </button>
         <button className="btn-outline" onClick={exportarPDF} style={{ gap: 6 }}>
-          <i className="ti ti-file-type-pdf" aria-hidden="true" />
-          Exportar PDF
+          <i className="ti ti-printer" aria-hidden="true" />
+          Imprimir
         </button>
         <button className="btn-outline" onClick={copiarTexto} style={{ gap: 6 }}>
           <i className={`ti ti-${copiado ? 'check' : 'clipboard'}`} aria-hidden="true" />
