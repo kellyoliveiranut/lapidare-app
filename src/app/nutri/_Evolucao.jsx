@@ -10,6 +10,8 @@ import {
 } from '../../lib/evolucaoAvaliacoes.js';
 const RelatorioEvolucao = lazy(() => import('./_RelatorioEvolucao.jsx'));
 import { tempoDe } from '../../lib/sinaleira.js';
+import { andamentoDaMeta, textoAndamento, ultimasSemanas } from '../../lib/metasAndamento.js';
+import { dataLocalISO } from '../../lib/utils.js';
 import { METAS, TEMAS, MAX_METAS, MAX_TEXTO_AJUSTE, temaDoObjetivo, lerEntrada, gravarEntrada } from '../../lib/metasEvolucao.js';
 import {
   Jornada, CartoesMetricas, TabelaCalculos, Grafico, Bonequinho, BarrasComposicao,
@@ -44,6 +46,7 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
   const [metas, setMetas] = useState(() => (paciente?.metas_evolucao ?? []).map(lerEntrada));
   const [metasSalvas, setMetasSalvas] = useState(() => (paciente?.metas_evolucao ?? []).map(lerEntrada).map(gravarEntrada));
   const [metasMsg, setMetasMsg] = useState('');
+  const [cumprimento, setCumprimento] = useState([]);   // [] também quando a tabela ainda não existe
 
   // Deriva do que veio do banco: não há estado paralelo para ficar fora de sincronia.
   const ignoradas = useMemo(
@@ -93,6 +96,14 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
     setMetasSalvas(entradas);
     setMetasMsg(metas.length ? 'Metas salvas. A paciente vê na tela de evolução dela.' : 'Metas removidas.');
   }
+
+  useEffect(() => {
+    let vivo = true;
+    supabase.from('metas_cumprimento').select('meta_id, semana')
+      .eq('paciente_id', pacienteId).gte('semana', ultimasSemanas(dataLocalISO(), 4)[0])
+      .then(({ data, error }) => { if (vivo && !error) setCumprimento(data ?? []); });
+    return () => { vivo = false; };
+  }, [pacienteId]);
 
   async function carregar(signal = { cancelled: false }) {
     const avRes = await supabase.from('peso_registros').select('id,data,kg,altura_cm,pgc,mm_kg,mm_pct,gordura_kg,cintura_cm,quadril_cm,abdome_cm,braco_cm,braco_dir_cm,braco_esq_cm,coxa_cm,coxa_dir_cm,coxa_esq_cm,panturrilha_cm,hidratacao_pct,geb_kcal,get_kcal,obs,ignorar_calculo').eq('paciente_id', pacienteId).order('data');
@@ -244,7 +255,7 @@ export default function Evolucao({ pacienteId, paciente, nutriId }) {
       <Jornada titulo="Evolução da paciente" frase={frase} registros={validas.length}
         pesoComp={comparacoes.kg} composicao={composicao} />
 
-      <CampoMetas objetivo={paciente?.objetivo} escolhidas={metas} salvas={metasSalvas} msg={metasMsg}
+      <CampoMetas objetivo={paciente?.objetivo} escolhidas={metas} salvas={metasSalvas} msg={metasMsg} cumprimento={cumprimento}
         onAlternar={alternarMeta} onAjustar={ajustarMeta} onSalvar={salvarMetas} />
 
       <CartoesMetricas campos={CARTOES} series={series} comps={comparacoes} pesoNeutro={pesoNeutro}
@@ -298,7 +309,7 @@ function ListaAvaliacoes({ avaliacoes, ignoradas, suspeitas, onAlternar }) {
 
 // Metas da paciente: a nutri marca no catálogo (lib/metasEvolucao.js), até MAX_METAS.
 // Começa pelo tema do objetivo da paciente; os outros temas ficam um clique abaixo.
-function CampoMetas({ objetivo, escolhidas, salvas, msg, onAlternar, onAjustar, onSalvar }) {
+function CampoMetas({ objetivo, escolhidas, salvas, msg, cumprimento = [], onAlternar, onAjustar, onSalvar }) {
   const sugerido = temaDoObjetivo(objetivo);
   const [verTodos, setVerTodos] = useState(false);
   const entradas = escolhidas.map(gravarEntrada);
@@ -325,6 +336,11 @@ function CampoMetas({ objetivo, escolhidas, salvas, msg, onAlternar, onAjustar, 
                     onChange={() => onAlternar(m.id)} style={{ marginTop: 3, width: 'auto' }} />
                   <span>{m.texto}</span>
                 </label>
+                {marcada && salvas.some((c) => c.split('::')[0] === m.id) && textoAndamento(andamentoDaMeta(cumprimento, m.id, dataLocalISO(), 4)) && (
+                  <div style={{ margin: '0 0 4px 26px', fontSize: 11, color: 'var(--text3)' }}>
+                    {textoAndamento(andamentoDaMeta(cumprimento, m.id, dataLocalISO(), 4))}
+                  </div>
+                )}
                 {marcada && m.ajustavel && (
                   <div style={{ margin: '2px 0 6px 26px' }}>
                     <label htmlFor={`ajuste-${m.id}`} style={{ fontSize: 11, color: 'var(--text3)' }}>

@@ -4,6 +4,7 @@
    .nutri-panel). Dados esperados: séries de serieDaMetrica e comparações de
    comparar() (lib/evolucaoAvaliacoes.js).
    ============================================================ */
+import { andamentoDaMeta, textoAndamento } from '../lib/metasAndamento.js';
 import { dataBR } from '../lib/utils.js';
 import corpoFeminino from '../assets/corpo-feminino.webp';
 import corpoMasculino from '../assets/corpo-masculino.webp';
@@ -345,7 +346,7 @@ export function Bonequinho({ series, comps, pesoNeutro, sexo, campoAtivo, onEsco
 
 /* Metas escolhidas pela nutri para a paciente (pacientes.metas_evolucao → catálogo
    de lib/metasEvolucao.js). Sem metas, nada aparece. */
-export function MetasCard({ metas, progresso = {} }) {
+export function MetasCard({ metas, progresso = {}, andamento = null }) {
   if (!metas || metas.length === 0) return null;
   return (
     <div style={{ ...CARD, padding: '14px 16px', marginBottom: 12 }}>
@@ -361,6 +362,25 @@ export function MetasCard({ metas, progresso = {} }) {
               {progresso[m.id] && (
                 <span style={{ display: 'block', fontSize: 12, color: 'var(--muted, #8c7b6b)', marginTop: 2 }}>{progresso[m.id]}</span>
               )}
+              {/* "Cumpri esta semana": a própria paciente marca; sem prazo nem número-alvo. */}
+              {andamento && (() => {
+                const a = andamentoDaMeta(andamento.registros, m.id, andamento.hoje, 4);
+                const t = textoAndamento(a);
+                return (
+                  <span style={{ display: 'block', marginTop: 4 }}>
+                    <button type="button" onClick={() => andamento.onAlternar(m.id, a.estaSemana)}
+                      aria-pressed={a.estaSemana}
+                      style={{
+                        fontSize: 12, padding: '4px 10px', borderRadius: 999, cursor: 'pointer', fontFamily: 'inherit',
+                        border: '1px solid #a08456', background: a.estaSemana ? '#a08456' : 'transparent',
+                        color: a.estaSemana ? '#fff' : '#6b5c3e',
+                      }}>
+                      {a.estaSemana ? '✓ Cumpri esta semana' : 'Cumpri esta semana'}
+                    </button>
+                    {t && <span style={{ display: 'block', fontSize: 11, color: 'var(--muted, #8c7b6b)', marginTop: 3 }}>{t}</span>}
+                  </span>
+                );
+              })()}
             </span>
           </li>
         ))}

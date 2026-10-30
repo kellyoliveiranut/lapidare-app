@@ -6,6 +6,7 @@ import { Jornada, CartoesMetricas, Grafico, Bonequinho, BarrasComposicao, MetasC
 import { sinalDe, tempoDe } from '../../lib/sinaleira.js';
 import { diasEntre, ehEmagrecimento } from '../../lib/resultadosClinicos.js';
 import { metasPorCodigos } from '../../lib/metasEvolucao.js';
+import { segundaDaSemana, ultimasSemanas } from '../../lib/metasAndamento.js';
 import { constancia, disposicao, movimento, progressoDaMeta, fmt1 } from '../../lib/acompanhamentoOnco.js';
 import {
   METRICAS, serieDaMetrica, comparar, composicaoCorporal,
@@ -29,6 +30,8 @@ export default function Progresso() {
   const [registros, setRegistros] = useState(undefined);
   const [metrica, setMetrica] = useState('kg');
   const [diario, setDiario] = useState({ monit: [], checkins: [] });
+  // null = tabela ainda não existe no banco (migration não rodada): a marcação some, o resto segue.
+  const [cumprimento, setCumprimento] = useState(null);
   const [obsExpandido, setObsExpandido] = useState(new Set());
   const [verTodas, setVerTodas] = useState(false);
   const toggleObs = useCallback(id => setObsExpandido(s => {
@@ -67,8 +70,31 @@ export default function Progresso() {
       setDiario({ monit: m.data ?? [], checkins: c.data ?? [] });
     }
     loadDiario();
+    async function loadCumprimento() {
+      if (!pacienteId) return;
+      const desde = ultimasSemanas(dataLocalISO(), 5)[0];
+      const { data, error } = await supabase.from('metas_cumprimento')
+        .select('meta_id, semana').eq('paciente_id', pacienteId).gte('semana', desde);
+      if (!active) return;
+      setCumprimento(error ? null : (data ?? []));
+    }
+    loadCumprimento();
     return () => { active = false; };
   }, [pacienteId]);
+
+  async function alternarCumprimento(metaId, jaMarcada) {
+    const semana = segundaDaSemana(dataLocalISO());
+    const anterior = cumprimento;
+    // Atualiza na hora; se o banco recusar, volta ao que estava.
+    setCumprimento(lst => jaMarcada
+      ? lst.filter(r => !(r.meta_id === metaId && String(r.semana).slice(0, 10) === semana))
+      : [...lst, { meta_id: metaId, semana }]);
+    const q = jaMarcada
+      ? supabase.from('metas_cumprimento').delete().eq('paciente_id', pacienteId).eq('meta_id', metaId).eq('semana', semana)
+      : supabase.from('metas_cumprimento').upsert({ paciente_id: pacienteId, meta_id: metaId, semana }, { onConflict: 'paciente_id,meta_id,semana' });
+    const { error } = await q;
+    if (error) setCumprimento(anterior);
+  }
 
   // Em oncologia o foco é função e força: peso nunca é "bom" nem "ruim".
   const pesoNeutro = !ehEmagrecimento(profile);
@@ -145,7 +171,8 @@ export default function Progresso() {
           : `Você está há ${tempoDe(diasTotal)} em acompanhamento.`}
         registros={registros.length} pesoComp={pesoComp} composicao={composicao} />
 
-      <MetasCard metas={metasDaPaciente} progresso={progressoMetas} />
+      <MetasCard metas={metasDaPaciente} progresso={progressoMetas}
+        andamento={cumprimento ? { registros: cumprimento, hoje, onAlternar: alternarCumprimento } : null} />
 
       <CartoesAcompanhamento itens={itensAcomp} />
 
