@@ -13,6 +13,7 @@ const dataBR = (iso) => {
   return m ? `${m[3]}/${m[2]}/${m[1]}` : '—';
 };
 const num = (v, un = '') => (v == null || v === '' ? '—' : `${String(v).replace('.', ',')}${un}`);
+const un3 = (t) => String(t ?? '').replace(/³/g, '3');
 const semMarkdown = (t) => String(t ?? '').replace(/\*\*(.+?)\*\*/g, '$1').replace(/^#+\s*/gm, '');
 
 /** Série de peso como linha simples (sem biblioteca de gráfico). Devolve a altura usada. */
@@ -45,7 +46,7 @@ function desenharGraficoPeso(p, y, pesos) {
   return H + 20;
 }
 
-export async function gerarPDFRelatorio({ pacienteNome, contato, idade, consultas, macros, pesos, suplementos, habitos, followups, analise }) {
+export async function gerarPDFRelatorio({ pacienteNome, contato, idade, consultas, macros, pesos, suplementos, habitos, followups, exames, analise }) {
   const p = await criarDocumento();
   const { doc, escrever, regua, caberOuQuebrar } = p;
   let y = TOPO;
@@ -143,9 +144,28 @@ export async function gerarPDFRelatorio({ pacienteNome, contato, idade, consulta
   );
   y += PAD_SEC / 2;
 
-  // 5. Anotações clínicas
+  // 5. Exames laboratoriais
+  if (exames) {
+    secao('5. Exames laboratoriais');
+    paragrafo(`Exame de ${dataBR(exames.dataUltimo)}${exames.resumo.avaliados ? ` · ${exames.resumo.fora.length} de ${exames.resumo.avaliados} marcadores fora da referência` : ''}`, { cor: SEPIA, tamanho: 9 });
+    tabela(
+      [{ rot: 'Marcador', x: 0, larg: 0.34 }, { rot: 'Valor', x: 0.38, larg: 0.2 }, { rot: 'Referência', x: 0.6, larg: 0.16 }, { rot: 'Situação', x: 0.78, larg: 0.22 }],
+      exames.linhas.map(l => [l.rotulo, `${l.valor}${l.unidade ? ' ' + un3(l.unidade) : ''}`, l.faixa, l.situacao]),
+    );
+    if (exames.comparacao.length) {
+      paragrafo(`Comparação: ${dataBR(exames.dataAnterior)} para ${dataBR(exames.dataUltimo)}`, { cor: SEPIA, tamanho: 9 });
+      tabela(
+        [{ rot: 'Marcador', x: 0, larg: 0.34 }, { rot: 'Anterior', x: 0.38 }, { rot: 'Atual', x: 0.58 }, { rot: 'Variação', x: 0.78 }],
+        exames.comparacao.map(l => [l.rotulo, l.a, l.b, `${l.dif}${l.unidade ? ' ' + un3(l.unidade) : ''}`]),
+      );
+    }
+    paragrafo('"Fora da referência" compara o valor com a faixa de referência; a interpretação depende do contexto clínico.', { cor: OURO, tamanho: 8 });
+    y += PAD_SEC / 2;
+  }
+
+  // 6. Anotações clínicas
   if (followups?.length) {
-    secao('5. Anotações clínicas');
+    secao('6. Anotações clínicas');
     for (const f of followups.slice(0, 6)) {
       y = caberOuQuebrar(y, 3 * LH);
       escrever(`${dataBR(f.data)}${f.titulo ? ` · ${f.titulo}` : ''}`, M, y + 9, { estilo: 'bold', tamanho: 9, cor: BRONZE });
@@ -158,7 +178,7 @@ export async function gerarPDFRelatorio({ pacienteNome, contato, idade, consulta
 
   // 6. Análise
   if (analise) {
-    secao('6. Análise e conclusão');
+    secao('7. Análise e conclusão');
     paragrafo(semMarkdown(analise));
     y += 2;
     paragrafo('Análise gerada por IA com base nos dados clínicos registrados; revisada pela nutricionista.', { cor: OURO, tamanho: 8 });

@@ -8,6 +8,7 @@ import { textoRef, fmtNumExame } from '../../data/exames_referencia.js';
 import ValorExame from '../../components/ValorExame.jsx';
 import GraficosExames from '../../components/GraficosExames.jsx';
 import DateInput from '../../components/DateInput.jsx';
+import ResumoExames from '../../components/ResumoExames.jsx';
 import { CAMPOS_EMAG, GRUPOS_EXAME_EMAG, PAINEIS_EMAG, CHAVES_PADRAO_EMAG, PEDIDO_EMAGRECIMENTO, AVISO_GERAL_EXAMES } from '../../data/exames_emagrecimento.js';
 import {
   valorDoCampo, homaIr, achatarExame, chavesAtivas, aplicarReferencias, compararExames, rotuloCriterio,
@@ -31,6 +32,8 @@ export default function ExamesEmagrecimento({ pacienteId, nutriId, pacienteNome,
   const [feedback, setFeedback] = useState(null);
   const [cmpA, setCmpA] = useState('');
   const [cmpB, setCmpB] = useState('');
+  // Chaves preenchidas pela leitura do laudo e ainda não conferidas pela nutri (mexer no campo = conferido).
+  const [aConferir, setAConferir] = useState(() => new Set());
   const fileRef = useRef(null);
 
   async function carregar() {
@@ -80,6 +83,7 @@ export default function ExamesEmagrecimento({ pacienteId, nutriId, pacienteNome,
   }
 
   function setValor(chave, v) {
+    setAConferir(prev => { if (!prev.has(chave)) return prev; const n = new Set(prev); n.delete(chave); return n; });
     setNovo(prev => {
       const prox = { ...prev, [chave]: v };
       // HOMA-IR é calculado a partir de glicemia e insulina — só enquanto o campo não foi digitado à mão.
@@ -100,6 +104,7 @@ export default function ExamesEmagrecimento({ pacienteId, nutriId, pacienteNome,
       if (n != null) valores[c.key] = n;
     }
     if (Object.keys(valores).length === 0) return setFeedback({ tipo: 'erro', msg: 'Preencha ao menos um valor.' });
+    if (aConferir.size > 0 && !(await confirmar(`${aConferir.size} valor(es) lido(s) do laudo ainda não foram conferidos. Registrar mesmo assim?`, { confirmarRotulo: 'Registrar', cancelarRotulo: 'Voltar e conferir' }))) return;
     setBusy(true);
     const { error } = await supabase.from('exames_emagrecimento').insert({
       paciente_id: pacienteId, nutri_id: nutriId, data_exame: novo.data_exame,
@@ -108,6 +113,7 @@ export default function ExamesEmagrecimento({ pacienteId, nutriId, pacienteNome,
     setBusy(false);
     if (error) return setFeedback({ tipo: 'erro', msg: error.message });
     setNovo(vazio());
+    setAConferir(new Set());
     setFeedback({ tipo: 'ok', msg: 'Exame registrado.' });
     carregar();
   }
@@ -189,6 +195,7 @@ ${catalogo}`;
         .map(x => `${x?.exame ?? '?'}: ${x?.valor ?? '?'} ${x?.unidade ?? ''} (${x?.motivo ?? ''})`.trim())
         .join('; ');
 
+      setAConferir(new Set(chavesLidas));
       setNovo(prev => {
         const prox = { ...prev, data_exame: parsed?.data_exame || prev.data_exame };
         for (const [k, v] of Object.entries(lidos)) prox[k] = typeof v === 'string' ? v : String(v).replace('.', ',');
@@ -231,6 +238,7 @@ ${catalogo}`;
   }
 
   const inputNum = { width: '100%', boxSizing: 'border-box' };
+  const estiloCampo = (chave) => (aConferir.has(chave) ? { ...inputNum, borderColor: '#d97706', background: '#fffaf0' } : inputNum);
   const porGrupo = (lista) => GRUPOS_EXAME_EMAG
     .map(g => ({ grupo: g, campos: lista.filter(c => c.grupo === g.id) }))
     .filter(x => x.campos.length > 0);
@@ -245,6 +253,8 @@ ${catalogo}`;
           color: feedback.tipo === 'ok' ? '#3f6b46' : '#b45309',
         }}>{feedback.msg}</div>
       )}
+
+      <ResumoExames exames={exames} campos={camposAtivos} sexo={pacienteSexo} />
 
       {/* Solicitar exames */}
       <details className="card" style={{ padding: '12px 16px' }}>
@@ -271,6 +281,15 @@ ${catalogo}`;
             <label className="field-label">Data do exame</label>
             <DateInput value={novo.data_exame} onChange={e => setNovo(p => ({ ...p, data_exame: e.target.value }))} />
           </div>
+          {aConferir.size > 0 && (
+            <div style={{ background: '#fdf1e7', color: '#b45309', borderRadius: 8, padding: '8px 12px', fontSize: 13, marginBottom: 12, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              <span>
+                <strong>{aConferir.size} valor(es) lido(s) do laudo</strong> (campos destacados). Compare com o documento — número e unidade —
+                antes de registrar. Ao editar um campo, ele sai do destaque.
+              </span>
+              <button type="button" className="btn-outline" onClick={() => setAConferir(new Set())}>Conferi tudo</button>
+            </div>
+          )}
           {camposAtivos.length === 0 && <div style={{ fontSize: 13, opacity: 0.7, marginBottom: 12 }}>Escolha abaixo os marcadores que você acompanha nesta paciente.</div>}
           {porGrupo(camposAtivos).map(({ grupo, campos: cs }) => (
             <div key={grupo.id} style={{ marginBottom: 12 }}>
@@ -282,12 +301,12 @@ ${catalogo}`;
                     {c.tipo === 'texto'
                       ? (
                         <>
-                          <input style={inputNum} list={c.opcoes ? `op-${c.key}` : undefined} placeholder={c.refTexto}
+                          <input style={estiloCampo(c.key)} list={c.opcoes ? `op-${c.key}` : undefined} placeholder={c.refTexto}
                             value={novo[c.key] ?? ''} onChange={e => setValor(c.key, e.target.value)} />
                           {c.opcoes && <datalist id={`op-${c.key}`}>{c.opcoes.map(o => <option key={o} value={o} />)}</datalist>}
                         </>
                       )
-                      : <input style={inputNum} inputMode="decimal" value={novo[c.key] ?? ''} onChange={e => setValor(c.key, e.target.value)} />}
+                      : <input style={estiloCampo(c.key)} inputMode="decimal" value={novo[c.key] ?? ''} onChange={e => setValor(c.key, e.target.value)} />}
                     {/* A faixa fica à vista já na digitação, como na Oncologia:
                         é onde se percebe o valor estranho antes de gravar. */}
                     {(() => {

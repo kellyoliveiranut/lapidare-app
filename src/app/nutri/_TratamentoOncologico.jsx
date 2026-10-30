@@ -10,6 +10,8 @@ import protocolosEfeitosData from '../../data/protocolos_efeitos.json';
 import { CAMPOS_EXAME, CHAVES_EXAME, textoRef } from '../../data/exames_referencia.js';
 import ValorExame, { LegendaExames } from '../../components/ValorExame.jsx';
 import GraficosExames from '../../components/GraficosExames.jsx';
+import ResumoExames from '../../components/ResumoExames.jsx';
+import { confirmar as confirmarJanela } from '../../lib/dialogos.js';
 const SolicitacaoExames = lazy(() => import('./_SolicitacaoExames.jsx'));
 import { getProtocolo, chaveProtocolo, temEstruturaCiclo, janelaRisco, rotuloJanelaRisco, marcosDoProtocolo, marcosEfeitoAplicacao, datasAplicacoesCiclo, datasSerieCiclos, intervaloMinimoSerie, linhasDoCiclo, protocoloPendentePrescricao, protocoloAguardandoConferencia, registroPendente, marcosProvisorios, proximaAplicacao, pontaFinalProxima } from '../../lib/protocoloCiclo.js';
 import { validarConferencia, gravacaoConfirmar, gravacaoPendente, textoConfirmacao } from '../../lib/registroConferencia.js';
@@ -106,6 +108,8 @@ export default function TratamentoOncologico({ pacienteId, nutriId, pacienteNome
   const [comparar, setComparar] = useState(false);
   const [gerarSerie, setGerarSerie] = useState(false);
   const [lendoPdf, setLendoPdf] = useState(false);
+  // Campos preenchidos pela leitura do laudo e ainda não conferidos (editar o campo = conferido).
+  const [aConferir, setAConferir] = useState(() => new Set());
   const [efeitoEscolhido, setEfeitoEscolhido] = useState(null);
   // registro_pendente fica FORA de `dados`: o formulário nunca o envia, e só o
   // botão de confirmar muda o status. null = sem tratamento salvo.
@@ -343,6 +347,7 @@ export default function TratamentoOncologico({ pacienteId, nutriId, pacienteNome
 
   async function adicionarExame() {
     if (!novoExame.data_exame) return setFeedback({ tipo: 'erro', msg: 'Informe a data do exame.' });
+    if (aConferir.size > 0 && !(await confirmarJanela(`${aConferir.size} valor(es) lido(s) do laudo ainda não foram conferidos. Registrar mesmo assim?`, { confirmarRotulo: 'Registrar', cancelarRotulo: 'Voltar e conferir' }))) return;
     setBusy(true);
     const { error } = await supabase.from('exames_laboratoriais').insert({
       paciente_id: pacienteId, nutri_id: nutriId,
@@ -355,6 +360,7 @@ export default function TratamentoOncologico({ pacienteId, nutriId, pacienteNome
     setBusy(false);
     if (error) return setFeedback({ tipo: 'erro', msg: error.message });
     setNovoExame(exameDefault());
+    setAConferir(new Set());
     carregar();
   }
 
@@ -407,6 +413,7 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
       } catch {
         throw new Error('Não foi possível interpretar a resposta. Tente novamente.');
       }
+      setAConferir(new Set(CHAVES_EXAME.filter(k => parsed[k] != null)));
       setNovoExame(prev => ({
         ...prev,
         data_exame:  parsed.data_exame  || prev.data_exame,
@@ -1209,6 +1216,7 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
       {/* ── Exames Laboratoriais ── */}
       {secao === 'exames' && (
         <>
+          <div style={{ marginBottom: 12 }}><ResumoExames exames={exames} campos={CAMPOS_EXAME} sexo={pacienteSexo} /></div>
           <details className="card" style={{ marginBottom: 12, padding: '12px 16px' }}>
             <summary style={{ cursor: 'pointer', fontWeight: 600 }}>
               📋 Solicitar exames <span style={{ fontWeight: 400, opacity: 0.7, fontSize: 13 }}>— gerar o pedido para a paciente</span>
@@ -1259,6 +1267,15 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
                 <label className="field-label">Data do exame *</label>
                 <DateInput value={novoExame.data_exame} onChange={e => setNovoExame(p => ({ ...p, data_exame: e.target.value }))} style={{ maxWidth: 200 }} />
               </div>
+              {aConferir.size > 0 && (
+                <div style={{ background: '#fdf1e7', color: '#b45309', borderRadius: 8, padding: '8px 12px', fontSize: 13, marginBottom: 10, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <span>
+                    <strong>{aConferir.size} valor(es) lido(s) do laudo</strong> (campos destacados). Compare com o documento — número e unidade —
+                    antes de registrar. Ao editar um campo, ele sai do destaque.
+                  </span>
+                  <button type="button" className="btn-outline" onClick={() => setAConferir(new Set())}>Conferi tudo</button>
+                </div>
+              )}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 10 }}>
                 {CAMPOS_EXAME.map(campo => {
                   const { key: k, label, unidade, ph } = campo;
@@ -1268,7 +1285,9 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
                       <label className="field-label">
                         {label}{unidade ? ` (${unidade})` : ''}
                       </label>
-                      <input inputMode="decimal" placeholder={ph} value={novoExame[k]} onChange={e => setNovoExame(p => ({ ...p, [k]: e.target.value }))} />
+                      <input inputMode="decimal" placeholder={ph} value={novoExame[k]}
+                        style={aConferir.has(k) ? { borderColor: '#d97706', background: '#fffaf0' } : undefined}
+                        onChange={e => { setAConferir(prev => { if (!prev.has(k)) return prev; const n = new Set(prev); n.delete(k); return n; }); setNovoExame(p => ({ ...p, [k]: e.target.value })); }} />
                       {/* A faixa fica à vista já na digitação: é onde ela
                           percebe o valor estranho antes de gravar. */}
                       {ref && (

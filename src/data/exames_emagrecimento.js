@@ -271,4 +271,5 @@ export const PEDIDO_EMAGRECIMENTO = [
   'TSH',
   'T4 livre',
   'PCR ultrassensível',
+  'Urina tipo 1 (EAS)',
 ];

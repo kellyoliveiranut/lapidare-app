@@ -2,6 +2,10 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { callAnthropic } from '../../lib/anthropic.js';
 import { dataBR, dataLocalISO } from '../../lib/utils.js';
+import { CAMPOS_EXAME } from '../../data/exames_referencia.js';
+import { CAMPOS_EMAG } from '../../data/exames_emagrecimento.js';
+import { achatarExame, aplicarReferencias } from '../../lib/examesEmagrecimento.js';
+import { montarResumoRelatorio } from '../../lib/examesResumo.js';
 
 export default function RelatorioEvolucao({ pacienteId, paciente, nutriId }) {
   const [dados, setDados] = useState(null);
@@ -19,7 +23,7 @@ export default function RelatorioEvolucao({ pacienteId, paciente, nutriId }) {
     const trintaDiasAtras = dataLocalISO(-30);
 
     const [pesosRes, supsRes, supLogsRes, habitosRes, habitoLogsRes,
-           checkinsRes, followupsRes, planosRes, consultasRes] = await Promise.all([
+           checkinsRes, followupsRes, planosRes, consultasRes, exOncoRes, exEmagRes] = await Promise.all([
       supabase.from('peso_registros').select('data,kg,pgc,mm_kg,cintura_cm').eq('paciente_id', pacienteId).eq('ignorar_calculo', false).order('data'),
       supabase.from('suplementos').select('id,nome,dose,unidade,horario,objetivo').eq('paciente_id', pacienteId).eq('ativo', true).order('ordem'),
       supabase.from('suplementos_logs').select('suplemento_id,data,tomado').eq('paciente_id', pacienteId).gte('data', trintaDiasAtras),
@@ -33,6 +37,8 @@ export default function RelatorioEvolucao({ pacienteId, paciente, nutriId }) {
         .order('publicado_em', { ascending: false }).limit(1),
       supabase.from('consultas').select('data_hora,status,tipo').eq('paciente_id', pacienteId)
         .eq('status', 'realizada').order('data_hora'),
+      supabase.from('exames_laboratoriais').select('*').eq('paciente_id', pacienteId).order('data_exame', { ascending: false }).limit(2),
+      supabase.from('exames_emagrecimento').select('id,data_exame,valores').eq('paciente_id', pacienteId).order('data_exame', { ascending: false }).limit(2),
     ]);
 
     setDados({
@@ -45,8 +51,19 @@ export default function RelatorioEvolucao({ pacienteId, paciente, nutriId }) {
       followups:     followupsRes.data   ?? [],
       plano:         planosRes.data?.[0] ?? null,
       consultas:     consultasRes.data   ?? [],
+      examesOnco:    exOncoRes.data      ?? [],   // tabela pode não existir (erro ignorado)
+      examesEmag:    exEmagRes.data      ?? [],
     });
     setCarregando(false);
+  }
+
+  // Exames do relatório: a tabela do objetivo da paciente; se vazia, a outra.
+  function resumoExames() {
+    if (!dados) return null;
+    const sexo = paciente?.sexo;
+    const onco = () => montarResumoRelatorio({ campos: CAMPOS_EXAME, exames: dados.examesOnco, sexo });
+    const emag = () => montarResumoRelatorio({ campos: aplicarReferencias(CAMPOS_EMAG, {}), exames: dados.examesEmag.map(achatarExame), sexo });
+    return paciente?.objetivo === 'Oncologia' ? (onco() ?? emag()) : (emag() ?? onco());
   }
 
   function calcIdade() {
@@ -267,6 +284,7 @@ ${checkinsStr}`;
         suplementos: dados.suplementos.map(s => ({ ...s, adesao: aderenciaSup(s.id) })),
         habitos: dados.habitos.map(h => ({ ...h, adesao: aderenciaHabito(h.id) })),
         followups: dados.followups,
+        exames: resumoExames(),
         analise,
       });
       baixarBlob(blob, nomeArquivoPdf('relatorio-evolucao', paciente.nome));
@@ -525,7 +543,26 @@ ${checkinsStr}`;
     </table>
   ` : '<p class="note">Sem hábitos cadastrados.</p>')}
 
-  ${followups.length ? secao('5. Anotações Clínicas', `
+  ${(() => {
+    const ex = resumoExames();
+    if (!ex) return '';
+    return secao('5. Exames Laboratoriais', `
+      <p class="note">Exame de ${dataBR(ex.dataUltimo)}${ex.resumo.avaliados ? ` · ${ex.resumo.fora.length} de ${ex.resumo.avaliados} marcadores fora da referência` : ''}</p>
+      <table>
+        <thead><tr><th>Marcador</th><th>Valor</th><th>Referência</th><th>Situação</th></tr></thead>
+        <tbody>${ex.linhas.map(l => `<tr><td>${escapeHtml(l.rotulo)}</td><td>${escapeHtml(l.valor)}${l.unidade ? ' ' + escapeHtml(l.unidade) : ''}</td><td>${escapeHtml(l.faixa)}</td><td>${escapeHtml(l.situacao)}</td></tr>`).join('')}</tbody>
+      </table>
+      ${ex.comparacao.length ? `
+        <p class="note" style="margin-top:10px">Comparação: ${dataBR(ex.dataAnterior)} → ${dataBR(ex.dataUltimo)}</p>
+        <table>
+          <thead><tr><th>Marcador</th><th>Anterior</th><th>Atual</th><th>Variação</th></tr></thead>
+          <tbody>${ex.comparacao.map(l => `<tr><td>${escapeHtml(l.rotulo)}</td><td>${escapeHtml(l.a)}</td><td>${escapeHtml(l.b)}</td><td>${escapeHtml(l.dif)} ${escapeHtml(l.unidade)}</td></tr>`).join('')}</tbody>
+        </table>` : ''}
+      <p class="note">“Fora da referência” compara o valor com a faixa de referência; a interpretação depende do contexto clínico.</p>
+    `);
+  })()}
+
+  ${followups.length ? secao('6. Anotações Clínicas', `
     ${followups.slice(0, 6).map(f => `
       <div class="followup-item">
         <div class="followup-date">${dataBR(f.data)}${f.titulo ? ' · ' + escapeHtml(f.titulo) : ''}</div>
@@ -534,7 +571,7 @@ ${checkinsStr}`;
     `).join('')}
   `) : ''}
 
-  ${analise ? secao('6. Análise e Conclusão', `
+  ${analise ? secao('7. Análise e Conclusão', `
     <div class="analise">${escapeHtml(analise).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>')}</div>
     <p class="note">Análise gerada por IA (Claude) com base nos dados clínicos registrados.</p>
   `) : ''}
@@ -724,9 +761,44 @@ ${checkinsStr}`;
           ) : <Vazio>Sem hábitos cadastrados.</Vazio>}
         </Secao>
 
+        {/* 5. Exames laboratoriais */}
+        {(() => {
+          const ex = resumoExames();
+          if (!ex) return null;
+          const th = { textAlign: 'left', padding: '4px 8px', fontSize: 10, color: 'var(--text3)', fontWeight: 500 };
+          const td = { padding: '5px 8px' };
+          return (
+            <Secao titulo="5. Exames Laboratoriais">
+              <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 6 }}>
+                Exame de {dataBR(ex.dataUltimo)}{ex.resumo.avaliados ? ` · ${ex.resumo.fora.length} de ${ex.resumo.avaliados} marcadores fora da referência` : ''}
+              </div>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <thead><tr style={{ borderBottom: '1px solid var(--border)' }}>{['Marcador', 'Valor', 'Referência', 'Situação'].map(h => <th key={h} style={th}>{h}</th>)}</tr></thead>
+                <tbody>{ex.linhas.map(l => (
+                  <tr key={l.rotulo} style={{ borderBottom: '0.5px solid var(--border)' }}>
+                    <td style={td}>{l.rotulo}</td><td style={td}>{l.valor}{l.unidade ? ` ${l.unidade}` : ''}</td><td style={td}>{l.faixa}</td><td style={td}>{l.situacao}</td>
+                  </tr>))}</tbody>
+              </table>
+              {ex.comparacao.length > 0 && (
+                <>
+                  <div style={{ fontSize: 12, color: 'var(--text3)', margin: '12px 0 6px' }}>Comparação: {dataBR(ex.dataAnterior)} → {dataBR(ex.dataUltimo)}</div>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                    <thead><tr style={{ borderBottom: '1px solid var(--border)' }}>{['Marcador', 'Anterior', 'Atual', 'Variação'].map(h => <th key={h} style={th}>{h}</th>)}</tr></thead>
+                    <tbody>{ex.comparacao.map(l => (
+                      <tr key={l.rotulo} style={{ borderBottom: '0.5px solid var(--border)' }}>
+                        <td style={td}>{l.rotulo}</td><td style={td}>{l.a}</td><td style={td}>{l.b}</td><td style={td}>{l.dif} {l.unidade}</td>
+                      </tr>))}</tbody>
+                  </table>
+                </>
+              )}
+              <Vazio>“Fora da referência” compara o valor com a faixa; a interpretação depende do contexto clínico.</Vazio>
+            </Secao>
+          );
+        })()}
+
         {/* 5. Anotações clínicas */}
         {followups.length > 0 && (
-          <Secao titulo="5. Anotações Clínicas">
+          <Secao titulo="6. Anotações Clínicas">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {followups.map(f => (
                 <div key={f.id} style={{
@@ -746,7 +818,7 @@ ${checkinsStr}`;
 
         {/* 6. Check-ins */}
         {checkins.length > 0 && (
-          <Secao titulo="6. Check-ins Respondidos">
+          <Secao titulo="7. Check-ins Respondidos">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {checkins.map(c => {
                 const perguntas = Array.isArray(c.perguntas) ? c.perguntas : [];
@@ -773,7 +845,7 @@ ${checkinsStr}`;
         )}
 
         {/* 7. Análise IA */}
-        <Secao titulo="7. Análise e Conclusão">
+        <Secao titulo="8. Análise e Conclusão">
           {analise ? (
             <>
               <div style={{
