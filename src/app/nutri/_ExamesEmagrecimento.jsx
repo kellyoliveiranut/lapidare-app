@@ -10,7 +10,7 @@ import GraficosExames from '../../components/GraficosExames.jsx';
 import DateInput from '../../components/DateInput.jsx';
 import { CAMPOS_EMAG, GRUPOS_EXAME_EMAG, PAINEIS_EMAG, CHAVES_PADRAO_EMAG, PEDIDO_EMAGRECIMENTO, AVISO_GERAL_EXAMES } from '../../data/exames_emagrecimento.js';
 import {
-  numeroDe, valorDoCampo, homaIr, achatarExame, chavesAtivas, normalizarRefs, aplicarReferencias, compararExames, rotuloCriterio,
+  valorDoCampo, homaIr, achatarExame, chavesAtivas, normalizarRefs, aplicarReferencias, compararExames, rotuloCriterio,
 } from '../../lib/examesEmagrecimento.js';
 
 const SolicitacaoExames = lazy(() => import('./_SolicitacaoExames.jsx'));
@@ -136,53 +136,92 @@ export default function ExamesEmagrecimento({ pacienteId, nutriId, pacienteNome,
     carregar();
   }
 
+  // Lê o laudo inteiro: a IA recebe o catálogo COMPLETO (não só os marcadores já escolhidos),
+  // devolve tudo o que reconhecer, e os marcadores encontrados passam a ser acompanhados nesta
+  // paciente. O formulário é preenchido para conferência: quem grava é você, no "Registrar".
   async function importarArquivo(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const arquivos = Array.from(e.target.files ?? []).slice(0, 6);
     e.target.value = '';
+    if (arquivos.length === 0) return;
+    // O envio vai por uma função com limite de ~6 MB (base64 incha o arquivo em 1/3).
+    if (arquivos.reduce((t, f) => t + f.size, 0) > 4.2 * 1024 * 1024) {
+      return setFeedback({ tipo: 'erro', msg: 'Os arquivos somam mais de 4 MB. Envie menos páginas por vez ou reduza o tamanho das fotos.' });
+    }
     setLendo(true); setFeedback(null);
     try {
-      const base64 = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result.split(',')[1]);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-      const bloco = file.type === 'application/pdf'
-        ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } }
-        : { type: 'image', source: { type: 'base64', media_type: file.type, data: base64 } };
-      const lista = camposAtivos.filter(c => !c.calculado)
-        .map(c => (c.tipo === 'texto'
-          ? `  "${c.key}": "texto exato do laudo" ou null   // ${c.label}`
-          : `  "${c.key}": number ou null   // ${c.label}${c.unidade ? `, em ${c.unidade}` : ''}`)).join(',\n');
-      const prompt = `Analise este exame laboratorial e extraia APENAS os valores abaixo, em JSON puro, sem markdown e sem texto extra.
-Regras: use o número (ou, nos campos de texto, a palavra) exatamente como está no laudo. Se o laudo trouxer a unidade diferente da indicada, ou o exame não estiver no laudo, retorne null (nunca converta unidades). Use ponto como separador decimal.
+      const blocos = [];
+      for (const file of arquivos) {
+        const base64 = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result.split(',')[1]);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        blocos.push(file.type === 'application/pdf'
+          ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } }
+          : { type: 'image', source: { type: 'base64', media_type: file.type, data: base64 } });
+      }
+      const catalogo = CAMPOS_EMAG.filter(c => !c.calculado)
+        .map(c => `${c.key} | ${c.label} | ${c.tipo === 'texto' ? 'texto do laudo' : (c.unidade || 'sem unidade')}`)
+        .join('\n');
+      const prompt = `Você lê laudos de exames laboratoriais. Extraia TODOS os resultados do(s) documento(s) que correspondam ao catálogo abaixo (formato: chave | exame | unidade esperada). Reconheça sinônimos (por exemplo TGO = AST, TGP = ALT, glicose = glicemia, HbA1c = hemoglobina glicada, colesterol não-HDL, PCR-us).
+Responda SOMENTE com JSON puro, sem markdown e sem texto extra, neste formato:
 {
-  "data_exame": "YYYY-MM-DD ou null",
-${lista},
-  "obs": "string curta com outros achados relevantes, ou vazio"
-}`;
-      const bruto = await callAnthropic([{ role: 'user', content: [bloco, { type: 'text', text: prompt }] }], { maxTokens: 1024 });
+  "data_exame": "YYYY-MM-DD ou null (data da coleta)",
+  "valores": { "<chave>": <número, ou texto exato do laudo nos exames marcados "texto do laudo"> },
+  "nao_aproveitados": [ { "exame": "nome no laudo", "valor": "valor no laudo", "unidade": "unidade no laudo", "motivo": "fora do catálogo | unidade diferente da esperada" } ],
+  "obs": "string curta com observações relevantes do laudo, ou vazio"
+}
+Regras:
+- Inclua em "valores" apenas as chaves que aparecem no laudo; não invente nem estime nenhum valor.
+- Copie o número exatamente como está no laudo, com ponto como separador decimal. Nunca converta unidades: se a unidade do laudo for diferente da esperada, NÃO coloque em "valores"; coloque em "nao_aproveitados" com o motivo.
+- Quando o laudo trouxer o mesmo exame em percentual e em valor absoluto (leucograma), use o que corresponde à unidade esperada do catálogo.
+- Não inclua o HOMA-IR (é calculado pelo app).
+- Resultados que não estão no catálogo vão em "nao_aproveitados" com motivo "fora do catálogo".
+Catálogo:
+${catalogo}`;
+      const bruto = await callAnthropic([{ role: 'user', content: [...blocos, { type: 'text', text: prompt }] }], { maxTokens: 4096 });
       let parsed;
       try { parsed = JSON.parse(bruto.replace(/```json\n?|\n?```/g, '').trim()); }
       catch { throw new Error('Não foi possível interpretar a resposta. Tente novamente.'); }
+
+      // Só vale o que está no catálogo e tem valor utilizável.
+      const lidos = {};
+      for (const c of CAMPOS_EMAG) {
+        if (c.calculado) continue;
+        const v = valorDoCampo(c, parsed?.valores?.[c.key]);
+        if (v != null) lidos[c.key] = v;
+      }
+      const chavesLidas = Object.keys(lidos);
+      if (chavesLidas.length === 0) throw new Error('Não encontrei nenhum resultado do catálogo nesse arquivo.');
+
+      const jaAtivas = new Set(chavesAtivas(salvasChaves, CAMPOS_EMAG, CHAVES_PADRAO_EMAG));
+      const novasAtivas = chavesLidas.filter(k => !jaAtivas.has(k));
+      if (novasAtivas.length) {
+        await gravarMarcadores(CAMPOS_EMAG.map(c => c.key).filter(k => jaAtivas.has(k) || lidos[k] != null));
+      }
+
+      const naoAproveitados = Array.isArray(parsed?.nao_aproveitados) ? parsed.nao_aproveitados : [];
+      const textoNao = naoAproveitados
+        .map(x => `${x?.exame ?? '?'}: ${x?.valor ?? '?'} ${x?.unidade ?? ''} (${x?.motivo ?? ''})`.trim())
+        .join('; ');
+
       setNovo(prev => {
-        const prox = { ...prev, data_exame: parsed.data_exame || prev.data_exame, obs: parsed.obs || prev.obs };
-        for (const c of camposAtivos) {
-          if (c.calculado) continue;
-          if (c.tipo === 'texto') {
-            const tx = valorDoCampo(c, parsed[c.key]);
-            if (tx != null) prox[c.key] = tx;
-            continue;
-          }
-          const n = numeroDe(parsed[c.key]);
-          if (n != null) prox[c.key] = String(n).replace('.', ',');
-        }
+        const prox = { ...prev, data_exame: parsed?.data_exame || prev.data_exame };
+        for (const [k, v] of Object.entries(lidos)) prox[k] = typeof v === 'string' ? v : String(v).replace('.', ',');
         const h = homaIr(prox.glicemia_jejum, prox.insulina_jejum);
         if (h != null && !prev._homaManual) prox.homa_ir = String(h).replace('.', ',');
+        const extras = [parsed?.obs, textoNao ? `Não aproveitados na leitura: ${textoNao}` : ''].filter(Boolean).join(' · ');
+        if (extras) prox.obs = [prev.obs, extras].filter(Boolean).join(' · ');
         return prox;
       });
-      setFeedback({ tipo: 'ok', msg: 'Exame lido. Confira os valores e as unidades antes de salvar.' });
+      setFeedback({
+        tipo: 'ok',
+        msg: `${chavesLidas.length} resultado(s) lido(s)`
+          + (novasAtivas.length ? `; ${novasAtivas.length} marcador(es) novo(s) incluído(s) nesta paciente` : '')
+          + (naoAproveitados.length ? `; ${naoAproveitados.length} não aproveitado(s) (unidade diferente ou fora do catálogo — veja nas observações)` : '')
+          + '. Confira os valores e as unidades antes de registrar.',
+      });
     } catch (err) {
       setFeedback({ tipo: 'erro', msg: err.message || 'Erro ao processar o exame.' });
     } finally {
@@ -228,9 +267,9 @@ ${lista},
       <div className="card">
         <div className="card-header"><div className="card-title">🔬 Registrar exame</div></div>
         <div className="card-body">
-          <input ref={fileRef} type="file" accept=".pdf,image/jpeg,image/png" style={{ display: 'none' }} onChange={importarArquivo} />
+          <input ref={fileRef} type="file" accept=".pdf,image/jpeg,image/png" multiple style={{ display: 'none' }} onChange={importarArquivo} />
           <button type="button" className="btn-outline" style={{ marginBottom: 14 }} onClick={() => fileRef.current?.click()} disabled={lendo}>
-            <i className="ti ti-file-import" aria-hidden="true" /> {lendo ? 'Lendo o exame…' : 'Importar PDF ou foto do laudo'}
+            <i className="ti ti-file-import" aria-hidden="true" /> {lendo ? 'Lendo o exame…' : 'Importar laudo (PDF ou fotos)'}
           </button>
           <div style={{ maxWidth: 200, marginBottom: 12 }}>
             <label className="field-label">Data do exame</label>
