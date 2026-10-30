@@ -263,7 +263,20 @@ ${catalogo}`;
         }}>{feedback.msg}</div>
       )}
 
-      {/* Registrar — no topo, é o que mais se usa */}
+      {/* Solicitar exames */}
+      <details className="card" style={{ padding: '12px 16px' }}>
+        <summary style={{ cursor: 'pointer', fontWeight: 600 }}>
+          📋 Solicitar exames <span style={{ fontWeight: 400, opacity: 0.7, fontSize: 13 }}>— gerar o pedido para a paciente</span>
+        </summary>
+        <div style={{ marginTop: 12 }}>
+          <Suspense fallback={<div style={{ padding: 12 }}>Carregando…</div>}>
+            <SolicitacaoExames pacienteId={pacienteId} nutriId={nutriId} pacienteNome={pacienteNome}
+              preSelecao={PEDIDO_EMAGRECIMENTO} rotuloPreSelecao="Pré-selecionar exames de emagrecimento" />
+          </Suspense>
+        </div>
+      </details>
+
+      {/* Registrar — logo abaixo do pedido */}
       <div className="card">
         <div className="card-header"><div className="card-title">🔬 Registrar exame</div></div>
         <div className="card-body">
@@ -411,19 +424,6 @@ ${catalogo}`;
             ))}
         </div>
       )}
-
-      {/* Solicitar exames */}
-      <details className="card" style={{ padding: '12px 16px' }}>
-        <summary style={{ cursor: 'pointer', fontWeight: 600 }}>
-          📋 Solicitar exames <span style={{ fontWeight: 400, opacity: 0.7, fontSize: 13 }}>— gerar o pedido para a paciente</span>
-        </summary>
-        <div style={{ marginTop: 12 }}>
-          <Suspense fallback={<div style={{ padding: 12 }}>Carregando…</div>}>
-            <SolicitacaoExames pacienteId={pacienteId} nutriId={nutriId} pacienteNome={pacienteNome}
-              preSelecao={PEDIDO_EMAGRECIMENTO} rotuloPreSelecao="Pré-selecionar exames de emagrecimento" />
-          </Suspense>
-        </div>
-      </details>
 
       {/* Marcadores acompanhados nesta paciente */}
       <details className="card" style={{ padding: '12px 16px' }}>
