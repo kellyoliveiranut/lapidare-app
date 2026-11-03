@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { dataBR } from '../../lib/utils.js';
 import { CATEGORIAS_EXAME, TOTAL_ITENS_EXAME } from '../../data/exames_solicitacao.js';
+import { CARIMBO_ASSINATURA } from '../../data/carimboAssinatura.js';
 import { criarDocumento, cabecalho,
   M, W, TOPO, BRONZE, SEPIA, LINHA, LINHA2, TINTA, OURO, PAGE_W } from '../../lib/pdfBase.js';
 import { gravar } from '../../lib/gravar.js';
@@ -402,15 +403,19 @@ function blocoAssinatura(p, y) {
   doc.setDrawColor(...SEPIA);
   doc.setLineWidth(0.75);
   doc.roundedRect(M, y, LC, H_CAIXA, 4, 4, 'S');
-  escrever('Carimbo'.toUpperCase(), M + 8, y + 13,
-    { estilo: 'bold', tamanho: 6.4, cor: OURO, charSpace: 1.02 });
+  try {
+    // Carimbo + assinatura já impressos; cabem na caixa mantendo a proporção.
+    const C = CARIMBO_ASSINATURA;
+    const hI = H_CAIXA - 10, wI = Math.min(LC - 10, hI * C.largura / C.altura);
+    doc.addImage(C.dataUrl, 'PNG', M + (LC - wI) / 2, y + 5, wI, wI * C.altura / C.largura);
+  } catch {
+    escrever('Carimbo'.toUpperCase(), M + 8, y + 13,
+      { estilo: 'bold', tamanho: 6.4, cor: OURO, charSpace: 1.02 });
+  }
   const XS = M + LC + 30;
-  const yl = y + H_CAIXA - 14;
-  doc.setDrawColor(...TINTA);
-  doc.setLineWidth(0.75);
-  doc.line(XS, yl, M + W, yl);
-  escrever('Assinatura do profissional solicitante', XS, yl + 12, { tamanho: 8.25, cor: SEPIA });
-  escrever('Kelly Oliveira · Nutricionista · CRN 3801', XS, yl + 24, { estilo: 'bold', tamanho: 8.25 });
+  const yl = y + H_CAIXA - 26;
+  escrever('Carimbo e assinatura do profissional solicitante', XS, yl, { tamanho: 8.25, cor: SEPIA });
+  escrever('Kelly Oliveira · Nutricionista · CRN 3801', XS, yl + 13, { estilo: 'bold', tamanho: 8.25 });
   y += H_CAIXA + 24 + 24;
   regua(y, LINHA);
   escrever('Documento gerado pelo app Essentia', PAGE_W / 2, y + 12,
