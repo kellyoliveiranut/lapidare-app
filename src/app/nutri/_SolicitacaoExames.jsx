@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { dataBR } from '../../lib/utils.js';
 import { CATEGORIAS_EXAME, TOTAL_ITENS_EXAME } from '../../data/exames_solicitacao.js';
-import { criarDocumento, cabecalho, cardPaciente, rodape,
-  M, W, TOPO, BRONZE, SEPIA, LINHA, LINHA2 } from '../../lib/pdfBase.js';
+import { criarDocumento, cabecalho,
+  M, W, TOPO, BRONZE, SEPIA, LINHA, LINHA2, TINTA, OURO, PAGE_W } from '../../lib/pdfBase.js';
 import { gravar } from '../../lib/gravar.js';
 
 import { confirmar as confirmarJanela } from '../../lib/dialogos.js';
@@ -358,7 +358,66 @@ const FS_CAT  = 7.9;
 const PAD_CAT = 14;          // respiro antes do rótulo da categoria
 const PAD_ITEM = 3;          // respiro entre itens
 
-async function gerarPDFSolicitacao({ pacienteNome, contato, grupos, observacao }) {
+/* Exigências da operadora (Unimed Belém): nome completo do beneficiário,
+   nome do profissional solicitante, carimbo e assinatura, nome dos exames,
+   tudo legível e sem cortes. Por isso o nome do beneficiário quebra em
+   linhas em vez de ser truncado, e o carimbo ganha uma caixa própria. */
+function blocoIdentificacao(p, y, { pacienteNome, contato }) {
+  const { doc, escrever } = p;
+  const nome = String(pacienteNome ?? '—');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(13);
+  const linhasNome = doc.splitTextToSize(nome, W - 30);
+  const H = 24 + linhasNome.length * 17 + 8 + 44;
+  y = p.caberOuQuebrar(y, H);
+  doc.setFillColor(255, 255, 255);
+  doc.setDrawColor(...LINHA);
+  doc.setLineWidth(0.375);
+  doc.roundedRect(M, y, W, H, 6, 6, 'FD');
+  escrever('Beneficiário (nome completo)'.toUpperCase(), M + 15, y + 18,
+    { estilo: 'bold', tamanho: 6.8, cor: BRONZE, charSpace: 1.02 });
+  let yy = y + 36;
+  linhasNome.forEach((l) => { escrever(l, M + 15, yy, { estilo: 'bold', tamanho: 13 }); yy += 17; });
+  yy += 2;
+  const COL2 = M + 15 + 250;
+  escrever('Profissional solicitante'.toUpperCase(), M + 15, yy + 8,
+    { estilo: 'bold', tamanho: 6.8, cor: BRONZE, charSpace: 1.02 });
+  escrever('Kelly Oliveira', M + 15, yy + 23, { estilo: 'bold', tamanho: 10.5 });
+  escrever('Nutricionista · CRN 3801', M + 15 + 82, yy + 23, { tamanho: 9.5, cor: SEPIA });
+  if (contato?.telefone) {
+    escrever('Contato'.toUpperCase(), COL2 + 60, yy + 8,
+      { estilo: 'bold', tamanho: 6.8, cor: BRONZE, charSpace: 1.02 });
+    escrever(String(contato.telefone), COL2 + 60, yy + 23, { tamanho: 10 });
+  }
+  return y + H + 22;
+}
+
+/* Carimbo + assinatura lado a lado, sempre na mesma página. */
+function blocoAssinatura(p, y) {
+  const { escrever, regua, caberOuQuebrar, doc } = p;
+  const H_CAIXA = 84;
+  y = caberOuQuebrar(y, 24 + H_CAIXA + 70);
+  y += 24;
+  const LC = 215;
+  doc.setDrawColor(...SEPIA);
+  doc.setLineWidth(0.75);
+  doc.roundedRect(M, y, LC, H_CAIXA, 4, 4, 'S');
+  escrever('Carimbo'.toUpperCase(), M + 8, y + 13,
+    { estilo: 'bold', tamanho: 6.4, cor: OURO, charSpace: 1.02 });
+  const XS = M + LC + 30;
+  const yl = y + H_CAIXA - 14;
+  doc.setDrawColor(...TINTA);
+  doc.setLineWidth(0.75);
+  doc.line(XS, yl, M + W, yl);
+  escrever('Assinatura do profissional solicitante', XS, yl + 12, { tamanho: 8.25, cor: SEPIA });
+  escrever('Kelly Oliveira · Nutricionista · CRN 3801', XS, yl + 24, { estilo: 'bold', tamanho: 8.25 });
+  y += H_CAIXA + 24 + 24;
+  regua(y, LINHA);
+  escrever('Documento gerado pelo app Essentia', PAGE_W / 2, y + 12,
+    { tamanho: 7.1, cor: OURO, charSpace: 0.71, align: 'center' });
+}
+
+export async function gerarPDFSolicitacao({ pacienteNome, contato, grupos, observacao }) {
   const p = await criarDocumento();
   const { doc, escrever, regua, caberOuQuebrar } = p;
   let y = TOPO;
@@ -370,10 +429,10 @@ async function gerarPDFSolicitacao({ pacienteNome, contato, grupos, observacao }
     dataEmissao: new Date().toLocaleDateString('pt-BR'),
   });
 
-  y = cardPaciente(p, y, { pacienteNome, contato });
+  y = blocoIdentificacao(p, y, { pacienteNome, contato });
 
   // ── Exames, agrupados por categoria ──
-  escrever('Exames solicitados'.toUpperCase(), M, y,
+  escrever('Exames / procedimentos solicitados'.toUpperCase(), M, y,
     { estilo: 'bold', tamanho: FS_CAT, cor: BRONZE, charSpace: 1.1 });
   y += 4.5;
   regua(y, LINHA);
@@ -426,7 +485,7 @@ async function gerarPDFSolicitacao({ pacienteNome, contato, grupos, observacao }
     y += (linhas.length - 1) * 12;
   }
 
-  rodape(p, y);
+  blocoAssinatura(p, y);
 
   // A única diferença de fundo em relação ao PDF da Suplementação: lá é
   // doc.save() e o arquivo cai na máquina da nutri; aqui o blob volta para o
