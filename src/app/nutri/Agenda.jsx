@@ -81,18 +81,23 @@ function normalizarTelefone(raw) {
 }
 
 // Textos dos lembretes — edite aqui para mudar a mensagem em todos os envios.
-// "Thais" e "Dra. Kelly" são fixos de propósito: quem assina é a assistente,
+// "a assistente da Dra. Kelly" é fixo de propósito: quem assina é a assistente,
 // não o perfil logado.
-function templateLembretePresencial({ nome, diaSemana, data, hora, endereco }) {
-  return `Oi ${nome}! Aqui é a Thais, assistente da Dra. Kelly. Você tem consulta marcada para ${diaSemana}, ${data}, às ${hora}.
+// Consulta no mesmo dia do envio diz "hoje" (sem dia da semana nem data).
+function quandoLembrete({ diaSemana, data, hoje }) {
+  return hoje ? 'hoje' : `${diaSemana}, ${data}`;
+}
+
+function templateLembretePresencial({ nome, diaSemana, data, hoje, hora, endereco }) {
+  return `Oi ${nome}! Aqui é a assistente da Dra. Kelly. Você tem consulta marcada para ${quandoLembrete({ diaSemana, data, hoje })}, às ${hora}.
 
 Só lembrando: como faremos avaliação física, pedimos que venha com roupas leves ou de exercício — assim a Dra. consegue fazer a avaliação com mais precisão.
 ${endereco ? `\nEndereço: ${endereco}\n` : ''}
 Pode confirmar sua presença? Até breve!`;
 }
 
-function templateLembreteOnline({ nome, diaSemana, data, hora }) {
-  return `Oi ${nome}! Aqui é a Thais, assistente da Dra. Kelly. Você tem consulta marcada para ${diaSemana}, ${data}, às ${hora}.
+function templateLembreteOnline({ nome, diaSemana, data, hoje, hora }) {
+  return `Oi ${nome}! Aqui é a assistente da Dra. Kelly. Você tem consulta marcada para ${quandoLembrete({ diaSemana, data, hoje })}, às ${hora}.
 
 A consulta será ONLINE: a Dra. irá lhe ligar no horário agendado. Fique com o celular por perto, em um local tranquilo e com boa internet.
 
@@ -1562,6 +1567,8 @@ function PainelLembretes({ lembretes, confirmadas = 0, semConfirmacao = 0, locai
             nome: pacNome.split(' ')[0],
             data: dataFormatada,
             diaSemana,
+            hoje: dt.toLocaleDateString('en-CA', { timeZone: TZ_CLINICA })
+                  === new Date().toLocaleDateString('en-CA', { timeZone: TZ_CLINICA }),
             hora: horaConsulta,
             endereco,
           });
