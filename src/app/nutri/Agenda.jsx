@@ -88,16 +88,16 @@ function quandoLembrete({ diaSemana, data, hoje }) {
   return hoje ? 'hoje' : `${diaSemana}, ${data}`;
 }
 
-function templateLembretePresencial({ nome, diaSemana, data, hoje, hora, endereco }) {
-  return `Oi ${nome}! Aqui é a assistente da Dra. Kelly. Você tem consulta marcada para ${quandoLembrete({ diaSemana, data, hoje })}, às ${hora}.
+function templateLembretePresencial({ nome, diaSemana, data, hoje, hora, endereco, confirmada }) {
+  return `Oi ${nome}! Aqui é a assistente da Dra. Kelly. Você tem consulta ${confirmada ? 'confirmada' : 'marcada'} para ${quandoLembrete({ diaSemana, data, hoje })}, às ${hora}.
 
 Só lembrando: como faremos avaliação física, pedimos que venha com roupas leves ou de exercício — assim a Dra. consegue fazer a avaliação com mais precisão.
 ${endereco ? `\nEndereço: ${endereco}\n` : ''}
-Pode confirmar sua presença? Até breve!`;
+${confirmada ? 'Sua presença já está confirmada, não precisa responder.' : 'Pode confirmar sua presença?'} Até breve!`;
 }
 
-function templateLembreteOnline({ nome, diaSemana, data, hoje, hora }) {
-  return `Oi ${nome}! Aqui é a assistente da Dra. Kelly. Você tem consulta marcada para ${quandoLembrete({ diaSemana, data, hoje })}, às ${hora}.
+function templateLembreteOnline({ nome, diaSemana, data, hoje, hora, confirmada }) {
+  return `Oi ${nome}! Aqui é a assistente da Dra. Kelly. Você tem consulta ${confirmada ? 'confirmada' : 'marcada'} para ${quandoLembrete({ diaSemana, data, hoje })}, às ${hora}.
 
 A consulta será ONLINE: a Dra. irá lhe ligar no horário agendado. Fique com o celular por perto, em um local tranquilo e com boa internet.
 
@@ -1589,6 +1589,7 @@ function PainelLembretes({ lembretes, confirmadasLista = [], confirmadas = 0, se
             nome: pacNome.split(' ')[0],
             data: dataFormatada,
             diaSemana,
+            confirmada: !!l.confirmada_em,
             hoje: dt.toLocaleDateString('en-CA', { timeZone: TZ_CLINICA })
                   === new Date().toLocaleDateString('en-CA', { timeZone: TZ_CLINICA }),
             hora: horaConsulta,
