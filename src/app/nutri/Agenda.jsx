@@ -430,10 +430,12 @@ export default function Agenda() {
     const fim = new Date(agora.getTime() + JANELA_LEMBRETE_DIAS * 24 * 3600 * 1000);
     const { data, error } = await supabase
       .from('consultas')
-      .select('id, data_hora, modalidade, local_id, lembrete_enviado, lembrete_enviado_em, confirmada_em, nao_confirmada_em, nao_confirmada_por, paciente:pacientes(id, nome, telefone)')
+      .select('id, data_hora, modalidade, local_id, lembrete_enviado, lembrete_enviado_em, confirmada_em, nao_confirmada_em, nao_confirmada_por, oculta_paciente, paciente:pacientes(id, nome, telefone)')
       .eq('nutri_id', user.id)
       .eq('lembrete_ativo', true)
-      .eq('oculta_paciente', false) // data escondida da paciente: não sugerir lembrete com a data
+      // Consulta com a data oculta da paciente NÃO sai do painel: ocultar vale só
+      // para a tela e o push da paciente. Tirar daqui fazia 9 pacientes da semana
+      // ficarem sem lembrete (04/11). O cartão ganha a etiqueta "data oculta".
       .eq('status', 'agendada')
       .gte('data_hora', agora.toISOString())
       .lte('data_hora', fim.toISOString())
@@ -527,7 +529,7 @@ export default function Agenda() {
   // Esconde (ou mostra) a data da consulta para a paciente — a nutri segue vendo
   // tudo. UPDATE isolado de uma coluna, com estado local otimista como as
   // presenças; reverte se o banco recusar. Esconder também tira a consulta do
-  // painel de lembretes (não sugerir lembrete com a data); mostrar a traz de volta.
+  // painel de lembretes só ganha a etiqueta "data oculta" (a consulta continua lá).
   async function toggleOculta(consultaId, ocultar) {
     const anterior = (consultas ?? []).find(c => c.id === consultaId);
     setConsultas(prev => (prev ?? []).map(c => c.id === consultaId ? { ...c, oculta_paciente: ocultar } : c));
@@ -1590,6 +1592,12 @@ function PainelLembretes({ lembretes, confirmadas = 0, semConfirmacao = 0, locai
                   <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>
                     {dataFormatada} ({diaSemana}) às {horaConsulta}
                   </div>
+                  {l.oculta_paciente && (
+                    <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}
+                      title="A paciente não vê esta data no app. Confira se ela já está definitiva antes de enviar.">
+                      <i className="ti ti-eye-off" style={{ fontSize: 11 }} aria-hidden="true" /> Data oculta da paciente no app
+                    </div>
+                  )}
                   {l.paciente?.telefone && (
                     <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 1 }}>
                       <i className="ti ti-phone" style={{ fontSize: 11 }} aria-hidden="true" /> {l.paciente.telefone}
