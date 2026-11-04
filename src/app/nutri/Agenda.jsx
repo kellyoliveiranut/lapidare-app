@@ -763,6 +763,13 @@ export default function Agenda() {
     () => lembretes.filter(l => l.confirmada_em).length,
     [lembretes],
   );
+  // Quem confirmou sai da lista de pendentes, mas a nutri ainda pode querer
+  // mandar o lembrete (a confirmação pode ter sido dias antes). Vai para uma
+  // seção própria, fechada por padrão, com o mesmo cartão e os mesmos botões.
+  const lembretesConfirmados = useMemo(
+    () => lembretes.filter(l => l.confirmada_em),
+    [lembretes],
+  );
   const semConfirmacaoOcultas = useMemo(
     () => lembretes.filter(l => l.nao_confirmada_em).length,
     [lembretes],
@@ -964,6 +971,7 @@ export default function Agenda() {
         <PainelLembretes
           lembretes={lembretesPendentes}
           confirmadas={confirmadasOcultas}
+          confirmadasLista={lembretesConfirmados}
           semConfirmacao={semConfirmacaoOcultas}
           locais={locais}
           enviadosLocais={enviadosLocais}
@@ -1394,7 +1402,7 @@ function FaixaConvite({ convite, nutriId, onDispensar }) {
 /* ============================================================
    PAINEL DE LEMBRETES DA SEMANA
    ============================================================ */
-function PainelLembretes({ lembretes, confirmadas = 0, semConfirmacao = 0, locais, enviadosLocais, onEnviar, onDesfazer }) {
+function PainelLembretes({ lembretes, confirmadasLista = [], confirmadas = 0, semConfirmacao = 0, locais, enviadosLocais, onEnviar, onDesfazer }) {
   const [copiadoId, setCopiadoId] = useState(null);
 
   async function copiarMensagem(id, texto) {
@@ -1405,6 +1413,7 @@ function PainelLembretes({ lembretes, confirmadas = 0, semConfirmacao = 0, locai
   }
 
   const [verEnviados, setVerEnviados] = useState(false);
+  const [verConfirmadas, setVerConfirmadas] = useState(false);
   const [verTodos, setVerTodos] = useState(false);
   // A função por referência, não chamada: o localStorage é lido uma vez na
   // montagem, e não a cada render.
@@ -1443,6 +1452,10 @@ function PainelLembretes({ lembretes, confirmadas = 0, semConfirmacao = 0, locai
     itens.push({ tipo: 'toggle', chave: 'toggle' });
     if (verEnviados) for (const l of enviadosList) itens.push({ tipo: 'card', chave: l.id, l });
   }
+  if (confirmadasLista.length > 0) {
+    itens.push({ tipo: 'toggleConf', chave: 'toggleConf' });
+    if (verConfirmadas) for (const l of confirmadasLista) itens.push({ tipo: 'card', chave: 'conf-' + l.id, l });
+  }
 
   return (
     <div style={{
@@ -1469,7 +1482,7 @@ function PainelLembretes({ lembretes, confirmadas = 0, semConfirmacao = 0, locai
               poder fechar o resto. */}
           <div style={{ fontSize: 11, color: 'var(--orange)', opacity: 0.85 }}>
             {pendentes === 0 ? 'Nada pendente ✓' : `${pendentes} pendente${pendentes > 1 ? 's' : ''} · próximos 7 dias`}
-            {confirmadas > 0 && ` · ${confirmadas} confirmada${confirmadas > 1 ? 's' : ''} oculta${confirmadas > 1 ? 's' : ''}`}
+            {confirmadas > 0 && ` · ${confirmadas} confirmada${confirmadas > 1 ? 's' : ''}`}
             {semConfirmacao > 0 && ` · ${semConfirmacao} sem confirmação`}
           </div>
         </div>
@@ -1531,6 +1544,13 @@ function PainelLembretes({ lembretes, confirmadas = 0, semConfirmacao = 0, locai
               style={{ fontSize: 12, minHeight: 38, justifyContent: 'center', color: 'var(--text3)' }}>
               <i className={`ti ti-chevron-${verEnviados ? 'up' : 'down'}`} aria-hidden="true" />
               {verEnviados ? 'Ocultar enviados' : `Ver ${enviadosList.length} já enviado${enviadosList.length > 1 ? 's' : ''}`}
+            </button>
+          );
+          if (it.tipo === 'toggleConf') return (
+            <button key={it.chave} className="btn-outline" onClick={() => setVerConfirmadas(v => !v)}
+              style={{ fontSize: 12, minHeight: 38, justifyContent: 'center', color: 'var(--text3)' }}>
+              <i className={`ti ti-chevron-${verConfirmadas ? 'up' : 'down'}`} aria-hidden="true" />
+              {verConfirmadas ? 'Ocultar confirmadas' : `Ver ${confirmadasLista.length} confirmada${confirmadasLista.length > 1 ? 's' : ''} (enviar lembrete)`}
             </button>
           );
           const l = it.l;
@@ -1617,7 +1637,7 @@ function PainelLembretes({ lembretes, confirmadas = 0, semConfirmacao = 0, locai
                     fontSize: 11, padding: '3px 9px', borderRadius: 20, fontWeight: 500,
                     background: 'var(--orange-bg)', color: 'var(--orange)', flexShrink: 0,
                   }}>
-                    Lembrete pendente
+                    {l.confirmada_em ? 'Confirmada · lembrete opcional' : 'Lembrete pendente'}
                   </span>
                 )}
               </div>
