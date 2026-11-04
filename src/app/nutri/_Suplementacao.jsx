@@ -57,6 +57,18 @@ const MODOS_PDF = [
   },
 ];
 
+/* Prescrição padrão do Glowshot (produto da Dehon para as pacientes do evento
+   OncoStart). O texto é fixo, dado pela Kelly: só o nome da paciente muda.
+   Não há composição aqui de propósito: não foi informada, e conteúdo clínico
+   não se inventa. */
+const MODO_GLOWSHOT = {
+  id: 'glowshot',
+  titulo: 'Prescrição Glowshot',
+  secao: 'Produto prescrito',
+  slug: 'prescricao-glowshot',
+};
+const ITEM_GLOWSHOT = { nome: 'Glowshot', dose: '1 flaconete por dia' };
+
 export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
   const { profile } = useSession();
   const [suplementos, setSuplementos] = useState(null);
@@ -72,6 +84,7 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
   const [adicionarOpen, setAdicionarOpen] = useState(false);
   const [gerandoPdf, setGerandoPdf] = useState(false);   // chunk do jsPDF baixando
   const [modoPdfOpen, setModoPdfOpen] = useState(false); // escolha do recorte do PDF
+  const [glowshotOpen, setGlowshotOpen] = useState(false); // prescrição padrão do Glowshot
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState(null);
 
@@ -327,6 +340,25 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
     }
   }
 
+  // Só o nome é editável. O contato (telefone) é da paciente do perfil, então
+  // só sai no PDF quando o nome continua sendo o dela.
+  async function gerarGlowshot(nome) {
+    setGlowshotOpen(false);
+    setGerandoPdf(true);
+    try {
+      await gerarPDFPrescricao({
+        pacienteNome: nome,
+        contato: nome.trim() === String(pacienteNome ?? '').trim() ? contato : null,
+        suplementosAtivos: [ITEM_GLOWSHOT],
+        modo: MODO_GLOWSHOT,
+      });
+    } catch (e) {
+      avisarJanela('Erro ao gerar o PDF: ' + (e?.message ?? 'tente novamente'));
+    } finally {
+      setGerandoPdf(false);
+    }
+  }
+
   return (
     <>
       <div className="card">
@@ -466,6 +498,9 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
               <i className="ti ti-file-text" aria-hidden="true"></i>
               {gerandoPdf ? ' Gerando…' : ' Gerar PDF'}
             </button>
+            <button className="btn-outline" onClick={() => setGlowshotOpen(true)} disabled={gerandoPdf}>
+              <i className="ti ti-sparkles" aria-hidden="true"></i> Prescrição Glowshot
+            </button>
             {/* O title fica no span, não no button: navegador suprime evento de
                 ponteiro em elemento desabilitado e o tooltip nunca apareceria. */}
             <span title={lojas.length === 0 ? 'Nenhuma loja cadastrada' : undefined}>
@@ -524,6 +559,14 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
         />
       )}
 
+      {glowshotOpen && (
+        <ModalGlowshot
+          nomeInicial={pacienteNome ?? ''}
+          onClose={() => setGlowshotOpen(false)}
+          onGerar={gerarGlowshot}
+        />
+      )}
+
       {modoPdfOpen && (
         <ModalModoPdf
           ativos={ativos}
@@ -546,6 +589,45 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
    contagem aparece em cada opção e a vazia nasce desabilitada,
    então a nutri vê o porquê antes de escolher.
    ============================================================ */
+
+function ModalGlowshot({ nomeInicial, onClose, onGerar }) {
+  const [nome, setNome] = useState(nomeInicial);
+  const pronto = nome.trim().length > 0;
+  return (
+    <div onClick={onClose} style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      zIndex: 110, padding: 16,
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: 'var(--white)', borderRadius: 12,
+        maxWidth: 440, width: '100%', padding: 20,
+      }}>
+        <div style={{ fontSize: 16, fontWeight: 500, marginBottom: 4 }}>Prescrição Glowshot</div>
+        <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 14 }}>
+          Texto padrão: Glowshot, 1 flaconete por dia. Só o nome muda.
+        </div>
+        <label style={{ fontSize: 12, color: 'var(--text3)' }}>Nome da paciente</label>
+        <input
+          autoFocus
+          value={nome}
+          onChange={e => setNome(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && pronto) onGerar(nome.trim()); }}
+          style={{ width: '100%', marginTop: 4 }}
+        />
+        <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+          <button className="btn-outline" style={{ flex: 1, justifyContent: 'center' }} onClick={onClose}>
+            Cancelar
+          </button>
+          <button className="btn" style={{ flex: 1, justifyContent: 'center' }}
+            onClick={() => onGerar(nome.trim())} disabled={!pronto}>
+            <i className="ti ti-file-text" aria-hidden="true"></i> Gerar PDF
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function ModalModoPdf({ ativos, onClose, onGerar }) {
   // Contagem por modo, calculada uma vez. É ela que decide o que fica
