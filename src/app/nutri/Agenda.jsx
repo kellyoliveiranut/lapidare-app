@@ -92,7 +92,9 @@ Pode confirmar sua presença? Até breve!`;
 }
 
 function templateLembreteOnline({ nome, diaSemana, data, hora }) {
-  return `Oi ${nome}! Aqui é a Thais, assistente da Dra. Kelly. Você tem consulta marcada para ${diaSemana}, ${data}, às ${hora}, que será realizada por aqui mesmo.
+  return `Oi ${nome}! Aqui é a Thais, assistente da Dra. Kelly. Você tem consulta marcada para ${diaSemana}, ${data}, às ${hora}.
+
+A consulta será ONLINE: a Dra. irá lhe ligar no horário agendado. Fique com o celular por perto, em um local tranquilo e com boa internet.
 
 Qualquer imprevisto, me avise por aqui.
 
