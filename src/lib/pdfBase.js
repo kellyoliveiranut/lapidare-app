@@ -230,10 +230,18 @@ export function cardPaciente(p, y, { pacienteNome, contato }) {
  * A checagem de altura cobre o bloco inteiro — o rodapé partido em duas
  * páginas era o `page-break-inside: avoid` do CSS anterior.
  */
-export function rodape(p, y) {
-  const { escrever, regua, caberOuQuebrar } = p;
-  y = caberOuQuebrar(y, 30 + 90);
+export function rodape(p, y, { carimbo = null } = {}) {
+  const { doc, escrever, regua, caberOuQuebrar } = p;
+  // `carimbo`: { dataUrl, largura, altura } — imagem do carimbo + assinatura,
+  // impressa logo acima da linha de assinatura (opcional; só quem pede).
+  const hImg = carimbo ? 78 : 0;
+  y = caberOuQuebrar(y, 30 + hImg + 90);
   y += 30;
+  if (carimbo) {
+    const wImg = Math.min(W * 0.62, hImg * carimbo.largura / carimbo.altura);
+    try { doc.addImage(carimbo.dataUrl, 'PNG', M, y, wImg, wImg * carimbo.altura / carimbo.largura); } catch { /* sem imagem, só a linha */ }
+    y += hImg + 4;
+  }
   regua(y, TINTA, 195);                          // .assinatura-linha, 260px
   y += 4.5 + 9.4;
   escrever('Kelly Oliveira', M, y, { fonte: 'times', estilo: 'bold', tamanho: 9.4 });
