@@ -18,7 +18,7 @@ import { gravar } from './gravar.js';
  */
 export async function criarVendaComParcelas(supabase, {
   nutriId, pacienteId, servicoId, servico, valorTotal,
-  forma, dataVenda, nParcelas, obs, taxaTotal, antecipado = false,
+  forma, dataVenda, nParcelas, obs, taxaTotal, antecipado = false, nfLembrar = false,
 }) {
   // Regra de nº de parcelas por forma — idêntica ao preview do modal.
   const n_parcelas = ['pix', 'dinheiro', 'parcelado'].includes(forma) ? nParcelas : 1;
@@ -31,20 +31,23 @@ export async function criarVendaComParcelas(supabase, {
     antecipado,
   });
 
-  const { data: venda, error: vErr } = await supabase
-    .from('vendas')
-    .insert({
-      nutri_id: nutriId,
-      paciente_id: pacienteId || null,
-      servico_id: servicoId || null,
-      servico: servico.trim(),
-      valor_total: valorTotal,
-      forma_pgto: forma,
-      data_venda: dataVenda,
-      obs: obs?.trim() || null,
-    })
-    .select('id')
-    .single();
+  const linhaVenda = {
+    nutri_id: nutriId,
+    paciente_id: pacienteId || null,
+    servico_id: servicoId || null,
+    servico: servico.trim(),
+    valor_total: valorTotal,
+    forma_pgto: forma,
+    data_venda: dataVenda,
+    obs: obs?.trim() || null,
+  };
+  const inserirVenda = (extra) => supabase.from('vendas').insert({ ...linhaVenda, ...extra }).select('id').single();
+  // `nf_lembrar` só existe depois da migration 2026-11-05b. Sem ela, a venda
+  // não pode falhar por causa do lembrete: repete sem a coluna.
+  let { data: venda, error: vErr } = await inserirVenda(nfLembrar ? { nf_lembrar: true } : {});
+  if (vErr && nfLembrar && /nf_lembrar/.test(vErr.message ?? '')) {
+    ({ data: venda, error: vErr } = await inserirVenda({}));
+  }
   if (vErr) {
     return { venda: null, parcelas: 0, error: 'Erro ao salvar venda: ' + vErr.message };
   }

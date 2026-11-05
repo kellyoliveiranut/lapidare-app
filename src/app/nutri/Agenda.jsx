@@ -5,6 +5,7 @@ import { avisarStatus } from '../../lib/realtime.js';
 import { useSession } from '../../lib/session.jsx';
 import DateInput from '../../components/DateInput.jsx';
 import NovaPacienteRapida from './_NovaPacienteRapida.jsx';
+import NotasDaSemana from './_NotasDaSemana.jsx';
 import { linkConvite, mensagemConviteEncoded } from '../../lib/convite.js';
 import {
   verificarAgenda, textoImpedimentos, textoConfirmacao, bloqueioCobre, impedimentosQueTravam, avisosQueConfirmam,
@@ -976,6 +977,8 @@ export default function Agenda() {
         onMudarMes={setMesVisivel}
         onSelecionarDia={setDiaSelecionado}
       />
+
+      <NotasDaSemana nutriId={user?.id} />
 
       {lembretes.length > 0 && (
         <PainelLembretes

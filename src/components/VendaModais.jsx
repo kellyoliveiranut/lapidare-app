@@ -33,6 +33,8 @@ export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo
   const [forma, setForma] = useState('pix');
   const [nParcelas, setNParcelas] = useState(3);
   const [obs, setObs] = useState('');
+  // Lembrete de emitir a nota fiscal desta venda (aparece no aviso da Agenda).
+  const [nfLembrar, setNfLembrar] = useState(true);
   const [taxa, setTaxa] = useState('');
   // false = o campo segue a sugestao dos percentuais; true = a nutri
   // digitou, e o que ela digitou manda.
@@ -170,6 +172,7 @@ export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo
       obs,
       taxaTotal: comTaxa ? taxaNum : 0,
       antecipado,
+      nfLembrar,
     });
     setBusy(false);
     if (error) return setErro(error);
@@ -373,6 +376,11 @@ export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo
       <label className="form-lbl">Observação (opcional)</label>
       <textarea rows="2" value={obs} onChange={e => setObs(e.target.value)}
         placeholder="Ex: paciente adiantou 1 mês, desconto dado..." style={{ resize: 'none' }} />
+
+      <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginTop: 10, fontSize: 13 }}>
+        <input type="checkbox" checked={nfLembrar} onChange={e => setNfLembrar(e.target.checked)} />
+        Lembrar de emitir a nota fiscal desta venda
+      </label>
 
       {erro && (
         <div style={{

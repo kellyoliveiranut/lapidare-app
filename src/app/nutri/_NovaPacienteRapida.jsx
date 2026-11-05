@@ -130,6 +130,8 @@ export default function NovaPacienteRapida({ nutriId, onClose, onCriada }) {
   const [endereco, setEndereco] = useState('');
   const [cpf, setCpf] = useState('');
   const [rg, setRg] = useState('');
+  // Lembrete de emitir a nota fiscal desta paciente (aviso da Agenda).
+  const [nfEmitir, setNfEmitir] = useState(true);
   // Endereço separado, para a nota fiscal (colunas end_* de pacientes).
   const [endNota, setEndNota] = useState({ end_cep: '', end_logradouro: '', end_numero: '', end_complemento: '', end_bairro: '', end_cidade: '', end_uf: '' });
 
@@ -278,9 +280,7 @@ export default function NovaPacienteRapida({ nutriId, onClose, onCriada }) {
     setSalvando(true);
     const emailVal = email.trim().toLowerCase() || null;
 
-    const { data: paciente, error: erroPaciente } = await supabase
-      .from('pacientes')
-      .insert({
+    const linhaPaciente = {
         nutri_id: nutriId,
         nome: nome.trim(),
         email: emailVal,
@@ -298,9 +298,17 @@ export default function NovaPacienteRapida({ nutriId, onClose, onCriada }) {
         ...endNotaParaGravar,
         cpf: soDigitos(cpf) || null,
         rg: rg.trim() || null,
-      })
+    };
+    const inserirPaciente = (extra) => supabase.from('pacientes')
+      .insert({ ...linhaPaciente, ...extra })
       .select('id, nome, email, telefone, objetivo, modalidade')
       .single();
+    // `nf_emitir` só existe depois da migration 2026-11-05b: sem ela, o cadastro
+    // não pode falhar por causa do lembrete — repete sem a coluna.
+    let { data: paciente, error: erroPaciente } = await inserirPaciente(nfEmitir ? { nf_emitir: true } : {});
+    if (erroPaciente && nfEmitir && /nf_emitir/.test(erroPaciente.message ?? '')) {
+      ({ data: paciente, error: erroPaciente } = await inserirPaciente({}));
+    }
 
     if (erroPaciente) {
       setSalvando(false);
@@ -562,6 +570,11 @@ export default function NovaPacienteRapida({ nutriId, onClose, onCriada }) {
                 </div>
               ))}
             </div>
+
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginTop: 12, fontSize: 13 }}>
+              <input type="checkbox" checked={nfEmitir} onChange={e => setNfEmitir(e.target.checked)} />
+              Lembrar de emitir a nota fiscal desta paciente
+            </label>
 
             {erro && (
               <div style={{
