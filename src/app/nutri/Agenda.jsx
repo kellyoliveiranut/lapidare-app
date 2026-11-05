@@ -19,6 +19,7 @@ import { gravar } from '../../lib/gravar.js';
 import ReguaDoDia from './_ReguaDoDia.jsx';
 import ReagendarLote from './_ReagendarLote.jsx';
 import SemConsultaAgenda from './_SemConsultaAgenda.jsx';
+import { ehDiaCTO } from '../../lib/diasCTO.js';
 import { confirmar as confirmarJanela, avisar as avisarJanela } from '../../lib/dialogos.js';
 import { HORARIOS_TAREFA, hhmm } from '../../lib/reguaDoDia.js';
 import {
@@ -175,6 +176,10 @@ function lerVisao() {
  *
  * Serve de identidade de grupo no painel de lembretes e na lista de consultas.
  */
+// Segunda e sexta: dias de atendimento no CTO (cor própria no calendário).
+const COR_CTO = '#2f6f73';
+const COR_CTO_BG = '#e6f1f1';
+
 const chaveDia = d => d.toLocaleDateString('pt-BR', { timeZone: TZ_CLINICA });
 
 /**
@@ -1002,6 +1007,12 @@ export default function Agenda() {
         <div className="section-label" style={{ marginBottom: 0 }}>
           {visaoDia === 'regua' ? 'Dia ' : 'Consultas em '}
           {diaSelecionado.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
+          {ehDiaCTO(diaSelecionado) && (
+            <span style={{
+              marginLeft: 8, padding: '2px 8px', borderRadius: 999, fontSize: 10, letterSpacing: 1,
+              background: COR_CTO_BG, color: COR_CTO, border: `1px solid ${COR_CTO}`, verticalAlign: 'middle',
+            }}>CTO</span>
+          )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         {/* Aqui, e não na barra de ações do topo: a data do bloqueio é o dia
@@ -1858,14 +1869,18 @@ function CalendarioMensal({ mesVisivel, diaSelecionado, consultas, tarefas, bloq
         display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)',
         gap: 2, marginBottom: 4,
       }}>
-        {DIAS_SEMANA_CURTOS.map(d => (
-          <div key={d} style={{
-            fontSize: 11, letterSpacing: 1, textTransform: 'uppercase',
-            color: 'var(--text3)', textAlign: 'center', padding: '6px 0', fontWeight: 500,
-          }}>
-            {d}
-          </div>
-        ))}
+        {DIAS_SEMANA_CURTOS.map((d, di) => {
+          const cto = di === 1 || di === 5;
+          return (
+            <div key={d} title={cto ? 'Dia de atendimento no CTO' : undefined} style={{
+              fontSize: 11, letterSpacing: 1, textTransform: 'uppercase',
+              color: cto ? COR_CTO : 'var(--text3)', textAlign: 'center', padding: '6px 0', fontWeight: cto ? 700 : 500,
+              background: cto ? COR_CTO_BG : 'transparent', borderRadius: 6,
+            }}>
+              {d}{cto && <div style={{ fontSize: 9, letterSpacing: 1.2 }}>CTO</div>}
+            </div>
+          );
+        })}
       </div>
 
       <div style={{
@@ -1892,7 +1907,7 @@ function CalendarioMensal({ mesVisivel, diaSelecionado, consultas, tarefas, bloq
                 : `${bs.length} horários bloqueados`}
               style={{
                 position: 'relative',
-                background: isSelected ? 'var(--dark)' : isToday ? 'var(--orange-bg)' : 'var(--white)',
+                background: isSelected ? 'var(--dark)' : isToday ? 'var(--orange-bg)' : ehDiaCTO(d.data) ? COR_CTO_BG : 'var(--white)',
                 border: '0.5px solid ' + (isSelected ? 'var(--dark)' : 'var(--border)'),
                 borderRadius: 6,
                 padding: '6px 4px',
