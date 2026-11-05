@@ -19,4 +19,11 @@ assert.equal(foraDaRef(por('rdw'), 13.2), null);
 assert.equal(foraDaRef(por('hematocrito'), 37, 'feminino'), null);
 assert.equal(foraDaRef(por('eosinofilos'), 90), null);
 assert.equal(foraDaRef(por('vcm'), null), null);
+// renal e hepático (mesmas faixas da tabela da Kelly)
+assert.equal(foraDaRef(por('creatinina'), 0.4, 'feminino'), 'baixo');
+assert.equal(textoRef(por('creatinina'), 'feminino'), '0,6–1,1');
+assert.equal(foraDaRef(por('ureia'), 42), null);
+assert.equal(foraDaRef(por('tfg'), 131.3), null);
+assert.equal(foraDaRef(por('tgo'), 12), null);
+assert.equal(foraDaRef(por('tgp'), 11), null);
 console.log('ok examesExtra');

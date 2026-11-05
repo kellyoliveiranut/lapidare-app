@@ -163,7 +163,8 @@ export function textoRef(campo, sexo) {
    HEMOGRAMA COMPLETO — OUTROS PARÂMETROS (oncologia)
 
    Os 8 campos acima são colunas da tabela e têm alerta clínico. Estes são os
-   demais itens do hemograma que a Kelly já anotava à mão em "Observações".
+   demais itens do hemograma (e ureia, creatinina, TFG, TGO e TGP) que a Kelly
+   já anotava à mão em "Observações".
    Ficam em UMA coluna jsonb (`exames_laboratoriais.valores_extra`), chaveados
    por `key`, sem `alerta`: o app só mostra o valor e, quando há faixa, se está
    fora dela. Nunca "crítico".
@@ -186,6 +187,14 @@ export const CAMPOS_EXAME_EXTRA = [
   { key: 'basofilos', label: 'Basófilos', curto: 'Baso', unidade: '/mm³', dec: 0, ph: '20' },
   { key: 'monocitos', label: 'Monócitos', curto: 'Mono', unidade: '/mm³', dec: 0, ph: '350' },
   { key: 'bastoes', label: 'Bastões', curto: 'Bast', unidade: '/mm³', dec: 0, ph: '0' },
+  // Função renal e hepática, que a Kelly também anotava junto do hemograma.
+  // Faixas: tabela técnica dela (exames_emagrecimento.js), as mesmas de lá.
+  { key: 'ureia', label: 'Ureia', curto: 'Ureia', unidade: 'mg/dL', dec: 0, ph: '30', ref: { min: 15, max: 45 } },
+  { key: 'creatinina', label: 'Creatinina', curto: 'Creat', unidade: 'mg/dL', dec: 2, ph: '0,8',
+    ref: { feminino: { min: 0.6, max: 1.1 }, masculino: { min: 0.7, max: 1.3 } } },
+  { key: 'tfg', label: 'TFG estimada', curto: 'TFG', unidade: 'mL/min/1,73 m²', dec: 1, ph: '100', ref: { min: 90 } },
+  { key: 'tgo', label: 'TGO / AST', curto: 'TGO', unidade: 'U/L', dec: 0, ph: '25', ref: { min: 10, max: 40 } },
+  { key: 'tgp', label: 'TGP / ALT', curto: 'TGP', unidade: 'U/L', dec: 0, ph: '25', ref: { min: 7, max: 56 } },
 ];
 
 export const CHAVES_EXAME_EXTRA = CAMPOS_EXAME_EXTRA.map(c => c.key);

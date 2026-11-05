@@ -1315,7 +1315,7 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
               </div>
               <details style={{ marginBottom: 10 }}>
                 <summary style={{ cursor: 'pointer', fontSize: 13, fontWeight: 500, padding: '4px 0' }}>
-                  Hemograma completo — outros parâmetros (Ht, VCM, HCM, CHCM, RDW, hemácias, diferencial)
+                  Outros parâmetros (hemograma completo, ureia, creatinina, TFG, TGO e TGP)
                 </summary>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginTop: 8 }}>
                   {CAMPOS_EXAME_EXTRA.map(campo => {
@@ -1388,7 +1388,7 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
                       {CAMPOS_EXAME_EXTRA.some(c => e.valores_extra?.[c.key] != null) && (
                         <tr>
                           <td colSpan={CAMPOS_EXAME.length + 2} style={{ fontSize: 12, color: 'var(--text2)', paddingTop: 0 }}>
-                            <strong style={{ fontSize: 11, color: 'var(--text3)' }}>Hemograma completo: </strong>
+                            <strong style={{ fontSize: 11, color: 'var(--text3)' }}>Outros parâmetros: </strong>
                             {CAMPOS_EXAME_EXTRA.filter(c => e.valores_extra?.[c.key] != null).map(c => {
                               const fora = foraDaRef(c, e.valores_extra[c.key], pacienteSexo);
                               return (
