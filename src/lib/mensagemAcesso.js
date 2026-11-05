@@ -70,14 +70,14 @@ export function mensagemAcesso({ primeiroNome, objetivo, link, temConta = false 
 
   const abertura = temConta
     ? `Olá, ${primeiroNome}! Para entrar no app do Essentia, acesse: ${link ?? ''}\n\n` +
-      `Use o seu e-mail ou o número do telefone e a senha que você criou. Se esquecer a senha, toque em "Esqueci minha senha".`
+      `Use o seu e-mail e a senha que você criou. Se esquecer a senha, toque em "Esqueci minha senha".`
     : `Olá, ${primeiroNome}! Aqui é a Equipe da Dra. Kelly Oliveira. Preparei o seu espaço no app do Essentia, onde você vai acompanhar seu plano alimentar e seu cuidado de pertinho.\n\n` +
       `1) Criar o seu acesso (só na primeira vez)\n` +
       `Toque neste link e escolha a sua senha:\n${link ?? ''}\n` +
       `Atenção: este link serve apenas para criar o acesso.\n\n` +
       `2) Entrar no app (sempre que quiser)\n` +
       `Depois de criar a senha, entre pelo link do aplicativo:\n${linkApp}\n` +
-      `Use o número do telefone (ou o e-mail, se você cadastrou) e a senha que você escolheu. Salve este link, ou instale o app na tela do celular (passo a passo abaixo).\n\n` +
+      `Use o seu e-mail e a senha que você escolheu. Salve este link, ou instale o app na tela do celular (passo a passo abaixo).\n\n` +
       `Qualquer dúvida, é só me chamar por aqui.`;
 
   const rodape = temConta ? RODAPE_INSTALACAO.split(' (o do passo 2)').join('') : RODAPE_INSTALACAO;
