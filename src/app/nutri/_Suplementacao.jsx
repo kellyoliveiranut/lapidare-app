@@ -1438,7 +1438,9 @@ const PAD_V   = 9.75;                   // respiro acima e abaixo do item
 const GAP_POS = 3;                      // nome → posologia
 const GAP_MIN = 2.25;                   // posologia → horário → observação
 
-export async function gerarPDFPrescricao({ pacienteNome, contato, suplementosAtivos, modo, carimbo = null }) {
+export async function gerarPDFPrescricao({ pacienteNome, contato, suplementosAtivos, modo, carimbo }) {
+  // Toda prescrição sai com o carimbo e a assinatura da Kelly (padrão).
+  if (carimbo === undefined) carimbo = (await import('../../data/carimboAssinatura.js')).CARIMBO_ASSINATURA;
   // A lista chega PRONTA — quem recorta é o gerarPdf(), com o modo escolhido no
   // modal. Esta função não filtra mais nada: filtrar aqui de novo é o que fazia
   // o "Gerar PDF" ignorar a caixinha de manipulado e decidir por nome.

@@ -54,7 +54,9 @@ function secao(p, y, rotulo) {
   return y + PAD_SEC;
 }
 
-export async function gerarPDFPlano({ pacienteNome, contato, dados, publicadoEm }) {
+export async function gerarPDFPlano({ pacienteNome, contato, dados, publicadoEm, carimbo }) {
+  // O plano alimentar é prescrição: sai com o carimbo e a assinatura da Kelly (padrão).
+  if (carimbo === undefined) carimbo = (await import('../data/carimboAssinatura.js')).CARIMBO_ASSINATURA;
   const p = await criarDocumento();
   const { doc, escrever, regua, caberOuQuebrar } = p;
   let y = TOPO;
@@ -213,7 +215,7 @@ export async function gerarPDFPlano({ pacienteNome, contato, dados, publicadoEm 
     }
   }
 
-  rodape(p, y);
+  rodape(p, y, { carimbo });
 
   // Igual à solicitação de exames: o blob volta pro chamador, que sobe no
   // storage. Quem chama é que sabe o paciente_id e o nutri_id.
