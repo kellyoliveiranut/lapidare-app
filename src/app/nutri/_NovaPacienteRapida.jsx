@@ -4,6 +4,8 @@ import { callAnthropicComRetry } from '../../lib/anthropic.js';
 import { telefoneValido, soDigitos, formatarCpf } from '../../lib/utils.js';
 import { OBJETIVOS } from '../../lib/objetivos.js';
 import { SEXOS, PLANOS, MODALIDADES } from '../../lib/opcoesPaciente.js';
+import { separarEndereco } from '../../lib/separarEndereco.js';
+import { formatarCep } from '../../lib/dadosNotaFiscal.js';
 import DateInput from '../../components/DateInput.jsx';
 
 // Teto do texto colado. Protege custo e o max_tokens da resposta: uma conversa
@@ -27,6 +29,13 @@ comentário antes ou depois. Formato exato:
   "email": string|null,
   "nascimento": string|null,
   "endereco": string|null,
+  "end_cep": string|null,
+  "end_logradouro": string|null,
+  "end_numero": string|null,
+  "end_complemento": string|null,
+  "end_bairro": string|null,
+  "end_cidade": string|null,
+  "end_uf": string|null,
   "cpf": string|null,
   "rg": string|null,
   "_avisos": string[]
@@ -55,6 +64,13 @@ endereco — UMA linha de texto livre, na ordem
   "Rua, número, complemento, bairro, cidade, UF, CEP", com as partes que
   existirem, separadas por vírgula. Não invente cidade, UF nem CEP a partir do
   bairro. Não abrevie o que veio escrito por extenso.
+
+end_cep, end_logradouro, end_numero, end_complemento, end_bairro, end_cidade,
+  end_uf — o MESMO endereço, separado em campos para a nota fiscal. end_cep:
+  só os 8 dígitos. end_logradouro: só o nome da rua/avenida (sem o número).
+  end_numero: só o número ("s/n" se vier assim). end_complemento: apartamento,
+  bloco, edifício etc. end_uf: 2 letras maiúsculas. Mesma regra de sempre: o
+  que não estiver no texto é null; nada de deduzir cidade, UF ou CEP.
 
 cpf — SOMENTE os 11 dígitos, sem ponto e sem traço. Se o número tiver
   quantidade de dígitos diferente de 11, devolva o que veio e registre em
@@ -114,6 +130,8 @@ export default function NovaPacienteRapida({ nutriId, onClose, onCriada }) {
   const [endereco, setEndereco] = useState('');
   const [cpf, setCpf] = useState('');
   const [rg, setRg] = useState('');
+  // Endereço separado, para a nota fiscal (colunas end_* de pacientes).
+  const [endNota, setEndNota] = useState({ end_cep: '', end_logradouro: '', end_numero: '', end_complemento: '', end_bairro: '', end_cidade: '', end_uf: '' });
 
   // Sexo nasce VAZIO, fora do bloco de defaults abaixo: um padrão aqui
   // gravaria um palpite na ficha como se fosse informado. Não é pedido à IA de
@@ -196,6 +214,11 @@ export default function NovaPacienteRapida({ nutriId, onClose, onCriada }) {
       // em branco em vez de virar valor inválido silencioso.
       usar('nascimento', setNascimento, (v) => (/^\d{4}-\d{2}-\d{2}$/.test(v) ? v : ''));
       usar('endereco', setEndereco);
+      // Campos separados do endereço (nota fiscal). Se a IA não separou, o
+      // separador de texto tenta a partir da linha de endereço.
+      const daIaEnd = Object.fromEntries(Object.keys(endNota).map(k => [k, String(dados[k] ?? '').trim()]));
+      const sep = Object.values(daIaEnd).some(Boolean) ? daIaEnd : separarEndereco(dados.endereco ?? '');
+      setEndNota({ ...sep, end_cep: formatarCep(sep.end_cep), end_uf: String(sep.end_uf ?? '').toUpperCase() });
       usar('cpf', setCpf, formatarCpf);
       usar('rg', setRg);
 
@@ -221,6 +244,7 @@ export default function NovaPacienteRapida({ nutriId, onClose, onCriada }) {
     vezBusca.current++;
     setNome(''); setTelefone(''); setEmail('');
     setNascimento(''); setEndereco(''); setCpf(''); setRg('');
+    setEndNota({ end_cep: '', end_logradouro: '', end_numero: '', end_complemento: '', end_bairro: '', end_cidade: '', end_uf: '' });
     setDaIa(new Set());
     setAvisos([]);
     setDuplicado(null);
@@ -236,6 +260,20 @@ export default function NovaPacienteRapida({ nutriId, onClose, onCriada }) {
     if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       return setErro('Email inválido.');
     }
+
+    // Campos separados: o que foi digitado/extraído; se ficaram todos vazios, o
+    // separador tenta a partir do texto do endereço. CEP inválido ou UF fora do
+    // padrão viram null (as constraints do banco só aceitam 8 dígitos / 2 letras).
+    const base = Object.values(endNota).some(v => String(v).trim()) ? endNota : separarEndereco(endereco);
+    const cepD = String(base.end_cep ?? '').replace(/\D/g, '');
+    const ufU = String(base.end_uf ?? '').trim().toUpperCase();
+    const ou = v => String(v ?? '').trim() || null;
+    const endNotaParaGravar = {
+      end_cep: cepD.length === 8 ? cepD : null,
+      end_logradouro: ou(base.end_logradouro), end_numero: ou(base.end_numero),
+      end_complemento: ou(base.end_complemento), end_bairro: ou(base.end_bairro),
+      end_cidade: ou(base.end_cidade), end_uf: /^[A-Z]{2}$/.test(ufU) ? ufU : null,
+    };
 
     setSalvando(true);
     const emailVal = email.trim().toLowerCase() || null;
@@ -257,6 +295,7 @@ export default function NovaPacienteRapida({ nutriId, onClose, onCriada }) {
         tipo_plano: tipoPlano,
         modalidade,
         endereco: endereco.trim() || null,
+        ...endNotaParaGravar,
         cpf: soDigitos(cpf) || null,
         rg: rg.trim() || null,
       })
@@ -507,6 +546,22 @@ export default function NovaPacienteRapida({ nutriId, onClose, onCriada }) {
             <input value={endereco}
               onChange={e => editar('endereco', setEndereco, e.target.value)}
               placeholder="Rua, número, bairro, cidade, UF, CEP" />
+
+            <div style={{ fontSize: 12, color: 'var(--text3)', margin: '10px 0 4px' }}>
+              Endereço separado (para a nota fiscal) — confira
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 8 }}>
+              {[
+                ['end_cep', 'CEP', 2], ['end_logradouro', 'Rua / avenida', 4], ['end_numero', 'Número', 1],
+                ['end_complemento', 'Complemento', 3], ['end_bairro', 'Bairro', 2], ['end_cidade', 'Cidade', 3], ['end_uf', 'UF', 1],
+              ].map(([k, rot, span]) => (
+                <div key={k} style={{ gridColumn: `span ${span}` }}>
+                  <label className="form-lbl">{rot}</label>
+                  <input value={endNota[k]} maxLength={k === 'end_uf' ? 2 : undefined}
+                    onChange={e => setEndNota(p => ({ ...p, [k]: k === 'end_cep' ? formatarCep(e.target.value) : e.target.value }))} />
+                </div>
+              ))}
+            </div>
 
             {erro && (
               <div style={{

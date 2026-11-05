@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { gravar } from '../../lib/gravar.js';
-import { formatarCep, faltandoParaNota, montarPayloadNota, textoNota } from '../../lib/dadosNotaFiscal.js';
+import { formatarCep, faltandoParaNota, montarPayloadNota, textoNota, CAMPOS_ENDERECO } from '../../lib/dadosNotaFiscal.js';
+import { separarEndereco } from '../../lib/separarEndereco.js';
 import { copiarTexto } from '../../lib/copiarTexto.js';
 
 /* ============================================================
@@ -30,6 +31,7 @@ export default function DadosNotaFiscal({ paciente, vendaRecente = null, onSalvo
   const [msg, setMsg] = useState(null);
   const [buscandoCep, setBuscandoCep] = useState(false);
   const faltando = faltandoParaNota(paciente);
+  const [sugerido, setSugerido] = useState(false);
   const set = (k) => (e) => setF(prev => ({ ...prev, [k]: e.target.value }));
 
   async function salvar() {
@@ -71,6 +73,20 @@ export default function DadosNotaFiscal({ paciente, vendaRecente = null, onSalvo
     }
   }
 
+  // Paciente sem nenhum campo separado, mas com o endereço escrito no cadastro:
+  // sugere os campos a partir do texto (e o CEP completa rua, bairro, cidade e
+  // UF). Nada é gravado aqui: a Kelly confere e clica em "Salvar dados".
+  useEffect(() => {
+    const semCampos = CAMPOS_ENDERECO.every(k => !String(paciente[k] ?? '').trim());
+    if (!semCampos || !paciente.endereco?.trim()) return;
+    const sep = separarEndereco(paciente.endereco);
+    if (!Object.values(sep).some(Boolean)) return;
+    setF(prev => ({ ...prev, ...Object.fromEntries(Object.entries(sep).filter(([, v]) => v)), end_cep: formatarCep(sep.end_cep) }));
+    setSugerido(true);
+    if (sep.end_cep.length === 8) buscarCep(sep.end_cep);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paciente.id]);
+
   async function copiar() {
     const ok = await copiarTexto(textoNota({ paciente: { ...paciente, ...f }, venda: vendaRecente }));
     setMsg(ok
@@ -106,6 +122,11 @@ export default function DadosNotaFiscal({ paciente, vendaRecente = null, onSalvo
 
       {aberto && (
         <div style={{ marginTop: 12 }}>
+          {sugerido && (
+            <div style={{ fontSize: 12, color: 'var(--orange, #b45309)', background: '#fdf1e7', borderRadius: 8, padding: '7px 10px', marginBottom: 10 }}>
+              Campos sugeridos a partir do endereço do cadastro. Confira e clique em Salvar dados.
+            </div>
+          )}
           {paciente.endereco?.trim() && (
             <div style={{ fontSize: 12, color: 'var(--text3)', background: 'var(--bg2)', borderRadius: 8, padding: '7px 10px', marginBottom: 10 }}>
               Endereço escrito no cadastro: {paciente.endereco}
