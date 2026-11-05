@@ -15,13 +15,13 @@
 const RODAPE_INSTALACAO = `Pra instalar o app no seu celular:
 
 No iPhone (precisa ser pelo Safari):
-1. Abra este link no Safari.
+1. Abra o link do aplicativo (o do passo 2) no Safari. Se ele abrir dentro do WhatsApp, toque nos três pontinhos ou no ícone de compartilhar e escolha "Abrir no Safari".
 2. Toque no botão de compartilhar (o quadradinho com a seta para cima, na barra de baixo).
 3. Role para baixo e toque em "Adicionar à Tela de Início".
 4. Toque em "Adicionar". Depois, abra o app pelo ícone que apareceu na tela.
 
 No Android:
-1. Abra este link no Chrome.
+1. Abra o link do aplicativo (o do passo 2) no Chrome. Se ele abrir dentro do WhatsApp, toque nos três pontinhos e escolha "Abrir no Chrome".
 2. Toque no menu (os três pontinhos no canto superior direito).
 3. Toque em "Instalar app" (ou "Adicionar à tela inicial").
 4. Confirme. Depois, abra o app pelo ícone que apareceu na tela.
@@ -62,15 +62,26 @@ function orientacaoDeUso(objetivo) {
  * @returns {string}    texto pronto, sem encode
  */
 export function mensagemAcesso({ primeiroNome, objetivo, link, temConta = false }) {
+  // Link do aplicativo (login): mesma origem do link recebido.
+  let linkApp = link ?? '';
+  if (!temConta) {
+    try { linkApp = new URL(link).origin + '/login'; } catch { linkApp = ''; }
+  }
+
   const abertura = temConta
     ? `Olá, ${primeiroNome}! Para entrar no app do Essentia, acesse: ${link ?? ''}\n\n` +
       `Use o seu e-mail ou o número do telefone e a senha que você criou. Se esquecer a senha, toque em "Esqueci minha senha".`
-    : `Olá, ${primeiroNome}! Aqui é a Equipe da Dra Kelly Oliveira. Preparei o seu espaço no app do Essentia, onde você vai acompanhar seu plano alimentar e seu cuidado de pertinho.\n\n` +
-      `Para criar o seu acesso, clique neste link e escolha a sua senha: ${link ?? ''}\n\n` +
-      `Nas próximas vezes, é só entrar com o número do telefone — ou com o seu e-mail, se você cadastrou um — e essa mesma senha.\n\n` +
+    : `Olá, ${primeiroNome}! Aqui é a Equipe da Dra. Kelly Oliveira. Preparei o seu espaço no app do Essentia, onde você vai acompanhar seu plano alimentar e seu cuidado de pertinho.\n\n` +
+      `1) Criar o seu acesso (só na primeira vez)\n` +
+      `Toque neste link e escolha a sua senha:\n${link ?? ''}\n` +
+      `Atenção: este link serve apenas para criar o acesso.\n\n` +
+      `2) Entrar no app (sempre que quiser)\n` +
+      `Depois de criar a senha, entre pelo link do aplicativo:\n${linkApp}\n` +
+      `Use o número do telefone (ou o e-mail, se você cadastrou) e a senha que você escolheu. Salve este link, ou instale o app na tela do celular (passo a passo abaixo).\n\n` +
       `Qualquer dúvida, é só me chamar por aqui.`;
 
-  return `${abertura}\n\n${orientacaoDeUso(objetivo)}\n\n---\n\n${RODAPE_INSTALACAO}`;
+  const rodape = temConta ? RODAPE_INSTALACAO.split(' (o do passo 2)').join('') : RODAPE_INSTALACAO;
+  return `${abertura}\n\n${orientacaoDeUso(objetivo)}\n\n---\n\n${rodape}`;
 }
 
 /**
