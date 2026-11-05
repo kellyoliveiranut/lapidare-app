@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, lazy, Suspense } from 'react';
+import { Fragment, useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { dataBR, dataLocalISO } from '../../lib/utils.js';
 import { callAnthropic } from '../../lib/anthropic.js';
@@ -7,7 +7,7 @@ import DateInput from '../../components/DateInput.jsx';
 import ModalShell from '../../components/ModalShell.jsx';
 import CardProtocoloEfeitos from '../../components/CardProtocoloEfeitos.jsx';
 import protocolosEfeitosData from '../../data/protocolos_efeitos.json';
-import { CAMPOS_EXAME, CHAVES_EXAME, textoRef } from '../../data/exames_referencia.js';
+import { CAMPOS_EXAME, CHAVES_EXAME, CAMPOS_EXAME_EXTRA, CHAVES_EXAME_EXTRA, textoRef, foraDaRef, fmtNumExame } from '../../data/exames_referencia.js';
 import ValorExame, { LegendaExames } from '../../components/ValorExame.jsx';
 import GraficosExames from '../../components/GraficosExames.jsx';
 import ResumoExames from '../../components/ResumoExames.jsx';
@@ -91,7 +91,7 @@ function addDays(dateStr, n) {
 // Os 8 campos saem do catálogo (src/data/exames_referencia.js): incluir um
 // exame novo lá basta, sem lembrar de repetir a chave aqui e no insert.
 function exameDefault() {
-  const vazios = Object.fromEntries(CHAVES_EXAME.map(k => [k, '']));
+  const vazios = Object.fromEntries([...CHAVES_EXAME, ...CHAVES_EXAME_EXTRA.map(k => 'x_' + k)].map(k => [k, '']));
   return { data_exame: dataLocalISO(), ...vazios, obs: '' };
 }
 
@@ -139,10 +139,18 @@ export default function TratamentoOncologico({ pacienteId, nutriId, pacienteNome
   }, [pacienteId]);
 
   async function carregar(signal = { cancelled: false }) {
+    // `valores_extra` só existe depois da migration 2026-11-05; sem ela o select
+    // inteiro falharia e o histórico sumiria. Tenta com a coluna e cai sem ela.
+    const COLS_EXAME = 'id,data_exame,hemoglobina,leucocitos,neutrofilos,linfocitos,plaquetas,pcr,albumina,glicemia,obs';
+    const consultaExames = async () => {
+      const r = await supabase.from('exames_laboratoriais').select(COLS_EXAME + ',valores_extra').eq('paciente_id', pacienteId).order('data_exame', { ascending: false });
+      if (!r.error) return r;
+      return supabase.from('exames_laboratoriais').select(COLS_EXAME).eq('paciente_id', pacienteId).order('data_exame', { ascending: false });
+    };
     const [{ data: trat }, { data: cic }, { data: ex }] = await Promise.all([
       supabase.from('tratamentos_oncologicos').select('id,tipo_cancer,estadiamento,medico,hospital,data_diagnostico,data_inicio_acompanhamento,intencao,metastatico,locais_metastase,doenca_atividade,tipo_trat_sistemico,protocolo,medicamentos,total_ciclos,ciclo_atual,intervalo_ciclos,data_ultima_quimio,usa_corticoide,atraso_ciclo,radio_ativa,radio_area,radio_sessao_atual,radio_total_sessoes,radio_inicio,radio_termino,cirurgia_status,cirurgia_tipo,cirurgia_indicada,cirurgia_realizada,cirurgia_data,cirurgia_complicacoes,cirurgia_preparo_nutricional,acao_semana').eq('paciente_id', pacienteId).maybeSingle(),
       supabase.from('ciclos_quimio').select('id,numero_ciclo,data_quimio,d3,d7,d10,d14,obs,aplicacao_no_ciclo,agendamento_confirmado_em,agendamento_confirmado_por,agendamento_confirmado_fonte').eq('paciente_id', pacienteId).order('data_quimio', { ascending: false }),
-      supabase.from('exames_laboratoriais').select('id,data_exame,hemoglobina,leucocitos,neutrofilos,linfocitos,plaquetas,pcr,albumina,glicemia,obs').eq('paciente_id', pacienteId).order('data_exame', { ascending: false }),
+      consultaExames(),
     ]);
     if (signal.cancelled) return;
     if (trat) {
@@ -349,8 +357,14 @@ export default function TratamentoOncologico({ pacienteId, nutriId, pacienteNome
     if (!novoExame.data_exame) return setFeedback({ tipo: 'erro', msg: 'Informe a data do exame.' });
     if (aConferir.size > 0 && !(await confirmarJanela(`${aConferir.size} valor(es) lido(s) do laudo ainda não foram conferidos. Registrar mesmo assim?`, { confirmarRotulo: 'Registrar', cancelarRotulo: 'Voltar e conferir' }))) return;
     setBusy(true);
+    // Só entra a coluna jsonb quando há valor: assim registrar um exame comum
+    // continua funcionando mesmo antes da migration rodar.
+    const extras = Object.fromEntries(
+      CHAVES_EXAME_EXTRA.map(k => [k, numf(novoExame['x_' + k])]).filter(([, v]) => v != null),
+    );
     const { error } = await supabase.from('exames_laboratoriais').insert({
       paciente_id: pacienteId, nutri_id: nutriId,
+      ...(Object.keys(extras).length ? { valores_extra: extras } : {}),
       data_exame: novoExame.data_exame,
       // Mesmo numf() de antes, campo a campo — só que a lista das 8 chaves
       // vem do catálogo em vez de estar redigitada aqui.
@@ -1299,6 +1313,24 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
                   );
                 })}
               </div>
+              <details style={{ marginBottom: 10 }}>
+                <summary style={{ cursor: 'pointer', fontSize: 13, fontWeight: 500, padding: '4px 0' }}>
+                  Hemograma completo — outros parâmetros (Ht, VCM, HCM, CHCM, RDW, hemácias, diferencial)
+                </summary>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginTop: 8 }}>
+                  {CAMPOS_EXAME_EXTRA.map(campo => {
+                    const ref = textoRef(campo, pacienteSexo);
+                    return (
+                      <div key={campo.key}>
+                        <label className="field-label">{campo.label} ({campo.unidade})</label>
+                        <input inputMode="decimal" placeholder={campo.ph} value={novoExame['x_' + campo.key] ?? ''}
+                          onChange={e => setNovoExame(p => ({ ...p, ['x_' + campo.key]: e.target.value }))} />
+                        {ref && <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }}>ref. {ref}</div>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </details>
               <div style={{ marginBottom: 10 }}>
                 <label className="field-label">Observações</label>
                 <input value={novoExame.obs} onChange={e => setNovoExame(p => ({ ...p, obs: e.target.value }))} />
@@ -1339,7 +1371,8 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
                   </thead>
                   <tbody>
                     {exames.map(e => (
-                      <tr key={e.id}>
+                      <Fragment key={e.id}>
+                      <tr>
                         <td style={{ whiteSpace: 'nowrap' }}>{dataBR(e.data_exame)}</td>
                         {CAMPOS_EXAME.map(campo => (
                           <td key={campo.key}>
@@ -1352,6 +1385,23 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
                           </button>
                         </td>
                       </tr>
+                      {CAMPOS_EXAME_EXTRA.some(c => e.valores_extra?.[c.key] != null) && (
+                        <tr>
+                          <td colSpan={CAMPOS_EXAME.length + 2} style={{ fontSize: 12, color: 'var(--text2)', paddingTop: 0 }}>
+                            <strong style={{ fontSize: 11, color: 'var(--text3)' }}>Hemograma completo: </strong>
+                            {CAMPOS_EXAME_EXTRA.filter(c => e.valores_extra?.[c.key] != null).map(c => {
+                              const fora = foraDaRef(c, e.valores_extra[c.key], pacienteSexo);
+                              return (
+                                <span key={c.key} style={{ marginRight: 12, whiteSpace: 'nowrap' }}>
+                                  {c.label} {fmtNumExame(e.valores_extra[c.key], c.dec)} {c.unidade}
+                                  {fora && <em style={{ color: 'var(--text3)' }}> (fora da referência)</em>}
+                                </span>
+                              );
+                            })}
+                          </td>
+                        </tr>
+                      )}
+                      </Fragment>
                     ))}
                   </tbody>
                 </table>
