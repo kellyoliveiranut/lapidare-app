@@ -28,29 +28,12 @@ No Android:
 
 Instalar assim deixa o app na sua tela como qualquer outro aplicativo — e é o que permite receber os avisos e lembretes direto no celular.`;
 
-const ORIENTACAO_ONCOLOGIA =
-  'Depois de entrar, duas coisas todos os dias, de dois minutos cada: o check-in na aba Tratamento e os seus hábitos do dia. São esses registros que eu leio — é por eles que eu acompanho como você está passando entre as consultas, e não só no dia da consulta. Dúvidas sobre o plano ou a rotina, me escreva pelo Chat com a Dra.';
-
-const ORIENTACAO_PADRAO =
-  'Depois de entrar, duas coisas todos os dias, de dois minutos cada: marcar seus hábitos do dia e registrar como você está, nas carinhas da tela de Início. São esses registros que eu leio — é por eles que eu acompanho sua rotina entre as consultas. Dúvidas sobre o plano ou a rotina, me escreva pelo Chat com a Dra.';
-
-/**
- * Orientação de uso, ramificada pelo objetivo da paciente.
- *
- * O teste é `=== 'Oncologia'` de propósito: só esse valor recebe o texto de
- * tratamento. NÃO troque por "diferente de Emagrecimento" — foi esse padrão
- * que fez paciente de 'Reeducação alimentar' cair no ramo de quimioterapia.
- * Todo o resto (null, '', 'Emagrecimento', 'Hipertrofia', 'Outro', …) cai no
- * texto padrão.
- */
-function orientacaoDeUso(objetivo) {
-  return objetivo === 'Oncologia' ? ORIENTACAO_ONCOLOGIA : ORIENTACAO_PADRAO;
-}
-
 /**
  * Monta a mensagem completa de acesso ao app.
  *
- * Ordem final: abertura, orientação de uso, separador ---, rodapé de instalação.
+ * Ordem final: abertura, separador ---, rodapé de instalação. (A orientação de
+ * uso diário foi retirada a pedido da Kelly; `objetivo` segue no parâmetro por
+ * compatibilidade com quem chama.)
  *
  * @param primeiroNome  primeiro nome da paciente
  * @param objetivo      pacientes.objetivo (ou pacientes_pendentes.objetivo).
@@ -81,7 +64,7 @@ export function mensagemAcesso({ primeiroNome, objetivo, link, temConta = false 
       `Qualquer dúvida, é só me chamar por aqui.`;
 
   const rodape = temConta ? RODAPE_INSTALACAO.split(' (o do passo 2)').join('') : RODAPE_INSTALACAO;
-  return `${abertura}\n\n${orientacaoDeUso(objetivo)}\n\n---\n\n${rodape}`;
+  return `${abertura}\n\n---\n\n${rodape}`;
 }
 
 /**
