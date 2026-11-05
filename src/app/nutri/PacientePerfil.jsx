@@ -10,7 +10,7 @@ HORARIO_CONSULTA_PADRAO, horaConsultaValida,
 } from '../../lib/utils.js';
 import { mensagemAcesso } from '../../lib/mensagemAcesso.js';
 import { OBJETIVOS } from '../../lib/objetivos.js';
-import { PLANOS, modalidadeDaPaciente, localPadrao, datasSemLocal, localParaDefinirData, gradeDoDia } from '../../lib/opcoesPaciente.js';
+import { PLANOS, modalidadeDaPaciente, localPadrao, datasSemLocal, localParaDefinirData, localAoRemarcar, gradeDoDia } from '../../lib/opcoesPaciente.js';
 import { MODALIDADES_CONSULTA } from '../../lib/consultaVisual.js';
 // Estatico de proposito: pdfPlano + pdfBase somam poucos kB. O peso real e o
 // jsPDF, que continua atras do import dinamico dentro do criarDocumento().
@@ -307,14 +307,16 @@ export default function PacientePerfil() {
       if (!errLeitura && atual) { modalidade = atual.modalidade; localId = atual.local_id; }
     }
     let novoLocal = null;
-    if (modalidade === 'presencial' && !localId) {
+    if (modalidade === 'presencial') {
       // Sob demanda: só quando há local a decidir. Mesmo select do
       // useLocaisAtendimento. Data LOCAL da consulta, não o dia em UTC.
       const { data: locais, error: errLocais } = await supabase.from('locais_atendimento')
         .select('id, nome, endereco, ativo, dias_semana')
         .eq('nutri_id', user?.id);
       if (!errLocais) {
-        novoLocal = localParaDefinirData({
+        // Sem local: ganha o do dia. Com local que não atende no novo dia
+        // (remarcou de segunda/CTO para terça): troca pelo da regra.
+        novoLocal = localAoRemarcar({
           modalidade, localId, locais: locais ?? [], dataISO: partesLocaisISO(dataHoraIso).data,
         });
       }

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { localAoRemarcar } from '../../lib/opcoesPaciente.js';
 import { supabase } from '../../lib/supabase.js';
 import DateInput from '../../components/DateInput.jsx';
 import ModalShell from '../../components/ModalShell.jsx';
@@ -87,8 +88,17 @@ export default function ReagendarLote({ consultas, locais, nutriId, onClose, onS
         const novaISO = it.data ? montarDataHoraISO(it.data, it.hora) : null;
         // Mesmo horário de antes: nada a gravar.
         if (novaISO && new Date(novaISO).getTime() === new Date(it.c.data_hora).getTime()) continue;
+        // Mudou o dia: o endereço acompanha a regra de dias dos locais (consulta
+        // de segunda no CTO remarcada para terça não pode ficar com o CTO).
+        const patch = { data_hora: novaISO, remarcada_de: it.c.data_hora };
+        if (it.data) {
+          const novoLocal = localAoRemarcar({
+            modalidade: it.c.modalidade, localId: it.c.local_id, locais, dataISO: it.data,
+          });
+          if (novoLocal) patch.local_id = novoLocal;
+        }
         const r = await gravar(
-          supabase.from('consultas').update({ data_hora: novaISO, remarcada_de: it.c.data_hora }).eq('id', it.c.id),
+          supabase.from('consultas').update(patch).eq('id', it.c.id),
           { rotulo: `reagendar a consulta de ${it.nome}` },
         );
         if (r.ok) feitas.push(it); else falhas.push(`${it.nome}: ${r.msg}`);

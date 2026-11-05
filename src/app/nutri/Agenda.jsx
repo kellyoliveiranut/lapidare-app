@@ -20,6 +20,7 @@ import ReguaDoDia from './_ReguaDoDia.jsx';
 import ReagendarLote from './_ReagendarLote.jsx';
 import SemConsultaAgenda from './_SemConsultaAgenda.jsx';
 import { ehDiaCTO } from '../../lib/diasCTO.js';
+import { localAoRemarcar, localDivergente } from '../../lib/opcoesPaciente.js';
 import { confirmar as confirmarJanela, avisar as avisarJanela } from '../../lib/dialogos.js';
 import { HORARIOS_TAREFA, hhmm } from '../../lib/reguaDoDia.js';
 import {
@@ -488,6 +489,18 @@ export default function Agenda() {
     setLembretes(prev => prev.map(l =>
       l.id === consultaId ? { ...l, lembrete_enviado: true, lembrete_enviado_em: agora } : l
     ));
+  }
+
+  // Corrige o local da consulta para o que a regra de dias prevê (aviso do lembrete).
+  async function corrigirLocal(consultaId, localId) {
+    const r = await gravar(supabase.from('consultas')
+      .update({ local_id: localId }).eq('id', consultaId), { rotulo: 'corrigir o local da consulta' });
+    if (!r.ok) {
+      setErroLembrete('Não consegui corrigir o local, tente novamente');
+      setTimeout(() => setErroLembrete(null), 4000);
+      return;
+    }
+    setLembretes(prev => prev.map(l => l.id === consultaId ? { ...l, local_id: localId } : l));
   }
 
   async function desfazerEnvio(consultaId) {
@@ -994,6 +1007,7 @@ export default function Agenda() {
           enviadosLocais={enviadosLocais}
           onEnviar={marcarEnviado}
           onDesfazer={desfazerEnvio}
+          onCorrigirLocal={corrigirLocal}
         />
       )}
 
@@ -1450,7 +1464,7 @@ function FaixaConvite({ convite, nutriId, onDispensar }) {
 /* ============================================================
    PAINEL DE LEMBRETES DA SEMANA
    ============================================================ */
-function PainelLembretes({ lembretes, confirmadas = 0, semConfirmacao = 0, locais, enviadosLocais, onEnviar, onDesfazer }) {
+function PainelLembretes({ lembretes, confirmadas = 0, semConfirmacao = 0, locais, enviadosLocais, onEnviar, onDesfazer, onCorrigirLocal }) {
   const [copiadoId, setCopiadoId] = useState(null);
 
   async function copiarMensagem(id, texto) {
@@ -1612,6 +1626,10 @@ function PainelLembretes({ lembretes, confirmadas = 0, semConfirmacao = 0, locai
           const enderecoLocal = local?.endereco?.trim() || '';
           const endereco = [nomeLocal, enderecoLocal].filter(Boolean).join(' — ');
           const enderecoOk = l.modalidade !== 'presencial' || !!endereco;
+          // Local gravado que não atende no dia da consulta (ex.: CTO numa terça).
+          const previsto = localDivergente({
+            modalidade: l.modalidade, localId: l.local_id, locais, dataISO: partesLocaisISO(l.data_hora).data,
+          });
 
           const msgTexto = templateLembrete({
             modalidade: l.modalidade,
@@ -1681,6 +1699,24 @@ function PainelLembretes({ lembretes, confirmadas = 0, semConfirmacao = 0, locai
                   </span>
                 )}
               </div>
+
+              {previsto && (
+                <div role="alert" style={{
+                  display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8,
+                  padding: '8px 10px', borderRadius: 8, fontSize: 12,
+                  background: 'var(--orange-bg)', color: 'var(--orange)', border: '1px solid var(--orange)',
+                }}>
+                  <i className="ti ti-alert-triangle" aria-hidden="true" />
+                  <span style={{ flex: 1, minWidth: 180 }}>
+                    O endereço desta consulta ({nomeLocal || 'local gravado'}) não atende em {diaSemana}. O previsto para este dia é {previsto.nome}.
+                  </span>
+                  <button type="button" className="btn-outline"
+                    onClick={() => onCorrigirLocal(l.id, previsto.id)}
+                    style={{ fontSize: 12, padding: '4px 10px' }}>
+                    Corrigir para {previsto.nome}
+                  </button>
+                </div>
+              )}
 
               {/* Ações */}
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -3133,6 +3169,12 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
         obs: obs.trim() || null,
         lembrete_ativo: lembreteAtivo,
       };
+      // Remarcou para outro dia sem mexer no local: o endereço segue a regra de
+      // dias (consulta de segunda/CTO passada para terça não fica com o CTO).
+      if (isEdit && modalidade === 'presencial' && localId === (consulta.local_id ?? '')) {
+        const novoLocal = localAoRemarcar({ modalidade, localId, locais, dataISO: data });
+        if (novoLocal) payload.local_id = novoLocal;
+      }
       // Mudou a data de uma consulta que já tinha data: guarda a de antes, para
       // a Agenda mostrar "era dia X". Só quando o instante mudou de verdade.
       if (isEdit && consulta.data_hora && new Date(dataHora).getTime() !== new Date(consulta.data_hora).getTime()) {

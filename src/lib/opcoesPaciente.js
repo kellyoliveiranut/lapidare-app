@@ -133,3 +133,41 @@ export function gradeDoDia({ locais, modalidade, localId = '', data }) {
   const id = localId || localPadrao(locais, data);
   return gradeDoLocal((locais ?? []).find(l => l.id === id) ?? null);
 }
+
+// O local `localId` atende no dia da semana de `dataISO`? (dias_semana: 0..6, 1 = segunda)
+function atendeNoDia(locais, localId, dataISO) {
+  const loc = (locais ?? []).find(l => l.id === localId);
+  if (!loc || !loc.ativo) return false;
+  const d = new Date(dataISO + 'T12:00:00');
+  if (Number.isNaN(d.getTime())) return false;
+  return (loc.dias_semana ?? []).includes(d.getDay());
+}
+
+/**
+ * Local a gravar quando uma consulta presencial MUDA DE DATA (remarcar).
+ * Devolve o id do local, ou null para não mexer:
+ *   - não presencial → null;
+ *   - a regra de dias não decide um único local para a nova data → null;
+ *   - o local gravado já atende nesse dia (ou já é o da regra) → null: escolha
+ *     válida nunca é atropelada;
+ *   - senão → o local da regra. Era o buraco: consulta de segunda (CTO)
+ *     remarcada para terça seguia com o endereço do CTO.
+ */
+export function localAoRemarcar({ modalidade, localId, locais, dataISO }) {
+  if (modalidade !== 'presencial') return null;
+  const previsto = localPadrao(locais, dataISO);
+  if (!previsto || previsto === localId) return null;
+  if (localId && atendeNoDia(locais, localId, dataISO)) return null;
+  return previsto;
+}
+
+/**
+ * Aviso do lembrete: o local gravado NÃO atende no dia da consulta, e a regra
+ * aponta um único outro local. Devolve o local previsto ({id, nome, endereco})
+ * ou null quando está tudo certo (ou a regra não decide).
+ */
+export function localDivergente({ modalidade, localId, locais, dataISO }) {
+  if (modalidade !== 'presencial' || !localId) return null;
+  const id = localAoRemarcar({ modalidade, localId, locais, dataISO });
+  return id ? (locais ?? []).find(l => l.id === id) ?? null : null;
+}
