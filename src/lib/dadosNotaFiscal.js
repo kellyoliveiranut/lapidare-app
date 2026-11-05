@@ -26,10 +26,19 @@ export function cpfValido(v) {
   return dv(d.slice(0, 9)) === Number(d[9]) && dv(d.slice(0, 10)) === Number(d[10]);
 }
 
+/** Quem consta na nota: a própria paciente ou, se marcado, outra pessoa (titular). */
+export function titularDaNota(p) {
+  return p?.nf_outra_pessoa
+    ? { outra: true, nome: texto(p.nf_nome), cpf: p.nf_cpf ?? '' }
+    : { outra: false, nome: texto(p?.nome), cpf: p?.cpf ?? '' };
+}
+
 /** Rótulos do que ainda falta para a nota. [] = completo. */
 export function faltandoParaNota(p) {
   const falta = [];
-  if (!cpfValido(p?.cpf)) falta.push('CPF');
+  const t = titularDaNota(p);
+  if (t.outra && !t.nome) falta.push('nome do titular');
+  if (!cpfValido(t.cpf)) falta.push('CPF');
   if (soDigitos(p?.end_cep).length !== 8) falta.push('CEP');
   if (!texto(p?.end_logradouro)) falta.push('rua');
   if (!texto(p?.end_numero)) falta.push('número');
@@ -44,17 +53,24 @@ export function faltandoParaNota(p) {
  * CEP só com dígitos, UF em maiúsculas, CPF só com dígitos, vazio vira null.
  * Campos em branco são permitidos (a nota só exige tudo na hora de emitir).
  */
-export function montarPayloadNota(f) {
+export function montarPayloadNota(f, { outra = false, suportaTitular = false } = {}) {
   const cpf = soDigitos(f.cpf);
+  if (outra && !texto(f.nf_nome)) return { erro: 'Informe o nome de quem vai constar na nota.' };
   if (cpf && !cpfValido(cpf)) return { erro: 'CPF inválido. Confira os 11 números.' };
   const cep = soDigitos(f.end_cep);
   if (cep && cep.length !== 8) return { erro: 'CEP inválido. São 8 números.' };
   const uf = texto(f.end_uf).toUpperCase();
   if (uf && !/^[A-Z]{2}$/.test(uf)) return { erro: 'UF inválida. Use 2 letras (ex.: PA).' };
   const ou = (v) => texto(v) || null;
+  // Em nome de outra pessoa o CPF digitado é do TITULAR e vai para nf_cpf: o
+  // CPF da paciente (pacientes.cpf) nunca é sobrescrito.
+  const titular = outra
+    ? { nf_outra_pessoa: true, nf_nome: texto(f.nf_nome), nf_cpf: cpf || null }
+    : (suportaTitular ? { nf_outra_pessoa: false, nf_nome: null, nf_cpf: null } : {});
   return {
     payload: {
-      cpf: cpf || null,
+      ...(outra ? {} : { cpf: cpf || null }),
+      ...titular,
       end_cep: cep || null,
       end_logradouro: ou(f.end_logradouro),
       end_numero: ou(f.end_numero),
@@ -88,8 +104,8 @@ export function enderecoEmUmaLinha(p) {
 /** Texto pronto para colar no sistema de emissão da nota. */
 export function textoNota({ paciente, venda }) {
   const linhas = [
-    `Tomador: ${texto(paciente?.nome) || '—'}`,
-    `CPF: ${formatarCpf(paciente?.cpf) || '—'}`,
+    `Tomador: ${titularDaNota(paciente).nome || '—'}`,
+    `CPF: ${formatarCpf(titularDaNota(paciente).cpf) || '—'}`,
     `Endereço: ${enderecoEmUmaLinha(paciente) || '—'}`,
   ];
   if (texto(paciente?.email)) linhas.push(`E-mail: ${texto(paciente.email)}`);

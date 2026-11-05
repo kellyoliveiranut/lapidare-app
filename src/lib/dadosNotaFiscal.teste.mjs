@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { formatarCep, cpfValido, faltandoParaNota, montarPayloadNota, formatarCpf, enderecoEmUmaLinha, textoNota, vendasSemNota } from './dadosNotaFiscal.js';
+import { formatarCep, cpfValido, faltandoParaNota, montarPayloadNota, formatarCpf, enderecoEmUmaLinha, textoNota, vendasSemNota, titularDaNota } from './dadosNotaFiscal.js';
 
 assert.equal(formatarCep('66010000'), '66010-000');
 assert.equal(formatarCep('660'), '660');
@@ -61,3 +61,24 @@ const ps = { 1: [{ status: 'pago' }], 2: [{ status: 'pago' }], 3: [{ status: 'pa
 assert.deepEqual(vendasSemNota(vendas, ps).map(v => v.id), [1]);
 assert.deepEqual(vendasSemNota(undefined, undefined), []);
 console.log('dadosNotaFiscal: ok');
+
+// ── Nota em nome de outra pessoa ──
+const outra = { ...completa, nome: 'Maria', cpf: '52998224725', nf_outra_pessoa: true, nf_nome: 'João Pai', nf_cpf: '11144477735' };
+assert.deepEqual(titularDaNota(outra), { outra: true, nome: 'João Pai', cpf: '11144477735' });
+assert.equal(titularDaNota({ nome: 'Maria', cpf: '1' }).nome, 'Maria');
+assert.deepEqual(faltandoParaNota(outra), []);                       // CPF do titular vale
+assert.deepEqual(faltandoParaNota({ ...outra, nf_nome: '' }), ['nome do titular']);
+assert.deepEqual(faltandoParaNota({ ...outra, nf_cpf: null }), ['CPF']);
+assert.match(textoNota({ paciente: outra }), /Tomador: João Pai/);
+assert.match(textoNota({ paciente: outra }), /CPF: 111\.444\.777-35/);
+const po = montarPayloadNota({ cpf: '111.444.777-35', nf_nome: ' João Pai ', end_uf: 'pa' }, { outra: true });
+assert.equal(po.payload.nf_nome, 'João Pai');
+assert.equal(po.payload.nf_cpf, '11144477735');
+assert.equal(po.payload.nf_outra_pessoa, true);
+assert.equal('cpf' in po.payload, false);                            // não sobrescreve o CPF da paciente
+assert.match(montarPayloadNota({ cpf: '11144477735' }, { outra: true }).erro, /nome/);
+const pn = montarPayloadNota({ cpf: '529.982.247-25' }, { suportaTitular: true });
+assert.equal(pn.payload.nf_outra_pessoa, false);
+assert.equal(pn.payload.nf_nome, null);
+assert.equal('nf_outra_pessoa' in montarPayloadNota({}).payload, false); // sem migration: nada novo no payload
+console.log('ok titular');

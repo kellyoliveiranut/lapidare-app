@@ -14,6 +14,7 @@ import { faltandoParaNota, textoNota, vendasSemNota } from '../../lib/dadosNotaF
    ============================================================ */
 
 const COLUNAS_BASE = 'id, nome, email, telefone, cpf, endereco';
+const COLUNAS_NF = ', nf_outra_pessoa, nf_nome, nf_cpf';
 const COLUNAS_END = ', end_cep, end_logradouro, end_numero, end_complemento, end_bairro, end_cidade, end_uf';
 
 export default function NotasAEmitir({ vendas, parcelasPorVenda, onMudou }) {
@@ -31,7 +32,10 @@ export default function NotasAEmitir({ vendas, parcelasPorVenda, onMudou }) {
     (async () => {
       const ids = idsChave.split(',');
       // Sem as colunas novas de endereço (SQL ainda não rodado), repete sem elas.
-      let r = await supabase.from('pacientes').select(COLUNAS_BASE + COLUNAS_END).in('id', ids);
+      // Cada SQL ainda não rodado derruba só o seu pedaço: titular da nota (nf_*),
+      // depois endereço separado (end_*).
+      let r = await supabase.from('pacientes').select(COLUNAS_BASE + COLUNAS_END + COLUNAS_NF).in('id', ids);
+      if (r.error) r = await supabase.from('pacientes').select(COLUNAS_BASE + COLUNAS_END).in('id', ids);
       if (r.error) r = await supabase.from('pacientes').select(COLUNAS_BASE).in('id', ids);
       if (!vivo || r.error) return;
       setPacientes(Object.fromEntries((r.data ?? []).map(p => [p.id, p])));
