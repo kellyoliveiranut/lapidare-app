@@ -16,6 +16,8 @@ import { MODALIDADES_CONSULTA } from '../../lib/consultaVisual.js';
 // jsPDF, que continua atras do import dinamico dentro do criarDocumento().
 import { gerarPDFPlano } from '../../lib/pdfPlano.js';
 import BaixarDadosPaciente from './_BaixarDadosPaciente.jsx';
+import BaixarTodosPdfs from './_BaixarTodosPdfs.jsx';
+import { esperar, nomeArquivoEbook, nomesUnicos, PAUSA_ENTRE_DOWNLOADS_MS } from '../../lib/baixarEmSequencia.js';
 import { baixarBlob, nomeArquivoPdf } from '../../lib/pdfBase.js';
 import { perguntasParaPaciente } from '../../lib/checkinVariacao.js';
 import { ehFeriado } from '../../lib/feriados.js';
@@ -5780,6 +5782,33 @@ function EbooksDaPaciente({ pacienteId, nutriId, pacienteNome }) {
         || (e.descricao ?? '').toLowerCase().includes(q);
     });
 
+  const [baixandoEbooks, setBaixandoEbooks] = useState(false);
+  const [msgEbooks, setMsgEbooks] = useState('');
+
+  // Baixa os atribuídos um por um (busca o arquivo e salva; sem abrir abas).
+  async function baixarTodosEbooks() {
+    if (baixandoEbooks || atribuidos.length === 0) return;
+    setBaixandoEbooks(true);
+    const nomes = nomesUnicos(atribuidos.map(e => nomeArquivoEbook(e.titulo, e.storage_path)));
+    const falhas = [];
+    for (let i = 0; i < atribuidos.length; i++) {
+      const eb = atribuidos[i];
+      setMsgEbooks(`${i + 1}/${atribuidos.length}…`);
+      try {
+        const { data } = supabase.storage.from('ebooks').getPublicUrl(eb.storage_path);
+        const resp = await fetch(data.publicUrl);
+        if (!resp.ok) throw new Error(String(resp.status));
+        baixarBlob(await resp.blob(), nomes[i]);
+      } catch {
+        falhas.push(eb.titulo);
+      }
+      if (i < atribuidos.length - 1) await esperar(PAUSA_ENTRE_DOWNLOADS_MS);
+    }
+    setBaixandoEbooks(false);
+    setMsgEbooks('');
+    if (falhas.length) avisarJanela(`Não consegui baixar: ${falhas.join(', ')}.`);
+  }
+
   return (
     <>
       <div className="card">
@@ -5788,9 +5817,15 @@ function EbooksDaPaciente({ pacienteId, nutriId, pacienteNome }) {
             <div className="card-title">E-books de {pacienteNome.split(' ')[0]}</div>
             <div className="card-sub">Marque os materiais da biblioteca que ela pode acessar, ou suba um novo direto</div>
           </div>
-          <button className="btn" onClick={() => setUploadOpen(true)}>
-            <i className="ti ti-upload" aria-hidden="true"></i> Subir novo
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <button className="btn-outline" onClick={baixarTodosEbooks} disabled={baixandoEbooks || atribuidos.length === 0}
+              title="Baixa, um por um, todos os materiais atribuídos a ela">
+              <i className="ti ti-download" aria-hidden="true"></i> {baixandoEbooks ? (msgEbooks || 'Baixando…') : 'Baixar todos'}
+            </button>
+            <button className="btn" onClick={() => setUploadOpen(true)}>
+              <i className="ti ti-upload" aria-hidden="true"></i> Subir novo
+            </button>
+          </div>
         </div>
         <div className="card-body">
           <div style={{
@@ -6629,7 +6664,10 @@ function AreaPlanejamento({ paciente, user, calculosImportados, setCalculosImpor
         {ATALHOS_PLANEJAMENTO.map(a => (
           <button key={a.rotulo} type="button" style={chip} onClick={() => irPara(a.secao, a.alvo)}>{a.rotulo}</button>
         ))}
-        <button type="button" style={{ ...chip, marginLeft: 'auto', color: 'var(--text3)' }} onClick={alternarTodas}>
+        <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 8, flex: '0 0 auto' }}>
+          <BaixarTodosPdfs pacienteId={paciente.id} estilo={chip} />
+        </span>
+        <button type="button" style={{ ...chip, color: 'var(--text3)' }} onClick={alternarTodas}>
           {todasAbertas ? 'Recolher tudo' : 'Abrir tudo'}
         </button>
       </div>

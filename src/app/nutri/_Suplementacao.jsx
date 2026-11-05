@@ -27,7 +27,7 @@ const HOJE_ISO = () => dataLocalISO();
  * modo não-vazio. Como só 22 dos 306 ativos são manipulados, a maioria das
  * pacientes abre em 'suplementacao' e a nutri confirma com um clique.
  */
-const MODOS_PDF = [
+export const MODOS_PDF = [
   {
     id: 'suplementacao',
     label: 'Suplementação',
