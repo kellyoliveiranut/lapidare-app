@@ -42,6 +42,7 @@ const Visao = lazy(() => import('./app/nutri/Visao.jsx'));
 const Pacientes = lazy(() => import('./app/nutri/Pacientes.jsx'));
 const PacientePerfil = lazy(() => import('./app/nutri/PacientePerfil.jsx'));
 const Agenda = lazy(() => import('./app/nutri/Agenda.jsx'));
+const Glowshot = lazy(() => import('./app/nutri/Glowshot.jsx'));
 const ChatNutri = lazy(() => import('./app/nutri/Chat.jsx'));
 const Avisos = lazy(() => import('./app/nutri/Avisos.jsx'));
 const FeedNutri = lazy(() => import('./app/nutri/Feed.jsx'));
@@ -100,6 +101,7 @@ export default function App() {
                 <Route path="/nutri/pacientes" element={<Pacientes />} />
                 <Route path="/nutri/pacientes/:id" element={<PacientePerfil />} />
                 <Route path="/nutri/agenda" element={<Agenda />} />
+                <Route path="/nutri/glowshot" element={<Glowshot />} />
                 <Route path="/nutri/chat" element={<ChatNutri />} />
                 <Route path="/nutri/avisos" element={<Avisos />} />
                 <Route path="/nutri/feed" element={<FeedNutri />} />

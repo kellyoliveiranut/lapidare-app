@@ -18,6 +18,7 @@ const NAV_CONFIG = [
       { id: 'visao',        path: '/nutri/visao',        label: 'Visão geral',         icon: 'layout-dashboard' },
       { id: 'pacientes',    path: '/nutri/pacientes',    label: 'Pacientes',           icon: 'users' },
       { id: 'agenda',       path: '/nutri/agenda',       label: 'Agenda',              icon: 'calendar' },
+      { id: 'glowshot',     path: '/nutri/glowshot',     label: 'Prescrição Glowshot', icon: 'sparkles' },
       { id: 'chat',         path: '/nutri/chat',         label: 'Chat',                icon: 'message-circle' },
       { id: 'avisos',       path: '/nutri/avisos',       label: 'Avisos',              icon: 'bell' },
       { id: 'feed',         path: '/nutri/feed',         label: 'Feed de pratos',      icon: 'camera' },
