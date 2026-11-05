@@ -158,3 +158,45 @@ export function textoRef(campo, sexo) {
   if (r.min != null) return `> ${f(r.min)}`;
   return null;
 }
+
+/* ------------------------------------------------------------
+   HEMOGRAMA COMPLETO — OUTROS PARÂMETROS (oncologia)
+
+   Os 8 campos acima são colunas da tabela e têm alerta clínico. Estes são os
+   demais itens do hemograma que a Kelly já anotava à mão em "Observações".
+   Ficam em UMA coluna jsonb (`exames_laboratoriais.valores_extra`), chaveados
+   por `key`, sem `alerta`: o app só mostra o valor e, quando há faixa, se está
+   fora dela. Nunca "crítico".
+
+   As faixas são as da tabela técnica da Kelly (src/data/exames_emagrecimento.js).
+   Eosinófilos, basófilos, monócitos e bastões entram em valor ABSOLUTO (/mm³),
+   como saem no laudo; a tabela dela só tem a faixa em %, e converter seria
+   inventar faixa. Ficam sem faixa até a Kelly definir.
+   ------------------------------------------------------------ */
+export const CAMPOS_EXAME_EXTRA = [
+  { key: 'hematocrito', label: 'Hematócrito', curto: 'Ht', unidade: '%', dec: 0, ph: '38',
+    ref: { feminino: { min: 36, max: 46 }, masculino: { min: 41, max: 53 } } },
+  { key: 'hemacias', label: 'Hemácias', curto: 'Hem', unidade: 'milhões/mm³', dec: 2, ph: '4,2',
+    ref: { feminino: { min: 4.0, max: 5.2 }, masculino: { min: 4.5, max: 5.9 } } },
+  { key: 'vcm', label: 'VCM', curto: 'VCM', unidade: 'fL', dec: 1, ph: '90', ref: { min: 80, max: 100 } },
+  { key: 'hcm', label: 'HCM', curto: 'HCM', unidade: 'pg', dec: 1, ph: '29', ref: { min: 27, max: 33 } },
+  { key: 'chcm', label: 'CHCM', curto: 'CHCM', unidade: 'g/dL', dec: 1, ph: '33', ref: { min: 32, max: 36 } },
+  { key: 'rdw', label: 'RDW', curto: 'RDW', unidade: '%', dec: 1, ph: '13', ref: { min: 11.5, max: 14.5 } },
+  { key: 'eosinofilos', label: 'Eosinófilos', curto: 'Eos', unidade: '/mm³', dec: 0, ph: '90' },
+  { key: 'basofilos', label: 'Basófilos', curto: 'Baso', unidade: '/mm³', dec: 0, ph: '20' },
+  { key: 'monocitos', label: 'Monócitos', curto: 'Mono', unidade: '/mm³', dec: 0, ph: '350' },
+  { key: 'bastoes', label: 'Bastões', curto: 'Bast', unidade: '/mm³', dec: 0, ph: '0' },
+];
+
+export const CHAVES_EXAME_EXTRA = CAMPOS_EXAME_EXTRA.map(c => c.key);
+
+/** 'baixo' | 'alto' | null — fora da faixa de referência, sem juízo clínico. */
+export function foraDaRef(campo, v, sexo) {
+  if (v == null || v === '') return null;
+  const r = refDoCampo(campo, sexo);
+  if (!r) return null;
+  const n = Number(v);
+  if (r.min != null && n < r.min) return 'baixo';
+  if (r.max != null && n > r.max) return 'alto';
+  return null;
+}
