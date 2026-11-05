@@ -7,6 +7,7 @@ import DateInput from '../../components/DateInput.jsx';
 import ModalShell from '../../components/ModalShell.jsx';
 import CardProtocoloEfeitos from '../../components/CardProtocoloEfeitos.jsx';
 import protocolosEfeitosData from '../../data/protocolos_efeitos.json';
+import { lerObservacaoExames } from '../../lib/lerObservacaoExames.js';
 import { CAMPOS_EXAME, CHAVES_EXAME, CAMPOS_EXAME_EXTRA, CHAVES_EXAME_EXTRA, textoRef, foraDaRef, fmtNumExame } from '../../data/exames_referencia.js';
 import ValorExame, { LegendaExames } from '../../components/ValorExame.jsx';
 import GraficosExames from '../../components/GraficosExames.jsx';
@@ -351,6 +352,21 @@ export default function TratamentoOncologico({ pacienteId, nutriId, pacienteNome
     );
     if (!r.ok) return setFeedback({ tipo: 'erro', msg: r.msg });
     carregar();
+  }
+
+  // Preenche os campos com os números que já estão escritos nas Observações,
+  // exatamente como estão. Não apaga o texto; quem decide é a nutri, que
+  // confere antes de registrar (os campos preenchidos ficam destacados).
+  function preencherDasObservacoes() {
+    const { valores, ignorados } = lerObservacaoExames(novoExame.obs);
+    const chaves = Object.keys(valores);
+    if (chaves.length === 0) {
+      return setFeedback({ tipo: 'erro', msg: 'Não encontrei valores no formato "Nome: número" nas Observações.' });
+    }
+    setNovoExame(p => ({ ...p, ...valores }));
+    setAConferir(prev => new Set([...prev, ...chaves]));
+    setFeedback({ tipo: 'ok', msg: `${chaves.length} valor(es) preenchido(s) a partir das Observações. Confira antes de registrar.`
+      + (ignorados.length ? ` Sem campo no app: ${ignorados.join(', ')}.` : '') });
   }
 
   async function adicionarExame() {
@@ -1313,7 +1329,7 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
                   );
                 })}
               </div>
-              <details style={{ marginBottom: 10 }}>
+              <details style={{ marginBottom: 10 }} open={CHAVES_EXAME_EXTRA.some(k => String(novoExame['x_' + k] ?? '') !== '') || undefined}>
                 <summary style={{ cursor: 'pointer', fontSize: 13, fontWeight: 500, padding: '4px 0' }}>
                   Outros parâmetros (hemograma completo, ureia, creatinina, TFG, TGO e TGP)
                 </summary>
@@ -1324,7 +1340,8 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
                       <div key={campo.key}>
                         <label className="field-label">{campo.label} ({campo.unidade})</label>
                         <input inputMode="decimal" placeholder="valor" value={novoExame['x_' + campo.key] ?? ''}
-                          onChange={e => setNovoExame(p => ({ ...p, ['x_' + campo.key]: e.target.value }))} />
+                          style={aConferir.has('x_' + campo.key) ? { borderColor: '#d97706', background: '#fffaf0' } : undefined}
+                          onChange={e => { const kx = 'x_' + campo.key; setAConferir(prev => { if (!prev.has(kx)) return prev; const n = new Set(prev); n.delete(kx); return n; }); setNovoExame(p => ({ ...p, [kx]: e.target.value })); }} />
                         {ref && <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }}>ref. {ref}</div>}
                       </div>
                     );
@@ -1332,7 +1349,13 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
                 </div>
               </details>
               <div style={{ marginBottom: 10 }}>
-                <label className="field-label">Observações</label>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                  <label className="field-label">Observações</label>
+                  <button type="button" className="btn-outline" style={{ fontSize: 12, minHeight: 30, padding: '2px 10px' }}
+                    onClick={preencherDasObservacoes} disabled={!novoExame.obs.trim()}>
+                    <i className="ti ti-wand" aria-hidden="true" /> Preencher campos a partir das observações
+                  </button>
+                </div>
                 <input value={novoExame.obs} onChange={e => setNovoExame(p => ({ ...p, obs: e.target.value }))} />
               </div>
               <button className="btn" onClick={adicionarExame} disabled={busy}>
