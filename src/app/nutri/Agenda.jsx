@@ -759,8 +759,10 @@ export default function Agenda() {
   // confirmação, e insistir com quem já respondeu é ruído — vale tanto para
   // quem confirmou (nutri pelo WhatsApp ou paciente pelo app) quanto para quem
   // a nutri marcou que não vem.
+  // Confirmadas ficam NA MESMA lista, no dia certo, com a etiqueta "Confirmada":
+  // a nutri ainda pode querer mandar o lembrete. Só sai quem disse que não vem.
   const lembretesPendentes = useMemo(
-    () => lembretes.filter(l => !l.confirmada_em && !l.nao_confirmada_em),
+    () => lembretes.filter(l => !l.nao_confirmada_em),
     [lembretes],
   );
   // Contagens próprias, não a subtração de antes: com dois motivos de saída, a
@@ -768,13 +770,6 @@ export default function Agenda() {
   // "3 confirmadas" contando quem disse que NÃO vem.
   const confirmadasOcultas = useMemo(
     () => lembretes.filter(l => l.confirmada_em).length,
-    [lembretes],
-  );
-  // Quem confirmou sai da lista de pendentes, mas a nutri ainda pode querer
-  // mandar o lembrete (a confirmação pode ter sido dias antes). Vai para uma
-  // seção própria, fechada por padrão, com o mesmo cartão e os mesmos botões.
-  const lembretesConfirmados = useMemo(
-    () => lembretes.filter(l => l.confirmada_em),
     [lembretes],
   );
   const semConfirmacaoOcultas = useMemo(
@@ -978,7 +973,6 @@ export default function Agenda() {
         <PainelLembretes
           lembretes={lembretesPendentes}
           confirmadas={confirmadasOcultas}
-          confirmadasLista={lembretesConfirmados}
           semConfirmacao={semConfirmacaoOcultas}
           locais={locais}
           enviadosLocais={enviadosLocais}
@@ -1409,7 +1403,7 @@ function FaixaConvite({ convite, nutriId, onDispensar }) {
 /* ============================================================
    PAINEL DE LEMBRETES DA SEMANA
    ============================================================ */
-function PainelLembretes({ lembretes, confirmadasLista = [], confirmadas = 0, semConfirmacao = 0, locais, enviadosLocais, onEnviar, onDesfazer }) {
+function PainelLembretes({ lembretes, confirmadas = 0, semConfirmacao = 0, locais, enviadosLocais, onEnviar, onDesfazer }) {
   const [copiadoId, setCopiadoId] = useState(null);
 
   async function copiarMensagem(id, texto) {
@@ -1420,7 +1414,6 @@ function PainelLembretes({ lembretes, confirmadasLista = [], confirmadas = 0, se
   }
 
   const [verEnviados, setVerEnviados] = useState(false);
-  const [verConfirmadas, setVerConfirmadas] = useState(false);
   const [verTodos, setVerTodos] = useState(false);
   // A função por referência, não chamada: o localStorage é lido uma vez na
   // montagem, e não a cada render.
@@ -1437,10 +1430,10 @@ function PainelLembretes({ lembretes, confirmadasLista = [], confirmadas = 0, se
 
   const pendentesList = lembretes.filter(l => !foiEnviado(l));
   const enviadosList  = lembretes.filter(foiEnviado);
-  const pendentes = pendentesList.length;
+  const pendentes = pendentesList.filter(l => !l.confirmada_em).length;
 
   const visiveis = verTodos ? pendentesList : pendentesList.slice(0, LIMITE_PENDENTES);
-  const ocultos = pendentes - visiveis.length;
+  const ocultos = pendentesList.length - visiveis.length;
 
   // chaveDia e rotuloDoDia vivem no escopo do módulo — a lista de consultas
   // agrupada por dia usa as mesmas.
@@ -1458,10 +1451,6 @@ function PainelLembretes({ lembretes, confirmadasLista = [], confirmadas = 0, se
   if (enviadosList.length > 0) {
     itens.push({ tipo: 'toggle', chave: 'toggle' });
     if (verEnviados) for (const l of enviadosList) itens.push({ tipo: 'card', chave: l.id, l });
-  }
-  if (confirmadasLista.length > 0) {
-    itens.push({ tipo: 'toggleConf', chave: 'toggleConf' });
-    if (verConfirmadas) for (const l of confirmadasLista) itens.push({ tipo: 'card', chave: 'conf-' + l.id, l });
   }
 
   return (
@@ -1553,13 +1542,6 @@ function PainelLembretes({ lembretes, confirmadasLista = [], confirmadas = 0, se
               {verEnviados ? 'Ocultar enviados' : `Ver ${enviadosList.length} já enviado${enviadosList.length > 1 ? 's' : ''}`}
             </button>
           );
-          if (it.tipo === 'toggleConf') return (
-            <button key={it.chave} className="btn-outline" onClick={() => setVerConfirmadas(v => !v)}
-              style={{ fontSize: 12, minHeight: 38, justifyContent: 'center', color: 'var(--text3)' }}>
-              <i className={`ti ti-chevron-${verConfirmadas ? 'up' : 'down'}`} aria-hidden="true" />
-              {verConfirmadas ? 'Ocultar confirmadas' : `Ver ${confirmadasLista.length} confirmada${confirmadasLista.length > 1 ? 's' : ''} (enviar lembrete)`}
-            </button>
-          );
           const l = it.l;
           const dt = new Date(l.data_hora);
           const horaConsulta = horaConsultaBR(l.data_hora);
@@ -1645,9 +1627,10 @@ function PainelLembretes({ lembretes, confirmadasLista = [], confirmadas = 0, se
                 ) : (
                   <span style={{
                     fontSize: 11, padding: '3px 9px', borderRadius: 20, fontWeight: 500,
-                    background: 'var(--orange-bg)', color: 'var(--orange)', flexShrink: 0,
+                    background: l.confirmada_em ? '#e0f2fe' : 'var(--orange-bg)',
+                    color: l.confirmada_em ? '#0369a1' : 'var(--orange)', flexShrink: 0,
                   }}>
-                    {l.confirmada_em ? 'Confirmada · lembrete opcional' : 'Lembrete pendente'}
+                    {l.confirmada_em ? 'Confirmada' : 'Lembrete pendente'}
                   </span>
                 )}
               </div>
