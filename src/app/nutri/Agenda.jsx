@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { avisarStatus } from '../../lib/realtime.js';
@@ -78,6 +78,14 @@ function normalizarTelefone(raw) {
   if (n.startsWith('0')) n = n.slice(1);            // remove zero à esquerda
   if (n.startsWith('55') && n.length >= 12) return n; // já tem código do país
   return '55' + n;
+}
+
+// Período do dia de uma consulta (horário de Belém): antes das 12:00 é manhã.
+const PERIODO_MANHA = { id: 'manha', rotulo: 'Manhã', icone: 'ti-sun', fundo: '#fdeec9', texto: '#8a5a00', borda: '#e8b84a' };
+const PERIODO_TARDE = { id: 'tarde', rotulo: 'Tarde', icone: 'ti-sunset-2', fundo: '#dbe9fb', texto: '#1e4f8a', borda: '#7fa8dd' };
+function periodoDoDia(iso) {
+  const h = Number(partesLocaisISO(iso).hora.slice(0, 2));
+  return h < 12 ? PERIODO_MANHA : PERIODO_TARDE;
 }
 
 // Textos dos lembretes — edite aqui para mudar a mensagem em todos os envios.
@@ -1045,15 +1053,40 @@ export default function Agenda() {
         </div>
       ) : (
         <div className="card" style={{ padding: 0 }}>
-          {consultasDoDia.map((c, i) => (
-            <ConsultaRow key={c.id} c={c} isLast={i === consultasDoDia.length - 1} onClick={() => abrirEdit(c)}
-              onToggleConfirmada={toggleConfirmada}
-              onToggleNaoConfirmada={toggleNaoConfirmada}
-              onToggleOculta={toggleOculta}
-              onRemarcar={() => abrirRemarcar(c)}
-              remarcandoAgora={mandandoId === c.id}
-              corDoTipo />
-          ))}
+          {consultasDoDia.map((c, i) => {
+            // Faixa de período (Manhã / Tarde) antes da primeira consulta de
+            // cada um. Corte às 12:00, no horário de Belém. As linhas seguem
+            // na cor do tipo; a cor do período fica só na faixa e na borda.
+            const periodo = periodoDoDia(c.data_hora);
+            const anterior = i > 0 ? periodoDoDia(consultasDoDia[i - 1].data_hora) : null;
+            const novoPeriodo = periodo.id !== anterior?.id;
+            const qtd = novoPeriodo ? consultasDoDia.filter(x => periodoDoDia(x.data_hora).id === periodo.id).length : 0;
+            return (
+              <Fragment key={c.id}>
+                {novoPeriodo && (
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    padding: '7px 16px',
+                    background: periodo.fundo, color: periodo.texto,
+                    borderTop: i > 0 ? `3px solid ${periodo.borda}` : 'none',
+                    borderBottom: `1px solid ${periodo.borda}`,
+                    fontSize: 11, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase',
+                  }}>
+                    <i className={`ti ${periodo.icone}`} style={{ fontSize: 14 }} aria-hidden="true" />
+                    {periodo.rotulo}
+                    <span style={{ fontWeight: 500, opacity: 0.8 }}>· {qtd} consulta{qtd > 1 ? 's' : ''}</span>
+                  </div>
+                )}
+                <ConsultaRow c={c} isLast={i === consultasDoDia.length - 1} onClick={() => abrirEdit(c)}
+                  onToggleConfirmada={toggleConfirmada}
+                  onToggleNaoConfirmada={toggleNaoConfirmada}
+                  onToggleOculta={toggleOculta}
+                  onRemarcar={() => abrirRemarcar(c)}
+                  remarcandoAgora={mandandoId === c.id}
+                  corDoTipo />
+              </Fragment>
+            );
+          })}
         </div>
       )}
 
