@@ -1323,7 +1323,7 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
                     return (
                       <div key={campo.key}>
                         <label className="field-label">{campo.label} ({campo.unidade})</label>
-                        <input inputMode="decimal" placeholder={campo.ph} value={novoExame['x_' + campo.key] ?? ''}
+                        <input inputMode="decimal" placeholder="valor" value={novoExame['x_' + campo.key] ?? ''}
                           onChange={e => setNovoExame(p => ({ ...p, ['x_' + campo.key]: e.target.value }))} />
                         {ref && <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }}>ref. {ref}</div>}
                       </div>

@@ -175,26 +175,26 @@ export function textoRef(campo, sexo) {
    inventar faixa. Ficam sem faixa até a Kelly definir.
    ------------------------------------------------------------ */
 export const CAMPOS_EXAME_EXTRA = [
-  { key: 'hematocrito', label: 'Hematócrito', curto: 'Ht', unidade: '%', dec: 0, ph: '38',
+  { key: 'hematocrito', label: 'Hematócrito', curto: 'Ht', unidade: '%', dec: 0, ph: '',
     ref: { feminino: { min: 36, max: 46 }, masculino: { min: 41, max: 53 } } },
-  { key: 'hemacias', label: 'Hemácias', curto: 'Hem', unidade: 'milhões/mm³', dec: 2, ph: '4,2',
+  { key: 'hemacias', label: 'Hemácias', curto: 'Hem', unidade: 'milhões/mm³', dec: 2, ph: '',
     ref: { feminino: { min: 4.0, max: 5.2 }, masculino: { min: 4.5, max: 5.9 } } },
-  { key: 'vcm', label: 'VCM', curto: 'VCM', unidade: 'fL', dec: 1, ph: '90', ref: { min: 80, max: 100 } },
-  { key: 'hcm', label: 'HCM', curto: 'HCM', unidade: 'pg', dec: 1, ph: '29', ref: { min: 27, max: 33 } },
-  { key: 'chcm', label: 'CHCM', curto: 'CHCM', unidade: 'g/dL', dec: 1, ph: '33', ref: { min: 32, max: 36 } },
-  { key: 'rdw', label: 'RDW', curto: 'RDW', unidade: '%', dec: 1, ph: '13', ref: { min: 11.5, max: 14.5 } },
-  { key: 'eosinofilos', label: 'Eosinófilos', curto: 'Eos', unidade: '/mm³', dec: 0, ph: '90' },
-  { key: 'basofilos', label: 'Basófilos', curto: 'Baso', unidade: '/mm³', dec: 0, ph: '20' },
-  { key: 'monocitos', label: 'Monócitos', curto: 'Mono', unidade: '/mm³', dec: 0, ph: '350' },
-  { key: 'bastoes', label: 'Bastões', curto: 'Bast', unidade: '/mm³', dec: 0, ph: '0' },
+  { key: 'vcm', label: 'VCM', curto: 'VCM', unidade: 'fL', dec: 1, ph: '', ref: { min: 80, max: 100 } },
+  { key: 'hcm', label: 'HCM', curto: 'HCM', unidade: 'pg', dec: 1, ph: '', ref: { min: 27, max: 33 } },
+  { key: 'chcm', label: 'CHCM', curto: 'CHCM', unidade: 'g/dL', dec: 1, ph: '', ref: { min: 32, max: 36 } },
+  { key: 'rdw', label: 'RDW', curto: 'RDW', unidade: '%', dec: 1, ph: '', ref: { min: 11.5, max: 14.5 } },
+  { key: 'eosinofilos', label: 'Eosinófilos', curto: 'Eos', unidade: '/mm³', dec: 0, ph: '' },
+  { key: 'basofilos', label: 'Basófilos', curto: 'Baso', unidade: '/mm³', dec: 0, ph: '' },
+  { key: 'monocitos', label: 'Monócitos', curto: 'Mono', unidade: '/mm³', dec: 0, ph: '' },
+  { key: 'bastoes', label: 'Bastões', curto: 'Bast', unidade: '/mm³', dec: 0, ph: '' },
   // Função renal e hepática, que a Kelly também anotava junto do hemograma.
   // Faixas: tabela técnica dela (exames_emagrecimento.js), as mesmas de lá.
-  { key: 'ureia', label: 'Ureia', curto: 'Ureia', unidade: 'mg/dL', dec: 0, ph: '30', ref: { min: 15, max: 45 } },
-  { key: 'creatinina', label: 'Creatinina', curto: 'Creat', unidade: 'mg/dL', dec: 2, ph: '0,8',
+  { key: 'ureia', label: 'Ureia', curto: 'Ureia', unidade: 'mg/dL', dec: 0, ph: '', ref: { min: 15, max: 45 } },
+  { key: 'creatinina', label: 'Creatinina', curto: 'Creat', unidade: 'mg/dL', dec: 2, ph: '',
     ref: { feminino: { min: 0.6, max: 1.1 }, masculino: { min: 0.7, max: 1.3 } } },
-  { key: 'tfg', label: 'TFG estimada', curto: 'TFG', unidade: 'mL/min/1,73 m²', dec: 1, ph: '100', ref: { min: 90 } },
-  { key: 'tgo', label: 'TGO / AST', curto: 'TGO', unidade: 'U/L', dec: 0, ph: '25', ref: { min: 10, max: 40 } },
-  { key: 'tgp', label: 'TGP / ALT', curto: 'TGP', unidade: 'U/L', dec: 0, ph: '25', ref: { min: 7, max: 56 } },
+  { key: 'tfg', label: 'TFG estimada', curto: 'TFG', unidade: 'mL/min/1,73 m²', dec: 1, ph: '', ref: { min: 90 } },
+  { key: 'tgo', label: 'TGO / AST', curto: 'TGO', unidade: 'U/L', dec: 0, ph: '', ref: { min: 10, max: 40 } },
+  { key: 'tgp', label: 'TGP / ALT', curto: 'TGP', unidade: 'U/L', dec: 0, ph: '', ref: { min: 7, max: 56 } },
 ];
 
 export const CHAVES_EXAME_EXTRA = CAMPOS_EXAME_EXTRA.map(c => c.key);
