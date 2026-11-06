@@ -6,6 +6,7 @@ import { copiarTexto } from '../../lib/copiarTexto.js';
 import { linkConviteCuidador } from '../../lib/convite.js';
 import { mensagemConviteCuidador } from '../../lib/mensagemAcesso.js';
 import { telefoneWhatsapp } from '../../lib/painelNotificacoes.js';
+import EnviarWhatsApp from './_EnviarWhatsApp.jsx';
 
 const VALIDADE_DIAS = 7;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -34,6 +35,7 @@ export default function Cuidador({ paciente, onMudou }) {
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState(null);
   const [copiado, setCopiado] = useState(false);
+  const [envio, setEnvio] = useState(false);
 
   // Sem a migração, a coluna nem vem no select('*'): a seção fica escondida.
   if (!('cuidador_user_id' in paciente)) return null;
@@ -72,9 +74,8 @@ export default function Cuidador({ paciente, onMudou }) {
   }
 
   function enviarWhatsApp() {
-    const tel = telefoneWhatsapp(paciente.cuidador_telefone);
-    if (!tel) return avisar('Cadastre o telefone do cuidador para enviar pelo WhatsApp.');
-    window.open(`https://wa.me/${tel}?text=${encodeURIComponent(textoConvite())}`, '_blank', 'noopener');
+    if (!telefoneWhatsapp(paciente.cuidador_telefone)) return avisar('Cadastre o telefone do cuidador para enviar pelo WhatsApp.');
+    setEnvio(true);
   }
 
   async function copiar() {
@@ -170,6 +171,16 @@ export default function Cuidador({ paciente, onMudou }) {
         <button style={botao} onClick={() => setEditando(true)}>
           <i className="ti ti-user-plus" aria-hidden="true" /> Adicionar cuidador
         </button>
+      )}
+
+      {envio && (
+        <EnviarWhatsApp
+          titulo="Enviar convite ao cuidador"
+          subtitulo={paciente.cuidador_nome}
+          mensagem={textoConvite()}
+          telefone={telefoneWhatsapp(paciente.cuidador_telefone)}
+          onClose={() => setEnvio(false)}
+        />
       )}
 
       {editando && (

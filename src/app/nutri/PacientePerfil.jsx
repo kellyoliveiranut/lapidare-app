@@ -17,6 +17,7 @@ import { MODALIDADES_CONSULTA } from '../../lib/consultaVisual.js';
 import { gerarPDFPlano } from '../../lib/pdfPlano.js';
 import BaixarDadosPaciente from './_BaixarDadosPaciente.jsx';
 import Cuidador from './_Cuidador.jsx';
+import EnviarWhatsApp from './_EnviarWhatsApp.jsx';
 import BaixarTodosPdfs from './_BaixarTodosPdfs.jsx';
 import { esperar, nomeArquivoEbook, nomesUnicos, PAUSA_ENTRE_DOWNLOADS_MS } from '../../lib/baixarEmSequencia.js';
 import { baixarBlob, nomeArquivoPdf } from '../../lib/pdfBase.js';
@@ -71,6 +72,7 @@ export default function PacientePerfil() {
   const voltar = () => (state?.from ? navigate(-1) : navigate('/nutri/pacientes'));
   const { user } = useSession();
   const [paciente, setPaciente] = useState(null);
+  const [envioWhats, setEnvioWhats] = useState(null);   // { msg, tel } do envio de acesso
   const [tab, setTab] = useState('planejamento');
   const [chatAberto, setChatAberto] = useState(false);
   const [calculosImportados, setCalculosImportados] = useState(null);
@@ -435,18 +437,12 @@ export default function PacientePerfil() {
     const tel = normalizarTelefone(paciente.telefone);
     const primeiroNome = paciente.nome?.split(' ')[0] ?? '';
 
-    // Abre a aba AGORA, com o gesto do clique ainda válido. O await abaixo
-    // consome a transient activation e o Safari barra window.open como popup.
-    // Sem 'noopener' de propósito: precisamos de janela.location adiante.
-    const janela = window.open('', '_blank');
-
     // O ramo decide só QUAL link. O texto vem inteiro de lib/mensagemAcesso.js,
     // fonte única desde 2026-08-02 — antes havia três cópias divergentes.
     let link;
     if (!paciente.user_id) {
       link = await gerarLinkConvite();      // sem conta: link de criar senha
       if (!link) {
-        janela?.close();
         avisarJanela('Não consegui gerar o link agora, tente novamente.');
         return;
       }
@@ -461,9 +457,10 @@ export default function PacientePerfil() {
       temConta: !!paciente.user_id,
     });
 
-    const url = `https://wa.me/${tel}?text=${encodeURIComponent(msg)}`;
-    if (janela) janela.location.href = url;
-    else window.open(url, '_blank', 'noopener');
+    // Em vez de abrir uma aba em branco (o truque antigo falhava no iPad e no
+    // WhatsApp Business), mostra a mensagem com 3 caminhos de envio: abrir o
+    // WhatsApp, o WhatsApp Web ou copiar e colar na conversa.
+    setEnvioWhats({ msg, tel });
   }
 
   // Pausa/reativa o acesso da paciente. O carimbo acesso_pausado_em é
@@ -873,6 +870,16 @@ export default function PacientePerfil() {
       </div>
 
       <Cuidador paciente={paciente} onMudou={carregar} />
+
+      {envioWhats && (
+        <EnviarWhatsApp
+          titulo="Enviar acesso ao app"
+          subtitulo={`Para ${paciente.nome?.split(' ')[0] ?? 'a paciente'}`}
+          mensagem={envioWhats.msg}
+          telefone={envioWhats.tel}
+          onClose={() => setEnvioWhats(null)}
+        />
+      )}
 
       {/* Banner de acesso pausado */}
       {paciente.acesso_pausado && (
