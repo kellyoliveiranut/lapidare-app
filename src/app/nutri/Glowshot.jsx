@@ -15,7 +15,11 @@ export default function Glowshot() {
   const [nome, setNome] = useState('');
   const [telefone, setTelefone] = useState('');
   const [gerando, setGerando] = useState(false);
-  const [produto, setProduto] = useState('Glowshot');
+  const [produtos, setProdutos] = useState(['Glowshot']);
+  const NOMES = ['Glowshot', 'Moroshot', 'Lipeshot'];
+  const selecionados = NOMES.filter(n => produtos.includes(n));
+  // Alterna o produto; sempre fica ao menos um marcado.
+  const alternar = (n) => setProdutos(prev => prev.includes(n) ? (prev.length > 1 ? prev.filter(x => x !== n) : prev) : [...prev, n]);
 
   async function gerar() {
     const n = nome.trim();
@@ -23,11 +27,11 @@ export default function Glowshot() {
     setGerando(true);
     try {
       const m = await import('./_Suplementacao.jsx');
-      const pr = m.PRODUTOS_SHOT.find(x => x.nome === produto) ?? m.PRODUTOS_SHOT[0];
+      const pr = m.prescricaoShots(selecionados);
       await m.gerarPDFPrescricao({
         pacienteNome: n, contato: telefone.trim() ? { telefone: telefone.trim() } : null,
         carimbo: CARIMBO_ASSINATURA,
-        suplementosAtivos: [pr.item], modo: pr.modo,
+        suplementosAtivos: pr.itens, modo: pr.modo,
       });
     } catch (e) {
       avisarJanela('Erro ao gerar o PDF: ' + (e?.message ?? 'tente novamente'));
@@ -41,17 +45,17 @@ export default function Glowshot() {
       <div className="card">
         <div className="card-header">
           <div>
-            <div className="card-title">Prescrição {produto}</div>
-            <div className="card-sub">Escolha o produto, digite o nome e gere o PDF. Não precisa cadastrar a paciente.</div>
+            <div className="card-title">Prescrição {selecionados.join(' + ')}</div>
+            <div className="card-sub">Escolha um ou mais produtos, digite o nome e gere o PDF. Não precisa cadastrar a paciente.</div>
           </div>
         </div>
         <div className="card-body">
-          <label className="field-label">Produto</label>
+          <label className="field-label">Produtos (marque quantos quiser)</label>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
-            {['Glowshot', 'Moroshot', 'Lipeshot'].map(n => (
-              <button key={n} type="button" onClick={() => setProduto(n)}
-                className={produto === n ? 'btn' : 'btn-outline'} aria-pressed={produto === n}>
-                {n}
+            {NOMES.map(n => (
+              <button key={n} type="button" onClick={() => alternar(n)}
+                className={produtos.includes(n) ? 'btn' : 'btn-outline'} aria-pressed={produtos.includes(n)}>
+                {produtos.includes(n) && <i className="ti ti-check" aria-hidden="true" />} {n}
               </button>
             ))}
           </div>
@@ -74,7 +78,7 @@ export default function Glowshot() {
             style={{ width: '100%', marginBottom: 12 }}
           />
           <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 14 }}>
-            Texto padrão: {produto} — 1 flaconete por dia, com carimbo e assinatura da Kelly.
+            Texto padrão: {selecionados.join(', ')} — 1 flaconete por dia cada, com carimbo e assinatura da Kelly.
           </div>
           <button className="btn" onClick={gerar} disabled={gerando || !nome.trim()}>
             <i className="ti ti-file-text" aria-hidden="true" /> {gerando ? 'Gerando…' : 'Gerar PDF'}

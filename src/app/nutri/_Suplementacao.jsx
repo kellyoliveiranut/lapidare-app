@@ -1564,3 +1564,24 @@ export async function gerarPDFPrescricao({ pacienteNome, contato, suplementosAti
   // deixaria "(1)" na pasta de Downloads, sem dizer qual é qual.
   doc.save(nomeArquivoPdf(modo.slug, pacienteNome));
 }
+
+/** Lista "A", "A e B" ou "A, B e C". */
+function juntarNomes(nomes) {
+  if (nomes.length <= 1) return nomes.join('');
+  return `${nomes.slice(0, -1).join(', ')} e ${nomes[nomes.length - 1]}`;
+}
+
+/** Prescrição com um ou mais shots escolhidos (nomes em PRODUTOS_SHOT), em um só PDF. */
+export function prescricaoShots(nomes) {
+  const escolhidos = PRODUTOS_SHOT.filter(p => nomes.includes(p.nome));
+  const lista = escolhidos.map(p => p.nome);
+  return {
+    itens: escolhidos.map(p => p.item),
+    modo: {
+      id: lista.join('-').toLowerCase(),
+      titulo: `Prescrição ${juntarNomes(lista)}`,
+      secao: lista.length > 1 ? 'Produtos prescritos' : 'Produto prescrito',
+      slug: `prescricao-${lista.join('-').toLowerCase()}`,
+    },
+  };
+}
