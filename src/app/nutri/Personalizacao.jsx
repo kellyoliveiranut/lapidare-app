@@ -35,6 +35,8 @@ export default function Personalizacao() {
     tipografia: 'classica',
     farmacia_email: '',     // destino dos envios de fórmula
     farmacia_email_2: '',   // segundo destino (opcional)
+    contabilidade_nome: '',
+    contabilidade_whatsapp: '',
     farmacia_nome: '',      // nome da farmácia (saudação do e-mail)
   });
   const [busy, setBusy] = useState(false);
@@ -56,6 +58,8 @@ export default function Personalizacao() {
       tipografia: profile.tipografia ?? 'classica',
       farmacia_email: profile.farmacia_email ?? '',
       farmacia_email_2: profile.farmacia_email_2 ?? '',
+      contabilidade_nome: profile.contabilidade_nome ?? '',
+      contabilidade_whatsapp: profile.contabilidade_whatsapp ?? '',
       farmacia_nome: profile.farmacia_nome ?? '',
     });
   }, [profile]);
@@ -78,6 +82,9 @@ export default function Personalizacao() {
       farmacia_nome:  form.farmacia_nome.trim()  || null,
       // Só manda a coluna se ela existe no banco (profile a traz) ou se há valor:
       // sem a migração, salvar o resto da personalização continua funcionando.
+      ...(('contabilidade_whatsapp' in (profile ?? {})) || form.contabilidade_whatsapp.trim()
+        ? { contabilidade_nome: form.contabilidade_nome.trim() || null,
+            contabilidade_whatsapp: form.contabilidade_whatsapp.trim() || null } : {}),
       ...(('farmacia_email_2' in (profile ?? {})) || form.farmacia_email_2.trim()
         ? { farmacia_email_2: form.farmacia_email_2.trim() || null } : {}),
     }).eq('id', user.id), { rotulo: 'salvar a personalização' });
@@ -333,6 +340,22 @@ export default function Personalizacao() {
             <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4, fontStyle: 'italic' }}>
               Usado só na saudação do e-mail pra farmácia. Deixe vazio se preferir.
             </div>
+          </div>
+
+          {/* Contabilidade — destino dos dados da nota fiscal */}
+          <div className="card" style={{ padding: 18, marginBottom: 14 }}>
+            <div className="card-title" style={{ marginBottom: 4 }}>Contabilidade</div>
+            <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 12 }}>
+              Para onde vão os dados das notas fiscais quando você toca em <strong>"Enviar à contabilidade"</strong> (Agenda e Financeiro). O WhatsApp abre com a mensagem pronta; você só envia.
+            </div>
+            <label className="form-lbl">Nome da contabilidade (opcional)</label>
+            <input value={form.contabilidade_nome}
+              onChange={e => setForm(f => ({ ...f, contabilidade_nome: e.target.value }))}
+              placeholder="Ex: Escritax Serviços Contábeis" />
+            <label className="form-lbl" style={{ marginTop: 14 }}>WhatsApp da contabilidade</label>
+            <input type="tel" value={form.contabilidade_whatsapp}
+              onChange={e => setForm(f => ({ ...f, contabilidade_whatsapp: e.target.value }))}
+              placeholder="+55 41 99999-9999" />
           </div>
 
           {/* Cores */}

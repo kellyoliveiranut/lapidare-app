@@ -3,6 +3,8 @@ import { supabase } from '../../lib/supabase.js';
 import { gravar } from '../../lib/gravar.js';
 import { brl, dataBR } from '../../lib/utils.js';
 import { copiarTexto } from '../../lib/copiarTexto.js';
+import { useSession } from '../../lib/session.jsx';
+import { mensagemContabilidade, linkWhatsContabilidade } from '../../lib/contabilidade.js';
 import { faltandoParaNota, textoNota, vendasSemNota } from '../../lib/dadosNotaFiscal.js';
 
 /* ============================================================
@@ -18,6 +20,8 @@ const COLUNAS_NF = ', nf_outra_pessoa, nf_nome, nf_cpf';
 const COLUNAS_END = ', end_cep, end_logradouro, end_numero, end_complemento, end_bairro, end_cidade, end_uf';
 
 export default function NotasAEmitir({ vendas, parcelasPorVenda, onMudou }) {
+  const { profile } = useSession();
+  const zap = profile?.contabilidade_whatsapp ?? '';
   const [aberto, setAberto] = useState(false);
   const [pacientes, setPacientes] = useState({});
   const [msg, setMsg] = useState(null);
@@ -52,6 +56,18 @@ export default function NotasAEmitir({ vendas, parcelasPorVenda, onMudou }) {
     setMsg(ok
       ? { tipo: 'ok', texto: `Dados de ${p.nome} copiados.` }
       : { tipo: 'erro', texto: 'Não consegui copiar. Selecione e copie manualmente.' });
+  }
+
+  // Abre o WhatsApp da contabilidade com os dados das notas (uma ou todas).
+  function enviarContabilidade(lista) {
+    if (!zap.trim()) { setMsg({ tipo: 'erro', texto: 'Cadastre o WhatsApp da contabilidade em Personalização.' }); return; }
+    const faltando = lista.filter(v => !pacientes[v.paciente_id]);
+    if (faltando.length) { setMsg({ tipo: 'erro', texto: 'Os dados das pacientes ainda estão carregando. Tente de novo.' }); return; }
+    const url = linkWhatsContabilidade(zap, mensagemContabilidade(
+      lista.map(v => textoNota({ paciente: pacientes[v.paciente_id], venda: v }))));
+    if (!url) { setMsg({ tipo: 'erro', texto: 'Número da contabilidade inválido.' }); return; }
+    window.open(url, '_blank', 'noopener');
+    setMsg(null);
   }
 
   async function marcarEmitida(v) {
@@ -91,6 +107,13 @@ export default function NotasAEmitir({ vendas, parcelasPorVenda, onMudou }) {
           {msg && (
             <div style={{ fontSize: 12, marginBottom: 8, color: msg.tipo === 'ok' ? 'var(--green)' : 'var(--red)' }}>{msg.texto}</div>
           )}
+          {pendentes.length > 1 && (
+            <button className="btn" style={{ fontSize: 12, marginBottom: 8 }} disabled={!zap.trim()}
+              title={zap.trim() ? undefined : 'Cadastre o WhatsApp da contabilidade em Personalização'}
+              onClick={() => enviarContabilidade(pendentes)}>
+              <i className="ti ti-brand-whatsapp" aria-hidden="true" /> Enviar todas à contabilidade ({pendentes.length})
+            </button>
+          )}
           {pendentes.map(v => {
             const p = pacientes[v.paciente_id];
             const falta = p ? faltandoParaNota(p) : null;
@@ -110,6 +133,11 @@ export default function NotasAEmitir({ vendas, parcelasPorVenda, onMudou }) {
                     </div>
                   )}
                 </div>
+                <button className="btn-outline" style={{ fontSize: 12, color: '#25D366' }} disabled={!zap.trim()}
+                  title={zap.trim() ? 'Abre o WhatsApp da contabilidade com os dados desta nota' : 'Cadastre o WhatsApp da contabilidade em Personalização'}
+                  onClick={() => enviarContabilidade([v])}>
+                  <i className="ti ti-brand-whatsapp" aria-hidden="true" /> Enviar à contabilidade
+                </button>
                 <button className="btn-outline" style={{ fontSize: 12 }} onClick={() => copiar(v)}>
                   <i className="ti ti-copy" aria-hidden="true" /> Copiar dados
                 </button>

@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import { mensagemContabilidade, linkWhatsContabilidade } from './contabilidade.js';
+assert.equal(mensagemContabilidade([]), '');
+const um = mensagemContabilidade(['Tomador: Ana\nCPF: 1']);
+assert.ok(um.startsWith('Olá! Segue o dado para emissão de 1 nota fiscal:'));
+assert.ok(um.includes('Tomador: Ana'));
+const dois = mensagemContabilidade(['Tomador: Ana', 'Tomador: Bia\nValor: R$ 1']);
+assert.ok(dois.includes('2 notas fiscais'));
+assert.ok(dois.includes('1) Tomador: Ana'));
+assert.ok(dois.includes('2) Tomador: Bia\n   Valor: R$ 1'));
+assert.equal(linkWhatsContabilidade('', 'x'), null);
+assert.equal(linkWhatsContabilidade('+55 41 6349-1676', ''), null);
+assert.ok(linkWhatsContabilidade('+55 41 6349-1676', 'oi').startsWith('https://wa.me/554163491676?text='));
+console.log('ok contabilidade');
