@@ -58,14 +58,29 @@ exports.handler = async (event) => {
     if (!paciente)     return json(403, { error: 'Paciente não encontrada ou sem vínculo.' });
 
     // 4) Config da farmácia (server-side, da própria nutri)
-    const { data: nutri, error: nutriErr } = await supabase
+    // farmacia_email_2 (segundo destino) pode ainda não existir no banco: sem a
+    // migração, cai para o select antigo e envia só para o primeiro e-mail.
+    let { data: nutri, error: nutriErr } = await supabase
       .from('nutris')
-      .select('nome, farmacia_email, farmacia_nome')
+      .select('nome, farmacia_email, farmacia_email_2, farmacia_nome')
       .eq('id', caller.id)
       .maybeSingle();
+    if (nutriErr) {
+      ({ data: nutri, error: nutriErr } = await supabase
+        .from('nutris')
+        .select('nome, farmacia_email, farmacia_nome')
+        .eq('id', caller.id)
+        .maybeSingle());
+    }
 
     if (nutriErr)              return json(500, { error: nutriErr.message });
-    const farmaciaEmail = (nutri?.farmacia_email ?? '').trim();
+    // Até dois destinatários, sem repetir.
+    const destinos = [];
+    for (const e of [nutri?.farmacia_email, nutri?.farmacia_email_2]) {
+      const v = String(e ?? '').trim();
+      if (v && !destinos.some(d => d.toLowerCase() === v.toLowerCase())) destinos.push(v);
+    }
+    const farmaciaEmail = destinos.join(', ');
     if (!farmaciaEmail) {
       return json(400, { error: 'E-mail da farmácia não configurado. Defina em Personalização.' });
     }
