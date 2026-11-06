@@ -39,6 +39,7 @@ export default function SignupPaciente() {
   const [temToken, setTemToken] = useState(false);    // true se veio com token válido
   const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
+  const [conviteSemEmail, setConviteSemEmail] = useState(false);   // convite sem e-mail: ela informa o dela
   const [telefone, setTelefone] = useState('');
   const [nascimento, setNascimento] = useState('');
   const [senha, setSenha] = useState('');
@@ -81,6 +82,7 @@ export default function SignupPaciente() {
       const p = resposta.data[0];
       setNome(p.nome ?? '');
       setEmail(p.email ?? '');
+      setConviteSemEmail(!(p.email ?? '').trim());
       setTelefone(p.telefone ?? '');   // pode vir vazio se a RPC viva não retornar telefone
       if (p.nascimento) setNascimento(p.nascimento);
       if (p.objetivo) setObjetivo(p.objetivo);
@@ -124,8 +126,9 @@ export default function SignupPaciente() {
     // Paciente sem e-mail (cadastro manual): e-mail sintético derivado do token.
     // Único e determinístico; o login por telefone lê o e-mail guardado, então
     // o formato não afeta a entrada. O campo de e-mail fica escondido nesse caso.
-    const semEmail = temToken && !email.trim();
-    const emailFinal = semEmail ? `${token}@essentia.local` : email.trim();
+    // O login por telefone foi retirado: sem e-mail real não há como entrar.
+    if (!email.trim()) { setBusy(false); return setErro('Informe o seu e-mail: é com ele que você vai entrar no app.'); }
+    const emailFinal = email.trim();
     const { data, error } = await supabase.auth.signUp({
       email: emailFinal,
       password: senha,
@@ -290,21 +293,21 @@ export default function SignupPaciente() {
                 fontSize: 12, lineHeight: 1.6, textAlign: 'left',
               }}>
                 <div><strong>Nome:</strong> {nome}</div>
-                {email ? (
+                {!conviteSemEmail && email ? (
                   <div><strong>Email:</strong> {email}</div>
                 ) : telefone ? (
                   <div><strong>Telefone:</strong> {telefone}</div>
                 ) : null}
                 {nascimento && <div><strong>Nascimento:</strong> {new Date(nascimento + 'T12:00:00').toLocaleDateString('pt-BR')}</div>}
-                {!email && (
-                  <div style={{ marginTop: 6, color: 'var(--muted)' }}>
-                    Você vai entrar no app pelo seu telefone e a senha que criar agora.
-                  </div>
-                )}
+
                 <div style={{ marginTop: 6, color: 'var(--muted)' }}>
                   Se algum dado estiver errado, fale com {nutriNome.split(' ')[0]} antes de continuar.
                 </div>
               </div>
+
+              {conviteSemEmail && (
+                <Field label="Seu e-mail (é com ele que você vai entrar)" type="email" value={email} onChange={setEmail} required autoFocus />
+              )}
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                 <Field label="Crie uma senha" type="password" value={senha} onChange={setSenha} required minLength={6} autoFocus />

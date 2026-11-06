@@ -90,20 +90,6 @@ export default function Login() {
     try {
       let emailFinal = email.trim();
 
-      const parecePhone = !emailFinal.includes('@') && emailFinal.replace(/\D/g, '').length >= 8;
-      if (parecePhone) {
-        const resp = await fetch('/.netlify/functions/login-telefone', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ telefone: emailFinal, senha }),
-        });
-        if (!resp.ok) return setErro('Telefone ou senha inválidos.');
-        const { access_token, refresh_token } = await resp.json();
-        const { error: sErr } = await supabase.auth.setSession({ access_token, refresh_token });
-        if (sErr) return setErro('Não foi possível entrar. Tente de novo.');
-        return;   // logada — o useEffect de sessão redireciona
-      }
-
       const { data, error } = await signInComTimeout(emailFinal, senha);
       if (error) {
         setErro(mensagemAmigavel(error));
@@ -167,8 +153,8 @@ export default function Login() {
 
         <form onSubmit={mode === 'signin' ? handleSignIn : handleForgotPassword}>
           <Field
-            label={mode === 'signin' ? 'Email ou telefone' : 'Email'}
-            type={mode === 'signin' ? 'text' : 'email'}
+            label="Email"
+            type="email"
             value={email}
             onChange={setEmail}
             required

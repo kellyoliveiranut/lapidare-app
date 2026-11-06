@@ -454,9 +454,7 @@ function ModalSenhaDefinida({ dados, paciente, onClose }) {
 
         <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 14, lineHeight: 1.5 }}>
           Para entrar, ela usa{' '}
-          {dados.sintetico
-            ? <b>o número de telefone dela</b>
-            : <>o e-mail <b>{dados.email_login}</b> ou o telefone</>}
+          <>o e-mail <b>{dados.email_login}</b></>
           {' '}com esta senha.
         </div>
 

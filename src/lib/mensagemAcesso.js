@@ -89,9 +89,8 @@ export function mensagemAcesso({ primeiroNome, objetivo, link, temConta = false 
  * @returns {string}    texto pronto, sem encode
  */
 export function mensagemSenhaDefinida({ primeiroNome, link, senha, emailLogin, sintetico = false }) {
-  const comoEntrar = sintetico
-    ? 'Entre com o seu número de telefone e esta senha:'
-    : `Entre com o e-mail ${emailLogin} (ou o seu telefone) e esta senha:`;
+  // O login por telefone foi retirado: só o e-mail entra (mesmo o interno).
+  const comoEntrar = `Entre com o e-mail ${emailLogin} e esta senha:`;
 
   return `Olá, ${primeiroNome}! Criei uma senha nova para o seu acesso ao app do Essentia.\n\n`
     + `${link ?? ''}\n\n`
