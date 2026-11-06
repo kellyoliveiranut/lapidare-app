@@ -69,6 +69,17 @@ export const MODO_GLOWSHOT = {
 };
 export const ITEM_GLOWSHOT = { nome: 'Glowshot', dose: '1 flaconete por dia' };
 
+/* Produtos da página "Prescrição Glowshot" (menu). Posologia dada pela Kelly:
+   1 flaconete por dia nos três. Composição e demais textos não existem aqui de
+   propósito (conteúdo clínico não se inventa). */
+const modoShot = (nome) => ({
+  id: nome.toLowerCase(), titulo: `Prescrição ${nome}`, secao: 'Produto prescrito',
+  slug: `prescricao-${nome.toLowerCase()}`,
+});
+export const PRODUTOS_SHOT = ['Glowshot', 'Moroshot', 'Lipeshot'].map(nome => ({
+  nome, modo: modoShot(nome), item: { nome, dose: '1 flaconete por dia' },
+}));
+
 export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
   const { profile } = useSession();
   const [suplementos, setSuplementos] = useState(null);

@@ -4,7 +4,7 @@ import { CARIMBO_ASSINATURA } from '../../data/carimboAssinatura.js';
 
 /* ============================================================
    PRESCRIÇÃO GLOWSHOT (menu da nutri)
-   Guia pronta do Glowshot (nome e telefone, com carimbo e assinatura) (produto da Dehon para as pacientes do evento
+   Guia pronta do Glowshot, Moroshot ou Lipeshot (nome e telefone, com carimbo e assinatura) (Glowshot: produto da Dehon para as pacientes do evento
    OncoStart): texto fixo, só o nome da paciente muda. Não exige cadastro da
    paciente no Essentia. A posologia (1 flaconete por dia) foi dada pela
    Kelly; composição e demais textos não existem aqui de propósito.
@@ -15,6 +15,7 @@ export default function Glowshot() {
   const [nome, setNome] = useState('');
   const [telefone, setTelefone] = useState('');
   const [gerando, setGerando] = useState(false);
+  const [produto, setProduto] = useState('Glowshot');
 
   async function gerar() {
     const n = nome.trim();
@@ -22,10 +23,11 @@ export default function Glowshot() {
     setGerando(true);
     try {
       const m = await import('./_Suplementacao.jsx');
+      const pr = m.PRODUTOS_SHOT.find(x => x.nome === produto) ?? m.PRODUTOS_SHOT[0];
       await m.gerarPDFPrescricao({
         pacienteNome: n, contato: telefone.trim() ? { telefone: telefone.trim() } : null,
         carimbo: CARIMBO_ASSINATURA,
-        suplementosAtivos: [m.ITEM_GLOWSHOT], modo: m.MODO_GLOWSHOT,
+        suplementosAtivos: [pr.item], modo: pr.modo,
       });
     } catch (e) {
       avisarJanela('Erro ao gerar o PDF: ' + (e?.message ?? 'tente novamente'));
@@ -39,11 +41,20 @@ export default function Glowshot() {
       <div className="card">
         <div className="card-header">
           <div>
-            <div className="card-title">Prescrição Glowshot</div>
-            <div className="card-sub">Digite o nome e gere o PDF. Não precisa cadastrar a paciente.</div>
+            <div className="card-title">Prescrição {produto}</div>
+            <div className="card-sub">Escolha o produto, digite o nome e gere o PDF. Não precisa cadastrar a paciente.</div>
           </div>
         </div>
         <div className="card-body">
+          <label className="field-label">Produto</label>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+            {['Glowshot', 'Moroshot', 'Lipeshot'].map(n => (
+              <button key={n} type="button" onClick={() => setProduto(n)}
+                className={produto === n ? 'btn' : 'btn-outline'} aria-pressed={produto === n}>
+                {n}
+              </button>
+            ))}
+          </div>
           <label className="field-label">Nome da paciente</label>
           <input
             autoFocus
@@ -63,7 +74,7 @@ export default function Glowshot() {
             style={{ width: '100%', marginBottom: 12 }}
           />
           <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 14 }}>
-            Texto padrão: Glowshot — 1 flaconete por dia, com carimbo e assinatura da Kelly.
+            Texto padrão: {produto} — 1 flaconete por dia, com carimbo e assinatura da Kelly.
           </div>
           <button className="btn" onClick={gerar} disabled={gerando || !nome.trim()}>
             <i className="ti ti-file-text" aria-hidden="true" /> {gerando ? 'Gerando…' : 'Gerar PDF'}
