@@ -99,3 +99,27 @@ export function mensagemSenhaDefinida({ primeiroNome, link, senha, emailLogin, s
     + `${senha}\n\n`
     + `Guarde essa senha. Qualquer dúvida, é só me chamar por aqui.`;
 }
+
+
+/**
+ * Convite para o CUIDADOR da paciente criar o próprio acesso. Texto puro.
+ * O link serve só para criar a senha; depois ele entra pelo link do app (/login)
+ * com o e-mail e a senha.
+ *
+ * @param primeiroNome         primeiro nome do cuidador
+ * @param pacientePrimeiroNome primeiro nome da paciente
+ * @param link                 /cuidador/{token}
+ */
+export function mensagemConviteCuidador({ primeiroNome, pacientePrimeiroNome, link }) {
+  let linkApp = '';
+  try { linkApp = new URL(link).origin + '/login'; } catch { linkApp = ''; }
+  return `Olá, ${primeiroNome}! Aqui é a Equipe da Dra. Kelly Oliveira. ` +
+    `A ${pacientePrimeiroNome} indicou você para acompanhar o cuidado dela pelo app do Essentia, com o mesmo acesso que ela tem.\n\n` +
+    `1) Criar o seu acesso (só na primeira vez)\n` +
+    `Toque neste link e escolha a sua senha:\n${link ?? ''}\n` +
+    `Atenção: este link serve apenas para criar o acesso.\n\n` +
+    `2) Entrar no app (sempre que quiser)\n` +
+    `Depois de criar a senha, entre pelo link do aplicativo:\n${linkApp}\n` +
+    `Use o seu e-mail e a senha que você escolheu. Salve este link, ou instale o app na tela do celular (passo a passo abaixo).\n\n` +
+    `Qualquer dúvida, é só me chamar por aqui.\n\n---\n\n${RODAPE_INSTALACAO}`;
+}

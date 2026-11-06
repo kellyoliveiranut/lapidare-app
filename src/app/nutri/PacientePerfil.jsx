@@ -16,6 +16,7 @@ import { MODALIDADES_CONSULTA } from '../../lib/consultaVisual.js';
 // jsPDF, que continua atras do import dinamico dentro do criarDocumento().
 import { gerarPDFPlano } from '../../lib/pdfPlano.js';
 import BaixarDadosPaciente from './_BaixarDadosPaciente.jsx';
+import Cuidador from './_Cuidador.jsx';
 import BaixarTodosPdfs from './_BaixarTodosPdfs.jsx';
 import { esperar, nomeArquivoEbook, nomesUnicos, PAUSA_ENTRE_DOWNLOADS_MS } from '../../lib/baixarEmSequencia.js';
 import { baixarBlob, nomeArquivoPdf } from '../../lib/pdfBase.js';
@@ -870,6 +871,8 @@ export default function PacientePerfil() {
           );
         })}
       </div>
+
+      <Cuidador paciente={paciente} onMudou={carregar} />
 
       {/* Banner de acesso pausado */}
       {paciente.acesso_pausado && (

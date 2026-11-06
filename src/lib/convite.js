@@ -45,3 +45,8 @@ export function convitePendenteVencido(valido_ate, agora = Date.now()) {
   if (Number.isNaN(fim)) return false;
   return fim < agora;
 }
+
+/** URL onde o cuidador cria a senha (token em pacientes.cuidador_token). */
+export function linkConviteCuidador(token) {
+  return `${window.location.origin}/cuidador/${token}`;
+}

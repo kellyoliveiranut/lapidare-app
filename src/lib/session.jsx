@@ -23,10 +23,17 @@ async function resolveRole(userId) {
   if (!userId) return { role: null, profile: null };
 
   // Queries em paralelo — elimina 1 round-trip extra para pacientes
-  const [nutriRes, pacienteRes] = await Promise.all([
+  // O cuidador entra pela mesma ficha da paciente (pacientes.cuidador_user_id).
+  // Se a coluna ainda não existe no banco (migração não rodada), o .or() dá erro
+  // e cai na busca antiga, só por user_id.
+  const [nutriRes, pacienteOr] = await Promise.all([
     supabase.from('nutris').select('*').eq('id', userId).maybeSingle(),
-    supabase.from('pacientes').select('*').eq('user_id', userId).maybeSingle(),
+    supabase.from('pacientes').select('*')
+      .or(`user_id.eq.${userId},cuidador_user_id.eq.${userId}`).limit(1).maybeSingle(),
   ]);
+  const pacienteRes = pacienteOr.error
+    ? await supabase.from('pacientes').select('*').eq('user_id', userId).maybeSingle()
+    : pacienteOr;
 
   if (nutriRes.data) return { role: 'nutri', profile: nutriRes.data };
   if (pacienteRes.data) return { role: 'paciente', profile: pacienteRes.data };

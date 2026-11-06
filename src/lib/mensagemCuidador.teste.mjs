@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import { mensagemConviteCuidador } from './mensagemAcesso.js';
+const m = mensagemConviteCuidador({ primeiroNome: 'Ana', pacientePrimeiroNome: 'Maria', link: 'https://kelly-onco.netlify.app/cuidador/abc' });
+assert.ok(m.startsWith('Olá, Ana!'));
+assert.ok(m.includes('A Maria indicou você'));
+assert.ok(m.includes('https://kelly-onco.netlify.app/cuidador/abc'));
+assert.ok(m.includes('https://kelly-onco.netlify.app/login'));
+assert.ok(m.includes('este link serve apenas para criar o acesso'));
+assert.ok(m.includes('Pra instalar o app'));
+console.log('ok mensagemCuidador');

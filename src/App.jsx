@@ -30,6 +30,7 @@ import Callback from './app/auth/Callback.jsx';
 import { ROTA_INICIAL_NUTRI } from './lib/rotas.js';
 
 const SignupPaciente = lazy(() => import('./app/auth/SignupPaciente.jsx'));
+const SignupCuidador = lazy(() => import('./app/auth/SignupCuidador.jsx'));
 const RedefinirSenha = lazy(() => import('./app/auth/RedefinirSenha.jsx'));
 
 const NutriLayout = lazy(() => import('./components/NutriLayout.jsx'));
@@ -92,6 +93,7 @@ export default function App() {
               <Route path="/auth/callback" element={<Callback />} />
               <Route path="/signup-paciente/:nutriId" element={<SignupPaciente />} />
               <Route path="/signup-paciente/:nutriId/:token" element={<SignupPaciente />} />
+              <Route path="/cuidador/:token" element={<SignupCuidador />} />
               <Route path="/redefinir-senha" element={<RedefinirSenha />} />
 
               {/* Painel da Nutri */}
