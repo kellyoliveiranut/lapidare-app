@@ -530,7 +530,7 @@ export default function Suplementacao({ pacienteId, nutriId, pacienteNome }) {
           pacienteNome={pacienteNome}
           contato={contato}
           suplementosAtivos={manipuladosAtivos}
-          farmaciaEmail={profile?.farmacia_email}
+          farmaciaEmail={[profile?.farmacia_email, profile?.farmacia_email_2].map(x => (x ?? '').trim()).filter(Boolean).join(', ')}
           farmaciaNome={profile?.farmacia_nome}
           onClose={() => setEnviarFarmaciaOpen(false)}
           onEnviar={enviarParaFarmacia}

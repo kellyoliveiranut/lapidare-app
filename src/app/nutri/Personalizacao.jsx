@@ -34,6 +34,7 @@ export default function Personalizacao() {
     cor_secundaria: '#c9a96e',
     tipografia: 'classica',
     farmacia_email: '',     // destino dos envios de fórmula
+    farmacia_email_2: '',   // segundo destino (opcional)
     farmacia_nome: '',      // nome da farmácia (saudação do e-mail)
   });
   const [busy, setBusy] = useState(false);
@@ -54,6 +55,7 @@ export default function Personalizacao() {
       cor_secundaria: profile.cor_secundaria ?? '#c9a96e',
       tipografia: profile.tipografia ?? 'classica',
       farmacia_email: profile.farmacia_email ?? '',
+      farmacia_email_2: profile.farmacia_email_2 ?? '',
       farmacia_nome: profile.farmacia_nome ?? '',
     });
   }, [profile]);
@@ -74,6 +76,10 @@ export default function Personalizacao() {
       tipografia: form.tipografia,
       farmacia_email: form.farmacia_email.trim() || null,
       farmacia_nome:  form.farmacia_nome.trim()  || null,
+      // Só manda a coluna se ela existe no banco (profile a traz) ou se há valor:
+      // sem a migração, salvar o resto da personalização continua funcionando.
+      ...(('farmacia_email_2' in (profile ?? {})) || form.farmacia_email_2.trim()
+        ? { farmacia_email_2: form.farmacia_email_2.trim() || null } : {}),
     }).eq('id', user.id), { rotulo: 'salvar a personalização' });
     setBusy(false);
     if (!r.ok) return setErro(r.msg);
@@ -311,6 +317,14 @@ export default function Personalizacao() {
             <input type="email" value={form.farmacia_email}
               onChange={e => setForm(f => ({ ...f, farmacia_email: e.target.value }))}
               placeholder="farmacia@exemplo.com" />
+
+            <label className="form-lbl" style={{ marginTop: 14 }}>Segundo e-mail da farmácia (opcional)</label>
+            <input type="email" value={form.farmacia_email_2}
+              onChange={e => setForm(f => ({ ...f, farmacia_email_2: e.target.value }))}
+              placeholder="outro@exemplo.com" />
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4, fontStyle: 'italic' }}>
+              Se preencher, a fórmula é enviada para os dois e-mails.
+            </div>
 
             <label className="form-lbl" style={{ marginTop: 14 }}>Nome da farmácia (opcional)</label>
             <input value={form.farmacia_nome}
