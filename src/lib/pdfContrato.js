@@ -123,7 +123,7 @@ export function formatarAceite(aceitoEm) {
  * provar, e o check contratos_essentia_snapshot_coerente garante que os dois
  * andam juntos no banco.
  */
-export async function gerarPdfContrato({ textoHtml, aceitoEm, pacienteNome, contratoId, dataEmissao }) {
+export async function gerarPdfContrato({ textoHtml, aceitoEm, pacienteNome, contratoId, dataEmissao, aceitoPor = null }) {
   if (!textoHtml || !aceitoEm) {
     throw new Error('Contrato ainda não aceito — não há texto para gerar o PDF.');
   }
@@ -187,7 +187,12 @@ export async function gerarPdfContrato({ textoHtml, aceitoEm, pacienteNome, cont
   const LARG_INT = W - PAD * 2;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10.5);
-  const lsNome = doc.splitTextToSize(`Aceito por ${pacienteNome || '—'}`, LARG_INT);
+  // Aceite feito pelo cuidador: diz quem clicou e em nome de quem (o contrato é
+  // da paciente). Sem `aceitoPor` (ou feito pela própria paciente), como sempre.
+  const textoAceite = aceitoPor?.papel === 'cuidador' && aceitoPor?.nome
+    ? `Aceito por ${aceitoPor.nome} (cuidador(a)), em nome de ${pacienteNome || '—'}`
+    : `Aceito por ${pacienteNome || '—'}`;
+  const lsNome = doc.splitTextToSize(textoAceite, LARG_INT);
   doc.setFontSize(7.1);
   const lsNota = doc.splitTextToSize(
     'O código acima é o SHA-256 do texto do contrato gravado no momento do aceite. '

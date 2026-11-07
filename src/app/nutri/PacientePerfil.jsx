@@ -192,12 +192,20 @@ export default function PacientePerfil() {
     // mas vários aceitos, por renovação. Então: [0] é o que mostrar, e [1],
     // quando existe, é o "anterior assinado".
     if (data?.tipo_plano?.trim().toLowerCase() === 'essentia') {
-      const { data: cts } = await supabase
+      // aceito_por_* (migração 2026-11-07) pode ainda não existir: repete sem elas.
+      let ctsRes = await supabase
         .from('contratos_essentia')
-        .select('id, aceito_em, template:contratos_templates(versao)')
+        .select('id, aceito_em, aceito_por_papel, aceito_por_nome, template:contratos_templates(versao)')
         .eq('paciente_id', id)
         .order('aceito_em', { ascending: false, nullsFirst: true });
-      setContratos(cts ?? []);
+      if (ctsRes.error) {
+        ctsRes = await supabase
+          .from('contratos_essentia')
+          .select('id, aceito_em, template:contratos_templates(versao)')
+          .eq('paciente_id', id)
+          .order('aceito_em', { ascending: false, nullsFirst: true });
+      }
+      setContratos(ctsRes.data ?? []);
     } else {
       setContratos(null);   // null = não se aplica; [] = essentia SEM contrato
     }

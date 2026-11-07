@@ -111,11 +111,16 @@ export function StatusContrato({ contratos, paciente }) {
     setBaixando(true);
     setErroPdf(null);
     try {
-      const { data, error } = await supabase
+      let r = await supabase
         .from('contratos_essentia')
-        .select('texto_html, aceito_em')
+        .select('texto_html, aceito_em, aceito_por_papel, aceito_por_nome')
         .eq('id', c.id)
         .single();
+      // Sem a migração do "aceito por", repete com as colunas antigas.
+      if (r.error) {
+        r = await supabase.from('contratos_essentia').select('texto_html, aceito_em').eq('id', c.id).single();
+      }
+      const { data, error } = r;
       if (error) throw error;
       // aceito_em vem da MESMA leitura do texto, e não da lista do perfil:
       // o carimbo impresso e o texto impresso saem da mesma linha, lida junta.
@@ -124,6 +129,7 @@ export function StatusContrato({ contratos, paciente }) {
         aceitoEm: data.aceito_em,
         pacienteNome: paciente?.nome,
         contratoId: c.id,
+        aceitoPor: data.aceito_por_papel ? { papel: data.aceito_por_papel, nome: data.aceito_por_nome } : null,
         dataEmissao: new Date().toLocaleDateString('pt-BR'),
       });
       baixarBlob(blob, nomeArquivo);
@@ -187,6 +193,9 @@ export function StatusContrato({ contratos, paciente }) {
   return (
     <span title={completo ? `Assinado em ${completo}` : undefined}>
       Contrato {versaoDe(primeiro)} assinado em {dataBR(primeiro.aceito_em)}
+      {primeiro.aceito_por_papel === 'cuidador' && primeiro.aceito_por_nome && (
+        <span style={{ color: 'var(--text3)' }}> por {primeiro.aceito_por_nome} (cuidador)</span>
+      )}
       {botaoPdf(primeiro)}
     </span>
   );
