@@ -52,6 +52,11 @@ export default function Cuidador({ paciente, onMudou }) {
 
   async function gerarConvite() {
     setErro(null);
+    // Nome e e-mail digitados nos campos trocados: avisa o que houve em vez de
+    // dizer só que o e-mail é inválido.
+    if (EMAIL_RE.test(nome.trim()) && !EMAIL_RE.test(email.trim())) {
+      return setErro('O nome e o e-mail parecem estar trocados: o e-mail foi digitado no campo do nome. Confira os dois campos.');
+    }
     if (!nome.trim()) return setErro('Informe o nome do cuidador.');
     if (!EMAIL_RE.test(email.trim())) return setErro('Informe um e-mail válido: é com ele que o cuidador vai entrar.');
     if (email.trim().toLowerCase() === (paciente.email ?? '').trim().toLowerCase()) {
