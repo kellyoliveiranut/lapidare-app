@@ -27,6 +27,11 @@ const HOJE_ISO = () => dataLocalISO();
  * modo não-vazio. Como só 22 dos 306 ativos são manipulados, a maioria das
  * pacientes abre em 'suplementacao' e a nutri confirma com um clique.
  */
+// Glowshot/Moroshot/Lipeshot são fórmulas manipuladas: ao cadastrar um deles a
+// caixinha nasce marcada (a nutri ainda pode desmarcar). O filtro dos PDFs e da
+// farmácia continua sendo só o campo `manipulado`.
+export const nomeEhShot = (nome) => /^\s*(glowshot|moroshot|lipeshot)\b/i.test(String(nome ?? ''));
+
 export const MODOS_PDF = [
   {
     id: 'suplementacao',
@@ -699,7 +704,7 @@ function ModalAdicionarSuplemento({ favoritos, onClose, onSalvarBiblioteca, onSa
           obs: fav.descricao ?? '',
           foto_url: fav.foto_url ?? null,
           data_inicio: dataLocalISO(),
-          manipulado: false,
+          manipulado: nomeEhShot(fav.titulo),   // shots são fórmulas manipuladas
           favorito_id: fav.id,
         },
       };
@@ -1013,7 +1018,7 @@ function ModalAdicionarSuplemento({ favoritos, onClose, onSalvarBiblioteca, onSa
               <label className="form-lbl">Nome</label>
               <input
                 value={form.nome}
-                onChange={e => setForm({ ...form, nome: e.target.value })}
+                onChange={e => setForm({ ...form, nome: e.target.value, ...(nomeEhShot(e.target.value) ? { manipulado: true } : {}) })}
                 placeholder="Ex: Vitamina D3 2000UI"
                 autoFocus
               />
