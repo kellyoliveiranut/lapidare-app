@@ -27,12 +27,16 @@ const HOJE_ISO = () => dataLocalISO();
  * modo não-vazio. Como só 22 dos 306 ativos são manipulados, a maioria das
  * pacientes abre em 'suplementacao' e a nutri confirma com um clique.
  */
+// Glowshot, Moroshot e Lipeshot: têm prescrição própria (só shots). Decidido por
+// nome porque não há campo para isso no cadastro de suplementos.
+export const ehShot = (s) => /^\s*(glowshot|moroshot|lipeshot)\b/i.test(String(s?.nome ?? ''));
+
 export const MODOS_PDF = [
   {
     id: 'suplementacao',
     label: 'Suplementação',
-    desc: 'Só os que não são fórmula manipulada',
-    filtro: s => !s.manipulado,
+    desc: 'Só os que não são fórmula manipulada (shots saem à parte)',
+    filtro: s => !s.manipulado && !ehShot(s),
     titulo: 'Prescrição de Suplementação',
     secao: 'Suplementos prescritos',
     slug: 'prescricao-suplementacao',
@@ -45,6 +49,15 @@ export const MODOS_PDF = [
     titulo: 'Prescrição de Fórmulas Manipuladas',
     secao: 'Fórmulas manipuladas',
     slug: 'prescricao-manipulados',
+  },
+  {
+    id: 'shots',
+    label: 'Shots',
+    desc: 'Só Glowshot, Moroshot e Lipeshot',
+    filtro: ehShot,
+    titulo: 'Prescrição de Shots',
+    secao: 'Shots prescritos',
+    slug: 'prescricao-shots',
   },
   {
     id: 'ambos',
