@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase.js';
 import { gravar } from '../../lib/gravar.js';
 import { formatarCep, faltandoParaNota, montarPayloadNota, textoNota, CAMPOS_ENDERECO } from '../../lib/dadosNotaFiscal.js';
 import { separarEndereco } from '../../lib/separarEndereco.js';
+import { buscarPorEndereco, filtrarCandidatos, rotuloCandidato } from '../../lib/cepBusca.js';
 import { copiarTexto } from '../../lib/copiarTexto.js';
 import { callAnthropicComRetry } from '../../lib/anthropic.js';
 
@@ -36,6 +37,34 @@ export default function DadosNotaFiscal({ paciente, vendaRecente = null, onSalvo
   const [msg, setMsg] = useState(null);
   const [buscandoCep, setBuscandoCep] = useState(false);
   const faltando = faltandoParaNota(paciente);
+  // CEP automático a partir da rua (ver lib/cepBusca.js): um só resultado preenche;
+  // vários viram opções. Só roda com o CEP vazio, nunca sobrescreve o que ela digitou.
+  const [opcoesCep, setOpcoesCep] = useState([]);
+  useEffect(() => {
+    const vazioCep = f.end_cep.replace(/\D/g, '').length !== 8;
+    if (!aberto || !vazioCep || f.end_logradouro.trim().length < 3) { setOpcoesCep([]); return undefined; }
+    let vivo = true;
+    const semLocal = !f.end_cidade.trim() && !f.end_uf.trim();
+    const t = setTimeout(async () => {
+      const lista = await buscarPorEndereco({
+        uf: semLocal ? 'PA' : f.end_uf, cidade: semLocal ? 'Belém' : f.end_cidade, logradouro: f.end_logradouro });
+      if (!vivo) return;
+      const c = filtrarCandidatos(lista, { numero: f.end_numero, bairro: f.end_bairro });
+      if (c.length === 1) aplicarCep(c[0]);
+      else setOpcoesCep(c.slice(0, 12));
+    }, 700);
+    return () => { vivo = false; clearTimeout(t); };
+  }, [aberto, f.end_cep, f.end_logradouro, f.end_numero, f.end_bairro, f.end_cidade, f.end_uf]);
+  function aplicarCep(d) {
+    setF(prev => ({
+      ...prev,
+      end_cep: formatarCep(d.cep),
+      end_bairro: prev.end_bairro.trim() || d.bairro || '',
+      end_cidade: prev.end_cidade.trim() || d.localidade || '',
+      end_uf: prev.end_uf.trim() || d.uf || '',
+    }));
+    setOpcoesCep([]);
+  }
   const [sugerido, setSugerido] = useState(false);
   // Travado quando a nota é da própria paciente e os dados estão completos: só
   // se edita se faltar algo, se foi sugerido do cadastro, ou se for outra pessoa.
@@ -224,6 +253,18 @@ ${colado.slice(0, 4000)}
             {campo('Cidade', 'end_cidade', { flex: 3, min: 160 })}
             {campo('UF', 'end_uf', { flex: 1, min: 70, input: { maxLength: 2, placeholder: 'PA', style: { textTransform: 'uppercase' } } })}
           </div>
+          {opcoesCep.length > 0 && (
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 4 }}>Vários CEPs para essa rua. Escolha o do número {f.end_numero || ''}:</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {opcoesCep.map(d => (
+                  <button key={d.cep + (d.complemento ?? '')} type="button" className="btn-outline"
+                    style={{ justifyContent: 'flex-start', textAlign: 'left', fontSize: 12 }}
+                    onClick={() => aplicarCep(d)}>{rotuloCandidato(d)}</button>
+                ))}
+              </div>
+            </div>
+          )}
           {msg && (
             <div style={{ fontSize: 12, marginBottom: 10, color: msg.tipo === 'ok' ? 'var(--green)' : 'var(--red)' }}>{msg.texto}</div>
           )}

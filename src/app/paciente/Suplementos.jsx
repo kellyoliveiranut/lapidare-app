@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { abrirComUrl } from '../../lib/abrirJanela.js';
 import { supabase } from '../../lib/supabase.js';
 import { dataLocalISO, isoLocalDeData } from '../../lib/utils.js';
 import { useSession } from '../../lib/session.jsx';
@@ -104,11 +105,12 @@ export default function Suplementos() {
   }
 
   async function abrirBiblio(item) {
-    const { data } = await supabase.storage.from('ebooks')
-      .createSignedUrl(item.storage_path, 3600);
-    if (data?.signedUrl) {
-      window.open(data.signedUrl, '_blank', 'noopener');
-    } else {
+    // Aba aberta no toque (Safari/iPad barra window.open depois de await).
+    const url = await abrirComUrl(async () => {
+      const { data } = await supabase.storage.from('ebooks').createSignedUrl(item.storage_path, 3600);
+      return data?.signedUrl ?? null;
+    }).catch(() => null);
+    if (!url) {
       setErro('Não consegui abrir o arquivo, tente novamente');
       setTimeout(() => setErro(null), 4000);
     }

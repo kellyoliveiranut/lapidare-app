@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { abrirParaImprimir } from '../../lib/abrirJanela.js';
 import { supabase } from '../../lib/supabase.js';
 import { dataBR, dataLocalISO } from '../../lib/utils.js';
 import { gravar } from '../../lib/gravar.js';
@@ -467,10 +468,7 @@ function ModalVer({ a, pacienteNome, onClose }) {
 </body>
 </html>`;
 
-    const win = window.open('', '_blank');
-    if (!win) { avisarJanela('Permita pop-ups pra gerar o PDF.'); return; }
-    win.document.write(html);
-    win.document.close();
+    if (!abrirParaImprimir(html)) { avisarJanela('Permita pop-ups pra gerar o PDF.'); return; }
   }
 
   return (

@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { copiarTexto as copiarParaAreaDeTransferencia } from '../../lib/copiarTexto.js';
+import { abrirParaImprimir } from '../../lib/abrirJanela.js';
 import { supabase } from '../../lib/supabase.js';
 import { callAnthropic } from '../../lib/anthropic.js';
 import { dataBR, dataLocalISO } from '../../lib/utils.js';
@@ -261,7 +263,8 @@ ${checkinsStr}`;
   }
 
   async function copiarTexto() {
-    await navigator.clipboard.writeText(gerarTextoPlano());
+    const texto = gerarTextoPlano();
+    if (!(await copiarParaAreaDeTransferencia(texto))) { prompt('Copie o texto abaixo:', texto); return; }
     setCopiado(true);
     setTimeout(() => setCopiado(false), 2500);
   }
@@ -589,11 +592,9 @@ ${checkinsStr}`;
 </body>
 </html>`;
 
-    const win = window.open('', '_blank', 'width=900,height=700');
-    if (!win) { avisarJanela('Permita pop-ups para gerar o PDF.'); return; }
-    win.document.write(html);
-    win.document.close();
-    setTimeout(() => win.print(), 600);
+    if (!abrirParaImprimir(html, { janela: 'width=900,height=700', autoImprimir: true })) {
+      avisarJanela('Permita pop-ups para gerar o PDF.'); return;
+    }
   }
 
   if (carregando) {

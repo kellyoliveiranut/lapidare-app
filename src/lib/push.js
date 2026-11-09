@@ -1,4 +1,5 @@
 import { supabase } from './supabase.js';
+import { ehIOS } from './abrirJanela.js';
 
 export const VAPID_PUBLIC_KEY =
   'BD-nMECGFJKGXggipzxi9b1RntpoMMI9GoPGojLnnlH1AG7pKjjzk8-P06R1fWZIcs9U1c3F45tUI0H7g1VCbgA';
@@ -12,6 +13,10 @@ export function urlBase64ToUint8Array(base64String) {
 
 export async function ativarNotificacoes() {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    // iPad/iPhone só liberam notificações para o app instalado na tela inicial.
+    if (ehIOS()) {
+      throw new Error('No iPad e no iPhone, instale o app primeiro: toque em Compartilhar e em "Adicionar à Tela de Início". Depois abra o Essentia por esse ícone e ative as notificações.');
+    }
     throw new Error('Push notifications não são suportadas neste dispositivo ou navegador.');
   }
 

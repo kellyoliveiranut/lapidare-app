@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { abrirComUrl } from '../../lib/abrirJanela.js';
 import { supabase } from '../../lib/supabase.js';
 import { dataBR } from '../../lib/utils.js';
 import { CATEGORIAS_EXAME, TOTAL_ITENS_EXAME } from '../../data/exames_solicitacao.js';
@@ -146,10 +147,17 @@ export default function SolicitacaoExames({ pacienteId, nutriId, pacienteNome, p
   }
 
   async function baixar(item) {
-    const { data, error } = await supabase.storage
-      .from('prescricoes').createSignedUrl(item.storage_path, 60 * 60);
-    if (error) return setFeedback({ tipo: 'erro', msg: 'Não foi possível abrir: ' + error.message });
-    window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+    // Aba aberta no toque (Safari/iPad barra window.open depois de await).
+    try {
+      await abrirComUrl(async () => {
+        const { data, error } = await supabase.storage
+          .from('prescricoes').createSignedUrl(item.storage_path, 60 * 60);
+        if (error) throw error;
+        return data.signedUrl;
+      });
+    } catch (error) {
+      setFeedback({ tipo: 'erro', msg: 'Não foi possível abrir: ' + (error?.message ?? 'tente novamente') });
+    }
   }
 
   async function excluir(item) {

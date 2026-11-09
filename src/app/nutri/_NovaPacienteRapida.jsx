@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { callAnthropicComRetry } from '../../lib/anthropic.js';
 import { telefoneValido, soDigitos, formatarCpf } from '../../lib/utils.js';
@@ -6,6 +6,7 @@ import { OBJETIVOS } from '../../lib/objetivos.js';
 import { SEXOS, PLANOS, MODALIDADES } from '../../lib/opcoesPaciente.js';
 import { separarEndereco } from '../../lib/separarEndereco.js';
 import { formatarCep } from '../../lib/dadosNotaFiscal.js';
+import { buscarPorCep, buscarPorEndereco, filtrarCandidatos, rotuloCandidato } from '../../lib/cepBusca.js';
 import DateInput from '../../components/DateInput.jsx';
 
 // Teto do texto colado. Protege custo e o max_tokens da resposta: uma conversa
@@ -152,6 +153,74 @@ export default function NovaPacienteRapida({ nutriId, onClose, onCriada }) {
 
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState(null);
+
+  // CEP automático. (1) Com rua + cidade + UF e sem CEP, procura o CEP: se houver
+  // um só, preenche; se houver vários (rua com trechos), mostra as opções.
+  // Sem cidade/UF, procura em Belém/PA e avisa. (2) Com 8 dígitos de CEP, completa
+  // rua/bairro/cidade/UF que estiverem vazios. Qualquer falha é silenciosa.
+  const [opcoesCep, setOpcoesCep] = useState([]);
+  const [cepMsg, setCepMsg] = useState('');
+  const cepVez = useRef(0);
+  const { end_cep: nCep, end_logradouro: nRua, end_numero: nNum, end_bairro: nBairro,
+    end_cidade: nCidade, end_uf: nUf } = endNota;
+
+  useEffect(() => {
+    if (soDigitos(nCep).length === 8 || nRua.trim().length < 3) { setOpcoesCep([]); return undefined; }
+    const vez = ++cepVez.current;
+    const semLocal = !nCidade.trim() && !nUf.trim();
+    const t = setTimeout(async () => {
+      const lista = await buscarPorEndereco({
+        uf: semLocal ? 'PA' : nUf, cidade: semLocal ? 'Belém' : nCidade, logradouro: nRua });
+      if (vez !== cepVez.current) return;
+      const c = filtrarCandidatos(lista, { numero: nNum, bairro: nBairro });
+      if (c.length === 1) {
+        const d = c[0];
+        setEndNota(p => ({
+          ...p,
+          end_cep: formatarCep(d.cep),
+          end_bairro: p.end_bairro.trim() || d.bairro || '',
+          end_cidade: p.end_cidade.trim() || d.localidade || '',
+          end_uf: p.end_uf.trim() || d.uf || '',
+        }));
+        setCepMsg(semLocal ? 'CEP preenchido buscando em Belém/PA (cidade não informada) — confira.' : 'CEP preenchido automaticamente — confira.');
+        setOpcoesCep([]);
+      } else if (c.length > 1) {
+        setOpcoesCep(c.slice(0, 12));
+        setCepMsg(`${c.length} CEPs para essa rua${semLocal ? ' (busca em Belém/PA)' : ''}. Escolha o do número ${nNum || ''}:`);
+      } else {
+        setOpcoesCep([]); setCepMsg('');
+      }
+    }, 700);
+    return () => clearTimeout(t);
+  }, [nCep, nRua, nNum, nBairro, nCidade, nUf]);
+
+  useEffect(() => {
+    if (soDigitos(nCep).length !== 8) return undefined;
+    let vivo = true;
+    buscarPorCep(nCep).then(d => {
+      if (!vivo || !d) return;
+      setEndNota(p => ({
+        ...p,
+        end_logradouro: p.end_logradouro.trim() || d.logradouro || '',
+        end_bairro: p.end_bairro.trim() || d.bairro || '',
+        end_cidade: p.end_cidade.trim() || d.localidade || '',
+        end_uf: p.end_uf.trim() || d.uf || '',
+      }));
+    });
+    return () => { vivo = false; };
+  }, [nCep]);
+
+  function escolherCep(d) {
+    setEndNota(p => ({
+      ...p,
+      end_cep: formatarCep(d.cep),
+      end_bairro: p.end_bairro.trim() || d.bairro || '',
+      end_cidade: p.end_cidade.trim() || d.localidade || '',
+      end_uf: p.end_uf.trim() || d.uf || '',
+    }));
+    setOpcoesCep([]);
+    setCepMsg('CEP escolhido — confira.');
+  }
 
   // Contador de vez da busca de CPF duplicado: a nutri digita rápido e uma
   // resposta antiga não pode sobrescrever o resultado da consulta atual.
@@ -570,6 +639,21 @@ export default function NovaPacienteRapida({ nutriId, onClose, onCriada }) {
                 </div>
               ))}
             </div>
+
+            {cepMsg && (
+              <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 8 }}>{cepMsg}</div>
+            )}
+            {opcoesCep.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6 }}>
+                {opcoesCep.map(d => (
+                  <button key={d.cep + (d.complemento ?? '')} type="button" className="btn-outline"
+                    style={{ justifyContent: 'flex-start', textAlign: 'left', fontSize: 12 }}
+                    onClick={() => escolherCep(d)}>
+                    {rotuloCandidato(d)}
+                  </button>
+                ))}
+              </div>
+            )}
 
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginTop: 12, fontSize: 13 }}>
               <input type="checkbox" checked={nfEmitir} onChange={e => setNfEmitir(e.target.checked)} />

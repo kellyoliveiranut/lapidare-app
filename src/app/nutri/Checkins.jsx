@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { abrirParaImprimir } from '../../lib/abrirJanela.js';
 import { lerTodasPaginas } from '../../lib/lerPaginas.js';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
@@ -1163,10 +1164,7 @@ function RespostasModal({ envio, onClose }) {
 </body>
 </html>`;
 
-    const win = window.open('', '_blank');
-    if (!win) { avisarJanela('Permita pop-ups pra gerar o PDF.'); return; }
-    win.document.write(html);
-    win.document.close();
+    if (!abrirParaImprimir(html)) { avisarJanela('Permita pop-ups pra gerar o PDF.'); return; }
   }
 
   return (

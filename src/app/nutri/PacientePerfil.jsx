@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useRef, lazy, Suspense, memo, useCallback } from 'react';
+import { abrirParaImprimir } from '../../lib/abrirJanela.js';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
@@ -4952,11 +4953,9 @@ Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (e
 </body>
 </html>`;
 
-    const win = window.open('', '_blank', 'width=820,height=640');
-    if (!win) { avisarJanela('Permita pop-ups para gerar o PDF.'); return; }
-    win.document.write(html);
-    win.document.close();
-    setTimeout(() => win.print(), 500);
+    if (!abrirParaImprimir(html, { janela: 'width=820,height=640', autoImprimir: true })) {
+      avisarJanela('Permita pop-ups para gerar o PDF.'); return;
+    }
   }
 
   async function gerarDoPlano() {

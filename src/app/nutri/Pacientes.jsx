@@ -1,4 +1,5 @@
 import { memo, useEffect, useMemo, useState } from 'react';
+import { copiarTexto } from '../../lib/copiarTexto.js';
 import BaixarBackup from './_BaixarBackup.jsx';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
@@ -90,8 +91,8 @@ export default function Pacientes() {
     // Sem token o SignupPaciente nem abre o formulário (mostra "Link inválido"),
     // e o token também gera o e-mail sintético de quem não tem e-mail.
     const link = linkConvite(user.id, p);
-    await navigator.clipboard.writeText(link);
-    avisarJanela(`Link copiado! Envie pra ${p.nome.split(' ')[0]} por WhatsApp ou email.`);
+    if (await copiarTexto(link)) avisarJanela(`Link copiado! Envie pra ${p.nome.split(' ')[0]} por WhatsApp ou email.`);
+    else prompt('Copie o link abaixo:', link);   // iPad recusou a cópia: plano B
     const r = await gravar(supabase.from('pacientes_pendentes').update({ status: 'enviado' }).eq('id', p.id),
       { rotulo: 'marcar o convite como enviado' });
     if (!r.ok) { avisarJanela(r.msg); return; }
