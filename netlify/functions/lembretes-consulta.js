@@ -52,7 +52,7 @@ exports.handler = async (event) => {
       // É o mesmo join que Inicio.jsx faz para os cards (:135 e :201) — aqui
       // não depende da policy locais_atendimento_paciente, porque a function
       // usa a service role e não passa por RLS.
-      .select('id, data_hora, modalidade, local_id, local:locais_atendimento(nome, endereco), paciente:pacientes(user_id, nome)')
+      .select('id, data_hora, modalidade, local_id, local:locais_atendimento(nome, endereco), paciente:pacientes(user_id, cuidador_user_id, nome)')
       .eq('status', 'agendada')
       .eq('lembrete_ativo', true)
       .eq('oculta_paciente', false) // data escondida da paciente (reagendamento): sem push com a data
@@ -65,8 +65,10 @@ exports.handler = async (event) => {
     let enviados = 0, sem_inscricao = 0, falhas = 0;
 
     for (const c of consultas ?? []) {
-      const userId = c.paciente?.user_id;
-      if (!userId) { sem_inscricao++; continue; }
+      // Paciente e cuidador (se houver) recebem o lembrete: quem usa o app é
+      // quem precisa levar a paciente à consulta.
+      const userIds = [c.paciente?.user_id, c.paciente?.cuidador_user_id].filter(Boolean);
+      if (!userIds.length) { sem_inscricao++; continue; }
 
       // Hora da consulta no fuso de Belém
       const horaBelemDate = new Date(new Date(c.data_hora).getTime() - BELEM_OFFSET_MS);
@@ -93,7 +95,7 @@ exports.handler = async (event) => {
       const { data: rows, error: subErr } = await supabase
         .from('push_subscriptions')
         .select('endpoint, subscription')
-        .eq('user_id', userId);
+        .in('user_id', userIds);
 
       if (subErr || !rows?.length) { sem_inscricao++; continue; }
 

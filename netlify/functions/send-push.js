@@ -57,7 +57,7 @@ exports.handler = async (event) => {
       const { data: paciente, error: pacienteError } = await supabase
         .from('pacientes')
         .select('id, nutri_id, nome')
-        .eq('user_id', caller.id)
+        .or(`user_id.eq.${caller.id},cuidador_user_id.eq.${caller.id}`)   // paciente ou o cuidador dela
         .maybeSingle();
 
       if (pacienteError || !paciente?.nutri_id) {
@@ -100,12 +100,12 @@ exports.handler = async (event) => {
 
       const { data: paciente, error: pacienteError } = await supabase
         .from('pacientes')
-        .select('user_id')
+        .select('user_id, cuidador_user_id')
         .eq('id', paciente_id)
         .eq('nutri_id', caller.id)
         .maybeSingle();
 
-      if (pacienteError || !paciente?.user_id) {
+      if (pacienteError || !(paciente?.user_id || paciente?.cuidador_user_id)) {
         return { statusCode: 403, body: JSON.stringify({ error: 'Paciente não encontrada ou sem vínculo.' }) };
       }
 
@@ -118,7 +118,7 @@ exports.handler = async (event) => {
       };
 
       const payload = PAYLOADS[kind] ?? PAYLOADS.mensagem;
-      return await enviarParaUsuario(supabase, paciente.user_id, payload, kind);
+      return await enviarParaVarios(supabase, [paciente.user_id, paciente.cuidador_user_id], payload, kind);
     }
 
     // === Modo: enviar_link_avaliacao (nutri → paciente, link do Shaped) ===
@@ -138,12 +138,12 @@ exports.handler = async (event) => {
 
       const { data: paciente, error: pacienteError } = await supabase
         .from('pacientes')
-        .select('user_id')
+        .select('user_id, cuidador_user_id')
         .eq('id', paciente_id)
         .eq('nutri_id', caller.id)
         .maybeSingle();
 
-      if (pacienteError || !paciente?.user_id) {
+      if (pacienteError || !(paciente?.user_id || paciente?.cuidador_user_id)) {
         return { statusCode: 403, body: JSON.stringify({ error: 'Paciente não encontrada ou sem vínculo.' }) };
       }
 
@@ -186,7 +186,7 @@ exports.handler = async (event) => {
       // SEM ?link= agora: a tela lê o pendente da tabela. A querystring era o
       // portador do dado e virava um link eterno e compartilhável na barra de
       // endereço; o push só precisa dizer "tem coisa lá".
-      const resPush = await enviarParaUsuario(supabase, paciente.user_id, {
+      const resPush = await enviarParaVarios(supabase, [paciente.user_id, paciente.cuidador_user_id], {
         title: 'Essentia',
         body: 'Sua nutricionista te enviou o link para realizar a avaliação física.',
         url: '/paciente/avaliacao',
@@ -225,6 +225,25 @@ exports.handler = async (event) => {
     };
   }
 };
+
+// Paciente e cuidador recebem o mesmo aviso: soma os resultados dos dois envios.
+// Sem conta numa das pontas (null) simplesmente não envia para ela.
+async function enviarParaVarios(supabase, userIds, payload, kind) {
+  const ids = [...new Set((userIds ?? []).filter(Boolean))];
+  const total = { enviados: 0, removidos: 0, falhas: 0 };
+  let ultimo = null;
+  for (const id of ids) {
+    const r = await enviarParaUsuario(supabase, id, payload, kind);
+    ultimo = r;
+    if (r.statusCode !== 200) continue;
+    try {
+      const j = JSON.parse(r.body);
+      total.enviados += j.enviados ?? 0; total.removidos += j.removidos ?? 0; total.falhas += j.falhas ?? 0;
+    } catch { /* corpo inesperado: ignora a soma deste */ }
+  }
+  if (ultimo && ultimo.statusCode !== 200 && total.enviados === 0 && ids.length === 1) return ultimo;
+  return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(total) };
+}
 
 // `kind` só vai para o log: o payload já chega montado. É o kind PEDIDO, não o
 // resolvido — um kind desconhecido que caiu em "mensagem" aparece com o nome real.
