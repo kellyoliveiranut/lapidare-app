@@ -47,7 +47,6 @@ const Evolucao             = lazy(() => import('./_Evolucao.jsx'));
 const FollowUp             = lazy(() => import('./_FollowUp.jsx'));
 const Suplementacao        = lazy(() => import('./_Suplementacao.jsx'));
 const Habitos              = lazy(() => import('./_Habitos.jsx'));
-const Anamnese             = lazy(() => import('./_Anamnese.jsx'));
 const TratamentoOncologico = lazy(() => import('./_TratamentoOncologico.jsx'));
 const Emagrecimento        = lazy(() => import('./_Emagrecimento.jsx'));
 const Calculos             = lazy(() => import('./_Calculos.jsx'));
@@ -1329,13 +1328,12 @@ export default function PacientePerfil() {
       <BarraDeAbas>
         {(() => {
           const isOnco = paciente.objetivo === 'Oncologia';
-          // Ordem pedida em 2026-10-29: Anamnese, Avaliação, Oncologia (ou Emagrecimento,
+          // Ordem pedida em 2026-10-29: Avaliação, Oncologia (ou Emagrecimento,
           // conforme o objetivo da paciente), Planejamento, Evolução, Check-in e Follow-up
           // juntos, e os demais. A aba que não é a principal vai para o fim.
           const onco = { id: 'oncologia',     label: isOnco ? 'Oncologia' : 'Histórico onco', icon: 'dna' };
           const emag = { id: 'emagrecimento', label: 'Emagrecimento', icon: 'trending-down' };
           const todas = [
-            { id: 'anamnese',      label: 'Anamnese',      icon: 'clipboard-text' },
             { id: 'avaliacao',     label: 'Avaliação',     icon: 'ruler-measure' },
             isOnco ? onco : emag,
             // Planejamento reúne, um abaixo do outro: Cálculos, Plano alimentar, Lista de
@@ -1379,7 +1377,6 @@ export default function PacientePerfil() {
         {tab === 'evolucao'      && <Evolucao pacienteId={paciente.id} paciente={paciente} nutriId={user.id} />}
         {tab === 'oncologia'     && <TratamentoOncologico pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} pacienteSexo={paciente.sexo} />}
         {tab === 'emagrecimento' && <Emagrecimento pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} pacienteSexo={paciente.sexo} />}
-        {tab === 'anamnese'      && <Anamnese pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
         {tab === 'habitos'       && <Habitos pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
         {tab === 'ebooks'        && <EbooksDaPaciente pacienteId={paciente.id} nutriId={user.id} pacienteNome={paciente.nome} />}
         {tab === 'avaliacao'     && <RegistrarAvaliacao pacienteId={paciente.id} nutriId={user.id} paciente={paciente} />}
