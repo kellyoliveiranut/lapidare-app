@@ -11,7 +11,7 @@ import {
   verificarAgenda, textoImpedimentos, textoConfirmacao, bloqueioCobre, impedimentosQueTravam, avisosQueConfirmam,
   carregarOcupacaoDoDia, horariosLivres, opcoesHorario, gradeDoLocal,
 } from '../../lib/agendaConflitos.js';
-import { tipoColor, tipoColorSoft, MODALIDADES_CONSULTA, modalidadeInfo, opcoesTipoConsulta, tipoSugerido } from '../../lib/consultaVisual.js';
+import { tipoColor, tipoColorSoft, MODALIDADES_CONSULTA, modalidadeInfo, opcoesTipoConsulta, tipoSugerido, proximoTipoDoPacote } from '../../lib/consultaVisual.js';
 import { modalidadeDaPaciente, localPadrao } from '../../lib/opcoesPaciente.js';
 import { pacientesComCancelada } from '../../lib/agendaListas.js';
 import { desdeISO, filtroJanela } from '../../lib/janelaAgenda.js';
@@ -431,7 +431,7 @@ export default function Agenda() {
   async function carregarPacientes() {
     if (!user) return;
     const { data } = await supabase
-      .from('pacientes').select('id, nome, modalidade')
+      .from('pacientes').select('id, nome, modalidade, tipo_plano')
       .eq('nutri_id', user.id).order('nome');
     setPacientes(data ?? []);
   }
@@ -3049,16 +3049,25 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
     if (isEdit || !pacienteId) return;
     let active = true;
     (async () => {
-      const { count } = await supabase
+      const { data: lancadas } = await supabase
         .from('consultas')
-        .select('id', { count: 'exact', head: true })
+        .select('tipo')
         .eq('paciente_id', pacienteId)
-        .neq('status', 'cancelada')
-        .neq('tipo', 'avaliacao');
+        .neq('status', 'cancelada');
       if (!active) return;
+      const tipos = (lancadas ?? []).map(c => c.tipo);
+      const essentia = pacientes.find(x => x.id === pacienteId)?.tipo_plano === 'essentia';
+      if (essentia) {
+        // Essentia: puxa do pacote da paciente — primeira vaga livre entre a 1ª
+        // e a Consulta 06 (ver proximoTipoDoPacote). Pacote cheio: avulsa.
+        setTipo(proximoTipoDoPacote(tipos));
+        return;
+      }
+      // Demais pacientes: como sempre — conta as consultas (sem avaliação) + 1.
       // Para na consulta_6 e depois sugere 'avulsa' (pedido 10): o select não
       // oferece mais consulta_7 em diante.
-      setTipo(tipoSugerido((count ?? 0) + 1));
+      const n = tipos.filter(t => t !== 'avaliacao').length;
+      setTipo(tipoSugerido(n + 1));
     })();
     return () => { active = false; };
   }, [pacienteId, isEdit]);

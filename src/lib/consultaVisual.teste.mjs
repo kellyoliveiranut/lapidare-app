@@ -8,7 +8,7 @@
 process.env.TZ = process.env.TZ_TESTE || 'America/Belem';
 
 // Import DINAMICO: o TZ acima precisa valer antes de o módulo carregar.
-const { opcoesTipoConsulta, tipoSugerido } = await import('./consultaVisual.js');
+const { opcoesTipoConsulta, tipoSugerido, proximoTipoDoPacote } = await import('./consultaVisual.js');
 
 let ok = 0, falhou = 0;
 const casos = [];
@@ -87,4 +87,18 @@ for (const c of casos) {
 }
 console.log(`\nTZ = ${process.env.TZ} | offset real = ${new Date().getTimezoneOffset()}`);
 console.log(`${ok} passaram, ${falhou} falharam, ${casos.length} no total`);
+// proximoTipoDoPacote — Essentia: primeira vaga livre do pacote de 6
+{
+  const assert = (await import('node:assert/strict')).default;
+  assert.equal(proximoTipoDoPacote([]), 'primeira');
+  assert.equal(proximoTipoDoPacote(['primeira']), 'consulta_2');
+  assert.equal(proximoTipoDoPacote(['primeira', 'consulta_2']), 'consulta_3');
+  assert.equal(proximoTipoDoPacote(['primeira', 'consulta_3']), 'consulta_2');   // vaga no meio
+  assert.equal(proximoTipoDoPacote(['avaliacao', 'retorno', 'avulsa', 'primeira']), 'consulta_2');  // fora do pacote não ocupa vaga
+  assert.equal(proximoTipoDoPacote(['primeira', 'consulta_2', 'consulta_3', 'consulta_4', 'consulta_5', 'consulta_6']), 'avulsa');
+  assert.equal(proximoTipoDoPacote(['consulta_7', 'primeira']), 'consulta_2');   // antiga consulta_7 não conta
+  assert.equal(proximoTipoDoPacote(null), 'primeira');
+  console.log('proximoTipoDoPacote ok');
+}
+
 process.exit(falhou ? 1 : 0);

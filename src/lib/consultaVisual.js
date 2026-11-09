@@ -32,7 +32,7 @@ export function tipoColorSoft(tipo) {
 const ULTIMA_DO_PACOTE = 6;
 
 /** 'consulta_7' → 7; 'primeira' → 1; qualquer outro tipo → null. */
-function numeroDoTipo(value) {
+export function numeroDoTipo(value) {
   if (value === 'primeira') return 1;
   const m = typeof value === 'string' ? value.match(/^consulta_(\d+)$/) : null;
   return m ? Number(m[1]) : null;
@@ -94,4 +94,22 @@ export const MODALIDADES_CONSULTA = [
 
 export function modalidadeInfo(modalidade) {
   return MODALIDADES_CONSULTA.find(m => m.value === modalidade) ?? MODALIDADES_CONSULTA[0];
+}
+
+/**
+ * Paciente Essentia: a próxima consulta é a primeira vaga livre do pacote de 6
+ * (1ª, Consulta 02 a 06), olhando os tipos que ela JÁ tem lançados (realizados
+ * ou agendados, sem os cancelados). Avaliação, Retorno e Avulsa não ocupam vaga.
+ * Pacote cheio (as seis lançadas) sugere 'avulsa'.
+ *
+ * É diferente de contar consultas: uma consulta avulsa ou um retorno antes do
+ * pacote não pode empurrar a numeração.
+ */
+export function proximoTipoDoPacote(tiposLancados) {
+  const usados = new Set(
+    (tiposLancados ?? []).map(numeroDoTipo).filter(n => n !== null && n <= ULTIMA_DO_PACOTE));
+  for (let n = 1; n <= ULTIMA_DO_PACOTE; n++) {
+    if (!usados.has(n)) return tipoSugerido(n);
+  }
+  return 'avulsa';
 }
