@@ -22,7 +22,7 @@ import SemConsultaAgenda from './_SemConsultaAgenda.jsx';
 import { ehDiaCTO } from '../../lib/diasCTO.js';
 import { localAoRemarcar, localDivergente } from '../../lib/opcoesPaciente.js';
 import { confirmar as confirmarJanela, avisar as avisarJanela } from '../../lib/dialogos.js';
-import { HORARIOS_TAREFA, hhmm } from '../../lib/reguaDoDia.js';
+import { HORARIOS_TAREFA, hhmm, minutosDeHHMM } from '../../lib/reguaDoDia.js';
 import {
   dataConsultaBR, horaConsultaBR, dataBR, TZ_CLINICA, textoDias, iniciais,
   gerarDiasCalendario, ehMesmoDia, mesAnoExtenso, DIAS_SEMANA_CURTOS, isoLocalDeData,
@@ -42,6 +42,9 @@ const TIPOS = [
   { value: 'retorno',   label: 'Retorno' },
   { value: 'avulsa',    label: 'Consulta avulsa' },
 ];
+
+const COLS_TAREFA_SEM_OBS = 'id, texto, data, hora, concluido_em, created_at';
+const COLS_TAREFA = `${COLS_TAREFA_SEM_OBS}, obs`;
 
 const STATUS_OPCOES = [
   { value: 'agendada',  label: 'Agendada' },
@@ -86,6 +89,7 @@ function normalizarTelefone(raw) {
 // Período do dia de uma consulta (horário de Belém): antes das 12:00 é manhã.
 const PERIODO_MANHA = { id: 'manha', rotulo: 'Manhã', icone: 'ti-sun', fundo: '#fdeec9', texto: '#8a5a00', borda: '#e8b84a' };
 const PERIODO_TARDE = { id: 'tarde', rotulo: 'Tarde', icone: 'ti-sunset-2', fundo: '#dbe9fb', texto: '#1e4f8a', borda: '#7fa8dd' };
+const PERIODO_TAREFAS = { id: 'tarefas', rotulo: 'Tarefas do dia', icone: 'ti-checklist', fundo: '#f1ece3', texto: '#5a4a32', borda: '#cdbfa6' };
 function periodoDoDia(iso) {
   const h = Number(partesLocaisISO(iso).hora.slice(0, 2));
   return h < 12 ? PERIODO_MANHA : PERIODO_TARDE;
@@ -327,7 +331,7 @@ export default function Agenda() {
       // caixinha, e o quadradinho sumiria do calendário como se a tarefa nunca
       // tivesse existido.
       supabase.from('lembretes_nutri')
-        .select('id, texto, data, hora, concluido_em, created_at')
+        .select(COLS_TAREFA)
         .eq('nutri_id', user.id)
         .gte('data', faixaGrade.de).lte('data', faixaGrade.ate)
         // nullsFirst na hora: tarefa sem hora é do dia inteiro e vem antes
@@ -340,11 +344,26 @@ export default function Agenda() {
       // `hora` vem junto só por simetria de formato — o check do banco
       // garante que ela é sempre nula quando não há data.
       supabase.from('lembretes_nutri')
-        .select('id, texto, data, hora, concluido_em, created_at')
+        .select(COLS_TAREFA)
         .eq('nutri_id', user.id)
         .is('data', null).is('concluido_em', null)
         .order('created_at'),
     ]);
+    // Coluna `obs` ainda não criada no banco (migração 2026-11-10 não rodou):
+    // lê de novo sem ela, em vez de esvaziar a lista de tarefas.
+    if (comData.error || semData.error) {
+      const sem = (q) => q.select(COLS_TAREFA_SEM_OBS);
+      const [c2, s2] = await Promise.all([
+        sem(supabase.from('lembretes_nutri')).eq('nutri_id', user.id)
+          .gte('data', faixaGrade.de).lte('data', faixaGrade.ate)
+          .order('data').order('hora', { nullsFirst: true }).order('created_at'),
+        sem(supabase.from('lembretes_nutri')).eq('nutri_id', user.id)
+          .is('data', null).is('concluido_em', null).order('created_at'),
+      ]);
+      setTarefas(c2.data ?? []);
+      setTarefasSemPrazo(s2.data ?? []);
+      return;
+    }
     setTarefas(comData.data ?? []);
     setTarefasSemPrazo(semData.data ?? []);
   }
@@ -829,6 +848,23 @@ export default function Agenda() {
     return tarefas.filter(t => t.data === alvo);
   }, [tarefas, diaSelecionado]);
 
+  // Lista do dia: consultas E tarefas no mesmo card, na ordem dos horários.
+  // Tarefa sem hora (dia inteiro) vem primeiro; tarefa com hora entra entre as
+  // consultas; as faixas Manhã/Tarde valem para os dois.
+  const itensDoDia = useMemo(() => {
+    const diaInteiro = tarefasDoDia.filter(t => !t.hora).map(t => ({ k: 't', t, min: -1, periodo: null }));
+    const comHora = [
+      ...consultasDoDia.map(c => ({
+        k: 'c', c, min: minutosDeHHMM(partesLocaisISO(c.data_hora).hora) ?? 0, periodo: periodoDoDia(c.data_hora),
+      })),
+      ...tarefasDoDia.filter(t => t.hora).map(t => {
+        const min = minutosDeHHMM(t.hora) ?? 0;
+        return { k: 't', t, min, periodo: min < 12 * 60 ? PERIODO_MANHA : PERIODO_TARDE };
+      }),
+    ].sort((a, b) => a.min - b.min || (a.k === 'c' ? -1 : 1));
+    return [...diaInteiro, ...comHora];
+  }, [consultasDoDia, tarefasDoDia]);
+
   const bloqueiosDoDia = useMemo(() => {
     if (!diaSelecionado) return [];
     const alvo = isoLocalDeData(diaSelecionado);
@@ -1075,22 +1111,35 @@ export default function Agenda() {
         />
       ) : (
       <>
-      {consultasDoDia.length === 0 ? (
+      {itensDoDia.length === 0 ? (
         <div className="card" style={{ padding: '16px', textAlign: 'center', color: 'var(--text3)', fontSize: 14 }}>
           Nenhuma consulta neste dia.
         </div>
       ) : (
         <div className="card" style={{ padding: 0 }}>
-          {consultasDoDia.map((c, i) => {
-            // Faixa de período (Manhã / Tarde) antes da primeira consulta de
-            // cada um. Corte às 12:00, no horário de Belém. As linhas seguem
-            // na cor do tipo; a cor do período fica só na faixa e na borda.
-            const periodo = periodoDoDia(c.data_hora);
-            const anterior = i > 0 ? periodoDoDia(consultasDoDia[i - 1].data_hora) : null;
-            const novoPeriodo = periodo.id !== anterior?.id;
-            const qtd = novoPeriodo ? consultasDoDia.filter(x => periodoDoDia(x.data_hora).id === periodo.id).length : 0;
+          {itensDoDia.map((it, i) => {
+            // Faixa de período (Manhã / Tarde) antes do primeiro item de cada
+            // um; tarefas do dia inteiro têm a própria faixa, neutra. Corte às
+            // 12:00, no horário de Belém. As linhas de consulta seguem na cor
+            // do tipo; a cor do período fica só na faixa e na borda.
+            const diaInteiro = it.k === 't' && it.min < 0;
+            const ant = i > 0 ? itensDoDia[i - 1] : null;
+            const anteriorDiaInteiro = !!ant && ant.k === 't' && ant.min < 0;
+            const periodo = diaInteiro ? PERIODO_TAREFAS : it.periodo;
+            const antPeriodo = !ant ? null : (anteriorDiaInteiro ? PERIODO_TAREFAS : ant.periodo);
+            const novoPeriodo = periodo.id !== antPeriodo?.id;
+            const doPeriodo = novoPeriodo
+              ? itensDoDia.filter(x => (x.k === 't' && x.min < 0 ? PERIODO_TAREFAS : x.periodo).id === periodo.id)
+              : [];
+            const nC = doPeriodo.filter(x => x.k === 'c').length;
+            const nT = doPeriodo.filter(x => x.k === 't').length;
+            const resumo = [
+              nC > 0 ? `${nC} consulta${nC > 1 ? 's' : ''}` : null,
+              nT > 0 ? `${nT} tarefa${nT > 1 ? 's' : ''}` : null,
+            ].filter(Boolean).join(' · ');
+            const chave = it.k === 'c' ? it.c.id : `t-${it.t.id}`;
             return (
-              <Fragment key={c.id}>
+              <Fragment key={chave}>
                 {novoPeriodo && (
                   <div style={{
                     display: 'flex', alignItems: 'center', gap: 8,
@@ -1102,38 +1151,26 @@ export default function Agenda() {
                   }}>
                     <i className={`ti ${periodo.icone}`} style={{ fontSize: 14 }} aria-hidden="true" />
                     {periodo.rotulo}
-                    <span style={{ fontWeight: 500, opacity: 0.8 }}>· {qtd} consulta{qtd > 1 ? 's' : ''}</span>
+                    <span style={{ fontWeight: 500, opacity: 0.8 }}>· {resumo}</span>
                   </div>
                 )}
-                <ConsultaRow c={c} isLast={i === consultasDoDia.length - 1} onClick={() => abrirEdit(c)}
-                  onToggleConfirmada={toggleConfirmada}
-                  onToggleNaoConfirmada={toggleNaoConfirmada}
-                  onToggleOculta={toggleOculta}
-                  onRemarcar={() => abrirRemarcar(c)}
-                  remarcandoAgora={mandandoId === c.id}
-                  corDoTipo />
+                {it.k === 'c' ? (
+                  <ConsultaRow c={it.c} isLast={i === itensDoDia.length - 1} onClick={() => abrirEdit(it.c)}
+                    onToggleConfirmada={toggleConfirmada}
+                    onToggleNaoConfirmada={toggleNaoConfirmada}
+                    onToggleOculta={toggleOculta}
+                    onRemarcar={() => abrirRemarcar(it.c)}
+                    remarcandoAgora={mandandoId === it.c.id}
+                    corDoTipo />
+                ) : (
+                  <div style={{ padding: '0 16px', background: 'var(--white)' }}>
+                    <LinhaTarefa t={it.t} onAlternar={alternarTarefa} onAbrir={abrirTarefaEdit} />
+                  </div>
+                )}
               </Fragment>
             );
           })}
         </div>
-      )}
-
-      {/* Tarefas do dia selecionado.
-          Some quando não há nenhuma, ao contrário de "Consultas em", que
-          sempre mostra o card vazio: a maioria dos dias não tem tarefa, e um
-          segundo card vazio permanente empurraria as listas de baixo para
-          fora da tela em quase todo dia clicado. */}
-      {tarefasDoDia.length > 0 && (
-        <>
-          <div className="section-label" style={{ marginTop: 16 }}>
-            Tarefas de {diaSelecionado.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
-          </div>
-          <div className="card" style={{ padding: '4px 14px' }}>
-            {tarefasDoDia.map(t => (
-              <LinhaTarefa key={t.id} t={t} onAlternar={alternarTarefa} onAbrir={abrirTarefaEdit} />
-            ))}
-          </div>
-        </>
       )}
       </>
       )}
@@ -2091,6 +2128,11 @@ function LinhaTarefa({ t, onAlternar, onAbrir }) {
             · {hhmm(t.hora)}
           </span>
         )}
+        {t.obs && (
+          <span style={{ display: 'block', fontSize: 12, color: 'var(--text3)', marginTop: 2, whiteSpace: 'pre-wrap' }}>
+            {t.obs}
+          </span>
+        )}
       </span>
       {/* O desfazer é explícito, e não só desmarcar a caixinha: a linha
           concluída fica na tela até a próxima carga justamente para ela poder
@@ -2610,6 +2652,7 @@ function TarefaModal({ tarefa, nutriId, dataInicial, onClose, onSaved }) {
   // tem opções 'HH:MM' — sem o corte, nenhuma opção casaria e o campo
   // apareceria vazio numa tarefa que TEM hora.
   const [hora, setHora]   = useState(hhmm(tarefa?.hora ?? ''));
+  const [obs, setObs]     = useState(tarefa?.obs ?? '');
   const [busy, setBusy]   = useState(false);
   const [erro, setErro]   = useState(null);
 
@@ -2643,6 +2686,9 @@ function TarefaModal({ tarefa, nutriId, dataInicial, onClose, onSaved }) {
       data: data || null,
       hora: data ? (hora || null) : null,
     };
+    // `obs` só entra no envio quando há o que gravar (ou o que apagar): assim,
+    // antes de a coluna existir no banco, tarefa sem observação segue salvando.
+    if (obs.trim() || tarefa?.obs) payload.obs = obs.trim() || null;
     let msgErro = null;
     if (isEdit) {
       const r = await gravar(supabase.from('lembretes_nutri').update(payload).eq('id', tarefa.id),
@@ -2717,6 +2763,10 @@ function TarefaModal({ tarefa, nutriId, dataInicial, onClose, onSaved }) {
             )}
           </div>
         </div>
+
+        <label className="form-lbl" style={{ marginTop: 10 }}>Observação (opcional)</label>
+        <textarea value={obs} onChange={e => setObs(e.target.value)} rows={3}
+          placeholder="Ex: levar o contrato impresso; link da reunião…" />
 
         {erro && (
           <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 10 }}>{erro}</div>

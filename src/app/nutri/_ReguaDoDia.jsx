@@ -303,7 +303,7 @@ function BlocoTarefa({ it, estilo, onAbrir }) {
   const t = it.dado;
   const concluida = !!t.concluido_em;
   return (
-    <button onClick={onAbrir} title={`${hhmm(t.hora)} · ${t.texto}`}
+    <button onClick={onAbrir} title={`${hhmm(t.hora)} · ${t.texto}${t.obs ? `\n${t.obs}` : ''}`}
       style={{
         ...estilo, overflow: 'hidden', textAlign: 'left', cursor: 'pointer',
         padding: '3px 6px 3px 9px', fontFamily: 'var(--font-sans)',
@@ -325,6 +325,16 @@ function BlocoTarefa({ it, estilo, onAbrir }) {
           {t.texto}
         </span>
       </div>
+      {/* Observação na linha do tempo: segunda linha do bloco (o que não couber
+          fica no tooltip e na edição). */}
+      {t.obs && (
+        <div style={{
+          position: 'relative', fontSize: 10.5, color: 'var(--text3)', lineHeight: 1.25,
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}>
+          {t.obs}
+        </div>
+      )}
     </button>
   );
 }
@@ -350,15 +360,18 @@ function ChipTarefa({ t, onAbrir, onAlternar }) {
         onChange={e => { e.stopPropagation(); onAlternar(t.id, !concluida); }}
         aria-label={concluida ? `Reabrir: ${t.texto}` : `Concluir: ${t.texto}`}
         style={{ position: 'relative', cursor: 'pointer', flexShrink: 0 }} />
-      <button onClick={onAbrir}
+      <button onClick={onAbrir} title={t.obs ? `${t.texto}\n${t.obs}` : t.texto}
         style={{
-          position: 'relative', background: 'none', border: 'none', padding: 0,
+          position: 'relative', background: 'none', border: 'none', padding: 0, textAlign: 'left',
           cursor: 'pointer', fontFamily: 'var(--font-sans)', fontSize: 12,
           color: 'var(--text2)', maxWidth: 220,
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           textDecoration: concluida ? 'line-through' : 'none',
         }}>
         {t.texto}
+        {t.obs && (
+          <span style={{ display: 'block', fontSize: 11, color: 'var(--text3)' }}>{t.obs}</span>
+        )}
       </button>
     </span>
   );
