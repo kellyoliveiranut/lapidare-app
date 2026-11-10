@@ -8,7 +8,7 @@
 process.env.TZ = process.env.TZ_TESTE || 'America/Belem';
 
 // Import DINAMICO: o TZ acima precisa valer antes de o módulo carregar.
-const { opcoesTipoConsulta, tipoSugerido, proximoTipoDoPacote } = await import('./consultaVisual.js');
+const { opcoesTipoConsulta, tipoSugerido, proximoTipoDoPacote, vagasLancadas, vagasUsadasDoPacote } = await import('./consultaVisual.js');
 
 let ok = 0, falhou = 0;
 const casos = [];
@@ -99,6 +99,24 @@ console.log(`${ok} passaram, ${falhou} falharam, ${casos.length} no total`);
   assert.equal(proximoTipoDoPacote(['consulta_7', 'primeira']), 'consulta_2');   // antiga consulta_7 não conta
   assert.equal(proximoTipoDoPacote(null), 'primeira');
   console.log('proximoTipoDoPacote ok');
+}
+
+// vagasLancadas / vagasUsadasDoPacote
+{
+  const assert = (await import('node:assert/strict')).default;
+  const L = [
+    { id: 'a', tipo: 'primeira', status: 'realizada', data_hora: '2026-10-01T12:00:00Z' },
+    { id: 'b', tipo: 'consulta_2', status: 'agendada', data_hora: '2026-11-17T12:00:00Z' },
+    { id: 'c', tipo: 'consulta_2', status: 'cancelada', data_hora: '2026-11-10T12:00:00Z' },
+    { id: 'd', tipo: 'retorno', status: 'agendada', data_hora: '2026-11-20T12:00:00Z' },
+  ];
+  const m = vagasLancadas(L);
+  assert.equal(m.get('consulta_2').id, 'b');            // cancelada não ocupa vaga
+  assert.equal(m.has('consulta_3'), false);
+  assert.equal(vagasUsadasDoPacote(m), 2);               // retorno não conta
+  assert.equal(vagasLancadas(L, 'b').has('consulta_2'), false);   // edição ignora a própria
+  assert.equal(vagasUsadasDoPacote(vagasLancadas(null)), 0);
+  console.log('vagasLancadas ok');
 }
 
 process.exit(falhou ? 1 : 0);
