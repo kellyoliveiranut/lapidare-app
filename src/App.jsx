@@ -19,6 +19,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { SessionProvider } from './lib/session.jsx';
 import { ThemeProvider } from './lib/theme.jsx';
 import DialogoHost from './components/DialogoHost.jsx';
+import AvisoNovaVersao from './components/AvisoNovaVersao.jsx';
 import RequireAuth from './components/RequireAuth.jsx';
 import RootRedirect from './components/RootRedirect.jsx';
 import PushNavigator from './components/PushNavigator.jsx';
@@ -86,6 +87,7 @@ export default function App() {
         <BrowserRouter>
           <PushNavigator />
           <DialogoHost />
+          <AvisoNovaVersao />
           <Suspense fallback={<LoadingSpinner />}>
             <Routes>
               <Route path="/" element={<RootRedirect />} />
