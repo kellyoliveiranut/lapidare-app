@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { importarSeguro } from '../../lib/importarSeguro.js';
 import { supabase } from '../../lib/supabase.js';
 import { baixarBlob, nomeArquivoPdf } from '../../lib/pdfBase.js';
 import { esperar, PAUSA_ENTRE_DOWNLOADS_MS } from '../../lib/baixarEmSequencia.js';
@@ -39,7 +40,7 @@ export default function BaixarTodosPdfs({ pacienteId, estilo }) {
 
       if (plano?.dados) {
         setMsg('Plano alimentar…');
-        const { gerarPDFPlano } = await import('../../lib/pdfPlano.js');
+        const { gerarPDFPlano } = await importarSeguro(() => import('../../lib/pdfPlano.js'));
         const blob = await gerarPDFPlano({ pacienteNome, contato, dados: plano.dados, publicadoEm: plano.publicado_em });
         baixarBlob(blob, nomeArquivoPdf('plano-alimentar', pacienteNome));
         feitos.push('plano');
@@ -48,7 +49,7 @@ export default function BaixarTodosPdfs({ pacienteId, estilo }) {
 
       if (lista?.dados) {
         setMsg('Lista de compras…');
-        const { gerarPDFListaCompras } = await import('../../lib/pdfListaCompras.js');
+        const { gerarPDFListaCompras } = await importarSeguro(() => import('../../lib/pdfListaCompras.js'));
         const blob = await gerarPDFListaCompras({ pacienteNome, contato, dados: lista.dados });
         baixarBlob(blob, nomeArquivoPdf('lista-de-compras', pacienteNome));
         feitos.push('compras');
@@ -57,7 +58,7 @@ export default function BaixarTodosPdfs({ pacienteId, estilo }) {
 
       if (ativos.length) {
         setMsg('Suplementação…');
-        const { gerarPDFPrescricao, MODOS_PDF } = await import('./_Suplementacao.jsx');
+        const { gerarPDFPrescricao, MODOS_PDF } = await importarSeguro(() => import('./_Suplementacao.jsx'));
         const modo = MODOS_PDF.find(m => m.id === 'ambos');
         await gerarPDFPrescricao({ pacienteNome, contato, suplementosAtivos: ativos.filter(modo.filtro), modo });
         feitos.push('suplementação');

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useRef, lazy, Suspense, memo, useCallback } from 'react';
+import { importarSeguro } from '../../lib/importarSeguro.js';
 import { abrirParaImprimir } from '../../lib/abrirJanela.js';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
@@ -4824,7 +4825,7 @@ Regras: agrupe similares, estime quantidade para 7 dias, use nomes genéricos (e
     setFeedback(null);
     try {
       const { data: pac } = await supabase.from('pacientes').select('telefone').eq('id', pacienteId).maybeSingle();
-      const { gerarPDFListaCompras } = await import('../../lib/pdfListaCompras.js');
+      const { gerarPDFListaCompras } = await importarSeguro(() => import('../../lib/pdfListaCompras.js'));
       const blob = await gerarPDFListaCompras({ pacienteNome, contato: pac ?? null, dados });
       baixarBlob(blob, nomeArquivoPdf('lista-de-compras', pacienteNome));
     } catch (err) {

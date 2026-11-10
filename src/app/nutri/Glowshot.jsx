@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { importarSeguro } from '../../lib/importarSeguro.js';
 import { avisar as avisarJanela } from '../../lib/dialogos.js';
 import { CARIMBO_ASSINATURA } from '../../data/carimboAssinatura.js';
 
@@ -26,7 +27,7 @@ export default function Glowshot() {
     if (!n) return;
     setGerando(true);
     try {
-      const m = await import('./_Suplementacao.jsx');
+      const m = await importarSeguro(() => import('./_Suplementacao.jsx'));
       const pr = m.prescricaoShots(selecionados);
       await m.gerarPDFPrescricao({
         pacienteNome: n, contato: telefone.trim() ? { telefone: telefone.trim() } : null,

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { importarSeguro } from '../../lib/importarSeguro.js';
 import { copiarTexto as copiarParaAreaDeTransferencia } from '../../lib/copiarTexto.js';
 import { abrirParaImprimir } from '../../lib/abrirJanela.js';
 import { supabase } from '../../lib/supabase.js';
@@ -275,8 +276,8 @@ ${checkinsStr}`;
     setErro(null);
     try {
       const [{ gerarPDFRelatorio }, { baixarBlob, nomeArquivoPdf }] = await Promise.all([
-        import('../../lib/pdfRelatorio.js'),
-        import('../../lib/pdfBase.js'),
+        importarSeguro(() => import('../../lib/pdfRelatorio.js')),
+        importarSeguro(() => import('../../lib/pdfBase.js')),
       ]);
       const blob = await gerarPDFRelatorio({
         pacienteNome: paciente.nome,

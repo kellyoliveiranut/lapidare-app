@@ -1,3 +1,4 @@
+import { importarSeguro } from './importarSeguro.js';
 /**
  * Base comum dos PDFs do Essentia.
  *
@@ -114,7 +115,7 @@ function sanear(txt) {
  * chamadas continuam escritas exatamente como antes.
  */
 export async function criarDocumento() {
-  const { jsPDF } = await import('jspdf');
+  const { jsPDF } = await importarSeguro(() => import('jspdf'));
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
 
   // O saneamento entra no DOC, e não só no escrever(), porque splitTextToSize()
