@@ -113,3 +113,27 @@ export function proximoTipoDoPacote(tiposLancados) {
   }
   return 'avulsa';
 }
+
+/**
+ * Situação de cada vaga do pacote para uma paciente: tipo → { id, status, data_hora }.
+ * Só conta consulta não cancelada; havendo duas do mesmo tipo, vale a mais antiga.
+ * `ignorarId` tira a própria consulta quando o modal é de edição (ela não "ocupa"
+ * a vaga contra si mesma).
+ */
+export function vagasLancadas(lancadas, ignorarId = null) {
+  const mapa = new Map();
+  const ordenadas = [...(lancadas ?? [])]
+    .filter(c => c && c.status !== 'cancelada' && c.id !== ignorarId)
+    .sort((a, b) => String(a.data_hora ?? '').localeCompare(String(b.data_hora ?? '')));
+  for (const c of ordenadas) if (!mapa.has(c.tipo)) mapa.set(c.tipo, c);
+  return mapa;
+}
+
+/** Quantas das seis vagas do pacote (1ª a Consulta 06) já estão lançadas. */
+export function vagasUsadasDoPacote(mapa) {
+  let n = 0;
+  for (let i = 1; i <= ULTIMA_DO_PACOTE; i++) {
+    if (mapa.has(i === 1 ? 'primeira' : `consulta_${i}`)) n++;
+  }
+  return n;
+}

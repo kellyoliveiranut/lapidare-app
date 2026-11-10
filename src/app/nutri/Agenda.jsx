@@ -11,7 +11,7 @@ import {
   verificarAgenda, textoImpedimentos, textoConfirmacao, bloqueioCobre, impedimentosQueTravam, avisosQueConfirmam,
   carregarOcupacaoDoDia, horariosLivres, opcoesHorario, gradeDoLocal,
 } from '../../lib/agendaConflitos.js';
-import { tipoColor, tipoColorSoft, MODALIDADES_CONSULTA, modalidadeInfo, opcoesTipoConsulta, tipoSugerido, proximoTipoDoPacote } from '../../lib/consultaVisual.js';
+import { tipoColor, tipoColorSoft, MODALIDADES_CONSULTA, modalidadeInfo, opcoesTipoConsulta, tipoSugerido, proximoTipoDoPacote, vagasLancadas, vagasUsadasDoPacote } from '../../lib/consultaVisual.js';
 import { modalidadeDaPaciente, localPadrao } from '../../lib/opcoesPaciente.js';
 import { pacientesComCancelada } from '../../lib/agendaListas.js';
 import { desdeISO, filtroJanela } from '../../lib/janelaAgenda.js';
@@ -3150,17 +3150,22 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
     campoDataRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, [remarcarAoAbrir]);
 
-  // Auto-sugere o tipo só ao CRIAR
+  // Consultas já lançadas da paciente (tipo, status, data): alimentam o estado
+  // das vagas na lista de Tipo e o aviso de vaga repetida. A SUGESTÃO do tipo
+  // só roda ao CRIAR.
+  const [lancadasDaPaciente, setLancadasDaPaciente] = useState([]);
   useEffect(() => {
-    if (isEdit || !pacienteId) return;
+    if (!pacienteId) { setLancadasDaPaciente([]); return; }
     let active = true;
     (async () => {
       const { data: lancadas } = await supabase
         .from('consultas')
-        .select('tipo')
+        .select('id, tipo, status, data_hora')
         .eq('paciente_id', pacienteId)
         .neq('status', 'cancelada');
       if (!active) return;
+      setLancadasDaPaciente(lancadas ?? []);
+      if (isEdit) return;
       const tipos = (lancadas ?? []).map(c => c.tipo);
       const essentia = pacientes.find(x => x.id === pacienteId)?.tipo_plano === 'essentia';
       if (essentia) {
@@ -3177,6 +3182,18 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
     })();
     return () => { active = false; };
   }, [pacienteId, isEdit]);
+
+  const ehEssentia = pacientes.find(x => x.id === pacienteId)?.tipo_plano === 'essentia';
+  const vagasDoTipo = vagasLancadas(lancadasDaPaciente, consulta?.id ?? null);
+  const usadasPacote = vagasUsadasDoPacote(vagasDoTipo);
+  const sugeridoEssentia = proximoTipoDoPacote([...vagasDoTipo.keys()]);
+  const dataCurtaDe = (iso) => {
+    if (!iso) return 'sem data';
+    const [, m, d] = partesLocaisISO(iso).data.split('-');
+    return `${d}/${m}`;
+  };
+  // Escolheu uma vaga do pacote que já está lançada (e não é a da própria consulta).
+  const vagaRepetida = (tipo === 'primeira' || /^consulta_\d+$/.test(tipo)) ? (vagasDoTipo.get(tipo) ?? null) : null;
 
   // Troca de paciente no dropdown: além do id, re-sugere a modalidade a partir
   // do perfil dela. Só ao CRIAR — em edição o select fica desabilitado e o que
@@ -3380,8 +3397,34 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
             consulta ABRIU, se ficou de fora (consulta_7 antiga), entra como
             "(atual)" e não some ao trocar. */}
         <select value={tipo} onChange={e => setTipo(e.target.value)}>
-          {opcoesTipoConsulta(TIPOS, initial.tipo).map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+          {opcoesTipoConsulta(TIPOS, initial.tipo).map(t => {
+            // Estado da vaga ao lado do nome (só para as do pacote): realizada /
+            // agendada com a data, ou "livre". "Livre" e "sugerida" só para quem
+            // é Essentia — no plano Avulsa não há pacote para completar.
+            const ocupada = vagasDoTipo.get(t.value);
+            const ehVagaDoPacote = t.value === 'primeira' || /^consulta_\d+$/.test(t.value);
+            let extra = '';
+            if (ocupada) extra = ` · ${ocupada.status === 'realizada' ? 'realizada' : 'agendada'} ${dataCurtaDe(ocupada.data_hora)}`;
+            else if (ehVagaDoPacote && ehEssentia) extra = t.value === sugeridoEssentia ? ' · livre (sugerida)' : ' · livre';
+            return <option key={t.value} value={t.value}>{t.label}{extra}</option>;
+          })}
         </select>
+        {/* Por que o campo veio assim, e aviso se a vaga escolhida já está usada. */}
+        {pacienteId && (
+          <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>
+            {ehEssentia
+              ? `Essentia: ${usadasPacote} de 6 consultas do pacote lançadas. ${sugeridoEssentia === 'avulsa' ? 'Pacote completo: as próximas são avulsas.' : `Sugerida: ${tipoLabel(sugeridoEssentia)}.`}`
+              : 'Plano Avulsa: sem pacote.'}
+          </div>
+        )}
+        {vagaRepetida && (
+          <div style={{
+            background: 'var(--orange-bg)', color: 'var(--orange)',
+            padding: '6px 10px', borderRadius: 6, fontSize: 12, marginTop: 6,
+          }}>
+            Essa paciente já tem {tipoLabel(tipo)} em {dataCurtaDe(vagaRepetida.data_hora)} ({vagaRepetida.status === 'realizada' ? 'realizada' : 'agendada'}).
+          </div>
+        )}
 
         {remarcando && (
           <div style={{
