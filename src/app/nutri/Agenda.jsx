@@ -255,6 +255,9 @@ export default function Agenda() {
     return new Date(d.getFullYear(), d.getMonth(), 1);
   });
   const [diaSelecionado, setDiaSelecionado] = useState(() => new Date());
+  // O dia selecionado nasce RECOLHIDO: só o cabeçalho (com a contagem). Abre pela
+  // seta ou ao clicar num dia do calendário.
+  const [diaAberto, setDiaAberto] = useState(false);
   const [lembretes, setLembretes] = useState([]);
   const [enviadosLocais, setEnviadosLocais] = useState(new Map()); // consultaId → ISO timestamp do envio
   const [erroLembrete, setErroLembrete] = useState(null);
@@ -1030,7 +1033,7 @@ export default function Agenda() {
         tarefas={tarefas}
         bloqueios={bloqueios}
         onMudarMes={setMesVisivel}
-        onSelecionarDia={setDiaSelecionado}
+        onSelecionarDia={(d) => { setDiaSelecionado(d); setDiaAberto(true); }}
       />
 
       <NotasDaSemana nutriId={user?.id} />
@@ -1055,16 +1058,28 @@ export default function Agenda() {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         gap: 10, flexWrap: 'wrap',
       }}>
-        <div className="section-label" style={{ marginBottom: 0 }}>
+        <button type="button" className="section-label"
+          onClick={() => setDiaAberto(a => !a)} aria-expanded={diaAberto}
+          title={diaAberto ? 'Recolher o dia' : 'Abrir o dia'}
+          style={{
+            marginBottom: 0, background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+            display: 'inline-flex', alignItems: 'center', gap: 6, textAlign: 'left', fontFamily: 'inherit',
+          }}>
+          <i className={`ti ti-chevron-${diaAberto ? 'down' : 'right'}`} style={{ fontSize: 14 }} aria-hidden="true" />
           {visaoDia === 'regua' ? 'Dia ' : 'Consultas em '}
           {diaSelecionado.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
+          {!diaAberto && (() => {
+            const nC = consultasDoDia.length, nT = tarefasDoDia.length;
+            const partes = [nC ? `${nC} consulta${nC > 1 ? 's' : ''}` : null, nT ? `${nT} tarefa${nT > 1 ? 's' : ''}` : null].filter(Boolean);
+            return <span style={{ fontWeight: 500, opacity: 0.8 }}> · {partes.length ? partes.join(' · ') : 'nada neste dia'}</span>;
+          })()}
           {ehDiaCTO(diaSelecionado) && (
             <span style={{
               marginLeft: 8, padding: '2px 8px', borderRadius: 999, fontSize: 10, letterSpacing: 1,
               background: COR_CTO_BG, color: COR_CTO, border: `1px solid ${COR_CTO}`, verticalAlign: 'middle',
             }}>CTO</span>
           )}
-        </div>
+        </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         {/* Aqui, e não na barra de ações do topo: a data do bloqueio é o dia
             ABERTO. Lá em cima o botão sugeriria "bloquear alguma data" e o
@@ -1100,6 +1115,7 @@ export default function Agenda() {
         </div>
       </div>
 
+      {diaAberto && (<>
       {visaoDia === 'regua' ? (
         <ReguaDoDia
           consultas={consultasDoDia}
@@ -1179,6 +1195,7 @@ export default function Agenda() {
       )}
       </>
       )}
+      </>)}
 
       {/* Tarefas sem prazo: fora da grade de propósito. Sem data elas não têm
           dia, e marcá-las no dia de hoje inventaria um prazo que a nutri não
