@@ -151,28 +151,47 @@ export default function PacientePerfil() {
     ...outrasConsultas.map(c => ({ tipo: c.tipo, rotulo: rotuloTipo(c.tipo), consulta: c })),
   ];
 
+  // Card "Próxima consulta". Plano Essentia: segue o PACOTE, não a data — é a
+  // primeira posição ainda não realizada (1ª, Consulta 2…). Se ela está agendada,
+  // mostra essa consulta; se não está, mostra a posição "Não agendada" com botão
+  // Agendar. Consulta em andamento (ou recém-encerrada nesta tela) tem
+  // prioridade. Sem pacote (Avulsa) ou com o pacote todo realizado, vale a
+  // regra de sempre: a próxima por data.
+  const vagaPendente = (planoEssentia && acompList != null)
+    ? (slotsPlano.find(sl => !sl.consulta || sl.consulta.status !== 'realizada') ?? null)
+    : null;
+  const consultaDoCard = useMemo(() => {
+    if (consultaAtiva && (consultaAtiva.iniciada_em || consultaAtiva.status === 'realizada')) return consultaAtiva;
+    if (vagaPendente) return vagaPendente.consulta ?? null;
+    return consultaAtiva ?? null;
+  }, [consultaAtiva, vagaPendente]);
+  const vagaVazia = (!consultaDoCard && vagaPendente && !vagaPendente.consulta) ? vagaPendente : null;
+
   async function iniciarConsulta() {
-    if (!consultaAtiva || busyConsulta) return;
+    const c0 = consultaDoCard;
+    if (!c0 || busyConsulta) return;
     setBusyConsulta(true);
     const agora = new Date().toISOString();
     const r = await gravar(supabase.from('consultas')
       .update({ iniciada_em: agora })
-      .eq('id', consultaAtiva.id), { rotulo: 'iniciar a consulta' });
+      .eq('id', c0.id), { rotulo: 'iniciar a consulta' });
     setBusyConsulta(false);
     if (!r.ok) { avisarJanela(r.msg); return; }
-    setConsultaAtiva(c => c ? { ...c, iniciada_em: agora } : c);
+    setConsultaAtiva({ ...c0, iniciada_em: agora });
   }
 
   async function encerrarConsulta() {
-    if (!consultaAtiva || busyConsulta) return;
+    const c0 = consultaDoCard;
+    if (!c0 || busyConsulta) return;
     setBusyConsulta(true);
     const agora = new Date().toISOString();
     const r = await gravar(supabase.from('consultas')
       .update({ status: 'realizada', encerrada_em: agora })
-      .eq('id', consultaAtiva.id), { rotulo: 'encerrar a consulta' });
+      .eq('id', c0.id), { rotulo: 'encerrar a consulta' });
     setBusyConsulta(false);
     if (!r.ok) { avisarJanela(r.msg); return; }
-    setConsultaAtiva(c => c ? { ...c, status: 'realizada', encerrada_em: agora } : c);
+    setConsultaAtiva({ ...c0, status: 'realizada', encerrada_em: agora });
+    loadAcompConsultas();   // a lista de baixo acompanha
   }
 
   async function carregar() {
@@ -260,7 +279,7 @@ export default function PacientePerfil() {
       .from('consultas')
       // duracao_min entra por causa do ModalDefinirData: sem ela a verificação
       // de conflito ao dar data mediria o intervalo errado.
-      .select('id, data_hora, tipo, status, duracao_min, encerrada_em')
+      .select('id, data_hora, tipo, status, duracao_min, iniciada_em, encerrada_em')
       .eq('paciente_id', id)
       .eq('nutri_id', user.id)
       .neq('status', 'cancelada')
@@ -1048,10 +1067,39 @@ export default function PacientePerfil() {
         </div>
       )}
 
+      {/* Essentia: a próxima do pacote ainda não tem data. */}
+      {vagaVazia && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 12,
+          padding: '10px 14px', borderRadius: 10, marginBottom: 14,
+          background: 'var(--amber-bg, #fdf8ee)', border: '1px dashed var(--gold-deep, #a08456)',
+        }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{
+              fontSize: 9, letterSpacing: '.06em', textTransform: 'uppercase',
+              fontWeight: 600, color: 'var(--gold-deep, #a08456)', marginBottom: 3,
+            }}>Próxima consulta</div>
+            <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--dark)' }}>{vagaVazia.rotulo}</div>
+            <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>Não agendada</div>
+          </div>
+          <button
+            onClick={() => setAgendarTipo({ tipo: vagaVazia.tipo, titulo: `Agendar ${vagaVazia.rotulo.toLowerCase()}` })}
+            style={{
+              background: 'var(--gold-deep, #a08456)', color: '#fff',
+              border: 'none', borderRadius: 8, padding: '7px 14px',
+              fontSize: 12, fontWeight: 600, cursor: 'pointer',
+              fontFamily: 'var(--font-sans)', flexShrink: 0,
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+            }}>
+            <i className="ti ti-calendar-plus" aria-hidden="true" /> Agendar
+          </button>
+        </div>
+      )}
+
       {/* Card de consulta ativa */}
-      {consultaAtiva && (() => {
-        const finalizada = consultaAtiva.status === 'realizada';
-        const emAndamento = !finalizada && !!consultaAtiva.iniciada_em;
+      {consultaDoCard && (() => {
+        const finalizada = consultaDoCard.status === 'realizada';
+        const emAndamento = !finalizada && !!consultaDoCard.iniciada_em;
         const agendada = !finalizada && !emAndamento;
 
         const bg     = finalizada ? '#f0fdf4' : emAndamento ? '#fff7ed' : 'var(--amber-bg, #fdf8ee)';
@@ -1061,11 +1109,12 @@ export default function PacientePerfil() {
           : emAndamento ? '● Em andamento'
           : 'Próxima consulta';
 
-        const dtFmt = new Date(consultaAtiva.data_hora);
-        const dataStr = dtFmt.toLocaleDateString('pt-BR', { timeZone: TZ_CLINICA, weekday: 'short', day: '2-digit', month: '2-digit' });
-        const horaStr = horaConsultaBR(consultaAtiva.data_hora);
-        const iniciadaStr = consultaAtiva.iniciada_em
-          ? new Date(consultaAtiva.iniciada_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+        const semDataCard = !consultaDoCard.data_hora;
+        const dtFmt = semDataCard ? null : new Date(consultaDoCard.data_hora);
+        const dataStr = dtFmt ? dtFmt.toLocaleDateString('pt-BR', { timeZone: TZ_CLINICA, weekday: 'short', day: '2-digit', month: '2-digit' }) : 'A definir';
+        const horaStr = semDataCard ? '' : horaConsultaBR(consultaDoCard.data_hora);
+        const iniciadaStr = consultaDoCard.iniciada_em
+          ? new Date(consultaDoCard.iniciada_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
           : null;
 
         return (
@@ -1081,11 +1130,11 @@ export default function PacientePerfil() {
                 fontWeight: 600, color: tagCor, marginBottom: 3,
               }}>{tag}</div>
               <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--dark)' }}>
-                {labelTipoConsulta(consultaAtiva.tipo)}
+                {labelTipoConsulta(consultaDoCard.tipo)}
               </div>
               <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>
-                {dataStr} às {horaStr}
-                {consultaAtiva.duracao_min ? ` · ${consultaAtiva.duracao_min}min` : ''}
+                {dataStr}{horaStr ? ` às ${horaStr}` : ''}
+                {consultaDoCard.duracao_min ? ` · ${consultaDoCard.duracao_min}min` : ''}
                 {emAndamento && iniciadaStr ? ` · iniciada às ${iniciadaStr}` : ''}
               </div>
             </div>
