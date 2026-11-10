@@ -24,6 +24,7 @@ import { localAoRemarcar, localDivergente } from '../../lib/opcoesPaciente.js';
 import { confirmar as confirmarJanela, avisar as avisarJanela } from '../../lib/dialogos.js';
 import { HORARIOS_TAREFA, hhmm, minutosDeHHMM } from '../../lib/reguaDoDia.js';
 import { partirComLinks } from '../../lib/linkificar.js';
+import { avisoDoLocal } from '../../lib/avisosLocal.js';
 import {
   dataConsultaBR, horaConsultaBR, dataBR, TZ_CLINICA, textoDias, iniciais,
   gerarDiasCalendario, ehMesmoDia, mesAnoExtenso, DIAS_SEMANA_CURTOS, isoLocalDeData,
@@ -104,11 +105,11 @@ function quandoLembrete({ diaSemana, data, hoje }) {
   return hoje ? 'hoje' : `${diaSemana}, ${data}`;
 }
 
-function templateLembretePresencial({ nome, diaSemana, data, hoje, hora, endereco, confirmada }) {
+function templateLembretePresencial({ nome, diaSemana, data, hoje, hora, endereco, aviso, confirmada }) {
   return `Oi ${nome}! Aqui é a assistente da Dra. Kelly. Você tem consulta ${confirmada ? 'confirmada' : 'marcada'} para ${quandoLembrete({ diaSemana, data, hoje })}, às ${hora}.
 
 Só lembrando: como faremos avaliação física, pedimos que venha com roupas leves ou de exercício — assim a Dra. consegue fazer a avaliação com mais precisão.
-${endereco ? `\nEndereço: ${endereco}\n` : ''}
+${endereco ? `\nEndereço: ${endereco}\n` : ''}${aviso ? `\n${aviso}\n` : ''}
 ${confirmada ? 'Sua presença já está confirmada, não precisa responder.' : 'Pode confirmar sua presença?'} Até breve!`;
 }
 
@@ -124,9 +125,9 @@ Até breve!`;
 
 // Só 'presencial' leva o texto com endereço; qualquer outro valor cai no
 // online, mesmo default do banco e de modalidadeDaPaciente().
-function templateLembrete({ modalidade, endereco, ...resto }) {
+function templateLembrete({ modalidade, endereco, aviso, ...resto }) {
   return modalidade === 'presencial'
-    ? templateLembretePresencial({ ...resto, endereco })
+    ? templateLembretePresencial({ ...resto, endereco, aviso })
     : templateLembreteOnline(resto);
 }
 
@@ -1701,6 +1702,7 @@ function PainelLembretes({ lembretes, confirmadas = 0, semConfirmacao = 0, locai
                   === new Date().toLocaleDateString('en-CA', { timeZone: TZ_CLINICA }),
             hora: horaConsulta,
             endereco,
+            aviso: avisoDoLocal(nomeLocal),
           });
           const msgEncoded = encodeURIComponent(msgTexto);
 
