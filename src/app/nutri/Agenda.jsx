@@ -23,6 +23,7 @@ import { ehDiaCTO } from '../../lib/diasCTO.js';
 import { localAoRemarcar, localDivergente } from '../../lib/opcoesPaciente.js';
 import { confirmar as confirmarJanela, avisar as avisarJanela } from '../../lib/dialogos.js';
 import { HORARIOS_TAREFA, hhmm, minutosDeHHMM } from '../../lib/reguaDoDia.js';
+import { partirComLinks } from '../../lib/linkificar.js';
 import {
   dataConsultaBR, horaConsultaBR, dataBR, TZ_CLINICA, textoDias, iniciais,
   gerarDiasCalendario, ehMesmoDia, mesAnoExtenso, DIAS_SEMANA_CURTOS, isoLocalDeData,
@@ -1163,8 +1164,12 @@ export default function Agenda() {
                     remarcandoAgora={mandandoId === it.c.id}
                     corDoTipo />
                 ) : (
-                  <div style={{ padding: '0 16px', background: 'var(--white)' }}>
-                    <LinhaTarefa t={it.t} onAlternar={alternarTarefa} onAbrir={abrirTarefaEdit} />
+                  <div style={{
+                    padding: '0 16px', background: 'var(--white)',
+                    borderLeft: '3px solid var(--gold-deep)',
+                    borderBottom: i === itensDoDia.length - 1 ? 'none' : '0.5px solid #f5f0e8',
+                  }}>
+                    <LinhaTarefa t={it.t} compacta onAlternar={alternarTarefa} onAbrir={abrirTarefaEdit} />
                   </div>
                 )}
               </Fragment>
@@ -2088,8 +2093,23 @@ function Legenda({ cor, label, quadrado, hachura }) {
    quando concluída e um "desfazer" explícito. Sem o sufixo "· de {data}"
    que existe lá — aqui o dia já é o título da seção.
    ============================================================ */
-function LinhaTarefa({ t, onAlternar, onAbrir }) {
+/** Texto com URLs clicáveis (abrem em nova aba; o clique no link não abre a edição). */
+function TextoComLinks({ texto }) {
+  return partirComLinks(texto).map((p, i) => (p.tipo === 'link'
+    ? <a key={i} href={p.href} target="_blank" rel="noopener noreferrer"
+        onClick={e => e.stopPropagation()}
+        style={{ color: 'var(--blue)', textDecoration: 'underline', wordBreak: 'break-all' }}>{p.valor}</a>
+    : <Fragment key={i}>{p.valor}</Fragment>));
+}
+
+// `compacta`: dentro do card de consultas. Mesma medida de uma linha de consulta
+// (12px/16px de respiro, título de 15px) e a observação em UMA linha, com "ver
+// mais" para abrir inteira — uma observação longa (link de reunião, senha…) não
+// pode virar um bloco maior que as consultas ao redor.
+function LinhaTarefa({ t, onAlternar, onAbrir, compacta = false }) {
   const concluida = !!t.concluido_em;
+  const [aberta, setAberta] = useState(false);
+  const longa = !!t.obs && (t.obs.length > 90 || t.obs.includes('\n'));
 
   // A linha inteira abre a edição, MENOS a caixinha e o "desfazer". Sem os
   // stopPropagation abaixo, marcar como concluída abriria o modal por cima —
@@ -2106,17 +2126,18 @@ function LinhaTarefa({ t, onAlternar, onAbrir }) {
   return (
     <div onClick={() => onAbrir?.(t)}
       style={{
-        display: 'flex', alignItems: 'flex-start', gap: 8,
-        padding: '7px 0', borderBottom: '0.5px solid var(--hair-soft)',
+        display: 'flex', alignItems: compacta ? 'center' : 'flex-start', gap: compacta ? 12 : 8,
+        padding: compacta ? '12px 0' : '7px 0',
+        borderBottom: compacta ? 'none' : '0.5px solid var(--hair-soft)',
         cursor: onAbrir ? 'pointer' : 'default',
       }}>
       <input type="checkbox" checked={concluida}
         onClick={e => e.stopPropagation()}
         onChange={alternar}
         aria-label={concluida ? `Reabrir: ${t.texto}` : `Concluir: ${t.texto}`}
-        style={{ marginTop: 3, flexShrink: 0, cursor: 'pointer' }} />
+        style={{ marginTop: compacta ? 0 : 3, flexShrink: 0, cursor: 'pointer' }} />
       <span style={{
-        flex: 1, minWidth: 0, fontSize: 13,
+        flex: 1, minWidth: 0, fontSize: compacta ? 15 : 13,
         color: concluida ? 'var(--text3)' : 'var(--text2)',
         textDecoration: concluida ? 'line-through' : 'none',
       }}>
@@ -2129,9 +2150,26 @@ function LinhaTarefa({ t, onAlternar, onAbrir }) {
           </span>
         )}
         {t.obs && (
-          <span style={{ display: 'block', fontSize: 12, color: 'var(--text3)', marginTop: 2, whiteSpace: 'pre-wrap' }}>
-            {t.obs}
+          <span style={{
+            display: 'block', fontSize: 12, color: 'var(--text3)', marginTop: 2,
+            textDecoration: 'none',
+            ...(compacta && !aberta
+              ? { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }
+              : { whiteSpace: 'pre-wrap' }),
+          }}>
+            <TextoComLinks texto={compacta && !aberta ? t.obs.split('\n')[0] : t.obs} />
           </span>
+        )}
+        {compacta && longa && (
+          <button type="button"
+            onClick={e => { e.stopPropagation(); setAberta(a => !a); }}
+            style={{
+              background: 'none', border: 'none', padding: 0, marginTop: 2, cursor: 'pointer',
+              fontSize: 11, color: 'var(--gold-deep)', fontFamily: 'var(--font-sans)',
+              display: 'block',
+            }}>
+            {aberta ? 'ver menos' : 'ver mais'}
+          </button>
         )}
       </span>
       {/* O desfazer é explícito, e não só desmarcar a caixinha: a linha
