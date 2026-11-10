@@ -1064,8 +1064,9 @@ export default function Agenda() {
           style={{
             marginBottom: 0, background: 'none', border: 'none', padding: 0, cursor: 'pointer',
             display: 'inline-flex', alignItems: 'center', gap: 6, textAlign: 'left', fontFamily: 'inherit',
+            fontSize: 14,
           }}>
-          <i className={`ti ti-chevron-${diaAberto ? 'down' : 'right'}`} style={{ fontSize: 14 }} aria-hidden="true" />
+          <i className={`ti ti-chevron-${diaAberto ? 'down' : 'right'}`} style={{ fontSize: 18 }} aria-hidden="true" />
           {visaoDia === 'regua' ? 'Dia ' : 'Consultas em '}
           {diaSelecionado.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
           {!diaAberto && (() => {
