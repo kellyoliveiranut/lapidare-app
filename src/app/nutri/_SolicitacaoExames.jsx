@@ -412,14 +412,15 @@ function blocoAssinatura(p, y) {
   try {
     // Carimbo + assinatura já impressos, mantendo a proporção.
     const C = CARIMBO_ASSINATURA;
-    doc.addImage(C.dataUrl, 'PNG', M, y, H_CARIMBO * C.largura / C.altura, H_CARIMBO);
+    const wC = H_CARIMBO * C.largura / C.altura;
+    doc.addImage(C.dataUrl, 'PNG', (PAGE_W - wC) / 2, y, wC, H_CARIMBO);
   } catch {
-    escrever('Carimbo'.toUpperCase(), M, y + 13,
-      { estilo: 'bold', tamanho: 6.4, cor: OURO, charSpace: 1.02 });
+    escrever('Carimbo'.toUpperCase(), PAGE_W / 2, y + 13,
+      { estilo: 'bold', tamanho: 6.4, cor: OURO, charSpace: 1.02, align: 'center' });
   }
   const yl = y + H_CARIMBO + 14;
-  escrever('Carimbo e assinatura do profissional solicitante', M, yl, { tamanho: 8.25, cor: SEPIA });
-  escrever('Kelly Oliveira · Nutricionista · CRN 3801', M, yl + 13, { estilo: 'bold', tamanho: 8.25 });
+  escrever('Carimbo e assinatura do profissional solicitante', PAGE_W / 2, yl, { tamanho: 8.25, cor: SEPIA, align: 'center' });
+  escrever('Kelly Oliveira · Nutricionista · CRN 3801', PAGE_W / 2, yl + 13, { estilo: 'bold', tamanho: 8.25, align: 'center' });
   y = yl + 13 + 24;
   regua(y, LINHA);
   escrever('Documento gerado pelo app Essentia', PAGE_W / 2, y + 12,
