@@ -58,6 +58,7 @@ const ChatFlutuante        = lazy(() => import('./_ChatFlutuante.jsx'));
 import { convitePendenteVencido } from '../../lib/convite.js';
 import PlanoView from '../../components/PlanoView.jsx';
 import { conferirNovas } from '../../lib/evolucaoAvaliacoes.js';
+import { contarFaltas } from '../../lib/faltas.js';
 import { StatusContrato, MenuSenha, ModalExcluir, ModalArquivar, ModalMigrarEssentia, ModalCriarContrato, ModalEditarDados, normalizarTelefone } from './_PerfilModais.jsx';
 
 export default function PacientePerfil() {
@@ -92,6 +93,9 @@ export default function PacientePerfil() {
   const [agendarAcompOpen, setAgendarAcompOpen] = useState(false);
   const [definirDataConsulta, setDefinirDataConsulta] = useState(null); // consulta "a definir" sendo datada
   const [acompList, setAcompList] = useState(null);
+  // Faltas registradas (só a nutri vê). Consulta separada: se a migração
+  // 2026-11-12_consulta_faltou.sql ainda não rodou, falha em silêncio e some.
+  const [faltasInfo, setFaltasInfo] = useState({ faltas: 0, confirmouENaoVeio: 0 });
   // Modal de agendar UMA consulta (posição vazia da lista, ou avulsa) e modal
   // de migração para o Essentia.
   const [agendarTipo, setAgendarTipo] = useState(null);   // { tipo, titulo } | null
@@ -286,6 +290,18 @@ export default function PacientePerfil() {
       .order('data_hora', { ascending: true });
     if (!error) setAcompList(data ?? []);
   }
+
+  async function loadFaltas() {
+    if (!user?.id) return;
+    const { data, error } = await supabase
+      .from('consultas')
+      .select('faltou_em, confirmada_em')
+      .eq('paciente_id', id)
+      .eq('nutri_id', user.id)
+      .not('faltou_em', 'is', null);
+    setFaltasInfo(error ? { faltas: 0, confirmouENaoVeio: 0 } : contarFaltas(data));
+  }
+  useEffect(() => { loadFaltas(); }, [id, user?.id, acompList]);
 
   useEffect(() => { loadAcompConsultas(); }, [id, user?.id]);
 
@@ -1001,6 +1017,21 @@ export default function PacientePerfil() {
             return r;
           }}
         />
+      )}
+
+      {faltasInfo.faltas > 0 && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 10,
+          marginBottom: 14, background: '#fff8ec', border: '0.5px solid #e0b36a',
+          fontSize: 13, color: '#7a4b00',
+        }}>
+          <i className="ti ti-calendar-x" style={{ fontSize: 17 }} aria-hidden="true" />
+          <span>
+            <strong>{faltasInfo.faltas} falta{faltasInfo.faltas > 1 ? 's' : ''} registrada{faltasInfo.faltas > 1 ? 's' : ''}</strong>
+            {faltasInfo.confirmouENaoVeio > 0 && ` (${faltasInfo.confirmouENaoVeio} depois de confirmar)`}
+            {' '}· só você vê
+          </span>
+        </div>
       )}
 
       {/* Próximos passos depois de migrar para o Essentia */}
