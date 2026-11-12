@@ -16,7 +16,7 @@ import { modalidadeDaPaciente, localPadrao } from '../../lib/opcoesPaciente.js';
 import { pacientesComCancelada } from '../../lib/agendaListas.js';
 import { desdeISO, filtroJanela } from '../../lib/janelaAgenda.js';
 import { gravar } from '../../lib/gravar.js';
-import { filaParaResolver, confirmouAntes } from '../../lib/faltas.js';
+import { filaParaResolver, confirmouAntes, precisaResolver, PARA_RESOLVER_DESDE } from '../../lib/faltas.js';
 import ParaResolver from './_ParaResolver.jsx';
 import ReguaDoDia from './_ReguaDoDia.jsx';
 import ReagendarLote from './_ReagendarLote.jsx';
@@ -1240,6 +1240,7 @@ export default function Agenda() {
                     onToggleNaoConfirmada={toggleNaoConfirmada}
                     onToggleOculta={toggleOculta}
                     onRemarcar={() => abrirRemarcar(it.c)}
+                    onResolver={resolverConsulta}
                     remarcandoAgora={mandandoId === it.c.id}
                     corDoTipo />
                 ) : (
@@ -1412,6 +1413,7 @@ export default function Agenda() {
                         onToggleNaoConfirmada={toggleNaoConfirmada}
               onToggleOculta={toggleOculta}
                         onRemarcar={() => abrirRemarcar(c)}
+                        onResolver={resolverConsulta}
                         remarcandoAgora={mandandoId === c.id}
                         corDoTipo />
                     ))}
@@ -2335,7 +2337,7 @@ function LinhaPacienteCancelada({ p, isLast }) {
 //
 // remarcandoAgora: o Remarcar da linha está gravando (mandarParaADefinir) —
 // o botão fica desabilitado até a resposta do banco.
-function ConsultaRow({ c, isLast, onClick, onToggleConfirmada, onToggleNaoConfirmada, onToggleOculta, onRemarcar, remarcandoAgora = false, corDoTipo = false }) {
+function ConsultaRow({ c, isLast, onClick, onToggleConfirmada, onToggleNaoConfirmada, onToggleOculta, onRemarcar, onResolver, remarcandoAgora = false, corDoTipo = false }) {
   const navigate = useNavigate();
   const cor = tipoColor(c.tipo);
   const confirmavel = podeConfirmar(c) && typeof onToggleConfirmada === 'function';
@@ -2355,6 +2357,18 @@ function ConsultaRow({ c, isLast, onClick, onToggleConfirmada, onToggleNaoConfir
   // data_hora é próprio da linha: em "A definir" não há data para remarcar — ali
   // o caminho é abrir e agendar.
   const remarcavel = typeof onRemarcar === 'function' && c.status === 'agendada' && !!c.data_hora;
+  // Consulta NOVA que já terminou e segue agendada: Compareceu / Faltou /
+  // Cancelou direto na linha (mesma regra do cartão "Para resolver").
+  const resolvivel = typeof onResolver === 'function' && precisaResolver(c, new Date())
+    && new Date(c.data_hora).getTime() >= new Date(PARA_RESOLVER_DESDE).getTime();
+  const faltou = c.status === 'agendada' && !!c.faltou_em;
+  const [resolvendo, setResolvendo] = useState(false);
+  async function resolver(e, acao) {
+    e.stopPropagation();
+    if (resolvendo) return;
+    setResolvendo(true);
+    try { await onResolver(c, acao); } finally { setResolvendo(false); }
+  }
 
   // Mesmo motivo do alternarConfirmada: sem stopPropagation o clique no nome
   // subiria para o wrapper e abriria o modal da consulta por cima do perfil.
@@ -2475,8 +2489,33 @@ function ConsultaRow({ c, isLast, onClick, onToggleConfirmada, onToggleNaoConfir
         )}
         {/* flexWrap para os botões quebrarem em vez de espremer o nome da
             paciente no celular. */}
-        {(confirmavel || remarcavel) && (
+        {(confirmavel || remarcavel || resolvivel || faltou) && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+            {resolvivel && [
+              ['compareceu', 'Compareceu', 'ti-check', '#2f6b3a', '#eaf5ec', 'Marcar como realizada'],
+              ['faltou', 'Faltou', 'ti-calendar-x', '#a33a2a', '#fdeceb', 'A paciente não veio'],
+              ['cancelou', 'Cancelou', 'ti-x', '#5a4a32', '#f6f1e8', 'Avisou em cima da hora: conta como cancelamento'],
+            ].map(([acao, rotulo, icone, cor, fundo, dica]) => (
+              <button key={acao} disabled={resolvendo} onClick={(e) => resolver(e, acao)} title={dica}
+                style={{
+                  minHeight: 30, padding: '0 11px', borderRadius: 20, cursor: 'pointer',
+                  fontFamily: 'var(--font-sans)', fontSize: 11.5, fontWeight: 600,
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                  background: fundo, color: cor, border: `1px solid ${cor}`,
+                }}>
+                <i className={`ti ${icone}`} aria-hidden="true" /> {rotulo}
+              </button>
+            ))}
+            {faltou && (
+              <span title="Falta registrada. Para voltar ao normal, remarque a consulta."
+                style={{
+                  minHeight: 30, padding: '0 11px', borderRadius: 20, display: 'inline-flex',
+                  alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 600,
+                  background: '#fdeceb', color: '#a33a2a', border: '1px solid #a33a2a',
+                }}>
+                <i className="ti ti-calendar-x" aria-hidden="true" /> Faltou
+              </span>
+            )}
             {confirmavel && (
               <button
                 onClick={alternarConfirmada}
