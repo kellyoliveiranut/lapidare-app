@@ -401,30 +401,26 @@ function blocoIdentificacao(p, y, { pacienteNome, contato }) {
   return y + H + 22;
 }
 
-/* Carimbo + assinatura lado a lado, sempre na mesma página. */
+/* Carimbo + assinatura: o carimbo (um pouco menor, sem caixa) fica ACIMA da
+   legenda, na área em branco que a legenda deixa em cima. Sempre na mesma
+   página. */
 function blocoAssinatura(p, y) {
   const { escrever, regua, caberOuQuebrar, doc } = p;
-  const H_CAIXA = 84;
-  y = caberOuQuebrar(y, 24 + H_CAIXA + 70);
+  const H_CARIMBO = 56;
+  y = caberOuQuebrar(y, 24 + H_CARIMBO + 40 + 70);
   y += 24;
-  const LC = 215;
-  doc.setDrawColor(...SEPIA);
-  doc.setLineWidth(0.75);
-  doc.roundedRect(M, y, LC, H_CAIXA, 4, 4, 'S');
   try {
-    // Carimbo + assinatura já impressos; cabem na caixa mantendo a proporção.
+    // Carimbo + assinatura já impressos, mantendo a proporção.
     const C = CARIMBO_ASSINATURA;
-    const hI = H_CAIXA - 10, wI = Math.min(LC - 10, hI * C.largura / C.altura);
-    doc.addImage(C.dataUrl, 'PNG', M + (LC - wI) / 2, y + 5, wI, wI * C.altura / C.largura);
+    doc.addImage(C.dataUrl, 'PNG', M, y, H_CARIMBO * C.largura / C.altura, H_CARIMBO);
   } catch {
-    escrever('Carimbo'.toUpperCase(), M + 8, y + 13,
+    escrever('Carimbo'.toUpperCase(), M, y + 13,
       { estilo: 'bold', tamanho: 6.4, cor: OURO, charSpace: 1.02 });
   }
-  const XS = M + LC + 30;
-  const yl = y + H_CAIXA - 26;
-  escrever('Carimbo e assinatura do profissional solicitante', XS, yl, { tamanho: 8.25, cor: SEPIA });
-  escrever('Kelly Oliveira · Nutricionista · CRN 3801', XS, yl + 13, { estilo: 'bold', tamanho: 8.25 });
-  y += H_CAIXA + 24 + 24;
+  const yl = y + H_CARIMBO + 14;
+  escrever('Carimbo e assinatura do profissional solicitante', M, yl, { tamanho: 8.25, cor: SEPIA });
+  escrever('Kelly Oliveira · Nutricionista · CRN 3801', M, yl + 13, { estilo: 'bold', tamanho: 8.25 });
+  y = yl + 13 + 24;
   regua(y, LINHA);
   escrever('Documento gerado pelo app Essentia', PAGE_W / 2, y + 12,
     { tamanho: 7.1, cor: OURO, charSpace: 0.71, align: 'center' });
