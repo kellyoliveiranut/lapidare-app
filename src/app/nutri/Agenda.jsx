@@ -16,6 +16,8 @@ import { modalidadeDaPaciente, localPadrao } from '../../lib/opcoesPaciente.js';
 import { pacientesComCancelada } from '../../lib/agendaListas.js';
 import { desdeISO, filtroJanela } from '../../lib/janelaAgenda.js';
 import { gravar } from '../../lib/gravar.js';
+import { filaParaResolver, confirmouAntes } from '../../lib/faltas.js';
+import ParaResolver from './_ParaResolver.jsx';
 import ReguaDoDia from './_ReguaDoDia.jsx';
 import ReagendarLote from './_ReagendarLote.jsx';
 import SemConsultaAgenda from './_SemConsultaAgenda.jsx';
@@ -425,20 +427,30 @@ export default function Agenda() {
 
   async function carregar() {
     if (!user) return;
-    const colunas = `
+    const colunasSemFaltou = `
         id, data_hora, duracao_min, tipo, status, modalidade, local_id, obs,
         lembrete_ativo, lembrete_enviado,
         confirmada_em, confirmada_por, nao_confirmada_em, nao_confirmada_por, remarcada_de, oculta_paciente,
         paciente:pacientes(id, nome)
       `;
+    // faltou_em/faltou_por vêm da migração 2026-11-12_consulta_faltou.sql. Se
+    // ela ainda não rodou, a primeira consulta falha e a Agenda tenta de novo
+    // sem as duas colunas — nada quebra, só não há "para resolver".
+    const colunasComFaltou = colunasSemFaltou.replace('oculta_paciente,', 'oculta_paciente, faltou_em, faltou_por,');
+    let colunas = colunasComFaltou;
     // Janela, não tudo: o Supabase corta em 1000 linhas e esconderia as
     // futuras (janelaAgenda.js).
-    let { data, error } = await supabase
+    const consultarJanela = (cols) => supabase
       .from('consultas')
-      .select(colunas)
+      .select(cols)
       .eq('nutri_id', user.id)
       .or(filtroJanela(desdeRef.current ?? desdeISO({ hoje: new Date() })))
       .order('data_hora', { ascending: true });
+    let { data, error } = await consultarJanela(colunas);
+    if (error && /faltou_/.test(error.message ?? '')) {
+      colunas = colunasSemFaltou;
+      ({ data, error } = await consultarJanela(colunas));
+    }
     if (error) {
       // Rede de segurança: se o filtro da janela falhar por qualquer motivo, a
       // Agenda volta ao comportamento de antes em vez de ficar vazia.
@@ -600,6 +612,47 @@ export default function Agenda() {
       return;
     }
     verificarLembretes();
+  }
+
+  // "Para resolver": consulta que já passou e continua agendada. Três saídas,
+  // todas com UPDATE isolado e estado local otimista, revertido se o banco
+  // recusar: Compareceu (vira realizada), Faltou (faltou_em; segue agendada) e
+  // Cancelou (aviso em cima da hora = cancelamento, não falta).
+  const [desfazerResolver, setDesfazerResolver] = useState(null);
+  async function resolverConsulta(c, acao) {
+    const patches = {
+      compareceu: { status: 'realizada', encerrada_em: new Date().toISOString() },
+      faltou:     { faltou_em: new Date().toISOString(), faltou_por: 'nutri' },
+      cancelou:   { status: 'cancelada' },
+    };
+    const rotulos = { compareceu: 'marcar como realizada', faltou: 'registrar a falta', cancelou: 'cancelar a consulta' };
+    const patch = patches[acao];
+    const anterior = { status: c.status, encerrada_em: c.encerrada_em ?? null, faltou_em: c.faltou_em ?? null, faltou_por: c.faltou_por ?? null };
+    setConsultas(prev => (prev ?? []).map(x => x.id === c.id ? { ...x, ...patch } : x));
+    const r = await gravar(supabase.from('consultas').update(patch).eq('id', c.id), { rotulo: rotulos[acao] });
+    if (!r.ok) {
+      setConsultas(prev => (prev ?? []).map(x => x.id === c.id ? { ...x, ...anterior } : x));
+      setErroLembrete(/faltou_/.test(r.msg ?? '')
+        ? 'Para registrar faltas falta rodar a atualização do banco (migração faltou).'
+        : 'Não consegui salvar, tente novamente');
+      setTimeout(() => setErroLembrete(null), 5000);
+      return;
+    }
+    setDesfazerResolver({ id: c.id, anterior, nome: c.paciente?.nome ?? 'a paciente', acao });
+    setTimeout(() => setDesfazerResolver(d => (d?.id === c.id ? null : d)), 10000);
+  }
+  async function desfazerUltimaResolucao() {
+    const d = desfazerResolver;
+    if (!d) return;
+    setDesfazerResolver(null);
+    const volta = { status: d.anterior.status, encerrada_em: d.anterior.encerrada_em, faltou_em: d.anterior.faltou_em, faltou_por: d.anterior.faltou_por };
+    // Só manda as colunas que a ação mexeu: não toca em faltou_* se a falta não foi usada.
+    const payload = d.acao === 'faltou'
+      ? { faltou_em: null, faltou_por: null }
+      : d.acao === 'compareceu' ? { status: volta.status, encerrada_em: volta.encerrada_em } : { status: volta.status };
+    setConsultas(prev => (prev ?? []).map(x => x.id === d.id ? { ...x, ...volta } : x));
+    const r = await gravar(supabase.from('consultas').update(payload).eq('id', d.id), { rotulo: 'desfazer' });
+    if (!r.ok) { carregar(); setErroLembrete('Não consegui desfazer, tente novamente'); setTimeout(() => setErroLembrete(null), 4000); }
   }
 
   // Confirmar zera nao_confirmada_em — espelha no cliente o que a RPC da
@@ -1038,6 +1091,14 @@ export default function Agenda() {
       />
 
       <NotasDaSemana nutriId={user?.id} />
+
+      <ParaResolver
+        fila={filaParaResolver(consultas ?? [], new Date())}
+        onResolver={resolverConsulta}
+        desfazer={desfazerResolver}
+        onDesfazer={desfazerUltimaResolucao}
+        confirmouAntes={confirmouAntes}
+      />
 
       {lembretes.length > 0 && (
         <PainelLembretes
