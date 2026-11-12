@@ -12,6 +12,14 @@
 
 const DURACAO_PADRAO_MIN = 60;
 
+/**
+ * "Para resolver" vale só para consultas NOVAS: as anteriores a esta data (dia
+ * em que o recurso entrou no ar, 12/11/2026, horário de Belém) não aparecem,
+ * porque a nutri já conduziu aquelas por outros meios e seriam dezenas de
+ * pendências falsas. Para mudar o corte, altere só esta constante.
+ */
+export const PARA_RESOLVER_DESDE = '2026-11-12T00:00:00-03:00';
+
 /** Fim previsto da consulta, em ms. null se não tem data. */
 export function fimDaConsulta(c) {
   if (!c?.data_hora) return null;
@@ -38,11 +46,14 @@ export function confirmouAntes(c) {
 }
 
 /**
- * Fila "para resolver": consultas passadas ainda agendadas. Quem CONFIRMOU
- * vem primeiro (é o caso que importa), depois por data mais antiga.
+ * Fila "para resolver": consultas passadas ainda agendadas, a partir de
+ * PARA_RESOLVER_DESDE. Quem CONFIRMOU vem primeiro (é o caso que importa),
+ * depois por data mais antiga.
  */
-export function filaParaResolver(consultas, agora) {
-  const fila = (consultas ?? []).filter(c => precisaResolver(c, agora));
+export function filaParaResolver(consultas, agora, desde = PARA_RESOLVER_DESDE) {
+  const corte = new Date(desde).getTime();
+  const fila = (consultas ?? []).filter(c =>
+    precisaResolver(c, agora) && new Date(c.data_hora).getTime() >= corte);
   return fila.sort((a, b) => {
     const ca = confirmouAntes(a) ? 0 : 1;
     const cb = confirmouAntes(b) ? 0 : 1;

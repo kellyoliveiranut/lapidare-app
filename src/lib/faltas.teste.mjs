@@ -1,6 +1,6 @@
 /** node src/lib/faltas.teste.mjs — sem framework. */
 process.env.TZ = process.env.TZ_TESTE || 'America/Belem';
-const { fimDaConsulta, precisaResolver, confirmouAntes, filaParaResolver, contarFaltas } = await import('./faltas.js');
+const { fimDaConsulta, precisaResolver, confirmouAntes, filaParaResolver, contarFaltas, PARA_RESOLVER_DESDE } = await import('./faltas.js');
 
 let ok = 0, falhou = 0;
 function t(nome, obtido, esperado) {
@@ -29,11 +29,15 @@ t('confirmou antes', confirmouAntes({ confirmada_em: '2026-11-11T10:00:00Z' }), 
 t('confirmou e depois disse que não vem', confirmouAntes({ confirmada_em: 'x', nao_confirmada_em: 'y' }), false);
 t('sem confirmação', confirmouAntes({}), false);
 
-const c1 = { ...passada, id: 'c1', data_hora: '2026-11-10T15:00:00+00:00' };
-const c2 = { ...passada, id: 'c2', data_hora: '2026-11-11T15:00:00+00:00', confirmada_em: 'x' };
-const c3 = { ...passada, id: 'c3', data_hora: '2026-11-09T15:00:00+00:00', confirmada_em: 'x' };
+const c1 = { ...passada, id: 'c1', data_hora: '2026-11-12T11:00:00+00:00' };
+const c2 = { ...passada, id: 'c2', data_hora: '2026-11-12T13:00:00+00:00', confirmada_em: 'x' };
+const c3 = { ...passada, id: 'c3', data_hora: '2026-11-12T10:00:00+00:00', confirmada_em: 'x' };
 const futura = { ...base, id: 'f', data_hora: '2026-11-20T15:00:00+00:00' };
 t('fila: confirmadas primeiro, depois mais antigas', filaParaResolver([c1, futura, c2, c3], AGORA).map(c => c.id), ['c3', 'c2', 'c1']);
+const antiga = { ...base, id: 'ant', data_hora: '2026-08-03T17:30:00+00:00', confirmada_em: 'x' };
+t('consulta anterior ao corte não entra na fila', filaParaResolver([antiga, c2], AGORA).map(c => c.id), ['c2']);
+t('corte configurável', filaParaResolver([antiga, c2], AGORA, '2026-01-01T00:00:00-03:00').map(c => c.id), ['ant', 'c2']);
+t('corte é 12/11/2026 em Belém', PARA_RESOLVER_DESDE, '2026-11-12T00:00:00-03:00');
 t('fila vazia', filaParaResolver(null, AGORA), []);
 
 t('contar faltas', contarFaltas([

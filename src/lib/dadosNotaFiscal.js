@@ -127,3 +127,16 @@ export function vendasSemNota(vendas, parcelasPorVenda) {
     !v.nf_emitida && v.paciente_id &&
     (parcelasPorVenda?.[v.id] ?? []).some(p => p.status === 'pago'));
 }
+
+/**
+ * Paciente NOVA só entra no lembrete "Emitir nota fiscal" depois que uma
+ * consulta dela foi REALIZADA. Consulta que faltou, foi cancelada ou ainda não
+ * aconteceu não gera nota. `realizadas` é um Set com os ids de paciente que têm
+ * ao menos uma consulta com status 'realizada'. Se não deu para saber
+ * (realizadas == null), não esconde ninguém: melhor lembrar a mais do que
+ * esquecer uma nota.
+ */
+export function pacientesComConsultaRealizada(pacientes, realizadas) {
+  if (!realizadas) return pacientes ?? [];
+  return (pacientes ?? []).filter(p => realizadas.has(p.id));
+}

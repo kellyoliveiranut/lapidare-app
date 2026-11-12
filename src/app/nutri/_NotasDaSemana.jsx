@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase.js';
 import { gravar } from '../../lib/gravar.js';
 import { brl } from '../../lib/utils.js';
 import { useSession } from '../../lib/session.jsx';
-import { textoNota } from '../../lib/dadosNotaFiscal.js';
+import { textoNota, pacientesComConsultaRealizada } from '../../lib/dadosNotaFiscal.js';
 import { mensagemContabilidade, linkWhatsContabilidade, carregarPacientesParaNota } from '../../lib/contabilidade.js';
 
 /* ============================================================
@@ -24,6 +24,8 @@ export default function NotasDaSemana({ nutriId }) {
   const zap = profile?.contabilidade_whatsapp ?? '';
   const [vendas, setVendas] = useState([]);
   const [pacientes, setPacientes] = useState([]);
+  // Ids de paciente com consulta REALIZADA (null = não deu para saber).
+  const [realizadas, setRealizadas] = useState(null);
   const [msg, setMsg] = useState(null);
   const [aberto, setAberto] = useState(true);
 
@@ -41,14 +43,27 @@ export default function NotasDaSemana({ nutriId }) {
         .gte('created_at', desde).order('created_at', { ascending: false }),
     ]);
     setVendas(v.error ? [] : (v.data ?? []));
-    setPacientes(p.error ? [] : (p.data ?? []));
+    const lista = p.error ? [] : (p.data ?? []);
+    setPacientes(lista);
+    // Só pede as consultas se há paciente nova para filtrar. Em caso de erro
+    // fica null e a lista aparece inteira (não esconde nota por falha de rede).
+    if (lista.length) {
+      const c = await supabase.from('consultas').select('paciente_id')
+        .eq('nutri_id', nutriId).eq('status', 'realizada').in('paciente_id', lista.map(x => x.id));
+      setRealizadas(c.error ? null : new Set((c.data ?? []).map(x => x.paciente_id)));
+    } else {
+      setRealizadas(new Set());
+    }
   }, [nutriId]);
 
   useEffect(() => { carregar(); }, [carregar]);
 
   // Paciente que já tem venda na lista não aparece duas vezes.
   const idsComVenda = new Set(vendas.map(v => v.paciente_id).filter(Boolean));
-  const soPacientes = pacientes.filter(p => !idsComVenda.has(p.id));
+  // Paciente nova só aparece depois de uma consulta realizada (faltou, cancelou
+  // ou ainda não aconteceu = sem nota).
+  const soPacientes = pacientesComConsultaRealizada(
+    pacientes.filter(p => !idsComVenda.has(p.id)), realizadas);
   const total = vendas.length + soPacientes.length;
   if (total === 0 && !msg) return null;
 
