@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { importarSeguro } from '../../lib/importarSeguro.js';
 import { supabase } from '../../lib/supabase.js';
 import { baixarBlob, nomeArquivoPdf } from '../../lib/pdfBase.js';
 import { esperar, PAUSA_ENTRE_DOWNLOADS_MS } from '../../lib/baixarEmSequencia.js';
 import { montarArquivos, podeCompartilharArquivos, compartilharArquivos } from '../../lib/compartilharArquivos.js';
+import { blobParaBase64, cabeNoEmail, textoConfirmacaoEmail, emailPlausivel } from '../../lib/emailPdfs.js';
+import { confirmar, avisar } from '../../lib/dialogos.js';
 
 /**
  * Baixa, um atrás do outro, os PDFs do que já está PUBLICADO para a paciente:
@@ -18,6 +20,8 @@ export default function BaixarTodosPdfs({ pacienteId, estilo }) {
   // Safari só abre o compartilhamento direto de um toque, e gerar os PDFs
   // demora (rede + desenho). Toque 1 prepara, toque 2 compartilha.
   const [prontos, setProntos] = useState(null);
+  // E-mail do cadastro da paciente, lido junto com os dados dos PDFs.
+  const emailPacienteRef = useRef('');
 
   // Gera os PDFs publicados e entrega cada um a `entregar({ blob, nome, rotulo })`.
   // Devolve { feitos, faltando }.
@@ -31,13 +35,14 @@ export default function BaixarTodosPdfs({ pacienteId, estilo }) {
         .order('publicado_em', { ascending: false }).limit(1),
       supabase.from('suplementos').select('id, nome, dose, horario, obs, foto_url, ativo, data_inicio, manipulado')
         .eq('paciente_id', pacienteId).order('ordem'),
-      supabase.from('pacientes').select('nome, telefone').eq('id', pacienteId).maybeSingle(),
+      supabase.from('pacientes').select('nome, telefone, email').eq('id', pacienteId).maybeSingle(),
     ]);
     if (planoRes.error || listaRes.error || supRes.error || pacRes.error) {
       throw new Error('não consegui ler os dados da paciente');
     }
     const pacienteNome = pacRes.data?.nome ?? '';
     const contato = pacRes.data ?? null;
+    emailPacienteRef.current = String(pacRes.data?.email ?? '').trim();
     const plano = planoRes.data?.[0];
     const lista = listaRes.data?.[0];
     const ativos = (supRes.data ?? []).filter(s => s.ativo);
@@ -93,6 +98,55 @@ export default function BaixarTodosPdfs({ pacienteId, estilo }) {
     }
   }
 
+  // Envia os PDFs por e-mail para a paciente. O endereço mostrado na confirmação
+  // é o do cadastro; o servidor resolve o destino de novo (não confia na tela).
+  async function enviarEmail() {
+    if (busy) return;
+    setBusy(true); setMsg('Preparando…'); setProntos(null);
+    const itens = [];
+    try {
+      const r = await gerarTodos(async (item) => { itens.push(item); });
+      if (!itens.length) {
+        setMsg(r.faltando.length ? `Sem ${r.faltando.join(', ')}.` : 'Nada para enviar.');
+        return;
+      }
+      const email = emailPacienteRef.current;
+      if (!emailPlausivel(email)) {
+        setMsg('');
+        await avisar('A paciente não tem e-mail válido cadastrado. Cadastre o e-mail na ficha e tente de novo.');
+        return;
+      }
+      const { cabe } = cabeNoEmail(itens);
+      if (!cabe) {
+        setMsg('');
+        await avisar('Os PDFs juntos são grandes demais para um e-mail. Use "Baixar todos os PDFs" ou o WhatsApp.');
+        return;
+      }
+      setMsg('');
+      const ok = await confirmar(textoConfirmacaoEmail(email, itens.map(i => i.nome)), { confirmarRotulo: 'Enviar' });
+      if (!ok) return;
+      setMsg('Enviando…');
+      const { data: sess } = await supabase.auth.getSession();
+      const accessToken = sess.session?.access_token;
+      if (!accessToken) throw new Error('Sessão expirada. Recarregue a página.');
+      const arquivos = [];
+      for (const i of itens) arquivos.push({ nome: i.nome, base64: await blobParaBase64(i.blob) });
+      const resp = await fetch('/.netlify/functions/enviar-pdfs-paciente', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+        body: JSON.stringify({ paciente_id: pacienteId, arquivos }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data.error || 'Falha ao enviar.');
+      setMsg(`Enviado para ${data.para ?? email}.`);
+    } catch (e) {
+      setMsg('');
+      await avisar(`Não consegui enviar o e-mail: ${e?.message ?? 'tente novamente'}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   // Toque 1: gera os PDFs e guarda; não baixa nada.
   async function preparar() {
     if (busy) return;
@@ -135,6 +189,11 @@ export default function BaixarTodosPdfs({ pacienteId, estilo }) {
         title="Baixa os PDFs publicados: plano alimentar, lista de compras e suplementação"
         style={{ ...estilo, opacity: busy ? 0.6 : 1, cursor: busy ? 'default' : 'pointer' }}>
         <i className="ti ti-download" aria-hidden="true" /> {busy ? 'Aguarde…' : 'Baixar todos os PDFs'}
+      </button>
+      <button type="button" onClick={enviarEmail} disabled={busy}
+        title="Envia por e-mail para a paciente o plano, a lista de compras e a suplementação (você confere o endereço antes)"
+        style={{ ...estilo, opacity: busy ? 0.6 : 1, cursor: busy ? 'default' : 'pointer' }}>
+        <i className="ti ti-mail" aria-hidden="true" /> Enviar por e-mail
       </button>
       {temCompartilhar && !prontos && (
         <button type="button" onClick={preparar} disabled={busy}
