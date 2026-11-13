@@ -1454,7 +1454,7 @@ const PAD_V   = 9.75;                   // respiro acima e abaixo do item
 const GAP_POS = 3;                      // nome → posologia
 const GAP_MIN = 2.25;                   // posologia → horário → observação
 
-export async function gerarPDFPrescricao({ pacienteNome, contato, suplementosAtivos, modo, carimbo }) {
+export async function gerarPDFPrescricao({ pacienteNome, contato, suplementosAtivos, modo, carimbo, retornarArquivo = false }) {
   // Toda prescrição sai com o carimbo e a assinatura da Kelly (padrão).
   if (carimbo === undefined) carimbo = (await import('../../data/carimboAssinatura.js')).CARIMBO_ASSINATURA;
   // A lista chega PRONTA — quem recorta é o gerarPdf(), com o modo escolhido no
@@ -1567,7 +1567,11 @@ export async function gerarPDFPrescricao({ pacienteNome, contato, suplementosAti
   // e é aqui que o objeto se abre: o nomeArquivoPdf() recebe a string pronta.
   // Não é detalhe: com um nome só, gerar dois recortes para a mesma paciente
   // deixaria "(1)" na pasta de Downloads, sem dizer qual é qual.
-  doc.save(nomeArquivoPdf(modo.slug, pacienteNome));
+  const nomeArquivo = nomeArquivoPdf(modo.slug, pacienteNome);
+  // retornarArquivo: quem chama quer o PDF na mão (para compartilhar), e não
+  // um download. O padrão continua sendo salvar, como sempre foi.
+  if (retornarArquivo) return { blob: doc.output('blob'), nome: nomeArquivo };
+  doc.save(nomeArquivo);
 }
 
 /** Lista "A", "A e B" ou "A, B e C". */

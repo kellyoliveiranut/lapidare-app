@@ -34,6 +34,8 @@ const PAD_SEC = 14;           // respiro depois da régua de seção
 const PAD_REF = 12;           // respiro entre refeições
 const FS_SUB  = 8.5, LH_SUB = 11.5;   // opções de substituição de um alimento
 const IND_SUB = 14;           // recuo das opções sob o alimento
+const COL_ORIG = 140;         // largura da coluna do alimento original nas substituições
+const GAP_SUB = 5;            // respiro entre um alimento e o seguinte nas substituições
 
 // textoSubs/listaSubs vêm do subsTexto.js, compartilhados com o PlanoImpressao
 // do Plano.jsx — os dois documentos precisam concordar no desenho.
@@ -193,24 +195,24 @@ export async function gerarPDFPlano({ pacienteNome, contato, dados, publicadoEm,
       }
     for (const s of grupo.itens) {
       const opcoes = textoSubs(s.subs);
-      // O original vai em negrito e as opções seguem na MESMA linha, então a
-      // largura dele é medida com a fonte em negrito antes de quebrar o resto.
+      // Duas colunas FIXAS: o alimento original à esquerda (em negrito, quebra
+      // dentro da coluna) e as opções à direita, todas começando no mesmo x.
+      // Antes as opções alinhavam à direita do nome de cada alimento, então cada
+      // linha começava numa coluna diferente e a lista ficava desalinhada.
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(FS_ITEM);
-      const largOriginal = doc.getTextWidth(String(s.original ?? '') + ' ');
+      const linhasOrig = doc.splitTextToSize(String(s.original ?? ''), COL_ORIG - 12);
       doc.setFont('helvetica', 'normal');
-      const linhasOpc = opcoes ? doc.splitTextToSize(`— ${opcoes}`, W - largOriginal) : [];
-      const nLinhas = Math.max(1, linhasOpc.length);
-      y = caberOuQuebrar(y, nLinhas * LH_ITEM);
-      escrever(String(s.original ?? ''), M, y + FS_ITEM,
-        { estilo: 'bold', tamanho: FS_ITEM });
-      // Todas as linhas das opções alinham na mesma coluna, à direita do
-      // original: a primeira ao lado dele, as seguintes sob ela.
-      linhasOpc.forEach((linha, k) => {
-        escrever(linha, M + largOriginal, y + FS_ITEM + k * LH_ITEM,
-          { tamanho: FS_ITEM, cor: SEPIA });
+      const linhasOpc = opcoes ? doc.splitTextToSize(opcoes, W - COL_ORIG) : [];
+      const nLinhas = Math.max(1, linhasOrig.length, linhasOpc.length);
+      y = caberOuQuebrar(y, nLinhas * LH_ITEM + GAP_SUB);
+      linhasOrig.forEach((linha, k) => {
+        escrever(linha, M, y + FS_ITEM + k * LH_ITEM, { estilo: 'bold', tamanho: FS_ITEM });
       });
-      y += nLinhas * LH_ITEM;
+      linhasOpc.forEach((linha, k) => {
+        escrever(linha, M + COL_ORIG, y + FS_ITEM + k * LH_ITEM, { tamanho: FS_ITEM, cor: SEPIA });
+      });
+      y += nLinhas * LH_ITEM + GAP_SUB;
     }
     }
   }
