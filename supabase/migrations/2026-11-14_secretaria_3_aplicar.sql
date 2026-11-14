@@ -9,6 +9,8 @@
 -- usado pelo desfazer. Mesma lógica da simulação (passo 2).
 -- Desfazer: supabase/desfazer/2026-11-14_secretaria_3_DESFAZER.sql
 -- =============================================================
+begin;
+
 create table if not exists public._backup_regras_secretaria (
   schemaname text not null, tablename text not null, policyname text not null,
   qual text, with_check text, feito_em timestamptz not null default now(),
@@ -114,6 +116,8 @@ begin
   end loop;
   raise notice 'Funções alteradas: %', feitas;
 end $$;
+
+commit;
 
 select (select count(*) from public._backup_regras_secretaria) as regras_alteradas,
        (select count(*) from public._backup_funcoes_secretaria) as funcoes_alteradas;
