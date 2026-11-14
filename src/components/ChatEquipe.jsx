@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { useSession } from '../lib/session.jsx';
 import { avisarStatus } from '../lib/realtime.js';
+import { iniciarTokenPush, avisarEquipe } from '../lib/push.js';
 
 /**
  * Chat interno e privado entre a nutri e a secretária (tabela chat_equipe).
@@ -68,10 +69,12 @@ export default function ChatEquipe() {
     const t = texto.trim();
     if (!t || enviando) return;
     setEnviando(true); setErro('');
+    const tokenPush = iniciarTokenPush(); // antes do primeiro await de Supabase (ver lib/push.js)
     const { error } = await supabase.from('chat_equipe').insert({ nutri_id: nutriId, de: eu, texto: t });
     setEnviando(false);
     if (error) { setErro('Não consegui enviar. Tente de novo.'); return; }
     setTexto('');
+    avisarEquipe(tokenPush);
     carregar();
   }
 

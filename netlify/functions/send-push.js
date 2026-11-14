@@ -1,3 +1,4 @@
+const { nutriEfetiva, secretariaDoLogin } = require('./_nutriEfetiva.js');
 const webpush = require('web-push');
 const { createClient } = require('@supabase/supabase-js');
 
@@ -43,6 +44,7 @@ exports.handler = async (event) => {
     if (authError || !caller) {
       return { statusCode: 401, body: JSON.stringify({ error: 'Token inválido ou expirado.' }) };
     }
+    const donoId = await nutriEfetiva(supabase, caller.id); // secretária ativa = id da nutri
 
     let body;
     try {
@@ -90,6 +92,31 @@ exports.handler = async (event) => {
       return await enviarParaUsuario(supabase, paciente.nutri_id, payload, body.kind);
     }
 
+    // === Modo: notify_equipe (chat interno nutri <-> secretária) ===
+    // O servidor decide o destino pelo login de quem chamou: a secretária avisa a
+    // nutri; a nutri avisa a secretária ativa. O corpo do request não escolhe
+    // ninguém. A notificação não leva o texto da mensagem (tela de bloqueio).
+    if (body.mode === 'notify_equipe') {
+      const sec = await secretariaDoLogin(supabase, caller.id);
+      let alvo = null;
+      let aviso;
+      if (sec) {
+        alvo = sec.nutri_id;
+        aviso = { title: 'Essentia', body: 'Nova mensagem da secretária', url: '/nutri/agenda' };
+      } else {
+        const { data: nutri } = await supabase.from('nutris').select('id').eq('id', caller.id).maybeSingle();
+        if (!nutri) return { statusCode: 403, body: JSON.stringify({ error: 'Sem permissão.' }) };
+        const { data: s } = await supabase.from('secretarias')
+          .select('user_id').eq('nutri_id', nutri.id).eq('ativo', true).maybeSingle();
+        alvo = s?.user_id ?? null;
+        aviso = { title: 'Essentia', body: 'Nova mensagem da Dra.', url: '/nutri/agenda' };
+      }
+      if (!alvo) {
+        return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enviados: 0, removidos: 0, falhas: 0 }) };
+      }
+      return await enviarParaUsuario(supabase, alvo, aviso, 'chat_equipe');
+    }
+
     // === Modo: notify_paciente (nutri → paciente) ===
     // Servidor verifica ownership (nutri_id = caller) antes de resolver o user_id da paciente.
     if (body.mode === 'notify_paciente') {
@@ -102,7 +129,7 @@ exports.handler = async (event) => {
         .from('pacientes')
         .select('user_id, cuidador_user_id')
         .eq('id', paciente_id)
-        .eq('nutri_id', caller.id)
+        .eq('nutri_id', donoId)
         .maybeSingle();
 
       if (pacienteError || !(paciente?.user_id || paciente?.cuidador_user_id)) {
@@ -140,7 +167,7 @@ exports.handler = async (event) => {
         .from('pacientes')
         .select('user_id, cuidador_user_id')
         .eq('id', paciente_id)
-        .eq('nutri_id', caller.id)
+        .eq('nutri_id', donoId)
         .maybeSingle();
 
       if (pacienteError || !(paciente?.user_id || paciente?.cuidador_user_id)) {
@@ -161,12 +188,12 @@ exports.handler = async (event) => {
       const agora = new Date().toISOString();
       const { error: insErro } = await supabase
         .from('avaliacao_envios')
-        .insert({ paciente_id, nutri_id: caller.id, url: urlOk, enviado_em: agora });
+        .insert({ paciente_id, nutri_id: donoId, url: urlOk, enviado_em: agora });
 
       if (insErro && insErro.code === '23505') {
         const { error: updErro } = await supabase
           .from('avaliacao_envios')
-          .update({ url: urlOk, enviado_em: agora, nutri_id: caller.id })
+          .update({ url: urlOk, enviado_em: agora, nutri_id: donoId })
           .eq('paciente_id', paciente_id)
           .is('preenchido_em', null);
         if (updErro) {

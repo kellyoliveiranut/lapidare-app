@@ -1,3 +1,4 @@
+const { nutriEfetiva } = require('./_nutriEfetiva.js');
 const { createClient } = require('@supabase/supabase-js');
 const nodemailer = require('nodemailer');
 
@@ -30,6 +31,7 @@ exports.handler = async (event) => {
     if (authError || !caller) {
       return json(401, { error: 'Token inválido ou expirado.' });
     }
+    const donoId = await nutriEfetiva(supabase, caller.id); // secretária ativa = id da nutri
 
     // 2) Body
     let body;
@@ -51,7 +53,7 @@ exports.handler = async (event) => {
       .from('pacientes')
       .select('nome, telefone')
       .eq('id', paciente_id)
-      .eq('nutri_id', caller.id)
+      .eq('nutri_id', donoId)
       .maybeSingle();
 
     if (pacErr)        return json(500, { error: pacErr.message });
@@ -63,13 +65,13 @@ exports.handler = async (event) => {
     let { data: nutri, error: nutriErr } = await supabase
       .from('nutris')
       .select('nome, farmacia_email, farmacia_email_2, farmacia_nome')
-      .eq('id', caller.id)
+      .eq('id', donoId)
       .maybeSingle();
     if (nutriErr) {
       ({ data: nutri, error: nutriErr } = await supabase
         .from('nutris')
         .select('nome, farmacia_email, farmacia_nome')
-        .eq('id', caller.id)
+        .eq('id', donoId)
         .maybeSingle());
     }
 
@@ -154,7 +156,7 @@ ${nutriNome} · pelo app Essentia`;
     // 7) Só grava o histórico DEPOIS do envio confirmado
     const { error: insErr } = await supabase.from('envios_farmacia').insert({
       paciente_id,
-      nutri_id: caller.id,
+      nutri_id: donoId,
       formula,
       farmacia_email: farmaciaEmail,
     });

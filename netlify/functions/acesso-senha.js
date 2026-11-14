@@ -1,3 +1,4 @@
+const { nutriEfetiva } = require('./_nutriEfetiva.js');
 const { createClient } = require('@supabase/supabase-js');
 const { randomInt } = require('node:crypto');
 
@@ -48,6 +49,7 @@ exports.handler = async (event) => {
 
     const { data: { user: caller }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !caller) return json(401, { error: 'Token inválido ou expirado.' });
+    const donoId = await nutriEfetiva(supabase, caller.id); // secretária ativa = id da nutri
 
     // 2) Body
     let body;
@@ -72,7 +74,7 @@ exports.handler = async (event) => {
       .from('pacientes')
       .select('nome, email, telefone, user_id')
       .eq('id', paciente_id)
-      .eq('nutri_id', caller.id)
+      .eq('nutri_id', donoId)
       .maybeSingle();
 
     if (pacErr)    return json(500, { error: pacErr.message });

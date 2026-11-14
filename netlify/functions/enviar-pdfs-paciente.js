@@ -1,3 +1,4 @@
+const { nutriEfetiva } = require('./_nutriEfetiva.js');
 const { createClient } = require('@supabase/supabase-js');
 const nodemailer = require('nodemailer');
 
@@ -34,6 +35,7 @@ exports.handler = async (event) => {
     if (!token) return json(401, { error: 'Token ausente.' });
     const { data: { user: caller }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !caller) return json(401, { error: 'Token inválido ou expirado.' });
+    const donoId = await nutriEfetiva(supabase, caller.id); // secretária ativa = id da nutri
 
     // 2) Body
     let body;
@@ -63,7 +65,7 @@ exports.handler = async (event) => {
     // 3) A paciente tem que ser desta nutri; o destino vem do cadastro dela
     const { data: paciente, error: pacErr } = await supabase
       .from('pacientes').select('nome, email')
-      .eq('id', paciente_id).eq('nutri_id', caller.id).maybeSingle();
+      .eq('id', paciente_id).eq('nutri_id', donoId).maybeSingle();
     if (pacErr) return json(500, { error: pacErr.message });
     if (!paciente) return json(403, { error: 'Paciente não encontrada ou sem vínculo.' });
     const para = String(paciente.email ?? '').trim();
@@ -71,7 +73,7 @@ exports.handler = async (event) => {
       return json(400, { error: 'A paciente não tem e-mail válido cadastrado.' });
     }
 
-    const { data: nutri } = await supabase.from('nutris').select('nome').eq('id', caller.id).maybeSingle();
+    const { data: nutri } = await supabase.from('nutris').select('nome').eq('id', donoId).maybeSingle();
     const nutriNome = (nutri?.nome ?? '').trim() || 'Nutricionista';
     const primeiroNome = String(paciente.nome ?? '').trim().split(/\s+/)[0] || 'tudo bem';
 

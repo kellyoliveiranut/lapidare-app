@@ -177,6 +177,21 @@ export function avisarNutri(tokenPush, kind) {
 }
 
 /**
+ * Avisa o outro lado do chat interno (nutri <-> secretária). O servidor decide o
+ * destino pelo login; fire-and-forget como os outros avisos.
+ */
+export function avisarEquipe(tokenPush) {
+  tokenPush.then(accessToken => {
+    if (!accessToken) return;
+    fetch('/.netlify/functions/send-push', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+      body: JSON.stringify({ mode: 'notify_equipe' }),
+    }).catch(() => {});
+  });
+}
+
+/**
  * Avisa a paciente (fire-and-forget — nunca bloqueia a UI).
  * Mesma regra de ordem do avisarNutri: a tokenPush tem que vir do topo da
  * função, antes do primeiro await de Supabase.

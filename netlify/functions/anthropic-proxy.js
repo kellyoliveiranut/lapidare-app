@@ -1,3 +1,4 @@
+const { nutriEfetiva } = require('./_nutriEfetiva.js');
 const { createClient } = require('@supabase/supabase-js');
 
 // Proxy da Anthropic. Existe para a chave NUNCA aparecer no navegador: antes
@@ -61,11 +62,12 @@ exports.handler = async (event) => {
     if (authError || !caller) {
       return json(401, { error: 'Token inválido ou expirado.', status: 401 });
     }
+    const donoId = await nutriEfetiva(supabase, caller.id); // secretária ativa = id da nutri
 
     // 2) Só nutri. A paciente também tem token válido, e a IA não é ferramenta
     //    dela — sem esta checagem qualquer login do app gastaria a chave.
     const { data: nutri, error: nutriErr } = await supabase
-      .from('nutris').select('id').eq('id', caller.id).maybeSingle();
+      .from('nutris').select('id').eq('id', donoId).maybeSingle();
     if (nutriErr) return json(500, { error: nutriErr.message, status: 500 });
     if (!nutri)   return json(403, { error: 'Sem permissão.', status: 403 });
 
@@ -97,13 +99,13 @@ exports.handler = async (event) => {
     // 4) Rate-limit por nutri, janela deslizante. Limpeza oportunista primeiro:
     //    mantém a tabela pequena sem depender de job agendado.
     await supabase.from('ia_chamadas').delete()
-      .eq('nutri_id', caller.id)
+      .eq('nutri_id', donoId)
       .lt('criada_em', new Date(Date.now() - LIMPEZA_MS).toISOString());
 
     const desde = new Date(Date.now() - JANELA_SEG * 1000).toISOString();
     const { count, error: cntErr } = await supabase.from('ia_chamadas')
       .select('id', { count: 'exact', head: true })
-      .eq('nutri_id', caller.id)
+      .eq('nutri_id', donoId)
       .gte('criada_em', desde);
     if (cntErr) return json(500, { error: cntErr.message, status: 500 });
 
@@ -120,7 +122,7 @@ exports.handler = async (event) => {
 
     // Grava ANTES de chamar: uma chamada que estoura o timeout da function
     // também custou dinheiro e precisa contar.
-    const { error: insErr } = await supabase.from('ia_chamadas').insert({ nutri_id: caller.id });
+    const { error: insErr } = await supabase.from('ia_chamadas').insert({ nutri_id: donoId });
     if (insErr) return json(500, { error: insErr.message, status: 500 });
 
     // 5) Anthropic — UMA tentativa só. O retry vive no cliente de propósito: o

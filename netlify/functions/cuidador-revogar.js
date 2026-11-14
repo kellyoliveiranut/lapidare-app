@@ -1,3 +1,4 @@
+const { nutriEfetiva } = require('./_nutriEfetiva.js');
 const { createClient } = require('@supabase/supabase-js');
 
 // Revoga o acesso do cuidador de uma paciente da nutri que chamou.
@@ -23,6 +24,7 @@ exports.handler = async (event) => {
     if (!token) return json(401, { error: 'Token ausente.' });
     const { data: { user: caller }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !caller) return json(401, { error: 'Token inválido ou expirado.' });
+    const donoId = await nutriEfetiva(supabase, caller.id); // secretária ativa = id da nutri
 
     let body;
     try { body = JSON.parse(event.body ?? '{}'); } catch { return json(400, { error: 'Body JSON inválido.' }); }
@@ -32,7 +34,7 @@ exports.handler = async (event) => {
       .from('pacientes')
       .select('id, cuidador_user_id')
       .eq('id', body.paciente_id)
-      .eq('nutri_id', caller.id)
+      .eq('nutri_id', donoId)
       .maybeSingle();
     if (pacErr) return json(500, { error: pacErr.message });
     if (!pac) return json(403, { error: 'Paciente não encontrada ou sem vínculo.' });
