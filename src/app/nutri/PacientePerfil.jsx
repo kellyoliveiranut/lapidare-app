@@ -764,6 +764,11 @@ export default function PacientePerfil() {
                 </button>
               )}
             </span>
+            <ModoSimples paciente={paciente} aoMudar={carregar} estilo={{
+              background: 'transparent', border: '0.5px solid var(--border)',
+              borderRadius: 6, padding: '3px 9px', fontSize: 11, color: 'var(--text3)',
+              cursor: 'pointer', fontFamily: 'var(--font-sans)',
+            }} />
             <MenuSenha paciente={paciente} onEnviarEmail={enviarRedefinicaoSenha} />
             <button onClick={enviarAcessoWhatsApp}
               disabled={!paciente.telefone?.trim() || !paciente.email?.trim()}
@@ -1482,7 +1487,7 @@ export default function PacientePerfil() {
         )}
         {tab === 'planejamento' && (
           <AreaPlanejamento paciente={paciente} user={user}
-            calculosImportados={calculosImportados} setCalculosImportados={setCalculosImportados} recarregarPaciente={carregar} />
+            calculosImportados={calculosImportados} setCalculosImportados={setCalculosImportados} />
         )}
       </Suspense>
 
@@ -6716,7 +6721,7 @@ const ATALHOS_PLANEJAMENTO = [
 ];
 const CHAVE_SECOES = 'planejamento_secoes_abertas';
 
-function AreaPlanejamento({ paciente, user, calculosImportados, setCalculosImportados, recarregarPaciente }) {
+function AreaPlanejamento({ paciente, user, calculosImportados, setCalculosImportados }) {
   // Seções recolhíveis, lembradas neste aparelho. Só o Plano alimentar abre por
   // padrão. Recolher NÃO desmonta: o conteúdo continua montado (display:none),
   // senão um plano em edição perderia o que ainda não foi publicado.
@@ -6756,7 +6761,6 @@ function AreaPlanejamento({ paciente, user, calculosImportados, setCalculosImpor
           <button key={a.rotulo} type="button" style={chip} onClick={() => irPara(a.secao, a.alvo)}>{a.rotulo}</button>
         ))}
         <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 8, flex: '0 0 auto' }}>
-          <ModoSimples paciente={paciente} estilo={chip} aoMudar={recarregarPaciente} />
           <BaixarTodosPdfs pacienteId={paciente.id} estilo={chip} />
         </span>
         <button type="button" style={{ ...chip, color: 'var(--text3)' }} onClick={alternarTodas}>
