@@ -65,7 +65,16 @@ export function SessionProvider({ children }) {
     let active = true;
 
     async function hydrate(session) {
-      const { role, profile, secretaria = null } = await resolveRole(session?.user?.id);
+      let r;
+      try {
+        r = await resolveRole(session?.user?.id);
+      } catch (e) {
+        // Rede/navegador falhou ao buscar o perfil: não deixa a tela em
+        // "Carregando…" para sempre — segue sem perfil (a tela avisa).
+        console.warn('[session] falha ao resolver o perfil', e);
+        r = { role: null, profile: null };
+      }
+      const { role, profile, secretaria = null } = r;
       if (!active) return;
       setState({
         session,
@@ -94,11 +103,21 @@ export function SessionProvider({ children }) {
       }
     }
 
-    supabase.auth.getSession().then(({ data }) => {
-      hydrate(data.session ?? null);
-    });
+    // Alguns navegadores (ex.: Samsung Internet antigo) deixam getSession()
+    // pendurada ou com erro. Limite de 8 s: depois disso segue como deslogada
+    // (vai para o login) em vez de ficar eternamente em "Carregando…".
+    let hidratou = false;
+    const marcar = (sess) => { hidratou = true; return hydrate(sess); };
+    const limite = setTimeout(() => {
+      if (!hidratou) { console.warn('[session] getSession demorou; seguindo sem sessão'); marcar(null); }
+    }, 8000);
+    supabase.auth.getSession()
+      .then(({ data }) => { if (!hidratou) return marcar(data.session ?? null); })
+      .catch((e) => { console.warn('[session] getSession falhou', e); if (!hidratou) marcar(null); })
+      .finally(() => clearTimeout(limite));
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      hidratou = true;
       hydrate(newSession);
     });
 

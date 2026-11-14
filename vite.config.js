@@ -23,6 +23,9 @@ export default defineConfig({
     __BUILD_TIME__: JSON.stringify(buildTime),
   },
   build: {
+    // Navegadores mais antigos (Samsung Internet < 21, Android com WebView velho)
+    // quebravam com sintaxe nova do alvo padrão: compila para o mais compatível.
+    target: ['es2020', 'chrome87', 'safari14', 'firefox78', 'edge88'],
     rollupOptions: {
       output: {
         manualChunks(id) {
