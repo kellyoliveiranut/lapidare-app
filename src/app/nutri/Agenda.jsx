@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { avisarStatus } from '../../lib/realtime.js';
 import { useSession } from '../../lib/session.jsx';
+import { rotuloAgendadaPor } from '../../lib/agendadaPor.js';
 import DateInput from '../../components/DateInput.jsx';
 import NovaPacienteRapida from './_NovaPacienteRapida.jsx';
 import NotasDaSemana from './_NotasDaSemana.jsx';
@@ -437,7 +438,10 @@ export default function Agenda() {
     // ela ainda não rodou, a primeira consulta falha e a Agenda tenta de novo
     // sem as duas colunas — nada quebra, só não há "para resolver".
     const colunasComFaltou = colunasSemFaltou.replace('oculta_paciente,', 'oculta_paciente, faltou_em, faltou_por,');
-    let colunas = colunasComFaltou;
+    // agendada_por (migração 2026-11-14_consulta_agendada_por.sql): quem criou a
+    // consulta. Mesma tolerância: sem a coluna, a consulta é refeita sem ela.
+    const colunasComTudo = colunasComFaltou.replace('faltou_por,', 'faltou_por, agendada_por,');
+    let colunas = colunasComTudo;
     // Janela, não tudo: o Supabase corta em 1000 linhas e esconderia as
     // futuras (janelaAgenda.js).
     const consultarJanela = (cols) => supabase
@@ -447,6 +451,10 @@ export default function Agenda() {
       .or(filtroJanela(desdeRef.current ?? desdeISO({ hoje: new Date() })))
       .order('data_hora', { ascending: true });
     let { data, error } = await consultarJanela(colunas);
+    if (error && /agendada_por/.test(error.message ?? '')) {
+      colunas = colunasComFaltou;
+      ({ data, error } = await consultarJanela(colunas));
+    }
     if (error && /faltou_/.test(error.message ?? '')) {
       colunas = colunasSemFaltou;
       ({ data, error } = await consultarJanela(colunas));
@@ -2339,6 +2347,8 @@ function LinhaPacienteCancelada({ p, isLast }) {
 // o botão fica desabilitado até a resposta do banco.
 function ConsultaRow({ c, isLast, onClick, onToggleConfirmada, onToggleNaoConfirmada, onToggleOculta, onRemarcar, onResolver, remarcandoAgora = false, corDoTipo = false }) {
   const navigate = useNavigate();
+  const { profile } = useSession();
+  const quemAgendou = rotuloAgendadaPor(c.agendada_por, profile?.nome);
   const cor = tipoColor(c.tipo);
   const confirmavel = podeConfirmar(c) && typeof onToggleConfirmada === 'function';
   const confirmada = !!c.confirmada_em;
@@ -2475,6 +2485,17 @@ function ConsultaRow({ c, isLast, onClick, onToggleConfirmada, onToggleNaoConfir
           }}>
             <i className={`ti ${mod.icone}`} aria-hidden="true" style={{ fontSize: 12 }} /> {mod.label}
           </span>
+          {quemAgendou && (
+            <span title="Quem criou esta consulta" style={{
+              display: 'inline-flex', alignItems: 'center', gap: 3,
+              padding: '1px 7px', borderRadius: 20, whiteSpace: 'nowrap',
+              background: c.agendada_por === 'secretaria' ? '#eef3fb' : 'var(--bg2)',
+              color: c.agendada_por === 'secretaria' ? '#2c4f85' : 'var(--text2)',
+              fontSize: 11, fontWeight: 500,
+            }}>
+              <i className="ti ti-user" aria-hidden="true" style={{ fontSize: 12 }} /> {quemAgendou}
+            </span>
+          )}
         </div>
         {/* Observação da consulta (pedido 10), abaixo de data e horário. Até
             duas linhas; o texto inteiro fica no title. */}
@@ -3133,6 +3154,8 @@ function BloqueioModal({ nutriId, dataInicial, onClose, onSaved }) {
 function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId, remarcarAoAbrir, onClose, onSaved, onToggleConfirmada, onADefinir }) {
   const isEdit = !!consulta;
   const navigate = useNavigate();
+  const { profile: perfilModal } = useSession();
+  const nomeNutriModal = perfilModal?.nome;
 
   // Paciente de partida ao CRIAR: a recém-cadastrada pelo fluxo rápido da
   // Agenda, quando houver; senão a primeira da lista, como sempre foi.
@@ -3484,6 +3507,9 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
         </div>
         <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 14 }}>
           {isEdit ? 'Altere os campos abaixo e salve.' : 'Agende com uma paciente — o número é sugerido pelo histórico.'}
+          {isEdit && rotuloAgendadaPor(consulta.agendada_por, nomeNutriModal) && (
+            <div style={{ marginTop: 3 }}>{rotuloAgendadaPor(consulta.agendada_por, nomeNutriModal)}</div>
+          )}
         </div>
 
         <label className="form-lbl">Paciente</label>
