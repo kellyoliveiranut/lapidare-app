@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { ativarNotificacoes, desativarNotificacoes } from '../../lib/push.js';
 import { gravar } from '../../lib/gravar.js';
+import Secretaria from './_Secretaria.jsx';
 
 import { confirmar as confirmarJanela, avisar as avisarJanela } from '../../lib/dialogos.js';
 const TIPOGRAFIAS = [
@@ -312,6 +313,8 @@ export default function Personalizacao() {
               )}
             </div>
           </div>
+
+          <Secretaria />
 
           {/* Farmácia de manipulação — destino dos envios de fórmula */}
           <div className="card" style={{ padding: 18, marginBottom: 14 }}>

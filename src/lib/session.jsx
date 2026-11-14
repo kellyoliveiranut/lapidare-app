@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from './supabase.js';
 import { gravar } from './gravar.js';
 import { deveCarimbarAcesso } from './ultimoAcesso.js';
+import { usuarioEfetivo } from './usuarioEfetivo.js';
 
 /**
  * SessionContext expõe:
@@ -37,6 +38,16 @@ async function resolveRole(userId) {
 
   if (nutriRes.data) return { role: 'nutri', profile: nutriRes.data };
   if (pacienteRes.data) return { role: 'paciente', profile: pacienteRes.data };
+
+  // Secretária: login próprio, vinculado a uma nutri (tabela secretarias). Só
+  // chega aqui quem não tem ficha de nutri nem de paciente. Entra como 'nutri'
+  // com o perfil da Dra.; `secretaria` marca que é ela (ver hidratar()).
+  const { data: sec } = await supabase.from('secretarias')
+    .select('id, nutri_id, nome').eq('user_id', userId).eq('ativo', true).maybeSingle();
+  if (sec) {
+    const { data: nutri } = await supabase.from('nutris').select('*').eq('id', sec.nutri_id).maybeSingle();
+    if (nutri) return { role: 'nutri', profile: nutri, secretaria: sec };
+  }
   return { role: null, profile: null };
 }
 
@@ -46,6 +57,7 @@ export function SessionProvider({ children }) {
     user: null,
     role: null,
     profile: null,
+    secretaria: null,
     loading: true,
   });
 
@@ -53,13 +65,14 @@ export function SessionProvider({ children }) {
     let active = true;
 
     async function hydrate(session) {
-      const { role, profile } = await resolveRole(session?.user?.id);
+      const { role, profile, secretaria = null } = await resolveRole(session?.user?.id);
       if (!active) return;
       setState({
         session,
-        user: session?.user ?? null,
+        user: usuarioEfetivo(session?.user, secretaria, profile),
         role,
         profile,
+        secretaria,
         loading: false,
       });
       // Carimba o último acesso da paciente. Fire-and-forget: nunca aguardamos
@@ -98,9 +111,10 @@ export function SessionProvider({ children }) {
   // Re-busca o profile sem perder a sessão (usado depois de updates,
   // ex.: paciente aceita o termo de consentimento).
   async function refreshProfile() {
-    if (!state.user?.id) return;
-    const { role, profile } = await resolveRole(state.user.id);
-    setState(s => ({ ...s, role, profile }));
+    const idLogin = state.user?.id_real ?? state.user?.id;
+    if (!idLogin) return;
+    const { role, profile, secretaria = null } = await resolveRole(idLogin);
+    setState(s => ({ ...s, role, profile, secretaria }));
   }
 
   return (

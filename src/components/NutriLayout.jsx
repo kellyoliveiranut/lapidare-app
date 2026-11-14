@@ -4,6 +4,7 @@ import { useSession, signOut } from '../lib/session.jsx';
 import { useTheme } from '../lib/theme.jsx';
 import { supabase } from '../lib/supabase.js';
 import { avisarStatus } from '../lib/realtime.js';
+import ChatEquipe from './ChatEquipe.jsx';
 import BrandFooter from './BrandFooter.jsx';
 import BannerNovidades from './BannerNovidades.jsx';
 import { iniciais, mesAno } from '../lib/utils.js';
@@ -53,7 +54,7 @@ const ROUTE_META = NAV_CONFIG.flatMap(g =>
 ).reduce((acc, it) => { acc[it.path] = it; return acc; }, {});
 
 export default function NutriLayout() {
-  const { profile, user } = useSession();
+  const { profile, user, secretaria } = useSession();
   const tema = useTheme();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -272,6 +273,7 @@ export default function NutriLayout() {
           <span className="topbar-sep">·</span>
           <span className="topbar-page">{meta.label}</span>
           <div className="topbar-right">
+            {secretaria && <span className="topbar-date" style={{ fontWeight: 600 }}>Acesso da secretária</span>}
             <span className="topbar-date">{mesAno()}</span>
             <div className="topbar-avatar">{iniciais(profile?.nome)}</div>
           </div>
@@ -283,6 +285,7 @@ export default function NutriLayout() {
           <BrandFooter />
         </div>
       </main>
+      <ChatEquipe />
     </div>
   );
 }
