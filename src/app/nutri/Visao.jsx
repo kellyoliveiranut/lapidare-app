@@ -417,8 +417,8 @@ export default function Visao() {
         </div>
       </div>
 
-      {/* ─── BARRA DE META ─── */}
-      <div className="card" style={{ padding: '16px 18px', marginBottom: 14 }}>
+      {/* ─── BARRA DE META ─── (a área Previsibilidade, onde a meta era definida, foi removida) */}
+      {metaMensal && <div className="card" style={{ padding: '16px 18px', marginBottom: 14 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 12, letterSpacing: 1.5, textTransform: 'uppercase', color: 'var(--text3)', fontWeight: 500 }}>
@@ -433,15 +433,6 @@ export default function Visao() {
               <i className={`ti ti-${ocultarMeta ? 'eye-off' : 'eye'}`} style={{ fontSize: 15 }} aria-hidden="true"></i>
             </button>
           </div>
-          <button onClick={() => navigate('/nutri/previsibilidade')}
-            style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              fontSize: 12, color: 'var(--gold-deep, #a08456)', fontWeight: 500,
-              display: 'inline-flex', alignItems: 'center', gap: 4,
-            }}>
-            <i className="ti ti-calculator" style={{ fontSize: 13 }} aria-hidden="true"></i>
-            {metaMensal ? 'Ajustar em Previsibilidade →' : 'Definir em Previsibilidade →'}
-          </button>
         </div>
 
         {metaMensal ? (
@@ -481,13 +472,8 @@ export default function Visao() {
               )}
             </div>
           </>
-        ) : (
-          <div style={{ fontSize: 14, color: 'var(--text3)' }}>
-            Calcule sua meta mensal em <strong>Previsibilidade</strong> — a partir de gastos fixos,
-            ticket médio e horas disponíveis. Aqui mostramos o progresso real.
-          </div>
-        )}
-      </div>
+        ) : null}
+      </div>}
 
       {/* ─── ALERTAS DA SEMANA ─── */}
       <div className="section-label" style={{ marginTop: 8 }}>Atenção esta semana</div>

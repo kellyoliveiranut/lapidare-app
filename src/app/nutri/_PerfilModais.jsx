@@ -573,7 +573,7 @@ export function ModalExcluir({ paciente, onClose, onExcluido }) {
               <>
                 {vendas.n === 1 ? 'A venda' : `As ${vendas.n} vendas`} desta paciente
                 {' '}(<strong>{brl(vendas.total)}</strong>) e as parcelas também serão apagadas.
-                {' '}Esse valor sai do Financeiro e da Previsibilidade. Para manter o histórico, use Arquivar.
+                {' '}Esse valor sai do Financeiro. Para manter o histórico, use Arquivar.
               </>
             )}
           </div>
