@@ -16,6 +16,11 @@ create table if not exists public._backup_regras_secretaria (
 );
 alter table public._backup_regras_secretaria enable row level security; -- sem política: ninguém lê pelo app
 
+create table if not exists public._backup_funcoes_secretaria (
+  proname text primary key, definicao text not null, feito_em timestamptz not null default now()
+);
+alter table public._backup_funcoes_secretaria enable row level security;
+
 do $$
 declare
   r record; q text; c text; n int := 0;
@@ -40,6 +45,13 @@ begin
       c := regexp_replace(coalesce(r.with_check,''), 'nutri_id = (\( SELECT auth\.uid\(\) AS uid\)|auth\.uid\(\))', 'nutri_id = public.nutri_efetiva()', 'g');
     end if;
 
+    -- Arquivos do bucket 'ebooks': a pasta é o id do dono (a nutri). Para a
+    -- secretária a pasta é a da nutri; para as demais pessoas nada muda.
+    if r.schemaname = 'storage' and (coalesce(r.qual,'') || coalesce(r.with_check,'')) like '%bucket_id = ''ebooks''%' then
+      q := replace(q, '(auth.uid())::text', '(public.nutri_efetiva())::text');
+      c := replace(c, '(auth.uid())::text', '(public.nutri_efetiva())::text');
+    end if;
+
     if q = coalesce(r.qual,'') and c = coalesce(r.with_check,'') then continue; end if;
 
     insert into public._backup_regras_secretaria (schemaname, tablename, policyname, qual, with_check)
@@ -58,4 +70,50 @@ begin
   raise notice 'Regras alteradas: %', n;
 end $$;
 
-select count(*) as regras_alteradas from public._backup_regras_secretaria;
+-- ---------------------------------------------------------------
+-- Funções do banco que decidem "quem é a nutri". Cada uma é refeita a partir
+-- da definição atual (pg_get_functiondef), com o texto original guardado.
+-- Se alguma não casar com o esperado, tudo é desfeito (a transação aborta).
+--   avisos / painel / e-book : nutri_id = auth.uid()  -> nutri_efetiva()
+--   travas protege_*         : auth.uid() distinto de old.nutri_id -> nutri_efetiva()
+--   montar_box               : v_nutri_id := auth.uid() -> nutri_efetiva()
+-- NÃO mexe em funções da paciente (confirmar consulta, aceitar contrato, etc.)
+-- nem em registrar_push_aparelho: elas usam o login real de cada pessoa.
+-- ---------------------------------------------------------------
+do $$
+declare
+  nomes text[] := array[
+    'marcar_avisos_tipo_vistos','marcar_avisos_vistos','nutri_dona_do_ebook','painel_notificacoes_pacientes',
+    'protege_acesso_pausado','protege_colunas_paciente','protege_metas_evolucao','protege_recado_evolucao',
+    'protege_vinculo_paciente','montar_box'];
+  nome text; r record; def text; novo text; feitas int := 0;
+begin
+  foreach nome in array nomes loop
+    select p.oid, pg_get_functiondef(p.oid) as def into r
+      from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'public' and p.proname = nome;
+    if r.oid is null then raise exception 'Função % não encontrada.', nome; end if;
+    def := r.def;
+    if def like '%nutri_efetiva()%' then continue; end if;  -- já ajustada numa execução anterior
+
+    if nome like 'protege\_%' then
+      novo := replace(def, 'auth.uid() is distinct from old.nutri_id', 'public.nutri_efetiva() is distinct from old.nutri_id');
+    elsif nome = 'montar_box' then
+      novo := regexp_replace(def, 'v_nutri_id(\s+)uuid := auth\.uid\(\)', 'v_nutri_id\1uuid := public.nutri_efetiva()');
+      if novo like '%auth.uid()%' then raise exception 'montar_box ainda usa auth.uid() em outro ponto — me envie a definição.'; end if;
+    else
+      novo := replace(def, 'nutri_id = auth.uid()', 'nutri_id = public.nutri_efetiva()');
+      if novo like '%auth.uid()%' then raise exception '% ainda usa auth.uid() em outro ponto — me envie a definição.', nome; end if;
+    end if;
+
+    if novo = def then raise exception 'Função % fora do formato esperado — me envie a definição.', nome; end if;
+
+    insert into public._backup_funcoes_secretaria (proname, definicao) values (nome, def) on conflict do nothing;
+    execute novo;
+    feitas := feitas + 1;
+  end loop;
+  raise notice 'Funções alteradas: %', feitas;
+end $$;
+
+select (select count(*) from public._backup_regras_secretaria) as regras_alteradas,
+       (select count(*) from public._backup_funcoes_secretaria) as funcoes_alteradas;

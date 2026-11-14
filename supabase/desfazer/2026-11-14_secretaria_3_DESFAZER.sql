@@ -14,5 +14,14 @@ begin
   end loop;
   raise notice 'Regras restauradas: %', n;
 end $$;
+do $$
+declare r record; n int := 0;
+begin
+  for r in select * from public._backup_funcoes_secretaria loop
+    execute r.definicao; n := n + 1;
+  end loop;
+  raise notice 'Funções restauradas: %', n;
+end $$;
 -- Depois de conferir, pode apagar o backup:
 -- drop table public._backup_regras_secretaria;
+-- drop table public._backup_funcoes_secretaria;
