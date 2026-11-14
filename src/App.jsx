@@ -63,7 +63,7 @@ const Protocolos = lazy(() => import('./app/nutri/Protocolos.jsx'));
 const LaminaProtocolo = lazy(() => import('./app/nutri/LaminaProtocolo.jsx'));
 const MensagemMotivacional = lazy(() => import('./app/nutri/MensagemMotivacional.jsx'));
 
-const Inicio = lazy(() => import('./app/paciente/Inicio.jsx'));
+const Inicio = lazy(() => import('./app/paciente/InicioRota.jsx'));
 const Plano = lazy(() => import('./app/paciente/Plano.jsx'));
 const Compras = lazy(() => import('./app/paciente/Compras.jsx'));
 const FeedPaciente = lazy(() => import('./app/paciente/Feed.jsx'));

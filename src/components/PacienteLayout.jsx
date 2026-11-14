@@ -12,6 +12,7 @@ import { gravar } from '../lib/gravar.js';
 import { EVENTO_EBOOKS_VISTOS } from '../lib/avisosNutri.js';
 import { confirmar as confirmarJanela } from '../lib/dialogos.js';
 import '../styles/paciente.css';
+import '../styles/modo-simples.css';
 
 const TABS = [
   { id: 'inicio',     path: '/paciente/inicio',                   label: 'Início',      icon: 'home-2' },
@@ -35,6 +36,15 @@ const MAIS_ITEMS = [
   { path: '/paciente/treinos',     icon: 'run',             label: 'Treinos',            sub: 'Plano de exercícios' },
   { path: '/paciente/exames',      icon: 'test-pipe',       label: 'Exames',             sub: 'Solicitações da Dra.' },
 ];
+
+// Modo simples (pacientes.modo_simples): estes 4 caminhos viram botões da Home
+// e saem do "Mais"; Pratos, Hábitos e Tratamento (só Oncologia) entram nele.
+const NA_HOME_SIMPLES = new Set(['/paciente/compras', '/paciente/suplementos', '/paciente/chat']);
+const ITENS_SIMPLES = {
+  tratamento: { path: '/paciente/monitoramento-oncologico', icon: 'stethoscope', label: 'Como estou hoje', sub: 'Check-in do tratamento' },
+  feed:       { path: '/paciente/feed',    icon: 'camera',    label: 'Pratos',  sub: 'Registre o que você comeu' },
+  habitos:    { path: '/paciente/habitos', icon: 'checklist', label: 'Hábitos', sub: 'Acompanhe sua rotina' },
+};
 
 // A lista do que a Avulsa acessa (AVULSA_ALLOWED) mora em lib/planoPaciente.js.
 
@@ -84,12 +94,26 @@ export default function PacienteLayout() {
   const isChat = location.pathname === '/paciente/chat';
   const primeiroNome = profile?.apelido || profile?.nome?.split(' ')[0] || '';
 
-  const tabs = profile?.objetivo === 'Oncologia' ? TABS : TABS.filter(t => t.id !== 'tratamento');
+  const modoSimples = !!profile?.modo_simples;
+  const ehOnco = profile?.objetivo === 'Oncologia';
+  // Modo simples: só Início + "Mais opções". Tudo que não está nos 4 botões da
+  // Home vai para a lista do "Mais" (ver ITENS_SIMPLES).
+  const tabs = modoSimples
+    ? [TABS[0], { ...TABS[TABS.length - 1], label: 'Mais opções' }]
+    : (ehOnco ? TABS : TABS.filter(t => t.id !== 'tratamento'));
 
   const isBlocked = (path) => bloqueadoNoPlano(profile, path);
   // Só com o perfil carregado e só quando não é o bloqueio da Avulsa.
   const semJornada = !!profile && !ehAvulsa(profile) && !temMinhaJornada(profile);
-  const maisItens = semJornada ? MAIS_ITEMS.filter(item => item.path !== ROTA_JORNADA) : MAIS_ITEMS;
+  const maisBase = semJornada ? MAIS_ITEMS.filter(item => item.path !== ROTA_JORNADA) : MAIS_ITEMS;
+  const maisItens = modoSimples
+    ? [
+        ...(ehOnco ? [ITENS_SIMPLES.tratamento] : []),
+        ...maisBase.filter(i => !NA_HOME_SIMPLES.has(i.path)),
+        ITENS_SIMPLES.feed,
+        ITENS_SIMPLES.habitos,
+      ]
+    : maisBase;
 
   function handleBlocked() {
     setLockToast(true);
@@ -351,7 +375,7 @@ export default function PacienteLayout() {
   const totalNovas = suplementosNovos + treinosNovos + progressoNovos + comprasNovas;
 
   return (
-    <div className="paciente-app">
+    <div className={'paciente-app' + (modoSimples ? ' modo-simples' : '')}>
       <header className="app-header">
         {isChat && (
           <button
@@ -452,7 +476,9 @@ export default function PacienteLayout() {
           {tabs.map(t => {
             const active = t.path
               ? location.pathname === t.path
-              : ['/paciente/jornada', '/paciente/checkins', '/paciente/progresso', '/paciente/compras', '/paciente/suplementos', '/paciente/ebooks', '/paciente/chat', '/paciente/treinos'].includes(location.pathname);
+              : (modoSimples
+                  ? location.pathname !== '/paciente/inicio'
+                  : ['/paciente/jornada', '/paciente/checkins', '/paciente/progresso', '/paciente/compras', '/paciente/suplementos', '/paciente/ebooks', '/paciente/chat', '/paciente/treinos'].includes(location.pathname));
             const blocked = isBlocked(t.path);
 
             if (!t.path) {
@@ -522,7 +548,7 @@ export default function PacienteLayout() {
         <div className="sheet-backdrop" onClick={() => setMoreOpen(false)}>
           <div className="sheet" onClick={e => e.stopPropagation()}>
             <div className="grabber"></div>
-            <div className="serif" style={{ fontSize: 22, marginBottom: 14 }}>Mais</div>
+            <div className="serif" style={{ fontSize: 22, marginBottom: 14 }}>{modoSimples ? 'Mais opções' : 'Mais'}</div>
             {maisItens.map(item => {
               const isChatItem = item.path === '/paciente/chat';
               const blocked = isBlocked(item.path);

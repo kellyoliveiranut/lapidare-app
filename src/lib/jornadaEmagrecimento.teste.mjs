@@ -63,7 +63,7 @@ t('menu: some só para Emagrecimento não avulsa',
     semJornada({ tipo_plano: ESS, objetivo: null }), semJornada({ tipo_plano: 'avulsa', objetivo: 'Emagrecimento' })],
   [true, false, false, false]);
 t('menu: o sheet usa maisItens, filtrado pela regra',
-  [layout.includes('const maisItens = semJornada ? MAIS_ITEMS.filter(item => item.path !== ROTA_JORNADA) : MAIS_ITEMS;'),
+  [layout.includes('const maisBase = semJornada ? MAIS_ITEMS.filter(item => item.path !== ROTA_JORNADA) : MAIS_ITEMS;'),
     layout.includes('{maisItens.map(item => {'), layout.includes('{MAIS_ITEMS.map(')], [true, true, false]);
 
 // ── Redirecionamento (efeito do bloqueio, estendido) ──
