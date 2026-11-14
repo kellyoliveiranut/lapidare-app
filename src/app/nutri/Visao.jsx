@@ -48,7 +48,7 @@ function ordenarLembretes(lista) {
 
 export default function Visao() {
   const navigate = useNavigate();
-  const { user, profile } = useSession();
+  const { user, profile, secretaria } = useSession();
   const [carregando, setCarregando] = useState(true);
   const [pacientes, setPacientes] = useState([]);
   const [consultasSemana, setConsultasSemana] = useState([]);
@@ -183,14 +183,14 @@ export default function Visao() {
         // logs de suplemento últimos 7 dias
         supabase.from('suplementos_logs').select('suplemento_id, paciente_id, data, tomado')
           .gte('data', dias7atras),
-        // lembretes da nutri — os pendentes com prazo até hoje e os sem prazo.
-        // `data <= hoje` e não `data = hoje`: o lembrete de ontem que ela não
-        // marcou continua aparecendo, com marca de atrasado. Some só quando
-        // concluído — sumir na virada do dia perderia tarefa em silêncio.
+        // lembretes da nutri — os pendentes de HOJE e os sem prazo. O lembrete
+        // aparece só no dia em que está agendado: o de ontem que não foi
+        // marcado não é arrastado para hoje (decisão da Kelly, 14/11/2026).
+        // Ele segue visível na Agenda, no dia dele.
         // Sem paciente_id nenhum aqui: é a única tabela do app que é dela.
         supabase.from('lembretes_nutri').select('id, texto, data, concluido_em, created_at')
           .eq('nutri_id', user.id).is('concluido_em', null)
-          .or(`data.is.null,data.lte.${hojeISO}`)
+          .or(`data.is.null,data.eq.${hojeISO}`)
           .order('created_at'),
       ]);
 
@@ -341,7 +341,8 @@ export default function Visao() {
   // conta até domingo, não quanto foi cobrado.
   const totalParcelas = parcelasSemana.reduce((a, p) => a + liquidoParcela(p), 0);
   const atrasadas = parcelasSemana.filter(p => statusParcela(p) === 'atrasado').length;
-  const semNome = profile?.nome?.split(' ')[0] ?? '';
+  // Quem está logada: a secretária vê o nome dela, a Dra. o próprio.
+  const semNome = (secretaria ? secretaria.nome : profile?.nome)?.split(' ')[0] ?? '';
 
   // Barra de meta
   const pctMeta = metaMensal && metaMensal > 0 ? Math.min(100, (receitaMes / metaMensal) * 100) : 0;
@@ -788,9 +789,6 @@ function CardDoDia({ consultas, lembretes, hoje, onCriar, onAlternar, onAbrirAge
         <div style={{ marginBottom: 12 }}>
           {lembretes.map(l => {
             const concluido = !!l.concluido_em;
-            // Atrasado é o que ficou de um dia anterior. Sem data nunca atrasa:
-            // é recado sem prazo, e cobrar prazo dele seria inventar um.
-            const atrasado = !concluido && !!l.data && l.data < hoje;
             return (
               <div key={l.id} style={{
                 display: 'flex', alignItems: 'flex-start', gap: 8,
@@ -809,11 +807,6 @@ function CardDoDia({ consultas, lembretes, hoje, onCriar, onAlternar, onAbrirAge
                   {!l.data && !concluido && (
                     <span style={{ fontSize: 11, color: 'var(--text3)', marginLeft: 6 }}>
                       · sem prazo
-                    </span>
-                  )}
-                  {atrasado && (
-                    <span style={{ fontSize: 11, color: 'var(--orange)', marginLeft: 6 }}>
-                      · de {dataBR(l.data)}
                     </span>
                   )}
                 </span>

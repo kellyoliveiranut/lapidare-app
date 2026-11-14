@@ -82,13 +82,14 @@ exports.handler = async (event) => {
         .select('nutri_id, data, hora_inicio, hora_fim, motivo')
         .in('nutri_id', alvoIds)
         .eq('data', hojeISO),
-      // Mesma regra de Visao.jsx: pendentes de hoje, atrasados e sem data.
+      // Mesma regra de Visao.jsx: pendentes de hoje e sem data (atrasados não
+      // são arrastados: o lembrete vale só no dia agendado).
       supabase
         .from('lembretes_nutri')
         .select('nutri_id, texto, data, hora, concluido_em')
         .in('nutri_id', alvoIds)
         .is('concluido_em', null)
-        .or(`data.is.null,data.lte.${hojeISO}`),
+        .or(`data.is.null,data.eq.${hojeISO}`),
     ]);
     if (cons.error) throw cons.error;
     if (blq.error) throw blq.error;

@@ -247,7 +247,7 @@ export default function NutriLayout() {
 
         <div className="sidebar-footer">
           <div className="sidebar-footer-label">Sessão</div>
-          <div className="sidebar-footer-val">{profile?.nome ?? '—'}</div>
+          <div className="sidebar-footer-val">{(secretaria ? secretaria.nome : profile?.nome) ?? '—'}</div>
           <button className="sidebar-logout" onClick={handleLogout}>
             <i className="ti ti-logout" style={{ fontSize: 15 }} aria-hidden="true"></i>
             <span>Sair</span>
@@ -276,7 +276,7 @@ export default function NutriLayout() {
           <div className="topbar-right">
             {secretaria && <span className="topbar-date" style={{ fontWeight: 600 }}>Acesso da secretária</span>}
             <span className="topbar-date">{mesAno()}</span>
-            <div className="topbar-avatar">{iniciais(profile?.nome)}</div>
+            <div className="topbar-avatar">{iniciais(secretaria ? secretaria.nome : profile?.nome)}</div>
           </div>
         </header>
 
