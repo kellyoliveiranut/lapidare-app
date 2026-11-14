@@ -122,7 +122,7 @@ export default function Financeiro({ pacienteId, nutriId, pacienteNome, paciente
           <i className="ti ti-info-circle" style={{ fontSize: 16, marginTop: 1 }} aria-hidden="true" />
           <div style={{ flex: 1 }}>
             <div className="al-t">Contrato de {brl(valorContrato)} sem venda registrada</div>
-            <div className="al-d">Registre a venda para o valor entrar no Financeiro e na Previsibilidade.</div>
+            <div className="al-d">Registre a venda para o valor entrar no Financeiro.</div>
           </div>
           <button className="btn" onClick={() => setNovaVendaOpen(true)}>Registrar venda</button>
         </div>

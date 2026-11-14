@@ -65,7 +65,7 @@ export default function Servicos() {
     <>
       <div className="page-title">Meus serviços</div>
       <div className="page-sub">
-        Catálogo dos produtos que você vende. Aparecem no <strong>Financeiro</strong> (ao registrar venda) e na <strong>Previsibilidade</strong> (planejamento do mês).
+        Catálogo dos produtos que você vende. Aparecem no <strong>Financeiro</strong> (ao registrar venda).
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
@@ -90,7 +90,6 @@ export default function Servicos() {
           <div className="empty-title">Nenhum serviço cadastrado</div>
           <div className="empty-sub">
             Cadastre seus produtos (plano trimestral, semestral, consultoria, etc) com nome, ticket e nível.
-            Eles aparecerão automaticamente em Previsibilidade para você planejar quanto vender de cada.
           </div>
           <button className="btn" onClick={() => setEditando({})}>
             <i className="ti ti-plus" aria-hidden="true"></i> Cadastrar primeiro serviço
@@ -264,9 +263,6 @@ function EditorServico({ servico, nutriId, onClose, onSaved }) {
       }}>
         <div style={{ fontFamily: 'var(--font-serif)', fontSize: 17, marginBottom: 4 }}>
           {isEdit ? 'Editar serviço' : 'Novo serviço'}
-        </div>
-        <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 14 }}>
-          Aparecerá no planejamento da Previsibilidade
         </div>
 
         <label className="form-lbl" style={{ marginTop: 0 }}>Nome do serviço</label>

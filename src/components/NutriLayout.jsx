@@ -42,7 +42,6 @@ const NAV_CONFIG = [
       // Logo abaixo de "Meus serviços" de propósito: um é o catálogo do que ela
       // vende, o outro o estoque do que ela entrega junto.
       { id: 'boxes',            path: '/nutri/boxes',           label: 'Box de boas-vindas',  icon: 'gift' },
-      { id: 'previsibilidade',  path: '/nutri/previsibilidade', label: 'Previsibilidade',     icon: 'trending-up' },
       { id: 'financeiro',       path: '/nutri/financeiro',      label: 'Financeiro real',     icon: 'credit-card' },
       { id: 'personalizacao',   path: '/nutri/personalizacao',  label: 'Personalização',      icon: 'palette' },
     ],
