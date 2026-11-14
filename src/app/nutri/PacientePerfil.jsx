@@ -10,6 +10,7 @@ import {
 HORARIO_CONSULTA_PADRAO, horaConsultaValida,
   dataLocalISO, montarDataHoraISO, partesLocaisISO,
 } from '../../lib/utils.js';
+import { registrarFichaAberta } from '../../lib/atividadeEquipe.js';
 import { mensagemAcesso } from '../../lib/mensagemAcesso.js';
 import { OBJETIVOS } from '../../lib/objetivos.js';
 import { PLANOS, modalidadeDaPaciente, localPadrao, datasSemLocal, localParaDefinirData, localAoRemarcar, gradeDoDia } from '../../lib/opcoesPaciente.js';
@@ -72,7 +73,7 @@ export default function PacientePerfil() {
   const { state } = useLocation();
   const voltarLabel = state?.label ?? 'Pacientes';
   const voltar = () => (state?.from ? navigate(-1) : navigate('/nutri/pacientes'));
-  const { user } = useSession();
+  const { user, secretaria } = useSession();
   const [paciente, setPaciente] = useState(null);
   const [tab, setTab] = useState('planejamento');
   const [chatAberto, setChatAberto] = useState(false);
@@ -204,6 +205,7 @@ export default function PacientePerfil() {
       .from('pacientes').select('*').eq('id', id).maybeSingle();
     if (error) { setErroCarregar(true); return; }
     setPaciente(data);
+    registrarFichaAberta(secretaria, user?.id, id);
 
     // Contratos da paciente. Query própria porque contratos_essentia é tabela
     // separada — ao contrário do termo de uso, que já vinha no select('*').
@@ -1527,6 +1529,8 @@ export default function PacientePerfil() {
           </button>
         )}
         <BaixarDadosPaciente pacienteId={paciente.id} pacienteNome={paciente.nome} />
+        {/* Excluir paciente é só da Dra.: o banco também barra a secretária. */}
+        {!secretaria && (
         <button onClick={() => setExcluirOpen(true)} style={{
           background: 'none', border: 'none', cursor: 'pointer',
           fontSize: 12, color: 'var(--red)', fontFamily: 'var(--font-sans)',
@@ -1536,6 +1540,7 @@ export default function PacientePerfil() {
           <i className="ti ti-trash" style={{ fontSize: 13 }} aria-hidden="true" />
           Excluir paciente
         </button>
+        )}
       </div>
 
       {arquivarOpen && (

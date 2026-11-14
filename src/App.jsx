@@ -57,6 +57,7 @@ const Servicos = lazy(() => import('./app/nutri/Servicos.jsx'));
 const Boxes = lazy(() => import('./app/nutri/Boxes.jsx'));
 const Financeiro = lazy(() => import('./app/nutri/Financeiro.jsx'));
 const Biblioteca = lazy(() => import('./app/nutri/Biblioteca.jsx'));
+const Atividade = lazy(() => import('./app/nutri/Atividade.jsx'));
 const Personalizacao = lazy(() => import('./app/nutri/Personalizacao.jsx'));
 const MonitoramentoOncologicoNutri = lazy(() => import('./app/nutri/MonitoramentoOncologico.jsx'));
 const Protocolos = lazy(() => import('./app/nutri/Protocolos.jsx'));
@@ -131,6 +132,7 @@ export default function App() {
                 <Route path="/nutri/mensagens-emagrecimento"
                        element={<Navigate to="/nutri/mensagem-motivacional?publico=emagrecimento" replace />} />
                 <Route path="/nutri/personalizacao" element={<Personalizacao />} />
+                <Route path="/nutri/atividade" element={<Atividade />} />
               </Route>
 
               {/* Lâmina imprimível de protocolo — FORA do NutriLayout de

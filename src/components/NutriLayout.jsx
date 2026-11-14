@@ -44,6 +44,8 @@ const NAV_CONFIG = [
       { id: 'boxes',            path: '/nutri/boxes',           label: 'Box de boas-vindas',  icon: 'gift' },
       { id: 'financeiro',       path: '/nutri/financeiro',      label: 'Financeiro real',     icon: 'credit-card' },
       { id: 'personalizacao',   path: '/nutri/personalizacao',  label: 'Personalização',      icon: 'palette' },
+      // Só a Dra. vê (a secretária não aparece neste item nem entra pela URL).
+      { id: 'atividade',        path: '/nutri/atividade',       label: 'Atividade da secretária', icon: 'history' },
     ],
   },
 ];
@@ -213,7 +215,7 @@ export default function NutriLayout() {
           {NAV_CONFIG.map(group => (
             <div key={group.group}>
               <div className="nav-group">{group.group}</div>
-              {group.items.map(item => (
+              {group.items.filter(item => !(secretaria && item.id === 'atividade')).map(item => (
                 <NavLink
                   key={item.id}
                   to={item.path}
