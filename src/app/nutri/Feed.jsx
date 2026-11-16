@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import { iniciais, dataBR, dataLocalISO, isoLocalDeData } from '../../lib/utils.js';
@@ -38,6 +39,7 @@ function temNovaResposta(p) {
 }
 
 export default function FeedNutri() {
+  const navigate = useNavigate();
   const { user } = useSession();
   const [posts, setPosts] = useState(undefined);
   const [urls, setUrls] = useState({});
@@ -231,12 +233,26 @@ export default function FeedNutri() {
               <div key={p.id} className="card"
                    style={{ padding: 0, overflow: 'hidden', marginBottom: 0 }}>
                 <div style={{ padding: '7px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <div style={{
-                    width: 26, height: 26, borderRadius: '50%',
-                    background: 'var(--bg2)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 12, fontWeight: 600, color: 'var(--dark)',
-                  }} role="img" aria-label={`Paciente ${iniciais(p.paciente?.nome)}`}>{iniciais(p.paciente?.nome)}</div>
+                  {/* Toque (iPad/celular) ou clique nas iniciais abre a ficha. O nome
+                      completo continua fora do feed, para não sair em captura de tela.
+                      Área de toque de 44 px com o círculo de 26 px centralizado. */}
+                  <button type="button"
+                    onClick={() => p.paciente?.id && navigate(`/nutri/pacientes/${p.paciente.id}`)}
+                    disabled={!p.paciente?.id}
+                    aria-label={`Abrir a ficha da paciente ${iniciais(p.paciente?.nome)}`}
+                    style={{
+                      width: 44, height: 44, margin: '-9px -9px -9px -9px', padding: 0, border: 'none',
+                      background: 'none', cursor: p.paciente?.id ? 'pointer' : 'default',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                      WebkitTapHighlightColor: 'transparent',
+                    }}>
+                    <span style={{
+                      width: 26, height: 26, borderRadius: '50%',
+                      background: 'var(--bg2)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 12, fontWeight: 600, color: 'var(--dark)',
+                    }}>{iniciais(p.paciente?.nome)}</span>
+                  </button>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     {/* Só as iniciais da paciente (o círculo ao lado): o nome completo
                         não aparece no feed, nem em captura de tela. */}
