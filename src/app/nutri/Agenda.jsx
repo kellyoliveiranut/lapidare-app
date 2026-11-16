@@ -1621,8 +1621,12 @@ function PainelLembretes({ lembretes, confirmadas = 0, semConfirmacao = 0, locai
   const foiEnviado = l =>
     !!enviadosLocais.get(l.id) || !!l.lembrete_enviado_em || !!l.lembrete_enviado;
 
-  const pendentesList = lembretes.filter(l => !foiEnviado(l));
-  const enviadosList  = lembretes.filter(foiEnviado);
+  // Confirmada fica SEMPRE na lista principal, mesmo com o lembrete já enviado:
+  // a paciente costuma confirmar justamente em resposta a ele, e escondê-la em
+  // "já enviados" fazia a confirmação sumir do painel. O cartão mostra os dois
+  // rótulos (Enviado e Confirmada).
+  const pendentesList = lembretes.filter(l => !foiEnviado(l) || !!l.confirmada_em);
+  const enviadosList  = lembretes.filter(l => foiEnviado(l) && !l.confirmada_em);
   const pendentes = pendentesList.filter(l => !l.confirmada_em).length;
 
   const visiveis = verTodos ? pendentesList : pendentesList.slice(0, LIMITE_PENDENTES);
