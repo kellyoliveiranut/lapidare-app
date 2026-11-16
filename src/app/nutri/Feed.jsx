@@ -237,7 +237,7 @@ export default function FeedNutri() {
                       completo continua fora do feed, para não sair em captura de tela.
                       Área de toque de 44 px com o círculo de 26 px centralizado. */}
                   <button type="button"
-                    onClick={() => p.paciente?.id && navigate(`/nutri/pacientes/${p.paciente.id}`)}
+                    onClick={() => p.paciente?.id && navigate(`/nutri/pacientes/${p.paciente.id}`, { state: { from: '/nutri/feed', label: 'Feed de pratos' } })}
                     disabled={!p.paciente?.id}
                     aria-label={`Abrir a ficha da paciente ${iniciais(p.paciente?.nome)}`}
                     style={{
