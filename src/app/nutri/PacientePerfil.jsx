@@ -1236,54 +1236,29 @@ export default function PacientePerfil() {
 
       {/* Botões de agendamento */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
-        {planoEssentia && !temConsultaDoPlano && (
+        {/* Um botão só para o plano: agenda de uma vez as consultas que ainda
+            não existem (as 6, da 2 a 6, só a última…). A avulsa saiu daqui para
+            não ser confundida com ele (ver o link depois da lista). */}
+        {planoEssentia && acompList != null && tiposVazios.length > 0 && (
           <button
-            onClick={() => setAgendarAcompOpen(true)}
+            onClick={() => { setTiposRestantes(tiposVazios.length === 6 ? null : tiposVazios); setAgendarAcompOpen(true); }}
             style={{
-              flex: '1 1 200px', padding: '9px 14px', borderRadius: 10,
-              border: '1px dashed var(--gold-deep, #a08456)',
-              background: 'transparent', color: 'var(--gold-deep, #a08456)',
-              fontSize: 13, fontWeight: 500, cursor: 'pointer',
+              flex: '1 1 100%', padding: '11px 14px', borderRadius: 10,
+              border: 'none', background: 'var(--gold-deep, #a08456)', color: '#fff',
+              fontSize: 14, fontWeight: 600, cursor: 'pointer',
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
               gap: 6, fontFamily: 'var(--font-sans)',
             }}
           >
             <i className="ti ti-calendar-plus" aria-hidden="true" />
-            Agendar acompanhamento (6 consultas)
+            {tiposVazios.length === 6
+              ? 'Agendar as 6 consultas do plano'
+              : tiposVazios.length === 1
+                ? `Agendar ${rotuloTipo(tiposVazios[0])} do plano`
+                : `Agendar as ${tiposVazios.length} restantes do plano (${rotuloTipo(tiposVazios[0])} a ${rotuloTipo(tiposVazios[tiposVazios.length - 1])})`}
           </button>
         )}
-        {planoEssentia && temConsultaDoPlano && tiposVazios.length >= 2 && (
-          <button
-            onClick={() => { setTiposRestantes(tiposVazios); setAgendarAcompOpen(true); }}
-            style={{
-              flex: '1 1 200px', padding: '9px 14px', borderRadius: 10,
-              border: '1px dashed var(--gold-deep, #a08456)',
-              background: 'transparent', color: 'var(--gold-deep, #a08456)',
-              fontSize: 13, fontWeight: 500, cursor: 'pointer',
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              gap: 6, fontFamily: 'var(--font-sans)',
-            }}
-          >
-            <i className="ti ti-calendar-plus" aria-hidden="true" />
-            Agendar as {tiposVazios.length} restantes do plano
-          </button>
-        )}
-        {planoEssentia ? (
-          <button
-            onClick={() => setAgendarTipo({ tipo: 'avulsa', titulo: 'Agendar consulta avulsa' })}
-            style={{
-              flex: '1 1 200px', padding: '9px 14px', borderRadius: 10,
-              border: '1px dashed var(--gold-deep, #a08456)',
-              background: 'transparent', color: 'var(--gold-deep, #a08456)',
-              fontSize: 13, fontWeight: 500, cursor: 'pointer',
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              gap: 6, fontFamily: 'var(--font-sans)',
-            }}
-          >
-            <i className="ti ti-calendar-plus" aria-hidden="true" />
-            Agendar consulta avulsa
-          </button>
-        ) : (
+        {!planoEssentia && (
           <button
             onClick={() => setMigrarOpen(true)}
             style={{
@@ -1441,6 +1416,24 @@ export default function PacientePerfil() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Consulta extra: fora do plano, NÃO ocupa nenhuma das 6 posições. Fica
+          discreta, depois da lista, para não ser confundida com o botão do plano. */}
+      {planoEssentia && (
+        <div style={{ margin: '-6px 0 14px', textAlign: 'center' }}>
+          <button
+            onClick={() => setAgendarTipo({ tipo: 'avulsa', titulo: 'Agendar consulta extra (fora do plano)' })}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px',
+              fontSize: 12, color: 'var(--muted)', textDecoration: 'underline',
+              fontFamily: 'var(--font-sans)',
+            }}
+          >
+            Consulta extra, fora do plano
+          </button>
+          <div style={{ fontSize: 11, color: 'var(--muted)' }}>Não preenche nenhuma das 6 consultas do plano.</div>
         </div>
       )}
 
