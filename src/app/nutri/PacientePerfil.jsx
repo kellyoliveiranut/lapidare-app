@@ -93,6 +93,8 @@ export default function PacientePerfil() {
   const [consultaAtiva, setConsultaAtiva] = useState(undefined);
   const [busyConsulta, setBusyConsulta] = useState(false);
   const [agendarAcompOpen, setAgendarAcompOpen] = useState(false);
+  // Agendar só as posições que faltam (1ª já existe): lista de tipos, ou null = as 6.
+  const [tiposRestantes, setTiposRestantes] = useState(null);
   const [definirDataConsulta, setDefinirDataConsulta] = useState(null); // consulta "a definir" sendo datada
   const [acompList, setAcompList] = useState(null);
   // Faltas registradas (só a nutri vê). Consulta separada: se a migração
@@ -151,6 +153,16 @@ export default function PacientePerfil() {
     [paciente?.tipo_plano, acompList],
   );
   const temConsultaDoPlano = slotsPlano.some(sl => sl.consulta);
+  // Posições do plano ainda sem consulta, para agendar de uma vez quando a 1ª
+  // (ou outras) já existe. Só faz sentido com 2 ou mais vazias.
+  const tiposVazios = slotsPlano.filter(sl => !sl.consulta).map(sl => sl.tipo);
+  const dataInicialRestantes = (() => {
+    const ult = slotsPlano.map(sl => sl.consulta?.data_hora).filter(Boolean).sort().pop();
+    if (!ult) return null;
+    const d = new Date(`${partesLocaisISO(ult).data}T00:00:00`);
+    d.setDate(d.getDate() + 15);
+    return isoLocal(d);
+  })();
   // Posições do plano primeiro, em ordem fixa; depois as de outro tipo.
   const linhasConsultas = [
     ...slotsPlano.map(sl => ({ tipo: sl.tipo, rotulo: sl.rotulo, consulta: sl.consulta })),
@@ -975,9 +987,12 @@ export default function PacientePerfil() {
           nutriId={user?.id}
           consultaAtiva={consultaAtiva}
           modalidadePaciente={paciente?.modalidade}
-          onClose={() => setAgendarAcompOpen(false)}
+          tipos={tiposRestantes ?? undefined}
+          dataInicial={tiposRestantes ? dataInicialRestantes : null}
+          onClose={() => { setAgendarAcompOpen(false); setTiposRestantes(null); }}
           onSalvo={() => {
             setAgendarAcompOpen(false);
+            setTiposRestantes(null);
             Promise.all([reloadConsultaAtiva(), loadAcompConsultas()]);
           }}
         />
@@ -1235,6 +1250,22 @@ export default function PacientePerfil() {
           >
             <i className="ti ti-calendar-plus" aria-hidden="true" />
             Agendar acompanhamento (6 consultas)
+          </button>
+        )}
+        {planoEssentia && temConsultaDoPlano && tiposVazios.length >= 2 && (
+          <button
+            onClick={() => { setTiposRestantes(tiposVazios); setAgendarAcompOpen(true); }}
+            style={{
+              flex: '1 1 200px', padding: '9px 14px', borderRadius: 10,
+              border: '1px dashed var(--gold-deep, #a08456)',
+              background: 'transparent', color: 'var(--gold-deep, #a08456)',
+              fontSize: 13, fontWeight: 500, cursor: 'pointer',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              gap: 6, fontFamily: 'var(--font-sans)',
+            }}
+          >
+            <i className="ti ti-calendar-plus" aria-hidden="true" />
+            Agendar as {tiposVazios.length} restantes do plano
           </button>
         )}
         {planoEssentia ? (
@@ -6350,11 +6381,6 @@ function gerarDatas(primeiraData, hora, intervaloDias, qtd, pularFimDeSemana = t
   return datas;
 }
 
-function tipoConsulta(idx) {
-  if (idx === 0) return 'primeira';
-  return `consulta_${idx + 1}`;
-}
-
 // ─── Modalidade e local nos modais do pacote e da avulsa (pedido de 2026-10-06)
 // Até aqui os dois modais não mandavam modalidade, e o default do banco gravava
 // toda consulta como 'online' — inclusive de paciente presencial. Agora a
@@ -6428,9 +6454,16 @@ function CampoModalidadeConsulta({ modalidade, onChange, semLocal, falhouLocais,
   );
 }
 
-function ModalAgendarAcompanhamento({ pacienteId, nutriId, consultaAtiva, modalidadePaciente, onClose, onSalvo }) {
-  const seed = consultaAtiva ? partesLocaisISO(consultaAtiva.data_hora) : null;
-  const defaultData = seed ? seed.data : dataLocalISO(15);
+const TIPOS_PACOTE_6 = ['primeira', 'consulta_2', 'consulta_3', 'consulta_4', 'consulta_5', 'consulta_6'];
+
+// `tipos`: as posições a criar. Sem ela, as 6 do pacote. Com ela (ex.: Consulta 2
+// a 6 quando a 1ª já existe), só essas — nada duplica o que já está agendado.
+// `dataInicial`: primeira data sugerida nesse caso (depois da última do plano).
+function ModalAgendarAcompanhamento({ pacienteId, nutriId, consultaAtiva, modalidadePaciente, tipos = TIPOS_PACOTE_6, dataInicial = null, onClose, onSalvo }) {
+  const N = tipos.length;
+  const parcial = N < 6;
+  const seed = !parcial && consultaAtiva ? partesLocaisISO(consultaAtiva.data_hora) : null;
+  const defaultData = dataInicial ?? (seed ? seed.data : dataLocalISO(15));
   const defaultHora = seed && horaConsultaValida(seed.hora) ? seed.hora : HORARIO_CONSULTA_PADRAO;
 
   const [primeiraData, setPrimeiraData] = useState(defaultData);
@@ -6440,7 +6473,7 @@ function ModalAgendarAcompanhamento({ pacienteId, nutriId, consultaAtiva, modali
   // Uma modalidade para as 6. Pré-preenchida pelo cadastro, editável.
   const [modalidade, setModalidade] = useState(() => modalidadeDaPaciente(modalidadePaciente));
   const { locais, carregando: carregandoLocais, falhou: falhouLocais } = useLocaisAtendimento(nutriId);
-  const [datas, setDatas] = useState(() => gerarDatas(defaultData, defaultHora, 15, 6, true));
+  const [datas, setDatas] = useState(() => gerarDatas(defaultData, defaultHora, 15, N, true));
   const [semData, setSemData] = useState(false);
   const [permitirFds, setPermitirFds] = useState(false);
   const [salvando, setSalvando] = useState(false);
@@ -6449,7 +6482,7 @@ function ModalAgendarAcompanhamento({ pacienteId, nutriId, consultaAtiva, modali
   // nPermitir vem por parâmetro porque handlePermitirFds precisa recalcular com
   // o valor novo — o setState do React só reflete no render seguinte.
   function recalcular(nData, nHora, nIntervalo, nPermitir = permitirFds) {
-    setDatas(gerarDatas(nData, nHora, Number(nIntervalo), 6, !nPermitir));
+    setDatas(gerarDatas(nData, nHora, Number(nIntervalo), N, !nPermitir));
   }
   function handlePrimeiraData(v) { setPrimeiraData(v); recalcular(v, hora, intervalo); }
   function handleHora(v) { setHora(v); recalcular(primeiraData, v, intervalo); }
@@ -6516,7 +6549,7 @@ function ModalAgendarAcompanhamento({ pacienteId, nutriId, consultaAtiva, modali
           // ordem das seis linhas do formulário. O labelTipoConsulta daqui
           // não serve — ele vive dentro do componente PacientePerfil, e este
           // modal é uma função irmã, fora daquele escopo.
-          itens: datas.map((d, i) => ({ data: d.data, hora: horasEfetivas[i], duracaoMin: duracao })),
+          itens: datas.map((d, i) => ({ data: d.data, hora: horasEfetivas[i], duracaoMin: duracao, rotulo: rotuloTipo(tipos[i]) })),
           permitirFds,
           dicaFds: ' Ou marque "permitir fim de semana".',
         });
@@ -6535,7 +6568,7 @@ function ModalAgendarAcompanhamento({ pacienteId, nutriId, consultaAtiva, modali
         return;
       }
     }
-    const payload = Array.from({ length: 6 }, (_, i) => ({
+    const payload = Array.from({ length: N }, (_, i) => ({
       paciente_id:    pacienteId,
       nutri_id:       nutriId,
       data_hora:      semData ? null : montarDataHoraISO(datas[i].data, horasEfetivas[i]),
@@ -6544,7 +6577,7 @@ function ModalAgendarAcompanhamento({ pacienteId, nutriId, consultaAtiva, modali
       // Presencial: o local de CADA data pela regra de dia da semana; '' vira
       // null (sem local), que o aviso já listou. Online e "a definir": null.
       local_id:       modalidade === 'presencial' && !semData ? (localPadrao(locais, datas[i].data) || null) : null,
-      tipo:           tipoConsulta(i),
+      tipo:           tipos[i],
       status:         'agendada',
       lembrete_ativo: true,
     }));
@@ -6571,7 +6604,7 @@ function ModalAgendarAcompanhamento({ pacienteId, nutriId, consultaAtiva, modali
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
           <span style={{ fontFamily: 'var(--font-serif)', fontSize: 18, color: 'var(--ink)' }}>
-            Agendar acompanhamento
+            {parcial ? `Agendar ${rotuloTipo(tipos[0])} a ${rotuloTipo(tipos[N - 1])}` : 'Agendar acompanhamento'}
           </span>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: 'var(--muted)', padding: 4 }}>
             <i className="ti ti-x" aria-hidden="true" />
@@ -6580,7 +6613,7 @@ function ModalAgendarAcompanhamento({ pacienteId, nutriId, consultaAtiva, modali
 
         <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, cursor: 'pointer', fontSize: 13, color: 'var(--ink)' }}>
           <input type="checkbox" checked={semData} onChange={e => setSemData(e.target.checked)} />
-          Criar as 6 sem datas (definir depois)
+          Criar as {N} sem datas (definir depois)
         </label>
 
         {/* Duração — sempre visível */}
@@ -6603,7 +6636,7 @@ function ModalAgendarAcompanhamento({ pacienteId, nutriId, consultaAtiva, modali
           {/* Configuração: 1ª consulta (data + horário) e intervalo */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
             <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <span style={lblStyle}>1ª consulta</span>
+              <span style={lblStyle}>{rotuloTipo(tipos[0])}</span>
               <DateInput value={primeiraData} onChange={e => handlePrimeiraData(e.target.value)} />
             </label>
             <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -6641,9 +6674,9 @@ function ModalAgendarAcompanhamento({ pacienteId, nutriId, consultaAtiva, modali
           )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 20 }}>
             {datas.map((dt, i) => (
-              <div key={i} style={{ display: 'grid', gridTemplateColumns: '76px 1fr 96px', gap: 8, alignItems: 'center' }}>
+              <div key={i} style={{ display: 'grid', gridTemplateColumns: '84px 1fr 96px', gap: 8, alignItems: 'center' }}>
                 <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--gold-deep)', textAlign: 'right', paddingRight: 4 }}>
-                  Consulta {i + 1}
+                  {rotuloTipo(tipos[i])}
                 </span>
                 <DateInput value={dt.data} onChange={e => handleData(i, 'data', e.target.value)} />
                 <select value={porLinha[i].valor ?? ''} onChange={e => handleData(i, 'hora', e.target.value)}
@@ -6690,7 +6723,7 @@ function ModalAgendarAcompanhamento({ pacienteId, nutriId, consultaAtiva, modali
             fontFamily: 'var(--font-sans)',
           }}
         >
-          {salvando ? 'Salvando…' : 'Salvar 6 consultas'}
+          {salvando ? 'Salvando…' : `Salvar ${N} consultas`}
         </button>
       </div>
     </div>
