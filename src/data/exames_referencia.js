@@ -195,6 +195,11 @@ export const CAMPOS_EXAME_EXTRA = [
   { key: 'tfg', label: 'TFG estimada', curto: 'TFG', unidade: 'mL/min/1,73 m²', dec: 1, ph: '', ref: { min: 90 } },
   { key: 'tgo', label: 'TGO / AST', curto: 'TGO', unidade: 'U/L', dec: 0, ph: '', ref: { min: 10, max: 40 } },
   { key: 'tgp', label: 'TGP / ALT', curto: 'TGP', unidade: 'U/L', dec: 0, ph: '', ref: { min: 7, max: 56 } },
+  // Vitaminas que vinham nos laudos e caíam em "Observações". SEM faixa de
+  // referência até a Kelly definir (a faixa depende do método do laboratório):
+  // o app só guarda e mostra o valor, sem marcar alto/baixo.
+  { key: 'vitamina_b12', label: 'Vitamina B12', curto: 'B12', unidade: 'pg/mL', dec: 0, ph: '' },
+  { key: 'vitamina_d', label: 'Vitamina D (25-OH)', curto: 'Vit D', unidade: 'ng/mL', dec: 1, ph: '' },
 ];
 
 export const CHAVES_EXAME_EXTRA = CAMPOS_EXAME_EXTRA.map(c => c.key);

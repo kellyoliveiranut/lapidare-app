@@ -7,7 +7,7 @@ import DateInput from '../../components/DateInput.jsx';
 import ModalShell from '../../components/ModalShell.jsx';
 import CardProtocoloEfeitos from '../../components/CardProtocoloEfeitos.jsx';
 import protocolosEfeitosData from '../../data/protocolos_efeitos.json';
-import { lerObservacaoExames } from '../../lib/lerObservacaoExames.js';
+import { montarPedidoExame, interpretarExame } from '../../lib/lerExamePdf.js';
 import { CAMPOS_EXAME, CHAVES_EXAME, CAMPOS_EXAME_EXTRA, CHAVES_EXAME_EXTRA, textoRef, foraDaRef, fmtNumExame } from '../../data/exames_referencia.js';
 import ValorExame, { LegendaExames } from '../../components/ValorExame.jsx';
 import GraficosExames from '../../components/GraficosExames.jsx';
@@ -354,21 +354,6 @@ export default function TratamentoOncologico({ pacienteId, nutriId, pacienteNome
     carregar();
   }
 
-  // Preenche os campos com os números que já estão escritos nas Observações,
-  // exatamente como estão. Não apaga o texto; quem decide é a nutri, que
-  // confere antes de registrar (os campos preenchidos ficam destacados).
-  function preencherDasObservacoes() {
-    const { valores, ignorados } = lerObservacaoExames(novoExame.obs);
-    const chaves = Object.keys(valores);
-    if (chaves.length === 0) {
-      return setFeedback({ tipo: 'erro', msg: 'Não encontrei valores no formato "Nome: número" nas Observações.' });
-    }
-    setNovoExame(p => ({ ...p, ...valores }));
-    setAConferir(prev => new Set([...prev, ...chaves]));
-    setFeedback({ tipo: 'ok', msg: `${chaves.length} valor(es) preenchido(s) a partir das Observações. Confira antes de registrar.`
-      + (ignorados.length ? ` Sem campo no app: ${ignorados.join(', ')}.` : '') });
-  }
-
   async function adicionarExame() {
     if (!novoExame.data_exame) return setFeedback({ tipo: 'erro', msg: 'Informe a data do exame.' });
     if (aConferir.size > 0 && !(await confirmarJanela(`${aConferir.size} valor(es) lido(s) do laudo ainda não foram conferidos. Registrar mesmo assim?`, { confirmarRotulo: 'Registrar', cancelarRotulo: 'Voltar e conferir' }))) return;
@@ -385,7 +370,9 @@ export default function TratamentoOncologico({ pacienteId, nutriId, pacienteNome
       // Mesmo numf() de antes, campo a campo — só que a lista das 8 chaves
       // vem do catálogo em vez de estar redigitada aqui.
       ...Object.fromEntries(CHAVES_EXAME.map(k => [k, numf(novoExame[k])])),
-      obs: novoExame.obs.trim() || null,
+      // Sem campo de Observações: o laudo é lido para os campos. A coluna segue
+      // no banco e o histórico antigo continua mostrando o que já foi escrito.
+      obs: null,
     });
     setBusy(false);
     if (error) return setFeedback({ tipo: 'erro', msg: error.message });
@@ -418,23 +405,10 @@ export default function TratamentoOncologico({ pacienteId, nutriId, pacienteNome
       const contentBlock = isPdf
         ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } }
         : { type: 'image',    source: { type: 'base64', media_type: file.type,           data: base64 } };
-      const promptText = `Analise este exame laboratorial e extraia APENAS os seguintes valores em formato JSON puro, sem texto adicional, sem markdown, sem explicações:
-{
-  "data_exame": "string (formato YYYY-MM-DD, se encontrar)",
-  "hemoglobina": "number ou null",
-  "leucocitos": "number ou null",
-  "neutrofilos": "number ou null",
-  "linfocitos": "number ou null",
-  "plaquetas": "number ou null",
-  "pcr": "number ou null",
-  "albumina": "number ou null",
-  "glicemia": "number ou null",
-  "obs": "string (valores adicionais relevantes encontrados no exame)"
-}
-Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
+      const promptText = montarPedidoExame();
       const rawText = await callAnthropic(
         [{ role: 'user', content: [contentBlock, { type: 'text', text: promptText }] }],
-        { maxTokens: 1024 },
+        { maxTokens: 2048 },
       );
       let parsed;
       try {
@@ -443,21 +417,17 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
       } catch {
         throw new Error('Não foi possível interpretar a resposta. Tente novamente.');
       }
-      setAConferir(new Set(CHAVES_EXAME.filter(k => parsed[k] != null)));
-      setNovoExame(prev => ({
-        ...prev,
-        data_exame:  parsed.data_exame  || prev.data_exame,
-        hemoglobina: parsed.hemoglobina != null ? String(parsed.hemoglobina) : prev.hemoglobina,
-        leucocitos:  parsed.leucocitos  != null ? String(parsed.leucocitos)  : prev.leucocitos,
-        neutrofilos: parsed.neutrofilos != null ? String(parsed.neutrofilos) : prev.neutrofilos,
-        linfocitos:  parsed.linfocitos  != null ? String(parsed.linfocitos)  : prev.linfocitos,
-        plaquetas:   parsed.plaquetas   != null ? String(parsed.plaquetas)   : prev.plaquetas,
-        pcr:         parsed.pcr         != null ? String(parsed.pcr)         : prev.pcr,
-        albumina:    parsed.albumina    != null ? String(parsed.albumina)    : prev.albumina,
-        glicemia:    parsed.glicemia    != null ? String(parsed.glicemia)    : prev.glicemia,
-        obs:         parsed.obs         || prev.obs,
-      }));
-      setFeedback({ tipo: 'ok', msg: 'Exame lido com sucesso! Confira os valores antes de salvar.' });
+      const { dataExame, valores, comSinal, outros } = interpretarExame(parsed);
+      const chaves = Object.keys(valores);
+      if (chaves.length === 0) throw new Error('Não encontrei valores de exame neste arquivo. Confira se é o laudo certo.');
+      setAConferir(new Set(chaves));
+      setNovoExame(prev => ({ ...prev, ...valores, data_exame: dataExame || prev.data_exame }));
+      setFeedback({
+        tipo: 'ok',
+        msg: `Exame lido: ${chaves.length} valor(es) preenchido(s). Confira os campos destacados antes de registrar.`
+          + (comSinal.length ? ` Atenção, o laudo traz ${comSinal.map(c => `${c.rotulo} ${c.texto}`).join('; ')}.` : '')
+          + (outros.length ? ` Sem campo no app: ${outros.map(o => `${o.nome} ${o.valor}`).join('; ')}.` : ''),
+      });
     } catch (err) {
       setFeedback({ tipo: 'erro', msg: err.message || 'Erro ao processar o exame.' });
     } finally {
@@ -1331,7 +1301,7 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
               </div>
               <details style={{ marginBottom: 10 }} open={CHAVES_EXAME_EXTRA.some(k => String(novoExame['x_' + k] ?? '') !== '') || undefined}>
                 <summary style={{ cursor: 'pointer', fontSize: 13, fontWeight: 500, padding: '4px 0' }}>
-                  Outros parâmetros (hemograma completo, ureia, creatinina, TFG, TGO e TGP)
+                  Outros parâmetros (hemograma completo, ureia, creatinina, TFG, TGO, TGP e vitaminas)
                 </summary>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginTop: 8 }}>
                   {CAMPOS_EXAME_EXTRA.map(campo => {
@@ -1348,16 +1318,6 @@ Retorne SOMENTE o JSON, sem nenhum texto antes ou depois.`;
                   })}
                 </div>
               </details>
-              <div style={{ marginBottom: 10 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
-                  <label className="field-label">Observações</label>
-                  <button type="button" className="btn-outline" style={{ fontSize: 12, minHeight: 30, padding: '2px 10px' }}
-                    onClick={preencherDasObservacoes} disabled={!novoExame.obs.trim()}>
-                    <i className="ti ti-wand" aria-hidden="true" /> Preencher campos a partir das observações
-                  </button>
-                </div>
-                <input value={novoExame.obs} onChange={e => setNovoExame(p => ({ ...p, obs: e.target.value }))} />
-              </div>
               <button className="btn" onClick={adicionarExame} disabled={busy}>
                 <i className="ti ti-plus" /> Registrar exame
               </button>
