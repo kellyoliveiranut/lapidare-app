@@ -309,6 +309,7 @@ export default function Financeiro() {
       {vendaEdit && (
         <EditarVendaModal
           venda={vendaEdit}
+          parcelas={parcelasPorVenda[vendaEdit.id] ?? []}
           pacientes={pacientes}
           onClose={() => setVendaEdit(null)}
           onSaved={async () => { setVendaEdit(null); await carregar(); }}

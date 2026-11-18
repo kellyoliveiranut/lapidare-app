@@ -470,6 +470,7 @@ export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo
    (caso da aba do perfil, onde a paciente é conhecida pelo contexto).
    ============================================================ */
 export function EditarParcelaModal({ parcela, venda, pacienteNome, onClose, onSaved }) {
+  const { secretaria } = useSession();
   const [status, setStatus] = useState(parcela.status);
   const [dataPgto, setDataPgto] = useState(parcela.data_pgto ?? dataLocalISO());
   const [valor, setValor] = useState(String(parcela.valor));
@@ -582,7 +583,7 @@ export function EditarParcelaModal({ parcela, venda, pacienteNome, onClose, onSa
         </button>
       </div>
 
-      <button onClick={excluirParcela} disabled={busy}
+      {!secretaria && <button onClick={excluirParcela} disabled={busy}
         style={{
           marginTop: 12, width: '100%', padding: '8px 14px',
           background: 'transparent', color: 'var(--red)',
@@ -591,7 +592,7 @@ export function EditarParcelaModal({ parcela, venda, pacienteNome, onClose, onSa
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
         }}>
         <i className="ti ti-trash" aria-hidden="true"></i> Excluir esta parcela
-      </button>
+      </button>}
     </ModalShell>
   );
 }
@@ -605,7 +606,9 @@ export function EditarParcelaModal({ parcela, venda, pacienteNome, onClose, onSa
    `pacienteFixo` esconde o seletor de paciente (aba do perfil), do mesmo
    jeito que no modal de nova venda.
    ============================================================ */
-export function EditarVendaModal({ venda, pacientes = [], pacienteFixo, onClose, onSaved }) {
+export function EditarVendaModal({ venda, parcelas = [], pacientes = [], pacienteFixo, onClose, onSaved }) {
+  const somaParcelas = parcelas.reduce((a, p) => a + Math.round(Number(p.valor) * 100), 0) / 100;
+  const [valorTotal, setValorTotal] = useState(String(venda.valor_total ?? '').replace('.', ','));
   const [pacienteId, setPacienteId] = useState(venda.paciente_id ?? '');
   const [servico, setServico] = useState(venda.servico ?? '');
   const [data, setData] = useState(venda.data_venda ?? '');
@@ -618,11 +621,17 @@ export function EditarVendaModal({ venda, pacientes = [], pacienteFixo, onClose,
     setErro(null);
     if (!servico.trim()) return setErro('Informe o serviço.');
     if (!data) return setErro('Informe a data da venda.');
+    const novoTotal = valorBR(valorTotal);
+    if (!(novoTotal > 0)) return setErro('Informe um valor total válido.');
+    if (Math.round(novoTotal * 100) < Math.round(somaParcelas * 100)) {
+      return setErro(`As parcelas lançadas somam ${brl(somaParcelas)}, mais que o valor total informado. Ajuste as parcelas primeiro (clique nelas na lista).`);
+    }
 
     setBusy(true);
     const r = await gravar(supabase
       .from('vendas')
       .update({
+        valor_total: novoTotal,
         paciente_id: pacienteId || null,
         servico: servico.trim(),
         data_venda: data,
@@ -651,6 +660,14 @@ export function EditarVendaModal({ venda, pacientes = [], pacienteFixo, onClose,
       <input value={servico} onChange={e => setServico(e.target.value)}
         placeholder="Ex: Acompanhamento trimestral" />
 
+      <label className="form-lbl">Valor total (R$)</label>
+      <input inputMode="decimal" value={valorTotal} onChange={e => setValorTotal(e.target.value)} />
+      {parcelas.length > 0 && (
+        <div style={{ fontSize: 11.5, color: 'var(--text3)', marginTop: 3 }}>
+          Parcelas lançadas: {brl(somaParcelas)}. O que passar disso fica como "restante a combinar".
+        </div>
+      )}
+
       <label className="form-lbl">Data da venda</label>
       <DateInput value={data} onChange={e => setData(e.target.value)} />
 
@@ -671,10 +688,11 @@ export function EditarVendaModal({ venda, pacientes = [], pacienteFixo, onClose,
         background: 'var(--bg2)', borderRadius: 7, padding: '10px 12px',
         marginTop: 12, fontSize: 12, color: 'var(--text2)', lineHeight: 1.5,
       }}>
-        <strong>Pra mudar valor total ou forma de pagamento</strong>, é melhor
-        excluir essa venda e criar uma nova — assim as parcelas são geradas
-        corretamente. Pra ajustar valor de uma parcela específica, clique nela
-        na lista.
+        <strong>O valor total pode ser corrigido aqui</strong>, mas as parcelas
+        não mudam: a diferença vira "restante a combinar", e você define as
+        parcelas depois. Pra ajustar o valor de uma parcela específica, clique
+        nela na lista. Pra mudar a forma de pagamento, é preciso excluir a venda
+        e criar outra (só a Dra. consegue excluir).
       </div>
 
       {erro && (

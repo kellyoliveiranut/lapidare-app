@@ -4,6 +4,7 @@ import {
   labelFormaPgto, iconFormaPgto, STATUS_PARCELA_INFO,
 } from '../lib/utils.js';
 import { restanteACombinar } from '../lib/parcelasEntrada.js';
+import { useSession } from '../lib/session.jsx';
 
 /**
  * Lista de vendas com as parcelas expansíveis.
@@ -28,6 +29,9 @@ export default function ListaVendas({
   // Opcional: cria um lembrete de cobrança para o restante a combinar.
   onLembrarCobranca,
 }) {
+  // A secretária não exclui (trava no banco): o botão nem aparece, em vez de
+  // falhar com "nenhuma linha foi alterada".
+  const { secretaria } = useSession();
   const [expandidas, setExpandidas] = useState({});
   const toggleExpand = (id) => setExpandidas(s => ({ ...s, [id]: !s[id] }));
 
@@ -189,7 +193,7 @@ export default function ListaVendas({
                 }}>
                 <i className="ti ti-pencil" aria-hidden="true" /> Editar venda
               </button>
-              <button
+              {!secretaria && <button
                 onClick={(e) => { e.stopPropagation(); onExcluirVenda(v); }}
                 style={{
                   flex: 1, padding: '8px 12px',
@@ -199,7 +203,7 @@ export default function ListaVendas({
                   display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                 }}>
                 <i className="ti ti-trash" aria-hidden="true" /> Excluir venda
-              </button>
+              </button>}
             </div>
           </div>
         )}
