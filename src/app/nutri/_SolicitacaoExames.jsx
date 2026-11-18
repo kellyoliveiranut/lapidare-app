@@ -5,7 +5,7 @@ import { dataBR } from '../../lib/utils.js';
 import { CATEGORIAS_EXAME, TOTAL_ITENS_EXAME } from '../../data/exames_solicitacao.js';
 import { CARIMBO_ASSINATURA } from '../../data/carimboAssinatura.js';
 import { criarDocumento, cabecalho,
-  M, W, TOPO, BRONZE, SEPIA, LINHA, LINHA2, TINTA, OURO, PAGE_W } from '../../lib/pdfBase.js';
+  M, W, TOPO, FUNDO, BRONZE, SEPIA, LINHA, LINHA2, TINTA, OURO, PAGE_W } from '../../lib/pdfBase.js';
 import { gravar } from '../../lib/gravar.js';
 
 import { confirmar as confirmarJanela } from '../../lib/dialogos.js';
@@ -406,9 +406,11 @@ function blocoIdentificacao(p, y, { pacienteNome, contato }) {
    página. */
 function blocoAssinatura(p, y) {
   const { escrever, regua, caberOuQuebrar, doc } = p;
-  const H_CARIMBO = 56;
-  y = caberOuQuebrar(y, 24 + H_CARIMBO + 40 + 70);
-  y += 24;
+  const H_CARIMBO = 40;   // menor que antes (56), a pedido da Kelly
+  // Do topo do carimbo ao fim da marca; o bloco fica encostado no fim da última página.
+  const alturaBloco = H_CARIMBO + 14 + 13 + 24 + 12 + 4;
+  y = caberOuQuebrar(y, 24 + alturaBloco);
+  y = Math.max(y + 24, FUNDO - alturaBloco);
   try {
     // Carimbo + assinatura já impressos, mantendo a proporção.
     const C = CARIMBO_ASSINATURA;

@@ -233,16 +233,35 @@ export function cardPaciente(p, y, { pacienteNome, contato }) {
  */
 export function rodape(p, y, { carimbo = null } = {}) {
   const { doc, escrever, regua, caberOuQuebrar } = p;
-  // `carimbo`: { dataUrl, largura, altura } — imagem do carimbo + assinatura,
-  // impressa logo acima da linha de assinatura (opcional; só quem pede).
-  const hImg = carimbo ? 78 : 0;
-  y = caberOuQuebrar(y, 30 + hImg + 90);
-  y += 30;
+
+  // Com carimbo (pedido da Kelly, 18/11/2026): carimbo menor, bloco todo
+  // CENTRALIZADO e encostado no fim da última página, e não solto logo abaixo
+  // do texto. Se o conteúdo chega perto do fim, o bloco vai inteiro para a
+  // página seguinte (caberOuQuebrar), nunca partido.
   if (carimbo) {
+    const hImg = 50;
+    const alturaBloco = hImg + 4 + 13.9 + 11 + 27 + 12 + 8;   // do topo do carimbo ao fim da marca
+    y = caberOuQuebrar(y, 24 + alturaBloco);
+    y = Math.max(y + 24, FUNDO - alturaBloco);
     const wImg = Math.min(W * 0.62, hImg * carimbo.largura / carimbo.altura);
-    try { doc.addImage(carimbo.dataUrl, 'PNG', M, y, wImg, wImg * carimbo.altura / carimbo.largura); } catch { /* sem imagem, só a linha */ }
+    try { doc.addImage(carimbo.dataUrl, 'PNG', (PAGE_W - wImg) / 2, y, wImg, wImg * carimbo.altura / carimbo.largura); } catch { /* sem imagem, só a linha */ }
     y += hImg + 4;
+    regua(y, TINTA, 195, (PAGE_W - 195) / 2);
+    y += 4.5 + 9.4;
+    escrever('Kelly Oliveira', PAGE_W / 2, y, { fonte: 'times', estilo: 'bold', tamanho: 9.4, align: 'center' });
+    y += 11;
+    escrever('Nutricionista · CRN 3801', PAGE_W / 2, y, { tamanho: 8.25, cor: SEPIA, align: 'center' });
+    y += 19.5 + 7.5;
+    regua(y, LINHA);
+    y += 12;
+    escrever('Documento gerado pelo app Essentia', PAGE_W / 2, y,
+      { tamanho: 7.1, cor: OURO, charSpace: 0.71, align: 'center' });
+    return;
   }
+
+  // Sem carimbo (lista de compras): como sempre foi, à esquerda e logo abaixo do texto.
+  y = caberOuQuebrar(y, 30 + 90);
+  y += 30;
   regua(y, TINTA, 195);                          // .assinatura-linha, 260px
   y += 4.5 + 9.4;
   escrever('Kelly Oliveira', M, y, { fonte: 'times', estilo: 'bold', tamanho: 9.4 });
