@@ -5,9 +5,9 @@ import { CARIMBO_ASSINATURA } from '../../data/carimboAssinatura.js';
 
 /* ============================================================
    PRESCRIÇÃO GLOWSHOT (menu da nutri)
-   Guia pronta do Glowshot, Moroshot ou Lipeshot (nome e telefone, com carimbo e assinatura) (Glowshot: produto da Dehon para as pacientes do evento
+   Guia pronta do Glowshot, Moroshot, Lipeshot ou Cistub (nome e telefone, com carimbo e assinatura) (Glowshot: produto da Dehon para as pacientes do evento
    OncoStart): texto fixo, só o nome da paciente muda. Não exige cadastro da
-   paciente no Essentia. A posologia (1 flaconete por dia) foi dada pela
+   paciente no Essentia. A posologia (1 flaconete por dia nos shots; Cistub 200 mg 1 vez ao dia) foi dada pela
    Kelly; composição e demais textos não existem aqui de propósito.
    O gerador do PDF é o mesmo das prescrições da Suplementação.
    ============================================================ */
@@ -17,7 +17,9 @@ export default function Glowshot() {
   const [telefone, setTelefone] = useState('');
   const [gerando, setGerando] = useState(false);
   const [produtos, setProdutos] = useState(['Glowshot']);
-  const NOMES = ['Glowshot', 'Moroshot', 'Lipeshot'];
+  // Posologia de cada produto (dada pela Kelly), só para o texto de apoio abaixo.
+  const DOSES = { Glowshot: '1 flaconete por dia', Moroshot: '1 flaconete por dia', Lipeshot: '1 flaconete por dia', Cistub: '200 mg, 1 vez ao dia' };
+  const NOMES = Object.keys(DOSES);
   const selecionados = NOMES.filter(n => produtos.includes(n));
   // Alterna o produto; sempre fica ao menos um marcado.
   const alternar = (n) => setProdutos(prev => prev.includes(n) ? (prev.length > 1 ? prev.filter(x => x !== n) : prev) : [...prev, n]);
@@ -79,7 +81,7 @@ export default function Glowshot() {
             style={{ width: '100%', marginBottom: 12 }}
           />
           <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 14 }}>
-            Texto padrão: {selecionados.join(', ')} — 1 flaconete por dia cada, com carimbo e assinatura da Kelly.
+            Texto padrão: {selecionados.map(n => `${n} (${DOSES[n]})`).join(', ')}, com carimbo e assinatura da Kelly.
           </div>
           <button className="btn" onClick={gerar} disabled={gerando || !nome.trim()}>
             <i className="ti ti-file-text" aria-hidden="true" /> {gerando ? 'Gerando…' : 'Gerar PDF'}
