@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { lerTodasPaginas } from '../../lib/lerPaginas.js';
+import { restanteACombinar } from '../../lib/parcelasEntrada.js';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
@@ -53,6 +54,8 @@ export default function Visao() {
   const [pacientes, setPacientes] = useState([]);
   const [consultasSemana, setConsultasSemana] = useState([]);
   const [parcelasSemana, setParcelasSemana] = useState([]);
+  // Vendas com restante a combinar (valor total maior que as parcelas lançadas).
+  const [aCombinar, setACombinar] = useState([]);
   const [checkinsPendentes, setCheckinsPendentes] = useState([]);
   const [planosTerminando, setPlanosTerminando] = useState([]);
   const [alertasRelacionais, setAlertasRelacionais] = useState([]);
@@ -133,7 +136,7 @@ export default function Visao() {
       const [
         pacRes, agSemanaRes, parcRes, checkRes,
         parcelasMesRes, realizadasRes, nutriRes,
-        msgRes, feedRes, supRes, supLogRes, lembRes,
+        msgRes, feedRes, supRes, supLogRes, lembRes, vendasRes,
       ] = await Promise.all([
         // pacientes ativas (com nascimento pra aniversário)
         supabase.from('pacientes').select('id, nome, tipo_plano, nascimento').eq('nutri_id', user.id).eq('status_paciente', 'ativo'),
@@ -192,6 +195,11 @@ export default function Visao() {
           .eq('nutri_id', user.id).is('concluido_em', null)
           .or(`data.is.null,data.eq.${hojeISO}`)
           .order('created_at'),
+        // vendas com paciente, para achar o "restante a combinar": o que não
+        // tem parcela não aparece em "Cobranças até domingo".
+        lerTodasPaginas(() => supabase.from('vendas')
+          .select('id, valor_total, servico, paciente:pacientes(id, nome), parcelas(valor)')
+          .eq('nutri_id', user.id).not('paciente_id', 'is', null).order('id')),
       ]);
 
       if (!active) return;
@@ -201,6 +209,9 @@ export default function Visao() {
       setParcelasSemana(parcRes.data ?? []);
       setCheckinsPendentes(checkRes.data ?? []);
       setLembretes(ordenarLembretes(lembRes.data ?? []));
+      setACombinar((vendasRes.data ?? [])
+        .map(v => ({ ...v, falta: restanteACombinar(v.valor_total, v.parcelas) }))
+        .filter(v => v.falta > 0));
 
       const receita = (parcelasMesRes.data ?? []).reduce((a, p) => a + liquidoParcela(p), 0);
       setReceitaMes(receita);
@@ -526,6 +537,21 @@ export default function Visao() {
           }))}
           onClick={() => navigate('/nutri/financeiro')}
         />
+
+        {aCombinar.length > 0 && (
+          <NotifCard
+            icon="hourglass"
+            color="var(--orange)"
+            titulo="Restante a combinar"
+            count={aCombinar.length}
+            descricao={`${brl(aCombinar.reduce((a, v) => a + v.falta, 0))} sem parcelas definidas`}
+            itens={aCombinar.slice(0, 3).map(v => ({
+              label: v.paciente?.nome ?? '—',
+              sub: `${brl(v.falta)} · ${v.servico}`,
+            }))}
+            onClick={() => navigate('/nutri/financeiro')}
+          />
+        )}
 
         <NotifCard
           icon="alert-triangle"

@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
-import { brl, statusParcela, liquidoParcela } from '../../lib/utils.js';
+import { brl, dataBR, statusParcela, liquidoParcela } from '../../lib/utils.js';
 import ListaVendas from '../../components/ListaVendas.jsx';
-import { NovaVendaModal, EditarParcelaModal, EditarVendaModal, DefinirRestanteModal } from '../../components/VendaModais.jsx';
+import { NovaVendaModal, EditarParcelaModal, EditarVendaModal, DefinirRestanteModal, LembrarCobrancaModal } from '../../components/VendaModais.jsx';
 import { restanteACombinar } from '../../lib/parcelasEntrada.js';
 import { gravar } from '../../lib/gravar.js';
 import { confirmar, avisar as avisarJanela } from '../../lib/dialogos.js';
@@ -26,6 +26,8 @@ export default function Financeiro({ pacienteId, nutriId, pacienteNome, paciente
   const [parcelaEdit, setParcelaEdit] = useState(null);
   const [vendaEdit, setVendaEdit] = useState(null);
   const [restanteVenda, setRestanteVenda] = useState(null);
+  const [lembrarVenda, setLembrarVenda] = useState(null);
+  const [lembreteCriado, setLembreteCriado] = useState(null);
   const [servicos, setServicos] = useState([]);
   // Valor do contrato Essentia (pendente ou aceito), para lembrar de lançar a venda.
   const [valorContrato, setValorContrato] = useState(null);
@@ -220,6 +222,7 @@ export default function Financeiro({ pacienteId, nutriId, pacienteNome, paciente
           onEditarVenda={setVendaEdit}
           onExcluirVenda={excluirVenda}
           onDefinirRestante={(v, ps) => setRestanteVenda({ venda: v, parcelas: ps })}
+          onLembrarCobranca={(v, valor) => setLembrarVenda({ venda: v, valor })}
         />
       )}
 
@@ -241,6 +244,24 @@ export default function Financeiro({ pacienteId, nutriId, pacienteNome, paciente
           pacienteNome={pacienteNome}
           onClose={() => setParcelaEdit(null)}
           onSaved={async () => { setParcelaEdit(null); await carregar(); }}
+        />
+      )}
+
+      {lembreteCriado && (
+        <div className="al-b" style={{ marginBottom: 12 }}>
+          <i className="ti ti-bell" style={{ fontSize: 16, marginTop: 1 }} aria-hidden="true" />
+          <div className="al-d" style={{ flex: 1 }}>Lembrete criado para {dataBR(lembreteCriado)}. Ele aparece na Visão geral nesse dia.</div>
+          <button className="btn-outline" onClick={() => setLembreteCriado(null)} aria-label="Fechar aviso"><i className="ti ti-x" aria-hidden="true" /></button>
+        </div>
+      )}
+
+      {lembrarVenda && (
+        <LembrarCobrancaModal
+          {...lembrarVenda}
+          pacienteNome={pacienteNome}
+          nutriId={nutriId}
+          onClose={() => setLembrarVenda(null)}
+          onSaved={(dia) => { setLembrarVenda(null); setLembreteCriado(dia); }}
         />
       )}
 

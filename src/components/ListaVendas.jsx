@@ -25,6 +25,8 @@ export default function ListaVendas({
   onExcluirVenda,
   // Opcional: abre a definição das parcelas do restante a combinar.
   onDefinirRestante,
+  // Opcional: cria um lembrete de cobrança para o restante a combinar.
+  onLembrarCobranca,
 }) {
   const [expandidas, setExpandidas] = useState({});
   const toggleExpand = (id) => setExpandidas(s => ({ ...s, [id]: !s[id] }));
@@ -159,6 +161,13 @@ export default function ListaVendas({
                     onClick={(e) => { e.stopPropagation(); onDefinirRestante(v, ps); }}
                     className="btn" style={{ whiteSpace: 'nowrap' }}>
                     Definir parcelas
+                  </button>
+                )}
+                {onLembrarCobranca && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onLembrarCobranca(v, aCombinar); }}
+                    className="btn-outline" style={{ whiteSpace: 'nowrap' }}>
+                    <i className="ti ti-bell" aria-hidden="true" /> Lembrar de cobrar
                   </button>
                 )}
               </div>

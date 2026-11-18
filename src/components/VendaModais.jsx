@@ -774,3 +774,46 @@ export function DefinirRestanteModal({ venda, parcelas = [], nutriId, onClose, o
     </ModalShell>
   );
 }
+
+
+/* ============================================================
+   LEMBRAR DE COBRAR — modal
+
+   Cria uma tarefa em `lembretes_nutri` (a mesma da Visão "Hoje"): aparece no
+   dia escolhido, com o nome e o valor que falta definir. Não mexe na venda.
+   ============================================================ */
+export function LembrarCobrancaModal({ venda, valor, pacienteNome, nutriId, onClose, onSaved }) {
+  const [dia, setDia] = useState(() => { const d = new Date(); d.setDate(d.getDate() + 7); return isoLocalDeData(d); });
+  const [texto, setTexto] = useState(`Combinar o restante com ${pacienteNome || 'a paciente'}: ${brl(valor)} (${venda.servico})`);
+  const [busy, setBusy] = useState(false);
+  const [erro, setErro] = useState(null);
+
+  async function salvar() {
+    setErro(null);
+    if (!dia) return setErro('Escolha o dia do lembrete.');
+    if (!texto.trim()) return setErro('Escreva o lembrete.');
+    setBusy(true);
+    const { error } = await supabase.from('lembretes_nutri').insert({ nutri_id: nutriId, texto: texto.trim(), data: dia });
+    setBusy(false);
+    if (error) return setErro('Erro ao salvar o lembrete: ' + error.message);
+    onSaved(dia);
+  }
+
+  return (
+    <ModalShell title="Lembrar de cobrar" subtitle="Aparece na Visão geral, no dia escolhido" onClose={onClose}>
+      <label className="form-lbl">Dia</label>
+      <DateInput value={dia} onChange={e => setDia(e.target.value)} />
+      <label className="form-lbl">Lembrete</label>
+      <textarea rows="2" value={texto} onChange={e => setTexto(e.target.value)} style={{ resize: 'none' }} />
+      {erro && (
+        <div style={{ background: 'var(--red-bg)', color: 'var(--red)', padding: '6px 10px', borderRadius: 6, fontSize: 13, marginTop: 10 }}>{erro}</div>
+      )}
+      <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+        <button className="btn-outline" style={{ flex: 1, justifyContent: 'center' }} onClick={onClose}>Cancelar</button>
+        <button className="btn" style={{ flex: 1, justifyContent: 'center' }} onClick={salvar} disabled={busy}>
+          <i className="ti ti-bell" aria-hidden="true"></i> {busy ? '...' : 'Criar lembrete'}
+        </button>
+      </div>
+    </ModalShell>
+  );
+}

@@ -4,7 +4,7 @@ import { useSession } from '../../lib/session.jsx';
 import { brl, statusParcela, liquidoParcela, taxaSugerida } from '../../lib/utils.js';
 import ListaVendas from '../../components/ListaVendas.jsx';
 import NotasAEmitir from './_NotasAEmitir.jsx';
-import { NovaVendaModal, EditarParcelaModal, EditarVendaModal } from '../../components/VendaModais.jsx';
+import { NovaVendaModal, EditarParcelaModal, EditarVendaModal, DefinirRestanteModal, LembrarCobrancaModal } from '../../components/VendaModais.jsx';
 import Gastos from './Gastos.jsx';
 import { gravar } from '../../lib/gravar.js';
 
@@ -20,6 +20,8 @@ export default function Financeiro() {
   const [novaVendaOpen, setNovaVendaOpen] = useState(false);
   const [parcelaEdit, setParcelaEdit] = useState(null);
   const [vendaEdit, setVendaEdit] = useState(null);
+  const [restanteVenda, setRestanteVenda] = useState(null);
+  const [lembrarVenda, setLembrarVenda] = useState(null);
 
   async function excluirVenda(venda) {
     const ok = (await confirmarJanela(`Excluir a venda "${venda.servico}" de ${venda.paciente?.nome ?? 'Avulso'}?\n\n` +
@@ -249,6 +251,8 @@ export default function Financeiro() {
           onEditarParcela={(p, v) => setParcelaEdit({ parcela: p, venda: v })}
           onEditarVenda={setVendaEdit}
           onExcluirVenda={excluirVenda}
+          onDefinirRestante={(v, ps) => setRestanteVenda({ venda: v, parcelas: ps })}
+          onLembrarCobranca={(v, valor) => setLembrarVenda({ venda: v, valor })}
         />
       )}
 
@@ -280,6 +284,25 @@ export default function Financeiro() {
           {...parcelaEdit}
           onClose={() => setParcelaEdit(null)}
           onSaved={async () => { setParcelaEdit(null); await carregar(); }}
+        />
+      )}
+
+      {restanteVenda && (
+        <DefinirRestanteModal
+          {...restanteVenda}
+          nutriId={user.id}
+          onClose={() => setRestanteVenda(null)}
+          onSaved={async () => { setRestanteVenda(null); await carregar(); }}
+        />
+      )}
+
+      {lembrarVenda && (
+        <LembrarCobrancaModal
+          {...lembrarVenda}
+          pacienteNome={lembrarVenda.venda.paciente?.nome}
+          nutriId={user.id}
+          onClose={() => setLembrarVenda(null)}
+          onSaved={() => setLembrarVenda(null)}
         />
       )}
 
