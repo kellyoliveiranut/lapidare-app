@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { brl, statusParcela, liquidoParcela } from '../../lib/utils.js';
 import ListaVendas from '../../components/ListaVendas.jsx';
-import { NovaVendaModal, EditarParcelaModal, EditarVendaModal } from '../../components/VendaModais.jsx';
+import { NovaVendaModal, EditarParcelaModal, EditarVendaModal, DefinirRestanteModal } from '../../components/VendaModais.jsx';
+import { restanteACombinar } from '../../lib/parcelasEntrada.js';
 import { gravar } from '../../lib/gravar.js';
 import { confirmar, avisar as avisarJanela } from '../../lib/dialogos.js';
 import DadosNotaFiscal from './_DadosNotaFiscal.jsx';
@@ -24,6 +25,7 @@ export default function Financeiro({ pacienteId, nutriId, pacienteNome, paciente
   const [novaVendaOpen, setNovaVendaOpen] = useState(false);
   const [parcelaEdit, setParcelaEdit] = useState(null);
   const [vendaEdit, setVendaEdit] = useState(null);
+  const [restanteVenda, setRestanteVenda] = useState(null);
   const [servicos, setServicos] = useState([]);
   // Valor do contrato Essentia (pendente ou aceito), para lembrar de lançar a venda.
   const [valorContrato, setValorContrato] = useState(null);
@@ -83,6 +85,12 @@ export default function Financeiro({ pacienteId, nutriId, pacienteNome, paciente
     });
     return { pago, pagoBruto, pagoN, aReceber, aReceberN, atrasado, atrasadoN };
   }, [vendas]);
+
+  // Soma do que ainda não tem parcela (restante a combinar), de todas as vendas.
+  const totalACombinar = useMemo(
+    () => (vendas ?? []).reduce((a, v) => a + restanteACombinar(v.valor_total, v.parcelas), 0),
+    [vendas],
+  );
 
   // BRUTO de propósito: é o preço combinado com a paciente, o que vai no
   // contrato e na nota. Descontar a maquininha daqui responderia outra
@@ -144,6 +152,13 @@ export default function Financeiro({ pacienteId, nutriId, pacienteNome, paciente
               <div className="stat-val">{brl(stats.aReceber)}</div>
               <div className="stat-sub">{stats.aReceberN} parcela{stats.aReceberN === 1 ? '' : 's'}</div>
             </div>
+            {totalACombinar > 0 && (
+              <div className="stat-card">
+                <div className="stat-label">A combinar</div>
+                <div className="stat-val">{brl(totalACombinar)}</div>
+                <div className="stat-sub">ainda sem parcelas</div>
+              </div>
+            )}
             <div className="stat-card">
               <div className="stat-label">Em atraso</div>
               <div className="stat-val" style={{ color: stats.atrasado > 0 ? 'var(--red)' : 'var(--dark)' }}>
@@ -204,6 +219,7 @@ export default function Financeiro({ pacienteId, nutriId, pacienteNome, paciente
           onEditarParcela={(p, v) => setParcelaEdit({ parcela: p, venda: v })}
           onEditarVenda={setVendaEdit}
           onExcluirVenda={excluirVenda}
+          onDefinirRestante={(v, ps) => setRestanteVenda({ venda: v, parcelas: ps })}
         />
       )}
 
@@ -225,6 +241,15 @@ export default function Financeiro({ pacienteId, nutriId, pacienteNome, paciente
           pacienteNome={pacienteNome}
           onClose={() => setParcelaEdit(null)}
           onSaved={async () => { setParcelaEdit(null); await carregar(); }}
+        />
+      )}
+
+      {restanteVenda && (
+        <DefinirRestanteModal
+          {...restanteVenda}
+          nutriId={nutriId}
+          onClose={() => setRestanteVenda(null)}
+          onSaved={async () => { setRestanteVenda(null); await carregar(); }}
         />
       )}
 

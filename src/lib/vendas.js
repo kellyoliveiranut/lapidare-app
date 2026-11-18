@@ -1,4 +1,5 @@
 import { gerarParcelas, distribuirTaxa } from './utils.js';
+import { gerarParcelasComEntrada, validarEntrada } from './parcelasEntrada.js';
 import { gravar } from './gravar.js';
 
 /**
@@ -19,17 +20,29 @@ import { gravar } from './gravar.js';
 export async function criarVendaComParcelas(supabase, {
   nutriId, pacienteId, servicoId, servico, valorTotal,
   forma, dataVenda, nParcelas, obs, taxaTotal, antecipado = false, nfLembrar = false,
+  // { valor, nRestante }: entrada paga na hora + restante em nRestante parcelas
+  // mensais (0 = a combinar, sem parcelas). Só Pix e dinheiro.
+  entrada = null,
 }) {
   // Regra de nº de parcelas por forma — idêntica ao preview do modal.
   const n_parcelas = ['pix', 'dinheiro', 'parcelado'].includes(forma) ? nParcelas : 1;
 
-  const linhasPreview = gerarParcelas({
-    forma_pgto: forma,
-    valor_total: valorTotal,
-    data_venda: dataVenda,
-    n_parcelas,
-    antecipado,
-  });
+  if (entrada) {
+    if (!['pix', 'dinheiro'].includes(forma)) {
+      return { venda: null, parcelas: 0, error: 'Entrada + restante só vale para Pix e dinheiro.' };
+    }
+    const msg = validarEntrada({ valorTotal, entrada: entrada.valor, nRestante: entrada.nRestante });
+    if (msg) return { venda: null, parcelas: 0, error: msg };
+  }
+  const linhasPreview = entrada
+    ? gerarParcelasComEntrada({ valorTotal, entrada: entrada.valor, dataVenda, nRestante: entrada.nRestante })
+    : gerarParcelas({
+        forma_pgto: forma,
+        valor_total: valorTotal,
+        data_venda: dataVenda,
+        n_parcelas,
+        antecipado,
+      });
 
   const linhaVenda = {
     nutri_id: nutriId,

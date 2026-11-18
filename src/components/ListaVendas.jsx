@@ -3,6 +3,7 @@ import {
   brl, dataBR, statusParcela,
   labelFormaPgto, iconFormaPgto, STATUS_PARCELA_INFO,
 } from '../lib/utils.js';
+import { restanteACombinar } from '../lib/parcelasEntrada.js';
 
 /**
  * Lista de vendas com as parcelas expansíveis.
@@ -22,6 +23,8 @@ export default function ListaVendas({
   onEditarParcela,
   onEditarVenda,
   onExcluirVenda,
+  // Opcional: abre a definição das parcelas do restante a combinar.
+  onDefinirRestante,
 }) {
   const [expandidas, setExpandidas] = useState({});
   const toggleExpand = (id) => setExpandidas(s => ({ ...s, [id]: !s[id] }));
@@ -31,6 +34,8 @@ export default function ListaVendas({
     const aberta = expandidas[v.id];
     const totalPago = ps.filter(p => p.status === 'pago').reduce((a, p) => a + Number(p.valor), 0);
     const pagas = ps.filter(p => p.status === 'pago').length;
+    // Valor da venda que ainda não tem parcela (entrada + "restante a combinar").
+    const aCombinar = restanteACombinar(v.valor_total, ps);
     return (
       <div key={v.id} className="card" style={{ padding: 0 }}>
         <div
@@ -58,6 +63,14 @@ export default function ListaVendas({
               </span>
               {/* Só o selo positivo. A maioria das vendas antigas está sem nota
                   registrada — um aviso em cada linha afogaria a lista. */}
+              {aCombinar > 0 && (
+                <span style={{
+                  fontSize: 11, padding: '1px 7px', borderRadius: 20, fontWeight: 500,
+                  background: '#fff8ec', color: '#7a4b00',
+                }}>
+                  {brl(aCombinar)} a combinar
+                </span>
+              )}
               {v.nf_emitida && (
                 <span style={{
                   fontSize: 11, padding: '1px 7px', borderRadius: 20, fontWeight: 500,
@@ -129,6 +142,27 @@ export default function ListaVendas({
                 </div>
               );
             })}
+
+            {aCombinar > 0 && (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+                margin: '8px 0 2px', padding: '9px 12px', borderRadius: 8,
+                background: '#fff8ec', border: '0.5px solid #e0b36a', fontSize: 13, color: '#7a4b00',
+              }}>
+                <i className="ti ti-hourglass" style={{ fontSize: 16 }} aria-hidden="true" />
+                <div style={{ flex: 1, minWidth: 160 }}>
+                  <strong>Restante a combinar: {brl(aCombinar)}</strong>
+                  <div style={{ fontSize: 11.5 }}>Ainda sem parcelas. Quando combinar com a paciente, defina aqui.</div>
+                </div>
+                {onDefinirRestante && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onDefinirRestante(v, ps); }}
+                    className="btn" style={{ whiteSpace: 'nowrap' }}>
+                    Definir parcelas
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* Ações da venda inteira */}
             <div style={{

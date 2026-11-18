@@ -3,11 +3,12 @@ import { supabase } from '../lib/supabase.js';
 import DateInput from './DateInput.jsx';
 import ModalShell from './ModalShell.jsx';
 import {
-  brl, valorBR, dataBR, dataLocalISO,
+  brl, valorBR, dataBR, dataLocalISO, isoLocalDeData,
   gerarParcelas, distribuirTaxa, taxaSugerida, maxParcelas, clampParcelas,
   MAX_PARCELAS_ESSENTIA, FORMAS_PGTO_LIST, FORMAS_COM_TAXA, STATUS_PARCELA_INFO,
 } from '../lib/utils.js';
 import { criarVendaComParcelas } from '../lib/vendas.js';
+import { gerarParcelasComEntrada, validarEntrada, restanteACombinar, dividirEmParcelas } from '../lib/parcelasEntrada.js';
 import { gravar } from '../lib/gravar.js';
 import { useSession } from '../lib/session.jsx';
 
@@ -32,6 +33,11 @@ export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo
   const [data, setData] = useState(hoje);
   const [forma, setForma] = useState('pix');
   const [nParcelas, setNParcelas] = useState(3);
+  // Entrada + restante (só Pix/dinheiro): a entrada entra paga na data da venda
+  // e o restante vira N parcelas mensais, ou fica a combinar (0).
+  const [comEntrada, setComEntrada] = useState(false);
+  const [entrada, setEntrada] = useState('');
+  const [nRestante, setNRestante] = useState(0);
   const [obs, setObs] = useState('');
   // Lembrete de emitir a nota fiscal desta venda (aparece no aviso da Agenda).
   const [nfLembrar, setNfLembrar] = useState(true);
@@ -115,6 +121,7 @@ export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo
 
   function escolherForma(f) {
     setForma(f);
+    if (f !== 'pix' && f !== 'dinheiro') setComEntrada(false);
     if (f === 'pix' || f === 'dinheiro') setNParcelas(1);
     // clampParcelas cuida do piso (2) e do teto: 12x escolhido no Pix não pode
     // sobreviver à troca para Parcelado numa Essentia, onde o select só vai a 10.
@@ -130,8 +137,14 @@ export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo
     setAntecipadoManual(null);
   }
 
+  const entradaNum = valorBR(entrada);
+  const entradaAtiva = comEntrada && ['pix', 'dinheiro'].includes(forma);
+  const erroEntrada = entradaAtiva ? validarEntrada({ valorTotal: valorNum, entrada: entradaNum, nRestante }) : null;
   const parcelasPreview = useMemo(() => {
     if (!valorNum || !data) return [];
+    if (entradaAtiva) {
+      return gerarParcelasComEntrada({ valorTotal: valorNum, entrada: entradaNum, dataVenda: data, nRestante });
+    }
     return gerarParcelas({
       forma_pgto: forma,
       valor_total: valorNum,
@@ -139,7 +152,7 @@ export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo
       n_parcelas: nEfetivo,
       antecipado,
     });
-  }, [forma, valorNum, data, nEfetivo, antecipado]);
+  }, [forma, valorNum, data, nEfetivo, antecipado, entradaAtiva, entradaNum, nRestante]);
 
   // Mesma função que criarVendaComParcelas usa para gravar. O que a nutri
   // confere aqui é, centavo a centavo, o que vai para o banco.
@@ -153,6 +166,7 @@ export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo
     if (!servico.trim()) return setErro('Informe o serviço.');
     if (!valorNum) return setErro('Informe um valor válido.');
     if (!data) return setErro('Informe a data da venda.');
+    if (erroEntrada) return setErro(erroEntrada);
     // O banco recusa taxa > valor da parcela (parcelas_taxa_menor_que_valor).
     // Barrar aqui dá uma frase em português em vez de erro de constraint.
     if (comTaxa && taxaNum >= valorNum) {
@@ -173,6 +187,7 @@ export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo
       taxaTotal: comTaxa ? taxaNum : 0,
       antecipado,
       nfLembrar,
+      entrada: entradaAtiva ? { valor: entradaNum, nRestante } : null,
     });
     setBusy(false);
     if (error) return setErro(error);
@@ -257,7 +272,41 @@ export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo
         })}
       </div>
 
-      {['pix', 'dinheiro', 'parcelado'].includes(forma) && (
+      {['pix', 'dinheiro'].includes(forma) && (
+        <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer', fontSize: 13, color: 'var(--text2)', margin: '4px 0 10px' }}>
+          <input type="checkbox" checked={comEntrada} onChange={e => setComEntrada(e.target.checked)} style={{ marginTop: 2 }} />
+          <span>
+            Com entrada
+            <span style={{ display: 'block', fontSize: 11.5, color: 'var(--text3)' }}>
+              Entrada paga agora + o restante em parcelas ou a combinar
+            </span>
+          </span>
+        </label>
+      )}
+
+      {entradaAtiva && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          <div>
+            <label className="form-lbl">Entrada (R$)</label>
+            <input inputMode="decimal" value={entrada} onChange={e => setEntrada(e.target.value)} placeholder="0,00" />
+          </div>
+          <div>
+            <label className="form-lbl">Restante</label>
+            <select value={nRestante} onChange={e => setNRestante(Number(e.target.value))}>
+              <option value={0}>A combinar com a paciente</option>
+              {Array.from({ length: 12 }, (_, i) => i + 1).map(n => (
+                <option key={n} value={n}>{n}x (venc. mensais)</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
+
+      {erroEntrada && entradaNum > 0 && (
+        <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 4 }}>{erroEntrada}</div>
+      )}
+
+      {!entradaAtiva && ['pix', 'dinheiro', 'parcelado'].includes(forma) && (
         <>
           <label className="form-lbl">Número de parcelas</label>
           <select value={nParcelas} onChange={e => setNParcelas(Number(e.target.value))}>
@@ -322,7 +371,20 @@ export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo
           marginTop: 10, fontSize: 13, color: 'var(--text2)',
         }}>
           <div style={{ fontWeight: 500, marginBottom: 4 }}>Preview:</div>
-          {parcelasPreview.length === 1
+          {entradaAtiva ? (
+            <>
+              <div>Entrada de {brl(parcelasPreview[0].valor)} — paga {data === hoje ? 'hoje' : `em ${dataBR(data)}`}</div>
+              {parcelasPreview.length > 1 ? (
+                <div>
+                  {parcelasPreview.length - 1}x de {brl(parcelasPreview[1].valor)}
+                  {parcelasPreview[1].valor !== parcelasPreview[parcelasPreview.length - 1].valor ? ` (última ${brl(parcelasPreview[parcelasPreview.length - 1].valor)})` : ''}
+                  {' '}— primeira {dataBR(parcelasPreview[1].vencimento)} / última {dataBR(parcelasPreview[parcelasPreview.length - 1].vencimento)}
+                </div>
+              ) : (
+                <div>Restante a combinar: {brl(valorNum - entradaNum)} (sem parcelas por enquanto)</div>
+              )}
+            </>
+          ) : parcelasPreview.length === 1
             ? `1 parcela única de ${brl(parcelasPreview[0].valor)} no dia ${dataBR(parcelasPreview[0].vencimento)}`
             : `${parcelasPreview.length}x de ${brl(parcelasPreview[0].valor)}${parcelasPreview[0].valor !== parcelasPreview[parcelasPreview.length-1].valor ? ` (última ${brl(parcelasPreview[parcelasPreview.length-1].valor)})` : ''} — primeira ${dataBR(parcelasPreview[0].vencimento)} / última ${dataBR(parcelasPreview[parcelasPreview.length-1].vencimento)}`
           }
@@ -628,6 +690,85 @@ export function EditarVendaModal({ venda, pacientes = [], pacienteFixo, onClose,
         </button>
         <button className="btn" style={{ flex: 1, justifyContent: 'center' }} onClick={salvar} disabled={busy}>
           <i className="ti ti-check" aria-hidden="true"></i> {busy ? '...' : 'Salvar'}
+        </button>
+      </div>
+    </ModalShell>
+  );
+}
+
+
+/* ============================================================
+   DEFINIR O RESTANTE — modal
+
+   Venda com "restante a combinar" (o valor total é maior que a soma das
+   parcelas): quando a Kelly combina com a paciente, as parcelas do restante
+   entram aqui. O valor a dividir é sempre a diferença que falta; a conta fecha
+   sozinha e o "a combinar" some da venda.
+   ============================================================ */
+export function DefinirRestanteModal({ venda, parcelas = [], nutriId, onClose, onSaved }) {
+  const restante = restanteACombinar(venda.valor_total, parcelas);
+  const [n, setN] = useState(1);
+  const proximoMes = (() => { const d = new Date(); d.setMonth(d.getMonth() + 1); return isoLocalDeData(d); })();
+  const [primeiro, setPrimeiro] = useState(proximoMes);
+  const [busy, setBusy] = useState(false);
+  const [erro, setErro] = useState(null);
+
+  const numeroInicial = (parcelas.reduce((m, p) => Math.max(m, Number(p.numero) || 0), 0)) + 1;
+  const preview = useMemo(
+    () => (restante > 0 && primeiro
+      ? dividirEmParcelas({ valor: restante, n, primeiroVencimento: primeiro, numeroInicial })
+      : []),
+    [restante, n, primeiro, numeroInicial],
+  );
+
+  async function salvar() {
+    setErro(null);
+    if (!primeiro) return setErro('Informe o vencimento da primeira parcela.');
+    if (preview.length === 0) return setErro('Não há restante a definir nesta venda.');
+    setBusy(true);
+    const { error } = await supabase.from('parcelas').insert(preview.map(p => ({
+      venda_id: venda.id, nutri_id: nutriId, numero: p.numero, valor: p.valor,
+      vencimento: p.vencimento, status: 'pendente', data_pgto: null, taxa_cartao: 0,
+    })));
+    setBusy(false);
+    if (error) return setErro('Erro ao salvar as parcelas: ' + error.message);
+    onSaved();
+  }
+
+  return (
+    <ModalShell title="Definir o restante" subtitle={`${venda.servico} · falta definir ${brl(restante)}`} onClose={onClose}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        <div>
+          <label className="form-lbl">Número de parcelas</label>
+          <select value={n} onChange={e => setN(Number(e.target.value))}>
+            {Array.from({ length: 12 }, (_, i) => i + 1).map(k => (
+              <option key={k} value={k}>{k}x{k === 1 ? ' (uma parcela)' : ' (venc. mensais)'}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="form-lbl">1º vencimento</label>
+          <DateInput value={primeiro} onChange={e => setPrimeiro(e.target.value)} />
+        </div>
+      </div>
+
+      {preview.length > 0 && (
+        <div style={{ background: 'var(--bg2)', borderRadius: 6, padding: '8px 10px', marginTop: 10, fontSize: 13, color: 'var(--text2)' }}>
+          <div style={{ fontWeight: 500, marginBottom: 4 }}>Preview:</div>
+          {preview.length === 1
+            ? `1 parcela de ${brl(preview[0].valor)} em ${dataBR(preview[0].vencimento)}`
+            : `${preview.length}x de ${brl(preview[0].valor)}${preview[0].valor !== preview[preview.length - 1].valor ? ` (última ${brl(preview[preview.length - 1].valor)})` : ''} — primeira ${dataBR(preview[0].vencimento)} / última ${dataBR(preview[preview.length - 1].vencimento)}`}
+        </div>
+      )}
+
+      {erro && (
+        <div style={{ background: 'var(--red-bg)', color: 'var(--red)', padding: '6px 10px', borderRadius: 6, fontSize: 13, marginTop: 10 }}>{erro}</div>
+      )}
+
+      <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+        <button className="btn-outline" style={{ flex: 1, justifyContent: 'center' }} onClick={onClose}>Cancelar</button>
+        <button className="btn" style={{ flex: 1, justifyContent: 'center' }} onClick={salvar} disabled={busy || preview.length === 0}>
+          <i className="ti ti-check" aria-hidden="true"></i> {busy ? '...' : 'Salvar parcelas'}
         </button>
       </div>
     </ModalShell>
