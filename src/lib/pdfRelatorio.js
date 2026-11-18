@@ -46,7 +46,10 @@ function desenharGraficoPeso(p, y, pesos) {
   return H + 20;
 }
 
-export async function gerarPDFRelatorio({ pacienteNome, contato, idade, consultas, macros, pesos, suplementos, habitos, followups, exames, analise }) {
+export async function gerarPDFRelatorio({ pacienteNome, contato, idade, consultas, macros, pesos, suplementos, habitos, followups, exames, analise, carimbo }) {
+  // O relatório também sai com o carimbo e a assinatura da Kelly (padrão), como
+  // o plano e as prescrições.
+  if (carimbo === undefined) carimbo = (await import('../data/carimboAssinatura.js')).CARIMBO_ASSINATURA;
   const p = await criarDocumento();
   const { doc, escrever, regua, caberOuQuebrar } = p;
   let y = TOPO;
@@ -184,6 +187,6 @@ export async function gerarPDFRelatorio({ pacienteNome, contato, idade, consulta
     paragrafo('Análise gerada por IA com base nos dados clínicos registrados; revisada pela nutricionista.', { cor: OURO, tamanho: 8 });
   }
 
-  rodape(p, y);
+  rodape(p, y, { carimbo });
   return doc.output('blob');
 }
