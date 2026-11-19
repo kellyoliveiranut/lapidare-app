@@ -12,6 +12,7 @@ import { CAMPOS_EXAME, CHAVES_EXAME, CAMPOS_EXAME_EXTRA, CHAVES_EXAME_EXTRA, tex
 import ValorExame, { LegendaExames } from '../../components/ValorExame.jsx';
 import GraficosExames from '../../components/GraficosExames.jsx';
 import ResumoExames from '../../components/ResumoExames.jsx';
+import LeituraFuncionalExames from '../../components/LeituraFuncionalExames.jsx';
 import { confirmar as confirmarJanela } from '../../lib/dialogos.js';
 const SolicitacaoExames = lazy(() => import('./_SolicitacaoExames.jsx'));
 import { getProtocolo, chaveProtocolo, temEstruturaCiclo, janelaRisco, rotuloJanelaRisco, marcosDoProtocolo, marcosEfeitoAplicacao, datasAplicacoesCiclo, datasSerieCiclos, intervaloMinimoSerie, linhasDoCiclo, protocoloPendentePrescricao, protocoloAguardandoConferencia, registroPendente, marcosProvisorios, proximaAplicacao, pontaFinalProxima } from '../../lib/protocoloCiclo.js';
@@ -1217,6 +1218,7 @@ export default function TratamentoOncologico({ pacienteId, nutriId, pacienteNome
       {secao === 'exames' && (
         <>
           <div style={{ marginBottom: 12 }}><ResumoExames exames={exames} campos={CAMPOS_EXAME} sexo={pacienteSexo} /></div>
+          <div style={{ marginBottom: 12 }}><LeituraFuncionalExames exames={exames} origem="oncologia" sexo={pacienteSexo} /></div>
           <details className="card" style={{ marginBottom: 12, padding: '12px 16px' }}>
             <summary style={{ cursor: 'pointer', fontWeight: 600 }}>
               📋 Solicitar exames <span style={{ fontWeight: 400, opacity: 0.7, fontSize: 13 }}>— gerar o pedido para a paciente</span>

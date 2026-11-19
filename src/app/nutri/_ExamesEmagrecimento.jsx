@@ -9,6 +9,7 @@ import ValorExame from '../../components/ValorExame.jsx';
 import GraficosExames from '../../components/GraficosExames.jsx';
 import DateInput from '../../components/DateInput.jsx';
 import ResumoExames from '../../components/ResumoExames.jsx';
+import LeituraFuncionalExames from '../../components/LeituraFuncionalExames.jsx';
 import { CAMPOS_EMAG, GRUPOS_EXAME_EMAG, PAINEIS_EMAG, CHAVES_PADRAO_EMAG, PEDIDO_EMAGRECIMENTO, AVISO_GERAL_EXAMES } from '../../data/exames_emagrecimento.js';
 import {
   valorDoCampo, homaIr, achatarExame, chavesAtivas, aplicarReferencias, compararExames, rotuloCriterio,
@@ -255,6 +256,7 @@ ${catalogo}`;
       )}
 
       <ResumoExames exames={exames} campos={camposAtivos} sexo={pacienteSexo} />
+      <LeituraFuncionalExames exames={exames} origem="emagrecimento" sexo={pacienteSexo} />
 
       {/* Solicitar exames */}
       <details className="card" style={{ padding: '12px 16px' }}>

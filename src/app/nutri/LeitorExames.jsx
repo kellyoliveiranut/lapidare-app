@@ -3,17 +3,11 @@ import { Navigate } from 'react-router-dom';
 import { useSession } from '../../lib/session.jsx';
 import { ROTA_INICIAL_NUTRI } from '../../lib/rotas.js';
 import { CREDITO, EX, EXLIB, GRUPOS, TIPS, NUTR, FASES, FORMULAS } from '../../data/maylab_exames.js';
-import { statusDoExame, leitorDe, calculos, padroes, buscarExames, faixaDaFase } from '../../lib/leitorExames.js';
+import { statusDoExame, leitorDe, buscarExames, faixaDaFase } from '../../lib/leitorExames.js';
+import { ResultadoLeitura, Selo } from '../../components/LeituraFuncionalExames.jsx';
 
 // Apoio da nutricionista: compara valores digitados com faixas funcionais e aponta
 // onde olhar. Não grava nada, não vai para a paciente e não é laudo (CFN nº 856).
-const COR = {
-  ok: { c: 'var(--green)', bg: 'var(--green-bg)' },
-  ok2: { c: 'var(--blue)', bg: 'var(--blue-bg)' },
-  lo: { c: 'var(--orange)', bg: 'var(--orange-bg)' },
-  hi: { c: 'var(--red)', bg: 'var(--red-bg)' },
-  na: { c: 'var(--text3)', bg: 'var(--bg2)' },
-};
 const EXEMPLO = { hb: '11,2', ht: '35', vcm: '78', hcm: '25', chcm: '30', rdw: '15', hem: '4,3', ferr: '28', tsh: '3,4', t4l: '0,9', t3l: '2,6', t3r: '18', glic: '94', ins: '11', ct: '210', hdl: '48', ldl: '135', tg: '160', neut: '62', linf: '28', mono: '9', eos: '3', vitd: '28', b12: '320', hcy: '13' };
 
 const caixa = { background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 'var(--r)', padding: 14 };
@@ -21,11 +15,6 @@ const chip = (ativo) => ({
   padding: '6px 12px', borderRadius: 999, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit',
   border: `1px solid ${ativo ? 'var(--brown)' : 'var(--border)'}`, background: ativo ? 'var(--brown)' : 'var(--white)', color: ativo ? '#fff' : 'var(--text2)',
 });
-const Selo = ({ classe, texto }) => {
-  const k = COR[classe] ?? COR.na;
-  return <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 999, fontSize: 11.5, fontWeight: 600, color: k.c, background: k.bg }}>{texto}</span>;
-};
-
 function CartaoExame({ e, aberto, onToggle, fase }) {
   const faixa = faixaDaFase(e, fase);
   return (
@@ -59,8 +48,6 @@ function Leitor() {
   const [lido, setLido] = useState(false);
   const g = useMemo(() => leitorDe(valores), [valores]);
   const preenchidos = EX.filter(e => g(e.id) != null);
-  const cal = useMemo(() => (lido ? calculos(g, sexo) : []), [lido, g, sexo]);
-  const pad = useMemo(() => (lido ? padroes(g) : []), [lido, g]);
 
   const mudar = (id, v) => { setValores(a => ({ ...a, [id]: v })); setLido(false); };
   return (
@@ -108,52 +95,7 @@ function Leitor() {
         <button type="button" className="btn-outline" onClick={() => { setValores({}); setLido(false); }}>Limpar</button>
       </div>
 
-      {lido && (
-        <div style={{ display: 'grid', gap: 14 }}>
-          <div style={caixa}>
-            <strong>Exames lidos ({preenchidos.length})</strong>
-            <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
-              {preenchidos.map(e => {
-                const st = statusDoExame(e, g(e.id));
-                return (
-                  <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', fontSize: 13.5 }}>
-                    <span>{e.n}: <b>{valores[e.id]}</b> {e.u} <span style={{ color: 'var(--text3)' }}>· ótimo {faixaDaFase(e, fase) ?? e.v}</span></span>
-                    <Selo classe={st.classe} texto={st.texto || '—'} />
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-          {cal.length > 0 && (
-            <div style={caixa}>
-              <strong>Cálculos</strong>
-              <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
-                {cal.map(c => (
-                  <div key={c.n} style={{ fontSize: 13.5 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
-                      <span>{c.n}: <b>{c.v}</b></span><Selo classe={c.s.classe} texto={c.s.texto} />
-                    </div>
-                    <div style={{ fontSize: 11.5, color: 'var(--text4)' }}>{c.fx}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          {pad.length > 0 && (
-            <div style={caixa}>
-              <strong>Padrões que merecem atenção</strong>
-              <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
-                {pad.map(p => (
-                  <div key={p.t} style={{ fontSize: 13.5 }}><b>{p.t}.</b> {p.d}</div>
-                ))}
-              </div>
-            </div>
-          )}
-          {!cal.length && !pad.length && (
-            <div style={{ ...caixa, fontSize: 13.5, color: 'var(--text2)' }}>Nenhum cálculo ou padrão com os exames preenchidos. Adicione mais marcadores para cruzar.</div>
-          )}
-        </div>
-      )}
+      {lido && <ResultadoLeitura g={g} sexo={sexo} fase={fase} valores={valores} />}
     </div>
   );
 }
