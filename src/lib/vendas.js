@@ -1,5 +1,5 @@
 import { gerarParcelas, distribuirTaxa } from './utils.js';
-import { gerarParcelasComEntrada, validarEntrada } from './parcelasEntrada.js';
+import { gerarParcelasComEntrada, validarEntrada, taxasPorLinha } from './parcelasEntrada.js';
 import { gravar } from './gravar.js';
 
 /**
@@ -20,22 +20,23 @@ import { gravar } from './gravar.js';
 export async function criarVendaComParcelas(supabase, {
   nutriId, pacienteId, servicoId, servico, valorTotal,
   forma, dataVenda, nParcelas, obs, taxaTotal, antecipado = false, nfLembrar = false,
-  // { valor, nRestante }: entrada paga na hora + restante em nRestante parcelas
-  // mensais (0 = a combinar, sem parcelas). Só Pix e dinheiro.
+  // { valor, nRestante, formaEntrada }: entrada paga na hora (dinheiro ou Pix) +
+  // restante em nRestante parcelas (0 = a combinar, sem parcelas). O restante
+  // segue a `forma`: Pix/dinheiro (mensais, sem taxa) ou cartão (com taxa).
   entrada = null,
 }) {
   // Regra de nº de parcelas por forma — idêntica ao preview do modal.
   const n_parcelas = ['pix', 'dinheiro', 'parcelado'].includes(forma) ? nParcelas : 1;
 
   if (entrada) {
-    if (!['pix', 'dinheiro'].includes(forma)) {
-      return { venda: null, parcelas: 0, error: 'Entrada + restante só vale para Pix e dinheiro.' };
-    }
-    const msg = validarEntrada({ valorTotal, entrada: entrada.valor, nRestante: entrada.nRestante });
+    const msg = validarEntrada({ valorTotal, entrada: entrada.valor, nRestante: entrada.nRestante, forma });
     if (msg) return { venda: null, parcelas: 0, error: msg };
   }
   const linhasPreview = entrada
-    ? gerarParcelasComEntrada({ valorTotal, entrada: entrada.valor, dataVenda, nRestante: entrada.nRestante })
+    ? gerarParcelasComEntrada({
+        valorTotal, entrada: entrada.valor, dataVenda, nRestante: entrada.nRestante,
+        forma, formaEntrada: entrada.formaEntrada, antecipado,
+      })
     : gerarParcelas({
         forma_pgto: forma,
         valor_total: valorTotal,
@@ -68,7 +69,8 @@ export async function criarVendaComParcelas(supabase, {
   // A taxa da maquininha é digitada uma vez, para a venda inteira, e desce
   // repartida entre as parcelas — é na parcela que ela mora, porque é parcela
   // a parcela que o repasse acontece e é ali que cada uma vira editável.
-  const taxas = distribuirTaxa(taxaTotal, linhasPreview);
+  // Com entrada, a taxa cai só nas parcelas do cartão (a entrada em dinheiro/Pix não paga taxa).
+  const taxas = entrada ? taxasPorLinha(taxaTotal, linhasPreview) : distribuirTaxa(taxaTotal, linhasPreview);
 
   const linhas = linhasPreview.map((p, i) => ({
     venda_id: venda.id,
@@ -79,6 +81,7 @@ export async function criarVendaComParcelas(supabase, {
     status: p.status ?? 'pendente',
     data_pgto: p.data_pgto ?? null,
     taxa_cartao: taxas[i] ?? 0,
+    obs: p.obs ?? null,
   }));
   const { error: pErr } = await supabase.from('parcelas').insert(linhas);
   if (pErr) {

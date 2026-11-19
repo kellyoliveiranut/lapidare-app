@@ -8,7 +8,7 @@ import {
   MAX_PARCELAS_ESSENTIA, FORMAS_PGTO_LIST, FORMAS_COM_TAXA, STATUS_PARCELA_INFO,
 } from '../lib/utils.js';
 import { criarVendaComParcelas } from '../lib/vendas.js';
-import { gerarParcelasComEntrada, validarEntrada, restanteACombinar, dividirEmParcelas } from '../lib/parcelasEntrada.js';
+import { gerarParcelasComEntrada, validarEntrada, restanteACombinar, dividirEmParcelas, taxasPorLinha } from '../lib/parcelasEntrada.js';
 import { gravar } from '../lib/gravar.js';
 import { useSession } from '../lib/session.jsx';
 
@@ -38,6 +38,8 @@ export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo
   const [comEntrada, setComEntrada] = useState(false);
   const [entrada, setEntrada] = useState('');
   const [nRestante, setNRestante] = useState(0);
+  // Como a entrada foi paga quando o restante vai no cartão (no Pix/dinheiro é a própria forma).
+  const [formaEntrada, setFormaEntrada] = useState('dinheiro');
   const [obs, setObs] = useState('');
   // Lembrete de emitir a nota fiscal desta venda (aparece no aviso da Agenda).
   const [nfLembrar, setNfLembrar] = useState(true);
@@ -86,14 +88,22 @@ export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo
   // de outro.
   const nEfetivo = ['pix', 'dinheiro', 'parcelado'].includes(forma) ? nParcelas : 1;
 
+  // Com entrada, só o RESTANTE passa pela maquininha: a taxa (sugerida e digitada)
+  // vale para ele, e sem restante no cartão (a combinar) não há taxa nenhuma.
+  const entradaNum = valorBR(entrada);
+  const entradaAtiva = comEntrada;
+  const restanteCartao = entradaAtiva ? Math.max(valorNum - entradaNum, 0) : valorNum;
+  const comTaxaEfetiva = comTaxa && !(entradaAtiva && nRestante === 0);
+  const nTaxa = entradaAtiva ? Math.max(nRestante, 1) : nEfetivo;
+
   // A taxa vem SUGERIDA dos percentuais que a nutri configurou no Financeiro,
   // e vira manual assim que ela digita. Enquanto for automática, acompanha
   // valor, forma e número de parcelas; depois de editada, para de se mexer —
   // senão trocar de 3x para 6x apagaria o número copiado do extrato.
   const { profile } = useSession();
   const sugestao = useMemo(
-    () => taxaSugerida(profile, forma, valorNum, nEfetivo),
-    [profile, forma, valorNum, nEfetivo],
+    () => taxaSugerida(profile, forma, restanteCartao, nTaxa),
+    [profile, forma, restanteCartao, nTaxa],
   );
   const taxaMostrada = taxaEditada
     ? taxa
@@ -109,7 +119,7 @@ export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo
   const antecipadoPerfil = profile?.maquininha_antecipa ?? true;
   // `comTaxa` no E porque só cartão passa por maquininha: em pix/dinheiro o
   // conceito não existe e a flag não pode vazar para o que é gravado.
-  const antecipado = comTaxa && (antecipadoManual ?? antecipadoPerfil);
+  const antecipado = comTaxaEfetiva && (antecipadoManual ?? antecipadoPerfil);
 
   // Trocar de paciente pode trocar o teto: sair de uma Avulsa em 12x para uma
   // Essentia tem que puxar o número de parcelas de volta para 10.
@@ -121,7 +131,7 @@ export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo
 
   function escolherForma(f) {
     setForma(f);
-    if (f !== 'pix' && f !== 'dinheiro') setComEntrada(false);
+    setNRestante(0);
     if (f === 'pix' || f === 'dinheiro') setNParcelas(1);
     // clampParcelas cuida do piso (2) e do teto: 12x escolhido no Pix não pode
     // sobreviver à troca para Parcelado numa Essentia, onde o select só vai a 10.
@@ -137,13 +147,11 @@ export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo
     setAntecipadoManual(null);
   }
 
-  const entradaNum = valorBR(entrada);
-  const entradaAtiva = comEntrada && ['pix', 'dinheiro'].includes(forma);
-  const erroEntrada = entradaAtiva ? validarEntrada({ valorTotal: valorNum, entrada: entradaNum, nRestante }) : null;
+  const erroEntrada = entradaAtiva ? validarEntrada({ valorTotal: valorNum, entrada: entradaNum, nRestante, forma }) : null;
   const parcelasPreview = useMemo(() => {
     if (!valorNum || !data) return [];
     if (entradaAtiva) {
-      return gerarParcelasComEntrada({ valorTotal: valorNum, entrada: entradaNum, dataVenda: data, nRestante });
+      return gerarParcelasComEntrada({ valorTotal: valorNum, entrada: entradaNum, dataVenda: data, nRestante, forma, formaEntrada, antecipado });
     }
     return gerarParcelas({
       forma_pgto: forma,
@@ -152,13 +160,14 @@ export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo
       n_parcelas: nEfetivo,
       antecipado,
     });
-  }, [forma, valorNum, data, nEfetivo, antecipado, entradaAtiva, entradaNum, nRestante]);
+  }, [forma, valorNum, data, nEfetivo, antecipado, entradaAtiva, entradaNum, nRestante, formaEntrada]);
 
   // Mesma função que criarVendaComParcelas usa para gravar. O que a nutri
   // confere aqui é, centavo a centavo, o que vai para o banco.
+  const taxaPreviewNum = comTaxaEfetiva ? taxaNum : 0;
   const taxasPreview = useMemo(
-    () => distribuirTaxa(taxaNum, parcelasPreview),
-    [taxaNum, parcelasPreview],
+    () => (entradaAtiva ? taxasPorLinha(taxaPreviewNum, parcelasPreview) : distribuirTaxa(taxaPreviewNum, parcelasPreview)),
+    [taxaPreviewNum, parcelasPreview, entradaAtiva],
   );
 
   async function salvar() {
@@ -169,8 +178,8 @@ export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo
     if (erroEntrada) return setErro(erroEntrada);
     // O banco recusa taxa > valor da parcela (parcelas_taxa_menor_que_valor).
     // Barrar aqui dá uma frase em português em vez de erro de constraint.
-    if (comTaxa && taxaNum >= valorNum) {
-      return setErro('A taxa não pode ser maior ou igual ao valor da venda.');
+    if (comTaxaEfetiva && taxaNum >= restanteCartao) {
+      return setErro('A taxa não pode ser maior ou igual ao valor passado no cartão.');
     }
 
     setBusy(true);
@@ -184,10 +193,10 @@ export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo
       dataVenda: data,
       nParcelas,
       obs,
-      taxaTotal: comTaxa ? taxaNum : 0,
+      taxaTotal: comTaxaEfetiva ? taxaNum : 0,
       antecipado,
       nfLembrar,
-      entrada: entradaAtiva ? { valor: entradaNum, nRestante } : null,
+      entrada: entradaAtiva ? { valor: entradaNum, nRestante, formaEntrada } : null,
     });
     setBusy(false);
     if (error) return setErro(error);
@@ -272,34 +281,47 @@ export function NovaVendaModal({ pacientes = [], servicos, nutriId, pacienteFixo
         })}
       </div>
 
-      {['pix', 'dinheiro'].includes(forma) && (
-        <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer', fontSize: 13, color: 'var(--text2)', margin: '4px 0 10px' }}>
-          <input type="checkbox" checked={comEntrada} onChange={e => setComEntrada(e.target.checked)} style={{ marginTop: 2 }} />
-          <span>
-            Com entrada
-            <span style={{ display: 'block', fontSize: 11.5, color: 'var(--text3)' }}>
-              Entrada paga agora + o restante em parcelas ou a combinar
-            </span>
+      <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer', fontSize: 13, color: 'var(--text2)', margin: '4px 0 10px' }}>
+        <input type="checkbox" checked={comEntrada} onChange={e => setComEntrada(e.target.checked)} style={{ marginTop: 2 }} />
+        <span>
+          Com entrada
+          <span style={{ display: 'block', fontSize: 11.5, color: 'var(--text3)' }}>
+            Entrada paga agora + o restante {comTaxa ? 'no cartão' : 'em parcelas'} ou a combinar
           </span>
-        </label>
-      )}
+        </span>
+      </label>
 
       {entradaAtiva && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-          <div>
-            <label className="form-lbl">Entrada (R$)</label>
-            <input inputMode="decimal" value={entrada} onChange={e => setEntrada(e.target.value)} placeholder="0,00" />
+        <>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <div>
+              <label className="form-lbl">Entrada (R$)</label>
+              <input inputMode="decimal" value={entrada} onChange={e => setEntrada(e.target.value)} placeholder="0,00" />
+            </div>
+            <div>
+              <label className="form-lbl">Restante</label>
+              <select value={nRestante} onChange={e => setNRestante(Number(e.target.value))}>
+                <option value={0}>A combinar com a paciente</option>
+                {forma === 'credito1x' && <option value={1}>1x no crédito</option>}
+                {forma === 'parcelado' && Array.from({ length: maxN - 1 }, (_, i) => i + 2).map(n => (
+                  <option key={n} value={n}>{n}x no cartão</option>
+                ))}
+                {(forma === 'pix' || forma === 'dinheiro') && Array.from({ length: 12 }, (_, i) => i + 1).map(n => (
+                  <option key={n} value={n}>{n}x (venc. mensais)</option>
+                ))}
+              </select>
+            </div>
           </div>
-          <div>
-            <label className="form-lbl">Restante</label>
-            <select value={nRestante} onChange={e => setNRestante(Number(e.target.value))}>
-              <option value={0}>A combinar com a paciente</option>
-              {Array.from({ length: 12 }, (_, i) => i + 1).map(n => (
-                <option key={n} value={n}>{n}x (venc. mensais)</option>
-              ))}
-            </select>
-          </div>
-        </div>
+          {comTaxa && (
+            <div style={{ marginTop: 8 }}>
+              <label className="form-lbl">Entrada paga em</label>
+              <select value={formaEntrada} onChange={e => setFormaEntrada(e.target.value)}>
+                <option value="dinheiro">Dinheiro</option>
+                <option value="pix">Pix</option>
+              </select>
+            </div>
+          )}
+        </>
       )}
 
       {erroEntrada && entradaNum > 0 && (

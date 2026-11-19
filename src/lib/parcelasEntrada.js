@@ -8,7 +8,11 @@
    O "a combinar" NÃO é gravado em lugar nenhum: é a diferença entre o valor
    total da venda e a soma das parcelas (restanteACombinar). Quando a Kelly
    define o pagamento, as parcelas entram e a diferença some sozinha.
+   O restante pode ir para Pix/dinheiro (parcelas mensais sem taxa) ou para o
+   CARTÃO (crédito 1x ou parcelado, com taxa da maquininha só nessas parcelas);
+   a entrada é sempre paga na data da venda, em dinheiro ou Pix.
    Funções puras (rodam no node; ver parcelasEntrada.teste.mjs). */
+import { gerarParcelas, distribuirTaxa } from './utils.js';
 
 const cent = (v) => Math.round(Number(v) * 100);
 const emReais = (c) => Number((c / 100).toFixed(2));
@@ -39,35 +43,61 @@ export function dividirEmParcelas({ valor, n, primeiroVencimento, numeroInicial 
   }));
 }
 
+const ROTULO_ENTRADA = { dinheiro: 'Entrada em dinheiro', pix: 'Entrada no Pix' };
+
 /**
  * Parcelas da venda com entrada. A entrada é a parcela 1, já paga na data da
  * venda. `nRestante` 0 = restante a combinar (só a entrada é criada).
+ * `forma`: pix/dinheiro (restante em parcelas mensais pendentes, sem taxa) ou
+ * parcelado/credito1x (restante no cartão: linhas com `cartao: true`, que são
+ * as únicas a receber taxa; `antecipado` marca todas como recebidas na venda).
  * Devolve [] quando os números não fecham — quem chama valida antes com
  * validarEntrada() e mostra a frase.
  */
-export function gerarParcelasComEntrada({ valorTotal, entrada, dataVenda, nRestante }) {
-  if (validarEntrada({ valorTotal, entrada, nRestante })) return [];
+export function gerarParcelasComEntrada({
+  valorTotal, entrada, dataVenda, nRestante, forma = 'pix', formaEntrada, antecipado = false,
+}) {
+  if (validarEntrada({ valorTotal, entrada, nRestante, forma })) return [];
+  const fe = formaEntrada ?? (forma === 'dinheiro' ? 'dinheiro' : forma === 'pix' ? 'pix' : 'dinheiro');
   const linhas = [{
     numero: 1, valor: emReais(cent(entrada)), vencimento: dataVenda,
-    status: 'pago', data_pgto: dataVenda,
+    status: 'pago', data_pgto: dataVenda, obs: ROTULO_ENTRADA[fe] ?? 'Entrada', cartao: false,
   }];
   const resto = cent(valorTotal) - cent(entrada);
   if (nRestante > 0 && resto > 0) {
-    linhas.push(...dividirEmParcelas({
-      valor: emReais(resto), n: nRestante,
-      primeiroVencimento: somarMeses(dataVenda, 1), numeroInicial: 2,
-    }));
+    if (forma === 'parcelado' || forma === 'credito1x') {
+      gerarParcelas({
+        forma_pgto: forma, valor_total: emReais(resto), data_venda: dataVenda,
+        n_parcelas: nRestante, antecipado,
+      }).forEach((p, i) => linhas.push({ ...p, numero: 2 + i, cartao: true }));
+    } else {
+      linhas.push(...dividirEmParcelas({
+        valor: emReais(resto), n: nRestante,
+        primeiroVencimento: somarMeses(dataVenda, 1), numeroInicial: 2,
+      }).map(p => ({ ...p, cartao: false })));
+    }
   }
   return linhas;
 }
 
+/** Taxa da maquininha repartida só entre as parcelas do cartão; 0 nas demais. */
+export function taxasPorLinha(taxaTotal, linhas) {
+  const idx = linhas.map((l, i) => (l.cartao ? i : -1)).filter(i => i >= 0);
+  const parte = distribuirTaxa(taxaTotal, idx.map(i => linhas[i]));
+  const out = linhas.map(() => 0);
+  idx.forEach((i, k) => { out[i] = parte[k] ?? 0; });
+  return out;
+}
+
 /** Frase de erro, ou null se a entrada está ok. */
-export function validarEntrada({ valorTotal, entrada, nRestante }) {
+export function validarEntrada({ valorTotal, entrada, nRestante, forma = 'pix' }) {
   const t = cent(valorTotal), e = cent(entrada);
   if (!(t > 0)) return 'Informe o valor total.';
   if (!(e > 0)) return 'Informe o valor da entrada.';
   if (e >= t) return 'A entrada tem que ser menor que o valor total. Para pagar tudo de uma vez, use a forma de pagamento normal.';
   if (!Number.isInteger(nRestante) || nRestante < 0 || nRestante > 12) return 'Número de parcelas do restante inválido.';
+  if (forma === 'parcelado' && nRestante === 1) return 'No cartão parcelado, escolha 2 parcelas ou mais (ou use o crédito 1x).';
+  if (forma === 'credito1x' && nRestante > 1) return 'No crédito 1x o restante é uma parcela só.';
   return null;
 }
 
