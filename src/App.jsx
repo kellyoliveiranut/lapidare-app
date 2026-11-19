@@ -57,6 +57,7 @@ const Servicos = lazy(() => import('./app/nutri/Servicos.jsx'));
 const Boxes = lazy(() => import('./app/nutri/Boxes.jsx'));
 const Financeiro = lazy(() => import('./app/nutri/Financeiro.jsx'));
 const Biblioteca = lazy(() => import('./app/nutri/Biblioteca.jsx'));
+const LeitorExames = lazy(() => import('./app/nutri/LeitorExames.jsx'));
 const Atividade = lazy(() => import('./app/nutri/Atividade.jsx'));
 const Personalizacao = lazy(() => import('./app/nutri/Personalizacao.jsx'));
 const MonitoramentoOncologicoNutri = lazy(() => import('./app/nutri/MonitoramentoOncologico.jsx'));
@@ -119,6 +120,7 @@ export default function App() {
                 <Route path="/nutri/boxes" element={<Boxes />} />
                 <Route path="/nutri/financeiro" element={<Financeiro />} />
                 <Route path="/nutri/biblioteca" element={<Biblioteca />} />
+                <Route path="/nutri/leitor-exames" element={<LeitorExames />} />
                 <Route path="/nutri/monitoramento-oncologico" element={<MonitoramentoOncologicoNutri />} />
                 <Route path="/nutri/protocolos" element={<Protocolos />} />
                 <Route path="/nutri/mensagem-motivacional" element={<MensagemMotivacional />} />

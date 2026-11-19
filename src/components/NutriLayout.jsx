@@ -24,6 +24,7 @@ const NAV_CONFIG = [
       { id: 'avisos',       path: '/nutri/avisos',       label: 'Avisos',              icon: 'bell' },
       { id: 'feed',         path: '/nutri/feed',         label: 'Feed de pratos',      icon: 'camera' },
       { id: 'biblioteca',      path: '/nutri/biblioteca',      label: 'Biblioteca',              icon: 'book-2' },
+      { id: 'leitor-exames',    path: '/nutri/leitor-exames',    label: 'Leitor de exames',        icon: 'microscope' },
       { id: 'monitoramento',    path: '/nutri/monitoramento-oncologico', label: 'Oncologia',           icon: 'atom-2' },
       { id: 'protocolos',       path: '/nutri/protocolos',       label: 'Protocolos',              icon: 'list-search' },
       { id: 'mensagem-motivacional', path: '/nutri/mensagem-motivacional', label: 'Mensagem motivacional', icon: 'message-heart' },
@@ -215,7 +216,7 @@ export default function NutriLayout() {
           {NAV_CONFIG.map(group => (
             <div key={group.group}>
               <div className="nav-group">{group.group}</div>
-              {group.items.filter(item => !(secretaria && item.id === 'atividade')).map(item => (
+              {group.items.filter(item => !(secretaria && (item.id === 'atividade' || item.id === 'leitor-exames'))).map(item => (
                 <NavLink
                   key={item.id}
                   to={item.path}
