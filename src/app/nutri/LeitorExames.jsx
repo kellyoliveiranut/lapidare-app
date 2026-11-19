@@ -103,9 +103,9 @@ function Leitor() {
       ))}
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <button type="button" className="btn btn-primary" onClick={() => setLido(true)} disabled={!preenchidos.length}>Fazer leitura</button>
-        <button type="button" className="btn" onClick={() => { setValores(EXEMPLO); setLido(false); }}>Ver exemplo</button>
-        <button type="button" className="btn" onClick={() => { setValores({}); setLido(false); }}>Limpar</button>
+        <button type="button" className="btn" onClick={() => setLido(true)} disabled={!preenchidos.length}>Fazer leitura</button>
+        <button type="button" className="btn-outline" onClick={() => { setValores(EXEMPLO); setLido(false); }}>Ver exemplo</button>
+        <button type="button" className="btn-outline" onClick={() => { setValores({}); setLido(false); }}>Limpar</button>
       </div>
 
       {lido && (
