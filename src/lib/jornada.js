@@ -177,7 +177,9 @@ export function montarJornada({ consultas, contratos, planoPublicadoEm }) {
       // Realizada mostra a data MARCADA, não encerrada_em: a nutri às vezes
       // registra dias depois, pela Agenda, e a paciente lembraria da consulta
       // numa data que não é a que aparece.
-      data: c ? (c.data_hora ?? (feita ? c.encerrada_em : null)) : null,
+      // Consulta que a nutri escondeu da paciente (está reagendando) não entra com data:
+      // o card "Próxima consulta" já a omite, e as duas telas não podem discordar.
+      data: c ? ((c.oculta_paciente && c.status === 'agendada') ? null : (c.data_hora ?? (feita ? c.encerrada_em : null))) : null,
       consulta: c,
     });
 

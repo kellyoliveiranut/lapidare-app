@@ -49,7 +49,7 @@ export function useJornada(pacienteId, habilitado = true) {
           // TODAS as consultas, canceladas inclusive: a âncora do pacote e o
           // estado 'cancelada' dependem delas. O filtro é do montarJornada.
           supabase.from('consultas')
-            .select('id, tipo, status, data_hora, encerrada_em, created_at')
+            .select('id, tipo, status, data_hora, encerrada_em, created_at, oculta_paciente')
             .eq('paciente_id', pacienteId),
         ]);
         if (!ativo) return;

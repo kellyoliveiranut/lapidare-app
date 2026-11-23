@@ -116,13 +116,15 @@ const fontes = readdirSync(join(RAIZ, 'src'), { recursive: true })
   .filter(f => /\.(js|jsx|mjs)$/.test(f) && f !== ESTE);
 t('src/: nenhuma leitura de panorama_fases (.from) fora de comentário',
   fontes.filter(f => /from\(\s*['"`]panorama_fases['"`]\s*\)/.test(semComentario(lerRaiz(f)))), []);
-// sha256 (sem CR) do conteúdo destes arquivos no HEAD a6d0e08.
+// sha256 (sem CR) do conteúdo destes arquivos. Atualizado em 2026-11-23, quando a jornada deixou de
+// repetir a data da próxima consulta e de mostrar a data de consulta oculta. Qualquer mudança futura
+// nestes arquivos exige conferir que o Emagrecimento segue de fora e atualizar estes hashes.
 const HEAD = {
-  'src/app/paciente/_Jornada.jsx': '0a1a594f978a8671249abd6614e0991aecba3dc621c74175524c028a3f8e74c1',
-  'src/lib/jornada.js': 'e77647be9e62e6c9f113a1cdee444c0d993e09c4d2a3edd4ddbccf141dab9485',
-  'src/lib/useJornada.js': '23c505f304c8c5cab66561495b309399d74439db93e9c9a62e37a6d26f3dd25b',
+  'src/app/paciente/_Jornada.jsx': 'cf8c238cf57a0126f12a92e52a3780dbb1678ea6de8e2b8c960b2f53a4541d27',
+  'src/lib/jornada.js': '0e39b38b2a9ebf13e35fc761b9f5c828882cd745e2b904a71661a6bf5e834045',
+  'src/lib/useJornada.js': 'a9664926834c1f11a83d502b725d1f7d08f1710b7fea4219b0d904f3f5a4f072',
 };
-t('_Jornada.jsx, jornada.js e useJornada.js existem e iguais ao HEAD a6d0e08',
+t('_Jornada.jsx, jornada.js e useJornada.js existem e batem com os hashes registrados',
   Object.entries(HEAD).map(([f, h]) => existe(f) && sha(lerRaiz(f)) === h), [true, true, true]);
 
 console.log(`\nTZ = ${process.env.TZ}\n`);

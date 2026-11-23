@@ -161,5 +161,22 @@ t('agendada antiga antes de uma feita é pulada (1R 2A 3R)',
     [j.realizadas, j.total, j.situacao], [5, 6, 'em_andamento']);
 }
 
+// ─── Consulta oculta da paciente não mostra data ─────────────
+{
+  const P = '2026-11-01T14:00:00+00:00';
+  const base = leva(P, '1R 2A 3A 4A 5A 6A');
+  const datas = ['2026-11-05T14:00:00Z', '2026-11-27T19:00:00Z', null, '2026-12-11T17:00:00Z', null, null];
+  const linhas = base.map((c, i) => ({ ...c, data_hora: datas[i] }));
+  const dataDe = (j, n) => j.passos.find(p => p.chave === `consulta_${n}`).data;
+  const visivel = rodar(linhas);
+  t('consulta 2 visível mostra a data marcada', dataDe(visivel, 2), '2026-11-27T19:00:00Z');
+  const oculta = rodar(linhas.map((c, i) => (i === 1 ? { ...c, oculta_paciente: true } : c)));
+  t('consulta 2 oculta fica sem data (a tela mostra "A agendar")', dataDe(oculta, 2), null);
+  t('consulta oculta continua contando no passo atual', oculta.passos.find(p => p.chave === 'consulta_2').estado, 'atual');
+  t('as demais datas não mudam', dataDe(oculta, 4), '2026-12-11T17:00:00Z');
+  const realizadaOculta = rodar(linhas.map((c, i) => (i === 0 ? { ...c, oculta_paciente: true } : c)));
+  t('consulta realizada mantém a data mesmo com a marca', dataDe(realizadaOculta, 1), '2026-11-05T14:00:00Z');
+}
+
 console.log(`\n${ok} PASS, ${falhou} FALHA`);
 process.exitCode = falhou ? 1 : 0;

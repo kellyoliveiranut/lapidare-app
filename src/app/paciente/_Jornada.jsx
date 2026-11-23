@@ -194,7 +194,6 @@ export function TrilhaJornada({ jornada, carregando, erro }) {
  */
 export function CardJornadaResumo({ jornada, onAbrir }) {
   if (!jornada || jornada.vazia) return null;
-  const atual = jornada.passos.find(p => p.estado === 'atual');
   const fechado = jornada.situacao !== 'em_andamento';
 
   return (
@@ -228,14 +227,8 @@ export function CardJornadaResumo({ jornada, onAbrir }) {
           <Contador jornada={jornada} />
         </div>
         {!fechado && <BarraProgresso jornada={jornada} />}
-        {atual && (
-          <div style={{
-            fontSize: 11, color: 'var(--muted)', marginTop: 5,
-            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-          }}>
-            Próximo: {atual.titulo} · {linhaDetalhe(atual)}
-          </div>
-        )}
+        {/* A data da próxima consulta fica só no card "Próxima consulta" (com confirmar presença):
+            repeti-la aqui já mostrou duas datas diferentes na mesma tela. */}
       </div>
       {onAbrir && (
         <i className="ti ti-chevron-right" style={{ fontSize: 16, color: 'var(--muted)', flexShrink: 0 }} aria-hidden="true" />
