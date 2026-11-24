@@ -29,6 +29,7 @@ import { ehFeriado } from '../../lib/feriados.js';
 import { verificarAgenda, textoImpedimentos, textoConfirmacao, opcoesHorario, horariosLivres } from '../../lib/agendaConflitos.js';
 import { useHorariosLivres, useOcupacaoDeDatas } from '../../lib/useHorariosLivres.js';
 import { gravar } from '../../lib/gravar.js';
+import NotaFiscalPaciente from './_NotaFiscalPaciente.jsx';
 import { confirmar as confirmarJanela, avisar as avisarJanela } from '../../lib/dialogos.js';
 import ModalShell from '../../components/ModalShell.jsx';
 import { CATEGORIAS_SUGERIDAS, mover as moverItem, resumo as resumoSubs, importarSubstituicoes } from '../../lib/substituicoes.js';
@@ -1087,6 +1088,10 @@ export default function PacientePerfil() {
             <i className="ti ti-x" aria-hidden="true" />
           </button>
         </div>
+      )}
+
+      {!secretaria && user?.id && paciente?.id && (
+        <NotaFiscalPaciente nutriId={user.id} pacienteId={paciente.id} />
       )}
 
       {/* Faixa do Financeiro: sempre visível (o Financeiro não é mais uma aba).

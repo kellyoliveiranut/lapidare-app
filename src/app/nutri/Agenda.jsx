@@ -7,6 +7,7 @@ import { rotuloAgendadaPor } from '../../lib/agendadaPor.js';
 import DateInput from '../../components/DateInput.jsx';
 import NovaPacienteRapida from './_NovaPacienteRapida.jsx';
 import NotasDaSemana from './_NotasDaSemana.jsx';
+import { useNotasPendentes } from '../../lib/useNotasPendentes.js';
 import { linkConvite, mensagemConviteEncoded } from '../../lib/convite.js';
 import {
   verificarAgenda, textoImpedimentos, textoConfirmacao, bloqueioCobre, impedimentosQueTravam, avisosQueConfirmam,
@@ -971,6 +972,10 @@ export default function Agenda() {
     return bloqueios.filter(b => b.data === alvo);
   }, [bloqueios, diaSelecionado]);
 
+  // Notas fiscais pendentes: um só carregamento para o resumo e para o aviso
+  // na linha da 1ª consulta.
+  const notasPendentes = useNotasPendentes(user?.id);
+
   // "Para resolver" vive junto da lista do dia (mesmo card); na régua fica
   // logo acima dela. Uma única instância por vez.
   const paraResolverEl = (embutido) => (
@@ -1147,7 +1152,7 @@ export default function Agenda() {
         onSelecionarDia={(d) => { setDiaSelecionado(d); setDiaAberto(true); }}
       />
 
-      <NotasDaSemana nutriId={user?.id} />
+      <NotasDaSemana notas={notasPendentes} />
 
       {lembretes.length > 0 && (
         <PainelLembretes
@@ -1313,6 +1318,7 @@ export default function Agenda() {
                     onToggleOculta={toggleOculta}
                     onRemarcar={() => abrirRemarcar(it.c)}
                     onResolver={resolverConsulta}
+                    notaPendente={notasPendentes.idsPendentes.has(it.c.paciente?.id ?? it.c.paciente_id)}
                     remarcandoAgora={mandandoId === it.c.id}
                     corDoTipo />
                 ) : (
@@ -2415,7 +2421,7 @@ function LinhaPacienteCancelada({ p, isLast }) {
 //
 // remarcandoAgora: o Remarcar da linha está gravando (mandarParaADefinir) —
 // o botão fica desabilitado até a resposta do banco.
-function ConsultaRow({ c, isLast, onClick, onToggleConfirmada, onToggleNaoConfirmada, onToggleOculta, onRemarcar, onResolver, remarcandoAgora = false, corDoTipo = false }) {
+function ConsultaRow({ c, isLast, onClick, onToggleConfirmada, onToggleNaoConfirmada, onToggleOculta, onRemarcar, onResolver, notaPendente = false, remarcandoAgora = false, corDoTipo = false }) {
   const navigate = useNavigate();
   const { profile } = useSession();
   const quemAgendou = rotuloAgendadaPor(c.agendada_por, profile?.nome);
@@ -2555,6 +2561,19 @@ function ConsultaRow({ c, isLast, onClick, onToggleConfirmada, onToggleNaoConfir
           }}>
             <i className={`ti ${mod.icone}`} aria-hidden="true" style={{ fontSize: 12 }} /> {mod.label}
           </span>
+          {notaPendente && c.tipo === 'primeira' && (
+            <button type="button" title="Nota fiscal desta paciente ainda não emitida — abrir o perfil"
+              onClick={(e) => { e.stopPropagation(); navigate(`/nutri/pacientes/${c.paciente?.id ?? c.paciente_id}`, { state: { from: '/nutri/agenda', label: 'Agenda' } }); }}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 3, cursor: 'pointer',
+                padding: '1px 7px', borderRadius: 20, whiteSpace: 'nowrap',
+                background: '#faf5ea', color: 'var(--gold-deep, #8a6d3b)',
+                border: '1px solid var(--gold-deep, #a08456)',
+                fontSize: 11, fontWeight: 600, fontFamily: 'inherit',
+              }}>
+              <i className="ti ti-file-invoice" aria-hidden="true" style={{ fontSize: 12 }} /> NF pendente
+            </button>
+          )}
           {quemAgendou && (
             <span title="Quem criou esta consulta" style={{
               display: 'inline-flex', alignItems: 'center', gap: 3,
