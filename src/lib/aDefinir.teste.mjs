@@ -1,0 +1,15 @@
+import { proximaADefinirPorPaciente as f } from './aDefinir.js';
+let ok = 0, bad = 0;
+const t = (n, a, b) => { const x = JSON.stringify(a) === JSON.stringify(b); x ? ok++ : bad++; console.log((x ? '  PASS  ' : '  FALHA  ') + n + (x ? '' : `  (esperado ${JSON.stringify(b)}, obteve ${JSON.stringify(a)})`)); };
+const c = (id, pid, tipo, created_at = '2026-01-01') => ({ id, paciente: { id: pid }, tipo, created_at });
+const ids = l => f(l).map(x => x.id);
+t('uma por paciente, a de menor posição', ids([c('a','p1','consulta_4'), c('b','p1','primeira'), c('c','p1','consulta_2')]), ['b']);
+t('sem a 1ª: a Consulta 2', ids([c('a','p1','consulta_5'), c('b','p1','consulta_2')]), ['b']);
+t('pacientes diferentes ficam todas', ids([c('a','p1','consulta_4'), c('b','p2','consulta_4')]), ['a','b']);
+t('tipo fora do pacote perde para o do pacote', ids([c('a','p1','retorno'), c('b','p1','consulta_6')]), ['b']);
+t('empate: a criada antes', ids([c('a','p1','avulsa','2026-02-01'), c('b','p1','avulsa','2026-01-01')]), ['b']);
+t('mantém a ordem original', ids([c('a','p2','consulta_3'), c('b','p1','primeira'), c('c','p2','consulta_2')]), ['b','c']);
+t('lista vazia', ids([]), []);
+t('sem paciente não some', ids([{ id: 'x', tipo: 'primeira' }, { id: 'y', tipo: 'consulta_2' }]), ['x','y']);
+console.log(`${ok} passaram, ${bad} falharam, ${ok + bad} no total`);
+process.exit(bad ? 1 : 0);

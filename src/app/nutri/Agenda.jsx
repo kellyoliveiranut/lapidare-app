@@ -7,6 +7,7 @@ import { rotuloAgendadaPor } from '../../lib/agendadaPor.js';
 import DateInput from '../../components/DateInput.jsx';
 import NovaPacienteRapida from './_NovaPacienteRapida.jsx';
 import NotasDaSemana from './_NotasDaSemana.jsx';
+import { proximaADefinirPorPaciente } from '../../lib/aDefinir.js';
 import { feriadoDe } from '../../lib/feriados.js';
 import { useNotasPendentes } from '../../lib/useNotasPendentes.js';
 import { linkConvite, mensagemConviteEncoded } from '../../lib/convite.js';
@@ -816,7 +817,8 @@ export default function Agenda() {
   const agora = new Date().toISOString();
   const ativas = (consultas ?? []).filter(c => c.status !== 'cancelada');
   const futuras = ativas.filter(c => c.data_hora && c.data_hora >= agora);
-  const aDefinir = ativas.filter(c => !c.data_hora);
+  // Uma linha por paciente: só a próxima consulta a agendar (lib/aDefinir.js).
+  const aDefinir = proximaADefinirPorPaciente(ativas.filter(c => !c.data_hora));
   const pacientesCanceladas = pacientesComCancelada(consultas ?? [], agora);
 
   // Busca da seção "A definir", por nome da paciente. Sem useMemo pela mesma
