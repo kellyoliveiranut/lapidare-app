@@ -3397,7 +3397,8 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
         // Separa conflito com outra paciente (trava) do conflito com a própria
         // (avisa).
         pacienteId,
-        itens: [{ data, hora, duracaoMin: Number(duracao) }],
+        itens: [{ data, hora, duracaoMin: Number(duracao), modalidade, localId }],
+        locais,
         // Ao editar, a própria consulta sempre "conflitaria" consigo mesma.
         ignorarIds: isEdit ? [consulta.id] : [],
       });

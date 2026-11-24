@@ -162,6 +162,26 @@ export function gradeDoLocal(local, grade = HORARIOS_CONSULTA) {
 }
 
 /**
+ * Local que a regra de dia da semana indica para a data: exatamente um local
+ * ativo atende naquele dia, senão null. Fica aqui (e não em opcoesPaciente) para
+ * a trava do salvar usar a mesma conta da grade sem importar uma da outra.
+ */
+export function localDoDia(locais, dataISO) {
+  if (!dataISO) return null;
+  const d = new Date(dataISO + 'T12:00:00');
+  if (Number.isNaN(d.getTime())) return null;
+  const doDia = (locais ?? []).filter(l => l.ativo && (l.dias_semana ?? []).includes(d.getDay()));
+  return doDia.length === 1 ? doDia[0] : null;
+}
+
+/** O horário cai na janela que o local não atende (12:00 até o primeiro horário da tarde)? */
+export function horaForaDaRegraDoLocal(local, hora) {
+  const primeiro = local?.primeiro_horario_tarde;
+  if (!/^\d{2}:\d{2}$/.test(primeiro ?? '') || !/^\d{2}:\d{2}$/.test(hora ?? '')) return false;
+  return hora >= '12:00' && hora < primeiro;
+}
+
+/**
  * Primeiro horário da lista a partir de `preferido` ('HH:MM'); se não houver
  * nenhum depois, o primeiro da lista; lista vazia → null. A lista vem em ordem
  * de relógio, e 'HH:MM' compara certo como texto.
@@ -273,6 +293,8 @@ export function textoConfirmacao(avisos) {
  * Dos impedimentos, quais travam o salvamento no modal da Agenda.
  *
  * - bloqueio e duracao: sempre travam.
+ * - horario (tarde só a partir do primeiro horário do local): trava quando o
+ *   HORÁRIO muda, como o conflito.
  * - conflito: trava quando o HORÁRIO muda (data, hora, duração) ou quando a
  *   consulta sai de 'cancelada'. Editar só a obs ou o local de uma consulta que
  *   já colidia antes da regra não trava: a colisão é legada, não criada agora.
@@ -290,7 +312,9 @@ export function impedimentosQueTravam(impedimentos, { isEdit, inicial, atual }) 
     || inicial.status === 'cancelada';
   return impedimentos.filter(i => {
     if (i.tipo === 'bloqueio' || i.tipo === 'duracao') return true;
-    if (i.tipo === 'conflito') return atual.status !== 'cancelada' && mudouHorario;
+    // horario: regra de primeiro horário da tarde. Consulta antiga nessa janela
+    // pode trocar de obs ou de local sem travar; só trava se o horário mudou.
+    if (i.tipo === 'conflito' || i.tipo === 'horario') return atual.status !== 'cancelada' && mudouHorario;
     return mudouData;   // fds
   });
 }
@@ -334,6 +358,11 @@ export async function verificarAgenda(supabase, {
   ignorarIds = [],
   permitirFds = false,
   dicaFds = '',
+  // Lista de locais (com dias_semana e primeiro_horario_tarde). Com ela, nenhum
+  // agendamento passa na janela que o local do dia não atende (ex.: 14:00 nos
+  // dias fora do CTO, onde o primeiro da tarde é 14:30). Cada item pode trazer
+  // `modalidade` e `localId`; online ou sem local vale a regra do dia.
+  locais = null,
 }) {
   const impedimentos = [];
   const avisos = [];
@@ -362,6 +391,19 @@ export async function verificarAgenda(supabase, {
   for (const it of validos) {
     if (!(Number(it.duracaoMin) > 0)) {
       impedimentos.push({ tipo: 'duracao', texto: 'Escolha a duração da consulta.' });
+    }
+  }
+
+  // 1c. Primeiro horário da tarde do local (regra do local, não só do select:
+  //     vale para qualquer tela que agende).
+  if (locais) {
+    for (const it of validos) {
+      let local = localDoDia(locais, it.data);
+      if (it.modalidade === 'presencial' && it.localId) local = locais.find(l => l.id === it.localId) ?? local;
+      if (horaForaDaRegraDoLocal(local, it.hora)) {
+        impedimentos.push({ tipo: 'horario', texto:
+          `${formatarBR(it.data)}: às ${it.hora} não há atendimento. A primeira consulta da tarde é às ${local.primeiro_horario_tarde}.` });
+      }
     }
   }
 

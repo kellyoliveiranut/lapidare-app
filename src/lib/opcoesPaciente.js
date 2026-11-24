@@ -1,4 +1,5 @@
-import { gradeDoLocal } from './agendaConflitos.js';
+import { gradeDoLocal, localDoDia } from './agendaConflitos.js';
+export { localDoDia };
 /**
  * Listas canônicas de sexo, tipo de plano e modalidade da paciente.
  *
@@ -119,19 +120,6 @@ export function localParaDefinirData({ modalidade, localId, locais, dataISO }) {
   if (modalidade !== 'presencial') return null;
   if (localId) return null;
   return localPadrao(locais, dataISO) || null;
-}
-
-/**
- * Local que a regra de dia da semana indica para a data: exatamente um local
- * ativo atende naquele dia, senão null. Sem o "único local ativo" de localPadrao:
- * aqui só vale o que o dia decide.
- */
-export function localDoDia(locais, dataISO) {
-  if (!dataISO) return null;
-  const d = new Date(dataISO + 'T12:00:00');
-  if (Number.isNaN(d.getTime())) return null;
-  const doDia = (locais ?? []).filter(l => l.ativo && (l.dias_semana ?? []).includes(d.getDay()));
-  return doDia.length === 1 ? doDia[0] : null;
 }
 
 /**

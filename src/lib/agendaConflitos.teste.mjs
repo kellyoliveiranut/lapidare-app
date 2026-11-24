@@ -123,6 +123,42 @@ t('verificar', 'sem pacienteId: conta como outra e TRAVA', resumo(r), [['conflit
 r = await va({ consultas: [cons('a', ANA, '14:00')],
                bloqueios: [{ data: DV, hora_inicio: null, hora_fim: null, motivo: null }] }, [it('14:00')]);
 t('verificar', 'bloqueio + conflito: os dois travam', tipos(r), ['bloqueio', 'conflito']);
+
+// ─── primeiro horário da tarde do local (qualquer agendamento) ───────
+const LOCS = [
+  { id: 'cto', ativo: true, dias_semana: [1, 5], primeiro_horario_tarde: null },
+  { id: 'ed',  ativo: true, dias_semana: [2, 3, 4], primeiro_horario_tarde: '14:30' },
+];
+const SEG = '2026-10-05';   // segunda: CTO
+r = await va({}, [it('14:00')], { locais: LOCS });
+t('verificar', 'terça (fora do CTO) 14:00: TRAVA', tipos(r), ['horario']);
+r = await va({}, [it('14:30')], { locais: LOCS });
+t('verificar', 'terça 14:30: livre', tipos(r), []);
+r = await va({}, [it('12:00'), it('13:30')], { locais: LOCS });
+t('verificar', 'terça 12:00 e 13:30 também travam', tipos(r), ['horario', 'horario']);
+r = await va({}, [it('11:30'), it('15:00')], { locais: LOCS });
+t('verificar', 'terça 11:30 e 15:00: livres', tipos(r), []);
+r = await va({}, [it('14:00', 45, SEG)], { locais: LOCS });
+t('verificar', 'segunda (CTO) 14:00: livre', tipos(r), []);
+r = await va({}, [it('14:00')]);
+t('verificar', 'sem locais na chamada: regra não se aplica (compatível)', tipos(r), []);
+r = await va({}, [{ ...it('14:00'), modalidade: 'online' }], { locais: LOCS });
+t('verificar', 'online na terça 14:00: TRAVA', tipos(r), ['horario']);
+r = await va({}, [{ ...it('14:00'), modalidade: 'presencial', localId: 'ed' }], { locais: LOCS });
+t('verificar', 'presencial no Ed Village 14:00: TRAVA', tipos(r), ['horario']);
+r = await va({}, [{ ...it('14:00'), modalidade: 'presencial', localId: 'cto' }], { locais: LOCS });
+t('verificar', 'local CTO escolhido na mão numa terça: vale o do CTO', tipos(r), []);
+r = await va({}, [it('14:00'), it('14:00')], { locais: LOCS });
+t('verificar', 'mesma frase repetida aparece uma vez', tipos(r), ['horario']);
+const ini = { data: DV, hora: '14:00', duracao: 45, status: 'agendada' };
+t('travam', 'horario: editar sem mudar o horário NÃO trava (consulta antiga)',
+  impedimentosQueTravam([{ tipo: 'horario', texto: 'x' }], { isEdit: true, inicial: ini, atual: { ...ini } }).length, 0);
+t('travam', 'horario: mudar a hora para 13:30 trava',
+  impedimentosQueTravam([{ tipo: 'horario', texto: 'x' }], { isEdit: true, inicial: ini, atual: { ...ini, hora: '13:30' } }).length, 1);
+t('travam', 'horario: criar nova trava',
+  impedimentosQueTravam([{ tipo: 'horario', texto: 'x' }], { isEdit: false, inicial: ini, atual: ini }).length, 1);
+t('travam', 'horario: salvar como cancelada não trava',
+  impedimentosQueTravam([{ tipo: 'horario', texto: 'x' }], { isEdit: false, inicial: ini, atual: { ...ini, status: 'cancelada' } }).length, 0);
 r = await va({}, [it('10:00', 45, SAB)]);
 t('verificar', 'sábado sem conflito: só fds', resumo(r), [['fds'], 0]);
 r = await va({}, [it('10:00')]);

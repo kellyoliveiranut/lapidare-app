@@ -6542,7 +6542,8 @@ function ModalAgendarAcompanhamento({ pacienteId, nutriId, consultaAtiva, modali
           // ordem das seis linhas do formulário. O labelTipoConsulta daqui
           // não serve — ele vive dentro do componente PacientePerfil, e este
           // modal é uma função irmã, fora daquele escopo.
-          itens: datas.map((d, i) => ({ data: d.data, hora: horasEfetivas[i], duracaoMin: duracao, rotulo: rotuloTipo(tipos[i]) })),
+          itens: datas.map((d, i) => ({ data: d.data, hora: horasEfetivas[i], duracaoMin: duracao, rotulo: rotuloTipo(tipos[i]), modalidade })),
+          locais,
           permitirFds,
           dicaFds: ' Ou marque "permitir fim de semana".',
         });
@@ -6946,7 +6947,8 @@ function ModalAgendarAvulsa({ pacienteId, nutriId, modalidadePaciente, tipo = 'a
         const { impedimentos, avisos } = await verificarAgenda(supabase, {
           nutriId,
           pacienteId,
-          itens: [{ data, hora: horaEscolhida, duracaoMin: duracao }],
+          itens: [{ data, hora: horaEscolhida, duracaoMin: duracao, modalidade }],
+          locais,
         });
         if (impedimentos.length) {
           setErro(textoImpedimentos(impedimentos));
@@ -7128,7 +7130,8 @@ function ModalDefinirData({
       const { impedimentos, avisos } = await verificarAgenda(supabase, {
         nutriId,
         pacienteId,
-        itens: [{ data, hora: horaEscolhida, duracaoMin }],
+        itens: [{ data, hora: horaEscolhida, duracaoMin, modalidade: dadosLocal.modalidade, localId: dadosLocal.localId }],
+        locais,
         ignorarIds: [consultaId],
       });
       if (impedimentos.length) { setErro(textoImpedimentos(impedimentos)); return; }

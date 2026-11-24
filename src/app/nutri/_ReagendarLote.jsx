@@ -72,7 +72,8 @@ export default function ReagendarLote({ consultas, locais, nutriId, onClose, onS
         const { impedimentos, avisos: av } = await verificarAgenda(supabase, {
           nutriId,
           pacienteId: it.c.paciente?.id ?? null,
-          itens: [{ data: it.data, hora: it.hora, duracaoMin: it.duracaoMin }],
+          itens: [{ data: it.data, hora: it.hora, duracaoMin: it.duracaoMin, modalidade: it.c.modalidade, localId: it.c.local_id }],
+          locais,
           ignorarIds,
         });
         impedimentos.forEach(x => problemas.push(`${it.nome}: ${x.texto}`));
