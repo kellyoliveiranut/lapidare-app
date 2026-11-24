@@ -24,7 +24,7 @@ const btn = (cor, fundo) => ({
   minHeight: 40,
 });
 
-export default function ParaResolver({ fila, onResolver, desfazer, onDesfazer, confirmouAntes }) {
+export default function ParaResolver({ fila, onResolver, desfazer, onDesfazer, confirmouAntes, embutido = false }) {
   const [ocupadaId, setOcupadaId] = useState(null);
   const [aberto, setAberto] = useState(true);
 
@@ -38,7 +38,11 @@ export default function ParaResolver({ fila, onResolver, desfazer, onDesfazer, c
   const nConfirmadas = fila.filter(confirmouAntes).length;
 
   return (
-    <div style={{
+    <div style={embutido ? {
+      // Dentro do card da lista do dia: faixa âmbar sem moldura própria.
+      background: '#fff8ec', borderBottom: '3px solid #e0b36a',
+      padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 10,
+    } : {
       border: '1px solid #e0b36a', background: '#fff8ec', borderRadius: 12,
       padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10,
     }}>

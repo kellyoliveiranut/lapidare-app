@@ -971,6 +971,19 @@ export default function Agenda() {
     return bloqueios.filter(b => b.data === alvo);
   }, [bloqueios, diaSelecionado]);
 
+  // "Para resolver" vive junto da lista do dia (mesmo card); na régua fica
+  // logo acima dela. Uma única instância por vez.
+  const paraResolverEl = (embutido) => (
+    <ParaResolver
+      embutido={embutido}
+      fila={filaParaResolver(consultas ?? [], new Date())}
+      onResolver={resolverConsulta}
+      desfazer={desfazerResolver}
+      onDesfazer={desfazerUltimaResolucao}
+      confirmouAntes={confirmouAntes}
+    />
+  );
+
   const abrirNova = () => setModalState({ open: true, consulta: null, pacienteInicialId: null, remarcando: false });
   // Clique num horário livre da lista/régua: modal de consulta NOVA já na data do dia e na hora clicada.
   const abrirNovaNoHorario = (hora) => setModalState({ open: true, consulta: null, pacienteInicialId: null, remarcando: false, dataInicial: isoLocalDeData(diaSelecionado), horaInicial: hora });
@@ -1136,14 +1149,6 @@ export default function Agenda() {
 
       <NotasDaSemana nutriId={user?.id} />
 
-      <ParaResolver
-        fila={filaParaResolver(consultas ?? [], new Date())}
-        onResolver={resolverConsulta}
-        desfazer={desfazerResolver}
-        onDesfazer={desfazerUltimaResolucao}
-        confirmouAntes={confirmouAntes}
-      />
-
       {lembretes.length > 0 && (
         <PainelLembretes
           lembretes={lembretesPendentes}
@@ -1222,8 +1227,11 @@ export default function Agenda() {
         </div>
       </div>
 
+      {/* Dia recolhido: o "Para resolver" não pode sumir junto. */}
+      {!diaAberto && paraResolverEl(false)}
       {diaAberto && (<>
-      {visaoDia === 'regua' ? (
+      {visaoDia === 'regua' ? (<>
+        {paraResolverEl(false)}
         <ReguaDoDia
           consultas={consultasDoDia}
           tarefas={tarefasDoDia}
@@ -1235,14 +1243,18 @@ export default function Agenda() {
           onAbrirTarefa={abrirTarefaEdit}
           onAlternarTarefa={alternarTarefa}
         />
-      ) : (
+      </>) : (
       <>
       {itensDoDia.length === 0 ? (
-        <div className="card" style={{ padding: '16px', textAlign: 'center', color: 'var(--text3)', fontSize: 14 }}>
-          Nenhuma consulta neste dia.
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          {paraResolverEl(true)}
+          <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text3)', fontSize: 14 }}>
+            Nenhuma consulta neste dia.
+          </div>
         </div>
       ) : (
-        <div className="card" style={{ padding: 0 }}>
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          {paraResolverEl(true)}
           {itensDoDia.map((it, i) => {
             // Faixa de período (Manhã / Tarde) antes do primeiro item de cada
             // um; tarefas do dia inteiro têm a própria faixa, neutra. Corte às
