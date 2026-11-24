@@ -8,6 +8,7 @@ import DateInput from '../../components/DateInput.jsx';
 import NovaPacienteRapida from './_NovaPacienteRapida.jsx';
 import NotasDaSemana from './_NotasDaSemana.jsx';
 import { proximaADefinirPorPaciente } from '../../lib/aDefinir.js';
+import { mensagemRemarcacao } from '../../lib/mensagemRemarcacao.js';
 import { feriadoDe } from '../../lib/feriados.js';
 import { useNotasPendentes } from '../../lib/useNotasPendentes.js';
 import { linkConvite, mensagemConviteEncoded } from '../../lib/convite.js';
@@ -1874,6 +1875,16 @@ function PainelLembretes({ lembretes, confirmadas = 0, semConfirmacao = 0, locai
             aviso: avisoDoLocal(nomeLocal),
           });
           const msgEncoded = encodeURIComponent(msgTexto);
+          // Aviso de remarcação (outra mensagem, outro botão): não conta como
+          // lembrete enviado.
+          const ymd = (d) => d.toLocaleDateString('en-CA', { timeZone: TZ_CLINICA });
+          const amanhaYmd = ymd(new Date(Date.now() + 24 * 3600 * 1000));
+          const quandoRemarcar = ymd(dt) === ymd(new Date()) ? 'hoje'
+            : ymd(dt) === amanhaYmd ? `amanhã, ${dataFormatada}`
+            : `${diaSemana}, ${dataFormatada}`;
+          const msgRemarcarEncoded = encodeURIComponent(mensagemRemarcacao({
+            nome: pacNome.split(' ')[0], quando: quandoRemarcar, hora: horaConsulta,
+          }));
 
           // Cache local tem prioridade para exibição imediata; fonte da verdade é o Supabase
           const localTs = enviadosLocais.get(l.id);
@@ -2014,6 +2025,21 @@ function PainelLembretes({ lembretes, confirmadas = 0, semConfirmacao = 0, locai
                     <i className={`ti ti-${copiado ? 'check' : 'copy'}`} aria-hidden="true" />
                     {copiado ? 'Copiado!' : 'Copiar mensagem'}
                   </button>
+                )}
+
+                {temTelefone && (
+                  <a
+                    href={`https://wa.me/${telFormatado}?text=${msgRemarcarEncoded}`}
+                    target="_blank" rel="noreferrer"
+                    className="btn-outline"
+                    title="Abre o WhatsApp avisando que a consulta será remarcada e que a equipe entra em contato com a nova data"
+                    style={{
+                      fontSize: 12, minHeight: enviado ? 40 : 44, padding: '0 14px',
+                      textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6,
+                    }}
+                  >
+                    <i className="ti ti-calendar-event" aria-hidden="true" /> Avisar remarcação
+                  </a>
                 )}
 
                 {enviado && (
