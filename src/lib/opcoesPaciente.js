@@ -122,14 +122,30 @@ export function localParaDefinirData({ modalidade, localId, locais, dataISO }) {
 }
 
 /**
+ * Local que a regra de dia da semana indica para a data: exatamente um local
+ * ativo atende naquele dia, senão null. Sem o "único local ativo" de localPadrao:
+ * aqui só vale o que o dia decide.
+ */
+export function localDoDia(locais, dataISO) {
+  if (!dataISO) return null;
+  const d = new Date(dataISO + 'T12:00:00');
+  if (Number.isNaN(d.getTime())) return null;
+  const doDia = (locais ?? []).filter(l => l.ativo && (l.dias_semana ?? []).includes(d.getDay()));
+  return doDia.length === 1 ? doDia[0] : null;
+}
+
+/**
  * Grade de inícios de consulta para o dia, conforme o local em que ela será.
  * Presencial: o local já gravado (`localId`) ou, sem ele, o que a regra de dia
- * da semana escolhe (localPadrao) — o mesmo que o salvar vai gravar. Online ou
- * sem local decidido: grade inteira. A regra de cada local (ex.: tarde só a
- * partir das 14:30) está em gradeDoLocal.
+ * da semana escolhe (localPadrao) — o mesmo que o salvar vai gravar.
+ * Online (ou modalidade ainda sem definir): não tem local, mas o DIA vale igual.
+ * Nos dias fora do CTO a Kelly sai mais tarde do local anterior, então a regra
+ * do local do dia (ex.: tarde só a partir das 14:30) também vale para a online
+ * (pedido de 2026-11-24). Dia sem local decidido ou sem data: grade inteira.
+ * A regra de cada local está em gradeDoLocal.
  */
 export function gradeDoDia({ locais, modalidade, localId = '', data }) {
-  if (modalidade !== 'presencial') return gradeDoLocal(null);
+  if (modalidade !== 'presencial') return gradeDoLocal(localDoDia(locais, data));
   const id = localId || localPadrao(locais, data);
   return gradeDoLocal((locais ?? []).find(l => l.id === id) ?? null);
 }

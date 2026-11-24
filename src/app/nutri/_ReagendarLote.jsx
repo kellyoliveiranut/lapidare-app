@@ -6,6 +6,7 @@ import ModalShell from '../../components/ModalShell.jsx';
 import { gravar } from '../../lib/gravar.js';
 import { confirmar } from '../../lib/dialogos.js';
 import { verificarAgenda, gradeDoLocal } from '../../lib/agendaConflitos.js';
+import { localDoDia } from '../../lib/opcoesPaciente.js';
 import { dataLocalISO, dataConsultaBR, partesLocaisISO, montarDataHoraISO, dataBR, HORARIOS_CONSULTA } from '../../lib/utils.js';
 import { semanaQueVem, consultasDoPeriodo, conflitosEntreSi, mensagemReagendamento } from '../../lib/reagendarLote.js';
 import { telefoneWhatsapp } from '../../lib/painelNotificacoes.js';
@@ -39,9 +40,13 @@ export default function ReagendarLote({ consultas, locais, nutriId, onClose, onS
 
   const marcadas = lista.filter(c => linha(c.id).marcada);
 
-  function gradeDe(c) {
-    const local = c.local_id ? (locais ?? []).find(l => l.id === c.local_id) : null;
-    return gradeDoLocal(local, HORARIOS_CONSULTA);
+  // Presencial com local gravado: a regra desse local. Sem local (online, ou
+  // presencial ainda sem local): a do local que atende no dia escolhido.
+  function gradeDe(c, data) {
+    const local = c.local_id
+      ? (locais ?? []).find(l => l.id === c.local_id)
+      : localDoDia(locais, data);
+    return gradeDoLocal(local ?? null, HORARIOS_CONSULTA);
   }
 
   async function aplicar() {
@@ -214,7 +219,7 @@ export default function ReagendarLote({ consultas, locais, nutriId, onClose, onS
                       <div style={ROTULO_CAMPO}>Horário</div>
                       <select value={l.hora} disabled={!l.data} onChange={e => mudar(c.id, { hora: e.target.value })} style={{ width: '100%' }}>
                         <option value="">{l.data ? 'Escolha' : '—'}</option>
-                        {gradeDe(c).map(h => <option key={h} value={h}>{h}</option>)}
+                        {gradeDe(c, linha(c.id).data).map(h => <option key={h} value={h}>{h}</option>)}
                       </select>
                     </div>
                   </div>

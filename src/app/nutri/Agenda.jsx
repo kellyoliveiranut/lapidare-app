@@ -13,7 +13,7 @@ import {
   carregarOcupacaoDoDia, horariosLivres, opcoesHorario, gradeDoLocal,
 } from '../../lib/agendaConflitos.js';
 import { tipoColor, tipoColorSoft, MODALIDADES_CONSULTA, modalidadeInfo, opcoesTipoConsulta, tipoSugerido, proximoTipoDoPacote, vagasLancadas, vagasUsadasDoPacote } from '../../lib/consultaVisual.js';
-import { modalidadeDaPaciente, localPadrao } from '../../lib/opcoesPaciente.js';
+import { modalidadeDaPaciente, localPadrao, localDoDia } from '../../lib/opcoesPaciente.js';
 import { pacientesComCancelada } from '../../lib/agendaListas.js';
 import { desdeISO, filtroJanela } from '../../lib/janelaAgenda.js';
 import { gravar } from '../../lib/gravar.js';
@@ -3228,10 +3228,11 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
   const idEditado = isEdit ? consulta.id : null;
   const carregandoHorarios = !!data && ocupacao.data !== data;
   // Local com regra própria (Wandenkolk: tarde só a partir das 14:30). Online
-  // não tem local, então vale a grade inteira.
+  // não tem local, mas o dia vale igual: fora do CTO a tarde também só começa
+  // às 14:30 (pedido de 2026-11-24).
   const grade = useMemo(
-    () => gradeDoLocal(modalidade === 'presencial' ? (locais ?? []).find(l => l.id === localId) : null),
-    [modalidade, localId, locais],
+    () => gradeDoLocal(modalidade === 'presencial' ? (locais ?? []).find(l => l.id === localId) : localDoDia(locais, data)),
+    [modalidade, localId, locais, data],
   );
   const livres = useMemo(() => {
     if (!data || carregandoHorarios) return [];

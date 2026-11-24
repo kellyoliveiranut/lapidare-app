@@ -224,7 +224,12 @@ const LOCS = [
 const tarde = (g) => g.filter(h => h >= '12:00')[0];
 t('gradeDoDia', 'presencial terça (Ed Village): tarde 14:30', tarde(gradeDoDia({ locais: LOCS, modalidade: 'presencial', data: '2026-10-27' })), '14:30');
 t('gradeDoDia', 'presencial segunda (CTO): grade inteira', gradeDoDia({ locais: LOCS, modalidade: 'presencial', data: '2026-10-26' }), G);
-t('gradeDoDia', 'online: grade inteira', gradeDoDia({ locais: LOCS, modalidade: 'online', data: '2026-10-27' }), G);
+t('gradeDoDia', 'online terça (fora do CTO): tarde 14:30, sem 14:00', [tarde(gradeDoDia({ locais: LOCS, modalidade: 'online', data: '2026-10-27' })), gradeDoDia({ locais: LOCS, modalidade: 'online', data: '2026-10-27' }).includes('14:00')], ['14:30', false]);
+t('gradeDoDia', 'online segunda (CTO): grade inteira', gradeDoDia({ locais: LOCS, modalidade: 'online', data: '2026-10-26' }), G);
+t('gradeDoDia', 'online sem data: grade inteira', gradeDoDia({ locais: LOCS, modalidade: 'online', data: '' }), G);
+t('gradeDoDia', 'online com um único local ativo e sem data: grade inteira', gradeDoDia({ locais: [LOCS[1]], modalidade: 'online', data: '' }), G);
+t('gradeDoDia', 'modalidade ainda não definida terça: 14:30', tarde(gradeDoDia({ locais: LOCS, modalidade: '', data: '2026-10-27' })), '14:30');
+t('gradeDoDia', 'online terça: manhã e depois das 14:30 continuam', (() => { const g = gradeDoDia({ locais: LOCS, modalidade: 'online', data: '2026-10-27' }); return [g.includes('09:00'), g.includes('15:00'), g.includes('12:30'), g.includes('13:30')]; })(), [true, true, false, false]);
 t('gradeDoDia', 'local já gravado vale mais que o dia', tarde(gradeDoDia({ locais: LOCS, modalidade: 'presencial', localId: 'ed', data: '2026-10-26' })), '14:30');
 t('gradeDoDia', 'sem locais carregados: grade inteira', gradeDoDia({ locais: [], modalidade: 'presencial', data: '2026-10-27' }), G);
 
