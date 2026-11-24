@@ -163,6 +163,9 @@ export default function PacientePerfil() {
     d.setDate(d.getDate() + 15);
     return isoLocal(d);
   })();
+  // Sequência 1>2>3>4>5>6: só a PRIMEIRA posição ainda sem consulta pode ser
+  // agendada; as seguintes esperam (pedido de 2026-11-24 — não pular consultas).
+  const primeiraVagaVazia = slotsPlano.find(sl => !sl.consulta) ?? null;
   // Posições do plano primeiro, em ordem fixa; depois as de outro tipo.
   const linhasConsultas = [
     ...slotsPlano.map(sl => ({ tipo: sl.tipo, rotulo: sl.rotulo, consulta: sl.consulta })),
@@ -1310,6 +1313,11 @@ export default function PacientePerfil() {
                     <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--muted)' }}>{linha.rotulo}</div>
                     <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 1 }}>Não agendada</div>
                   </div>
+                  {primeiraVagaVazia && linha.tipo !== primeiraVagaVazia.tipo && slotsPlano.some(sl => sl.tipo === linha.tipo) ? (
+                    <span style={{ flexShrink: 0, fontSize: 11, color: 'var(--muted)', textAlign: 'right', maxWidth: 150 }}>
+                      Agende antes: {primeiraVagaVazia.rotulo}
+                    </span>
+                  ) : (
                   <button
                     onClick={() => setAgendarTipo({ tipo: linha.tipo, titulo: `Agendar ${linha.rotulo.toLowerCase()}` })}
                     style={{
@@ -1322,6 +1330,7 @@ export default function PacientePerfil() {
                   >
                     <i className="ti ti-calendar-plus" aria-hidden="true" /> Agendar
                   </button>
+                  )}
                 </div>
               );
             }

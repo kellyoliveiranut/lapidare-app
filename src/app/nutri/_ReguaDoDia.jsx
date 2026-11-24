@@ -32,7 +32,7 @@ import {
 const LARGURA_CALHA = 52;   // coluna dos rótulos de hora, cabe "08:00"
 
 export default function ReguaDoDia({
-  consultas, tarefas, bloqueios, diaSelecionado,
+  consultas, tarefas, bloqueios, diaSelecionado, horariosLivres = [], onNovoHorario,
   onAbrirConsulta, onAbrirTarefa, onAlternarTarefa,
 }) {
   // ── "agora" no relógio da CLÍNICA ──
@@ -186,6 +186,14 @@ export default function ReguaDoDia({
             );
           })}
 
+          {/* Horários livres: clicar abre a consulta nova naquele horário.
+              zIndex 1 (abaixo dos blocos), então nunca rouba clique de consulta. */}
+          {onNovoHorario && horariosLivres.map(h => {
+            const min = minutosDeHHMM(h);
+            if (min == null || min < MIN_INICIO || min >= MIN_FIM) return null;
+            return <SlotLivre key={h} hora={h} topo={topoDe(min)} onClick={() => onNovoHorario(h)} />;
+          })}
+
           {/* Linha do "agora" — só quando o dia selecionado é hoje */}
           {agoraVisivel && (
             <div style={{
@@ -245,6 +253,24 @@ export default function ReguaDoDia({
         )}
       </div>
     </div>
+  );
+}
+
+function SlotLivre({ hora, topo, onClick }) {
+  const [sobre, setSobre] = useState(false);
+  return (
+    <button type="button" onClick={onClick} title={`Adicionar paciente às ${hora}`}
+      onMouseEnter={() => setSobre(true)} onMouseLeave={() => setSobre(false)}
+      onFocus={() => setSobre(true)} onBlur={() => setSobre(false)}
+      style={{
+        position: 'absolute', left: LARGURA_CALHA, right: 0, top: topo,
+        height: alturaDe(30), zIndex: 1, border: 'none', borderRadius: 4,
+        background: sobre ? 'var(--green-bg)' : 'transparent',
+        color: 'var(--green)', cursor: 'pointer', fontSize: 12,
+        fontFamily: 'var(--font-sans)', textAlign: 'left', padding: '0 8px',
+      }}>
+      {sobre ? `+ Adicionar paciente às ${hora}` : ''}
+    </button>
   );
 }
 

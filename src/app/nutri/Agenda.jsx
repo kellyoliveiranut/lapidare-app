@@ -914,6 +914,23 @@ export default function Agenda() {
     return tarefas.filter(t => t.data === alvo);
   }, [tarefas, diaSelecionado]);
 
+  const bloqueiosDoDiaBruto = useMemo(() => {
+    if (!diaSelecionado) return [];
+    const alvo = isoLocalDeData(diaSelecionado);
+    return bloqueios.filter(b => b.data === alvo);
+  }, [bloqueios, diaSelecionado]);
+
+  // Horários livres do dia inteiro (grade do dia), para a régua: cada um vira
+  // uma área clicável que abre a consulta nova naquele horário.
+  const horariosLivresDoDia = useMemo(() => {
+    if (!diaSelecionado) return [];
+    const dataISO = isoLocalDeData(diaSelecionado);
+    return horariosLivres({
+      data: dataISO, duracaoMin: 30, consultas: consultasDoDia, bloqueios: bloqueiosDoDiaBruto,
+      grade: gradeDoLocal(localDoDia(locais, dataISO)),
+    });
+  }, [consultasDoDia, bloqueiosDoDiaBruto, diaSelecionado, locais]);
+
   // Lista do dia: consultas E tarefas no mesmo card, na ordem dos horários.
   // Tarefa sem hora (dia inteiro) vem primeiro; tarefa com hora entra entre as
   // consultas; as faixas Manhã/Tarde valem para os dois.
@@ -928,8 +945,25 @@ export default function Agenda() {
         return { k: 't', t, min, periodo: min < 12 * 60 ? PERIODO_MANHA : PERIODO_TARDE };
       }),
     ].sort((a, b) => a.min - b.min || (a.k === 'c' ? -1 : 1));
-    return [...diaInteiro, ...comHora];
-  }, [consultasDoDia, tarefasDoDia]);
+    // Horários livres ENTRE a primeira e a última consulta do dia (k: 'l'):
+    // são clicáveis para adicionar uma paciente naquele horário. Só buracos —
+    // listar a grade inteira de um dia vazio poluiria a lista.
+    const mins = comHora.filter(x => x.k === 'c').map(x => x.min);
+    let livresNoMeio = [];
+    if (mins.length && diaSelecionado) {
+      const dataISO = isoLocalDeData(diaSelecionado);
+      const grade = gradeDoLocal(localDoDia(locais, dataISO));
+      const livres = horariosLivres({
+        data: dataISO, duracaoMin: 30, consultas: consultasDoDia, bloqueios: bloqueiosDoDiaBruto, grade,
+      });
+      const ini = Math.min(...mins), fim = Math.max(...mins);
+      livresNoMeio = livres
+        .map(h => ({ k: 'l', hora: h, min: minutosDeHHMM(h) ?? 0 }))
+        .filter(x => x.min > ini && x.min < fim)
+        .map(x => ({ ...x, periodo: x.min < 12 * 60 ? PERIODO_MANHA : PERIODO_TARDE }));
+    }
+    return [...diaInteiro, ...[...comHora, ...livresNoMeio].sort((a, b) => a.min - b.min || (a.k === 'l' ? 1 : a.k === 'c' ? -1 : 0))];
+  }, [consultasDoDia, tarefasDoDia, bloqueiosDoDiaBruto, diaSelecionado, locais]);
 
   const bloqueiosDoDia = useMemo(() => {
     if (!diaSelecionado) return [];
@@ -938,6 +972,8 @@ export default function Agenda() {
   }, [bloqueios, diaSelecionado]);
 
   const abrirNova = () => setModalState({ open: true, consulta: null, pacienteInicialId: null, remarcando: false });
+  // Clique num horário livre da lista/régua: modal de consulta NOVA já na data do dia e na hora clicada.
+  const abrirNovaNoHorario = (hora) => setModalState({ open: true, consulta: null, pacienteInicialId: null, remarcando: false, dataInicial: isoLocalDeData(diaSelecionado), horaInicial: hora });
   const abrirEdit = (consulta) => setModalState({ open: true, consulta, pacienteInicialId: null, remarcando: false });
   const fechar = () => setModalState({ open: false, consulta: null, pacienteInicialId: null, remarcando: false });
   // Remarcar da linha: abre o modal já no modo remarcação (nova data) — de lá
@@ -1193,6 +1229,8 @@ export default function Agenda() {
           tarefas={tarefasDoDia}
           bloqueios={bloqueiosDoDia}
           diaSelecionado={diaSelecionado}
+          horariosLivres={horariosLivresDoDia}
+          onNovoHorario={abrirNovaNoHorario}
           onAbrirConsulta={abrirEdit}
           onAbrirTarefa={abrirTarefaEdit}
           onAlternarTarefa={alternarTarefa}
@@ -1225,7 +1263,7 @@ export default function Agenda() {
               nC > 0 ? `${nC} consulta${nC > 1 ? 's' : ''}` : null,
               nT > 0 ? `${nT} tarefa${nT > 1 ? 's' : ''}` : null,
             ].filter(Boolean).join(' · ');
-            const chave = it.k === 'c' ? it.c.id : `t-${it.t.id}`;
+            const chave = it.k === 'c' ? it.c.id : it.k === 'l' ? `l-${it.hora}` : `t-${it.t.id}`;
             return (
               <Fragment key={chave}>
                 {novoPeriodo && (
@@ -1242,7 +1280,21 @@ export default function Agenda() {
                     <span style={{ fontWeight: 500, opacity: 0.8 }}>· {resumo}</span>
                   </div>
                 )}
-                {it.k === 'c' ? (
+                {it.k === 'l' ? (
+                  <button type="button" onClick={() => abrirNovaNoHorario(it.hora)}
+                    title={`Adicionar paciente às ${it.hora}`}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+                      padding: '9px 16px', background: 'var(--white)', border: 'none',
+                      borderBottom: i === itensDoDia.length - 1 ? 'none' : '0.5px solid #f5f0e8',
+                      cursor: 'pointer', fontFamily: 'var(--font-sans)', textAlign: 'left',
+                      color: 'var(--text3)', fontSize: 13,
+                    }}>
+                    <span style={{ fontVariantNumeric: 'tabular-nums', minWidth: 44 }}>{it.hora}</span>
+                    <i className="ti ti-plus" style={{ fontSize: 13 }} aria-hidden="true" />
+                    Horário livre — adicionar paciente
+                  </button>
+                ) : it.k === 'c' ? (
                   <ConsultaRow c={it.c} isLast={i === itensDoDia.length - 1} onClick={() => abrirEdit(it.c)}
                     onToggleConfirmada={toggleConfirmada}
                     onToggleNaoConfirmada={toggleNaoConfirmada}
@@ -1469,6 +1521,8 @@ export default function Agenda() {
           nutriId={user.id}
           pacienteInicialId={modalState.pacienteInicialId}
           remarcarAoAbrir={modalState.remarcando}
+          dataInicial={modalState.dataInicial}
+          horaInicial={modalState.horaInicial}
           onClose={fechar}
           onSaved={() => consultaSalva(modalState.consulta?.id ?? null)}
           onToggleConfirmada={toggleConfirmada}
@@ -3155,7 +3209,7 @@ function BloqueioModal({ nutriId, dataInicial, onClose, onSaved }) {
   );
 }
 
-function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId, remarcarAoAbrir, onClose, onSaved, onToggleConfirmada, onADefinir }) {
+function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId, remarcarAoAbrir, dataInicial, horaInicial, onClose, onSaved, onToggleConfirmada, onADefinir }) {
   const isEdit = !!consulta;
   const navigate = useNavigate();
   const { profile: perfilModal } = useSession();
@@ -3185,7 +3239,7 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
         status: consulta.status ?? 'agendada',
         obs: consulta.obs ?? '',
       }
-    : { pacienteId: pacienteInicial?.id ?? '', data: '', hora: HORARIO_CONSULTA_PADRAO, duracao: 30, tipo: 'primeira', modalidade: modalidadeInicial, localId: modalidadeInicial === 'presencial' ? localPadrao(locais) : '', status: 'agendada', obs: '' };
+    : { pacienteId: pacienteInicial?.id ?? '', data: dataInicial ?? '', hora: horaInicial ?? HORARIO_CONSULTA_PADRAO, duracao: 30, tipo: 'primeira', modalidade: modalidadeInicial, localId: modalidadeInicial === 'presencial' ? localPadrao(locais, dataInicial || undefined) : '', status: 'agendada', obs: '' };
 
   const [pacienteId, setPacienteId] = useState(initial.pacienteId);
   const [data, setData] = useState(initial.data);
@@ -3251,7 +3305,7 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
     livres,
     atual: isEdit && data === initial.data ? initial.hora : null,
     hora,
-    preferido: isEdit ? initial.hora : HORARIO_CONSULTA_PADRAO,
+    preferido: isEdit ? initial.hora : (horaInicial ?? HORARIO_CONSULTA_PADRAO),
     carregando: carregandoHorarios,
     temData: !!data,
     // Opção B (2026-10-06): ao editar/remarcar o horário não troca sozinho.
