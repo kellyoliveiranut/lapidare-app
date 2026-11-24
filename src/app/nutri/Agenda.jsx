@@ -2250,12 +2250,13 @@ function CalendarioMensal({ mesVisivel, diaSelecionado, consultas, tarefas, bloq
         <Legenda cor="var(--orange)" label="Avaliação" />
         <Legenda cor="var(--gold-deep)" label="Tarefa" quadrado />
         <Legenda label="Bloqueado" hachura />
+        <Legenda label="Feriado" hachura feriado />
       </div>
     </div>
   );
 }
 
-function Legenda({ cor, label, quadrado, hachura }) {
+function Legenda({ cor, label, quadrado, hachura, feriado }) {
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--text3)' }}>
       <span style={{
@@ -2266,7 +2267,7 @@ function Legenda({ cor, label, quadrado, hachura }) {
           : cor,
         border: hachura ? '0.5px solid var(--hair)' : 'none',
       }} />
-      {label}
+      {feriado ? <span style={{ color: 'var(--red)', fontWeight: 600 }}>{label}</span> : label}
     </span>
   );
 }
