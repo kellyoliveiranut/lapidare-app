@@ -5,7 +5,7 @@ import DateInput from '../../components/DateInput.jsx';
 import ModalShell from '../../components/ModalShell.jsx';
 import { gravar } from '../../lib/gravar.js';
 import { confirmar } from '../../lib/dialogos.js';
-import { verificarAgenda, gradeDoLocal } from '../../lib/agendaConflitos.js';
+import { verificarAgenda, gradeDoLocal, localComRegra } from '../../lib/agendaConflitos.js';
 import { localDoDia } from '../../lib/opcoesPaciente.js';
 import { dataLocalISO, dataConsultaBR, partesLocaisISO, montarDataHoraISO, dataBR, HORARIOS_CONSULTA } from '../../lib/utils.js';
 import { semanaQueVem, consultasDoPeriodo, conflitosEntreSi, mensagemReagendamento } from '../../lib/reagendarLote.js';
@@ -44,7 +44,7 @@ export default function ReagendarLote({ consultas, locais, nutriId, onClose, onS
   // presencial ainda sem local): a do local que atende no dia escolhido.
   function gradeDe(c, data) {
     const local = c.local_id
-      ? (locais ?? []).find(l => l.id === c.local_id)
+      ? localComRegra((locais ?? []).find(l => l.id === c.local_id), data)
       : localDoDia(locais, data);
     return gradeDoLocal(local ?? null, HORARIOS_CONSULTA);
   }

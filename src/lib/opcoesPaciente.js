@@ -1,4 +1,4 @@
-import { gradeDoLocal, localDoDia } from './agendaConflitos.js';
+import { gradeDoLocal, localDoDia, localComRegra } from './agendaConflitos.js';
 export { localDoDia };
 /**
  * Listas canônicas de sexo, tipo de plano e modalidade da paciente.
@@ -135,7 +135,7 @@ export function localParaDefinirData({ modalidade, localId, locais, dataISO }) {
 export function gradeDoDia({ locais, modalidade, localId = '', data }) {
   if (modalidade !== 'presencial') return gradeDoLocal(localDoDia(locais, data));
   const id = localId || localPadrao(locais, data);
-  return gradeDoLocal((locais ?? []).find(l => l.id === id) ?? null);
+  return gradeDoLocal(localComRegra((locais ?? []).find(l => l.id === id) ?? null, data));
 }
 
 // O local `localId` atende no dia da semana de `dataISO`? (dias_semana: 0..6, 1 = segunda)

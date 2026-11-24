@@ -231,7 +231,10 @@ t('gradeDoDia', 'online com um único local ativo e sem data: grade inteira', gr
 t('gradeDoDia', 'modalidade ainda não definida terça: 14:30', tarde(gradeDoDia({ locais: LOCS, modalidade: '', data: '2026-10-27' })), '14:30');
 t('gradeDoDia', 'online terça: manhã e depois das 14:30 continuam', (() => { const g = gradeDoDia({ locais: LOCS, modalidade: 'online', data: '2026-10-27' }); return [g.includes('09:00'), g.includes('15:00'), g.includes('12:30'), g.includes('13:30')]; })(), [true, true, false, false]);
 t('gradeDoDia', 'local já gravado vale mais que o dia', tarde(gradeDoDia({ locais: LOCS, modalidade: 'presencial', localId: 'ed', data: '2026-10-26' })), '14:30');
-t('gradeDoDia', 'sem locais carregados: grade inteira', gradeDoDia({ locais: [], modalidade: 'presencial', data: '2026-10-27' }), G);
+t('gradeDoDia', 'sem locais carregados, segunda: grade inteira', gradeDoDia({ locais: [], modalidade: 'presencial', data: '2026-10-26' }), G);
+t('gradeDoDia', 'sem locais carregados, terça: 14:30 pelo dia da semana', tarde(gradeDoDia({ locais: [], modalidade: 'presencial', data: '2026-10-27' })), '14:30');
+t('gradeDoDia', 'local sem a regra cadastrada, quinta: 14:30 pelo dia', tarde(gradeDoDia({ locais: [{ id: 'x', ativo: true, dias_semana: [2,3,4], primeiro_horario_tarde: null }], modalidade: 'presencial', localId: 'x', data: '2026-10-29' })), '14:30');
+t('gradeDoDia', 'dois locais no mesmo dia (terça), online: 14:30 pelo dia', tarde(gradeDoDia({ locais: [{ id: 'a', ativo: true, dias_semana: [2] }, { id: 'b', ativo: true, dias_semana: [2] }], modalidade: 'online', data: '2026-10-27' })), '14:30');
 
 // ─── saída ───────────────────────────────────────────────────────────
 let grupoAtual = '';

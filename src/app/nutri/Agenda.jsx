@@ -7,11 +7,12 @@ import { rotuloAgendadaPor } from '../../lib/agendadaPor.js';
 import DateInput from '../../components/DateInput.jsx';
 import NovaPacienteRapida from './_NovaPacienteRapida.jsx';
 import NotasDaSemana from './_NotasDaSemana.jsx';
+import { feriadoDe } from '../../lib/feriados.js';
 import { useNotasPendentes } from '../../lib/useNotasPendentes.js';
 import { linkConvite, mensagemConviteEncoded } from '../../lib/convite.js';
 import {
   verificarAgenda, textoImpedimentos, textoConfirmacao, bloqueioCobre, impedimentosQueTravam, avisosQueConfirmam,
-  carregarOcupacaoDoDia, horariosLivres, opcoesHorario, gradeDoLocal,
+  carregarOcupacaoDoDia, horariosLivres, opcoesHorario, gradeDoLocal, localComRegra,
 } from '../../lib/agendaConflitos.js';
 import { tipoColor, tipoColorSoft, MODALIDADES_CONSULTA, modalidadeInfo, opcoesTipoConsulta, tipoSugerido, proximoTipoDoPacote, vagasLancadas, vagasUsadasDoPacote } from '../../lib/consultaVisual.js';
 import { modalidadeDaPaciente, localPadrao, localDoDia } from '../../lib/opcoesPaciente.js';
@@ -926,6 +927,7 @@ export default function Agenda() {
   const horariosLivresDoDia = useMemo(() => {
     if (!diaSelecionado) return [];
     const dataISO = isoLocalDeData(diaSelecionado);
+    if (feriadoDe(dataISO)) return [];   // feriado: horário não é oferecido por clique
     return horariosLivres({
       data: dataISO, duracaoMin: 30, consultas: consultasDoDia, bloqueios: bloqueiosDoDiaBruto,
       grade: gradeDoLocal(localDoDia(locais, dataISO)),
@@ -951,7 +953,7 @@ export default function Agenda() {
     // listar a grade inteira de um dia vazio poluiria a lista.
     const mins = comHora.filter(x => x.k === 'c').map(x => x.min);
     let livresNoMeio = [];
-    if (mins.length && diaSelecionado) {
+    if (mins.length && diaSelecionado && !feriadoDe(isoLocalDeData(diaSelecionado))) {
       const dataISO = isoLocalDeData(diaSelecionado);
       const grade = gradeDoLocal(localDoDia(locais, dataISO));
       const livres = horariosLivres({
@@ -1234,6 +1236,15 @@ export default function Agenda() {
 
       {/* Dia recolhido: o "Para resolver" não pode sumir junto. */}
       {!diaAberto && paraResolverEl(false)}
+      {diaAberto && diaSelecionado && feriadoDe(isoLocalDeData(diaSelecionado)) && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8, padding: '9px 14px', marginBottom: 8,
+          borderRadius: 10, background: 'var(--red-bg, #fdecea)', color: 'var(--red)', fontSize: 13,
+        }}>
+          <i className="ti ti-calendar-off" aria-hidden="true" />
+          <span><strong>Feriado: {feriadoDe(isoLocalDeData(diaSelecionado))}.</strong> Dia sem atendimento — agendar aqui pede confirmação.</span>
+        </div>
+      )}
       {diaAberto && (<>
       {visaoDia === 'regua' ? (<>
         {paraResolverEl(false)}
@@ -2137,6 +2148,7 @@ function CalendarioMensal({ mesVisivel, diaSelecionado, consultas, tarefas, bloq
           const ts = tarefasPorDia.get(key) ?? [];
           const bs = bloqueiosPorDia.get(key) ?? [];
           const temDiaInteiro = bs.some(b => !b.hora_inicio);
+          const feriado = feriadoDe(isoLocalDeData(d.data));
           // Um quadradinho por DIA, não por tarefa: a célula responde "tem
           // tarefa?", a lista abaixo responde "quais". Um por tarefa também
           // estouraria a linha, que já pode ter 4 bolinhas e o "+N".
@@ -2146,7 +2158,8 @@ function CalendarioMensal({ mesVisivel, diaSelecionado, consultas, tarefas, bloq
           return (
             <button key={i}
               onClick={() => onSelecionarDia(new Date(d.data))}
-              title={bs.length === 0 ? undefined
+              title={feriado ? `Feriado: ${feriado}`
+                : bs.length === 0 ? undefined
                 : temDiaInteiro ? 'Dia bloqueado'
                 : bs.length === 1 ? '1 horário bloqueado'
                 : `${bs.length} horários bloqueados`}
@@ -2173,7 +2186,7 @@ function CalendarioMensal({ mesVisivel, diaSelecionado, consultas, tarefas, bloq
                   Dia inteiro e faixa parcial usam a MESMA marca; quem distingue
                   é o title. A célula responde "tem bloqueio?", o painel do dia
                   responde "qual". */}
-              {bs.length > 0 && (
+              {(bs.length > 0 || feriado) && (
                 <span aria-hidden="true" style={{
                   position: 'absolute', inset: 0, borderRadius: 6,
                   pointerEvents: 'none',
@@ -2189,6 +2202,10 @@ function CalendarioMensal({ mesVisivel, diaSelecionado, consultas, tarefas, bloq
               }}>
                 {d.data.getDate()}
               </span>
+              {feriado && (
+                <span style={{ fontSize: 9, letterSpacing: .4, textTransform: 'uppercase', fontWeight: 700,
+                  color: isSelected ? 'var(--white)' : 'var(--red)', marginBottom: 2 }}>Feriado</span>
+              )}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center' }}>
                 {cs.slice(0, 4).map((c, ci) => (
                   <span key={ci} style={{
@@ -3316,7 +3333,7 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
   // não tem local, mas o dia vale igual: fora do CTO a tarde também só começa
   // às 14:30 (pedido de 2026-11-24).
   const grade = useMemo(
-    () => gradeDoLocal(modalidade === 'presencial' ? (locais ?? []).find(l => l.id === localId) : localDoDia(locais, data)),
+    () => gradeDoLocal(modalidade === 'presencial' ? localComRegra((locais ?? []).find(l => l.id === localId), data) : localDoDia(locais, data)),
     [modalidade, localId, locais, data],
   );
   const livres = useMemo(() => {

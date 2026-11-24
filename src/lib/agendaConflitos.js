@@ -171,7 +171,28 @@ export function localDoDia(locais, dataISO) {
   const d = new Date(dataISO + 'T12:00:00');
   if (Number.isNaN(d.getTime())) return null;
   const doDia = (locais ?? []).filter(l => l.ativo && (l.dias_semana ?? []).includes(d.getDay()));
-  return doDia.length === 1 ? doDia[0] : null;
+  return localComRegra(doDia.length === 1 ? doDia[0] : null, dataISO);
+}
+
+/** Dias da semana (getDay) em que NÃO se atende no CTO: terça, quarta e quinta. */
+const DIAS_FORA_DO_CTO = [2, 3, 4];
+const TARDE_FORA_DO_CTO = '14:30';
+
+/**
+ * Garante a regra da tarde pelo DIA DA SEMANA, mesmo que o cadastro do local
+ * esteja sem `primeiro_horario_tarde` (SQL não rodado, local trocado, dois
+ * locais no mesmo dia): de terça a quinta a tarde só começa às 14:30
+ * (pedido de 2026-11-24). Local com regra própria válida vence.
+ */
+export function localComRegra(local, dataISO) {
+  if (/^\d{2}:\d{2}$/.test(local?.primeiro_horario_tarde ?? '')) return local;
+  if (!dataISO) return local ?? null;
+  const d = new Date(dataISO + 'T12:00:00');
+  if (Number.isNaN(d.getTime()) || !DIAS_FORA_DO_CTO.includes(d.getDay())) return local ?? null;
+  // Local escolhido à mão que NÃO atende nesse dia por cadastro (ex.: o CTO numa
+  // terça) é exceção deliberada: vale a regra dele.
+  if (local && Array.isArray(local.dias_semana) && !local.dias_semana.includes(d.getDay())) return local;
+  return { ...(local ?? {}), primeiro_horario_tarde: TARDE_FORA_DO_CTO };
 }
 
 /** O horário cai na janela que o local não atende (12:00 até o primeiro horário da tarde)? */
@@ -400,6 +421,7 @@ export async function verificarAgenda(supabase, {
     for (const it of validos) {
       let local = localDoDia(locais, it.data);
       if (it.modalidade === 'presencial' && it.localId) local = locais.find(l => l.id === it.localId) ?? local;
+      local = localComRegra(local, it.data);
       if (horaForaDaRegraDoLocal(local, it.hora)) {
         impedimentos.push({ tipo: 'horario', texto:
           `${formatarBR(it.data)}: às ${it.hora} não há atendimento. A primeira consulta da tarde é às ${local.primeiro_horario_tarde}.` });
