@@ -1,0 +1,10 @@
+import { corteRetencao, caminhosParaApagar, PRAZO_DIAS } from './fotosPratosRetencao.js';
+let ok = 0, bad = 0;
+const t = (n, a, b) => { const x = JSON.stringify(a) === JSON.stringify(b); x ? ok++ : bad++; console.log((x ? '  PASS  ' : '  FALHA  ') + n + (x ? '' : `  (esperado ${JSON.stringify(b)}, obteve ${JSON.stringify(a)})`)); };
+t('prazo é 90 dias', PRAZO_DIAS, 90);
+t('corte: 90 dias antes', corteRetencao(new Date('2026-11-24T12:00:00Z')), '2026-08-26T12:00:00.000Z');
+t('corte com prazo 0 é agora', corteRetencao(new Date('2026-11-24T12:00:00Z'), 0), '2026-11-24T12:00:00.000Z');
+t('caminhos: sem vazio e sem repetido', caminhosParaApagar([{ storage_path: 'a/1.jpg' }, { storage_path: null }, { storage_path: 'a/1.jpg' }, { storage_path: 'b/2.jpg' }, null]), ['a/1.jpg', 'b/2.jpg']);
+t('caminhos: lista vazia', caminhosParaApagar(undefined), []);
+console.log(`${ok} passaram, ${bad} falharam, ${ok + bad} no total`);
+process.exit(bad ? 1 : 0);

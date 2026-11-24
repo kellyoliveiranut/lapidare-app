@@ -662,6 +662,11 @@ export function ModalArquivar({ paciente, onClose, onArquivado }) {
         <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 20 }}>
           {paciente.nome} — escolha o motivo do arquivamento
         </div>
+        <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 16, lineHeight: 1.45 }}>
+          <i className="ti ti-photo-off" aria-hidden="true" />{' '}
+          As fotos dos pratos dela no feed serão apagadas 90 dias depois de arquivar.
+          Se a paciente voltar a ficar ativa antes disso, nada é apagado.
+        </div>
 
         {confirmObito ? (
           <div style={{

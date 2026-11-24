@@ -6,6 +6,7 @@ import { iniciais, dataBR, dataLocalISO, isoLocalDeData } from '../../lib/utils.
 import { iniciarTokenPush, avisarPaciente } from '../../lib/push.js';
 import { gravar } from '../../lib/gravar.js';
 import { EVENTO_FEED_RECARREGAR } from '../../lib/avisosNutri.js';
+import { limparFotosEncerradas } from '../../lib/fotosPratosRetencao.js';
 
 import { confirmar as confirmarJanela, avisar as avisarJanela } from '../../lib/dialogos.js';
 const PAGINA = 12;
@@ -40,7 +41,7 @@ function temNovaResposta(p) {
 
 export default function FeedNutri() {
   const navigate = useNavigate();
-  const { user } = useSession();
+  const { user, secretaria } = useSession();
   const [posts, setPosts] = useState(undefined);
   const [urls, setUrls] = useState({});
   const [filtro, setFiltro] = useState('todas');
@@ -81,7 +82,15 @@ export default function FeedNutri() {
   // começou depois do pedido do menu — essa já traz tudo o que foi zerado.
   // Os textos em edição moram em outros estados e não são tocados.
   useEffect(() => {
-    carregar();
+    // Retenção: apaga as fotos de quem foi arquivada há mais de 90 dias, ANTES
+    // de listar. Só a nutri (a secretária não tem permissão de apagar).
+    // Falha ou migration ainda não rodada: segue sem apagar nada.
+    (async () => {
+      if (user && !secretaria) {
+        try { await limparFotosEncerradas(supabase, user.id); } catch { /* segue */ }
+      }
+      carregar();
+    })();
     function onRecarregar(e) {
       const desde = e?.detail?.desde ?? 0;
       if (carga.current.emAndamento || carga.current.iniciadaEm >= desde) return;
