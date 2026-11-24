@@ -865,9 +865,18 @@ export default function Agenda() {
   // leituras de relógio podem cair em segundos diferentes, e aí os dois cortes
   // discordariam sobre uma consulta bem no limite.
   const agoraMs = new Date(agora).getTime();
-  const diasVisiveis = diasFuturos.filter(g =>
-    new Date(g.consultas[g.consultas.length - 1].data_hora).getTime() >= agoraMs
-  );
+  // "Próximos 7 dias" (pedido de 2026-11-24): de AMANHÃ até daqui a 7 dias.
+  // Hoje já tem o seu card ("Consultas em …") e não se repete aqui; o que passa
+  // de 7 dias a nutri acha pelo calendário.
+  const inicioAmanha = new Date(agoraMs);
+  inicioAmanha.setHours(0, 0, 0, 0);
+  inicioAmanha.setDate(inicioAmanha.getDate() + 1);
+  const fimJanela = new Date(inicioAmanha);
+  fimJanela.setDate(fimJanela.getDate() + 7);
+  const diasVisiveis = diasFuturos.filter(g => {
+    const t = new Date(g.consultas[0].data_hora).getTime();
+    return t >= inicioAmanha.getTime() && t < fimJanela.getTime();
+  });
 
   // Quem já respondeu sai do painel: o lembrete existe para arrancar a
   // confirmação, e insistir com quem já respondeu é ruído — vale tanto para
@@ -1462,7 +1471,7 @@ export default function Agenda() {
               {/* N = consultas dos dias listados (diasVisiveis), o mesmo
                   conjunto que a lista mostra ao abrir — não `futuras`. */}
               <TituloRecolhivel aberta={proximasAberta} onAlternar={alternarProximas}>
-                Todas as próximas ({diasVisiveis.reduce((s, g) => s + g.consultas.length, 0)})
+                Próximos 7 dias ({diasVisiveis.reduce((s, g) => s + g.consultas.length, 0)})
               </TituloRecolhivel>
               {proximasAberta && diasVisiveis.map(g => {
                 const recolhido = diasRecolhidos.has(g.chave);
