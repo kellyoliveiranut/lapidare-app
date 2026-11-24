@@ -3377,6 +3377,12 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
     return `${d}/${m}`;
   };
   // Escolheu uma vaga do pacote que já está lançada (e não é a da própria consulta).
+  // Criando para Essentia: se o tipo marcado é uma vaga já realizada (some da
+  // lista), volta para a sugerida em vez de mostrar um valor que não existe.
+  const tipoRealizado = !isEdit && ehEssentia && vagasDoTipo.get(tipo)?.status === 'realizada';
+  useEffect(() => {
+    if (tipoRealizado) setTipo(sugeridoEssentia);
+  }, [tipoRealizado, sugeridoEssentia]);
   const vagaRepetida = (tipo === 'primeira' || /^consulta_\d+$/.test(tipo)) ? (vagasDoTipo.get(tipo) ?? null) : null;
 
   // Troca de paciente no dropdown: além do id, re-sugere a modalidade a partir
@@ -3585,7 +3591,14 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
             consulta ABRIU, se ficou de fora (consulta_7 antiga), entra como
             "(atual)" e não some ao trocar. */}
         <select value={tipo} onChange={e => setTipo(e.target.value)}>
-          {opcoesTipoConsulta(TIPOS, initial.tipo).map(t => {
+          {opcoesTipoConsulta(TIPOS, initial.tipo).filter(t => {
+            // Essentia: vaga do pacote já REALIZADA não é oferecida (não se
+            // agenda de novo o que já aconteceu). Ao editar, o tipo da própria
+            // consulta continua na lista.
+            if (!ehEssentia) return true;
+            const o = vagasDoTipo.get(t.value);
+            return !(o && o.status === 'realizada');
+          }).map(t => {
             // Estado da vaga ao lado do nome (só para as do pacote): realizada /
             // agendada com a data, ou "livre". "Livre" e "sugerida" só para quem
             // é Essentia — no plano Avulsa não há pacote para completar.
