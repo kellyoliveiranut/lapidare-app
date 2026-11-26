@@ -144,17 +144,17 @@ export default function PacientePerfil() {
     return () => { vivo = false; };
   }, [id, user?.id, financeiroAberto]);
   // Renovação: venda do serviço "Renovação" → o Essentia oferece gerar o contrato
-  // de renovação e as 6 consultas (Renovação 1 a 6). Só a Kelly (não a secretária).
+  // de renovação e as 6 consultas (Renovação 1 a 6). A secretária também pode (o registro de atividade guarda quem fez).
   const [vendasRenov, setVendasRenov] = useState([]);
   const [renovAberta, setRenovAberta] = useState(false);
   useEffect(() => {
-    if (!id || !user?.id || secretaria) return;
+    if (!id || !user?.id) return;
     let vivo = true;
     supabase.from('vendas').select('id, servico, valor_total, created_at, data_venda')
       .eq('paciente_id', id).eq('nutri_id', user.id).ilike('servico', 'renova%')
       .then(({ data, error }) => { if (vivo && !error) setVendasRenov(data ?? []); });
     return () => { vivo = false; };
-  }, [id, user?.id, secretaria, financeiroAberto, renovAberta]);
+  }, [id, user?.id, financeiroAberto, renovAberta]);
   const faltaNota = paciente ? faltandoParaNota(paciente) : [];
   const avisoFinanceiro = paciente?.status_paciente === 'ativo'
     ? [
@@ -164,10 +164,10 @@ export default function PacientePerfil() {
     : [];
 
   const planoEssentia = ehPlanoEssentia(paciente?.tipo_plano);
-  const vendaRenov = useMemo(() => secretaria || acompList == null ? null : vendaPedindoRenovacao({
+  const vendaRenov = useMemo(() => acompList == null ? null : vendaPedindoRenovacao({
     ehEssentia: planoEssentia, ativa: paciente?.status_paciente === 'ativo',
     vendas: vendasRenov, consultas: acompList,
-  }), [secretaria, planoEssentia, paciente?.status_paciente, vendasRenov, acompList]);
+  }), [planoEssentia, paciente?.status_paciente, vendasRenov, acompList]);
   const { slots: slotsPlano, outras: outrasConsultas } = useMemo(
     () => montarSlots(paciente?.tipo_plano, acompList ?? []),
     [paciente?.tipo_plano, acompList],
