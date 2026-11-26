@@ -70,24 +70,40 @@ export function parseValorContrato(texto) {
  *                   (check valor > 0), então validar aqui dá frase em
  *                   português em vez de erro de constraint.
  */
-export async function criarContratoPendente(supabase, { nutriId, pacienteId, valor }) {
+export async function criarContratoPendente(supabase, { nutriId, pacienteId, valor, tipo = 'essentia' }) {
   if (!(valor > 0)) {
     return { erro: 'Contrato não gerado — informe o valor do contrato.' };
   }
 
-  // Índice único parcial garante no máximo um template ativo por nutri, então
-  // maybeSingle() basta e não precisa de order by.
-  const { data: tpl, error: tplErro } = await supabase
+  // Índice único parcial garante no máximo um template ativo por nutri E TIPO
+  // ('essentia' ou 'renovacao', migration 2026-11-26), então maybeSingle()
+  // basta. Sem a coluna `tipo` (SQL ainda não rodado) o contrato Essentia segue
+  // pelo caminho antigo — só existe um template ativo; a renovação não, ela
+  // depende do template novo.
+  let { data: tpl, error: tplErro } = await supabase
     .from('contratos_templates')
     .select('id')
     .eq('nutri_id', nutriId)
     .eq('ativo', true)
+    .eq('tipo', tipo)
     .maybeSingle();
+
+  if (tplErro && tipo === 'essentia' && /tipo/i.test(tplErro.message ?? '')) {
+    ({ data: tpl, error: tplErro } = await supabase
+      .from('contratos_templates')
+      .select('id')
+      .eq('nutri_id', nutriId)
+      .eq('ativo', true)
+      .maybeSingle());
+  }
 
   if (tplErro || !tpl) {
     return {
-      erro: 'Contrato não gerado — nenhum template ativo encontrado.'
-        + (tplErro ? ` (${tplErro.message})` : ''),
+      erro: tipo === 'renovacao'
+        ? 'Contrato de renovação não gerado — falta o modelo de renovação (rodar o SQL da renovação).'
+          + (tplErro ? ` (${tplErro.message})` : '')
+        : 'Contrato não gerado — nenhum template ativo encontrado.'
+          + (tplErro ? ` (${tplErro.message})` : ''),
     };
   }
 

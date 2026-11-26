@@ -8,6 +8,7 @@ import DateInput from '../../components/DateInput.jsx';
 import NovaPacienteRapida from './_NovaPacienteRapida.jsx';
 import NotasDaSemana from './_NotasDaSemana.jsx';
 import { proximaADefinirPorPaciente } from '../../lib/aDefinir.js';
+import { TIPOS_RENOVACAO, ehTipoRenovacao, numeroDaRenovacao } from '../../lib/renovacao.js';
 import { mensagemRemarcacao } from '../../lib/mensagemRemarcacao.js';
 import { feriadoDe } from '../../lib/feriados.js';
 import { useNotasPendentes } from '../../lib/useNotasPendentes.js';
@@ -47,6 +48,9 @@ const TIPOS = [
     const n = i + 2;
     return { value: `consulta_${n}`, label: `Consulta ${String(n).padStart(2, '0')}` };
   }),
+  // Ciclo de renovação do Essentia: só aparecem no select de quem já renovou
+  // (ver o filtro do select de Tipo no ConsultaModal).
+  ...TIPOS_RENOVACAO.map((value, i) => ({ value, label: `Renovação ${i + 1}` })),
   { value: 'avaliacao', label: 'Avaliação' },
   { value: 'retorno',   label: 'Retorno' },
   { value: 'avulsa',    label: 'Consulta avulsa' },
@@ -67,6 +71,8 @@ function tipoLabel(tipo) {
   if (tipo === 'avaliacao') return 'Avaliação';
   if (tipo === 'retorno') return 'Retorno';
   if (tipo === 'avulsa') return 'Consulta avulsa';
+  const rn = numeroDaRenovacao(tipo);
+  if (rn !== null) return `Renovação ${rn}`;
   const m = tipo.match(/^consulta_(\d+)$/);
   if (m) return `Consulta ${String(m[1]).padStart(2, '0')}`;
   return tipo;
@@ -3681,6 +3687,9 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
             // Essentia: vaga do pacote já REALIZADA não é oferecida (não se
             // agenda de novo o que já aconteceu). Ao editar, o tipo da própria
             // consulta continua na lista.
+            // Renovação 1…6 só para quem já renovou (ou para a própria consulta).
+            if (ehTipoRenovacao(t.value) && t.value !== initial.tipo
+                && !(ehEssentia && [...vagasDoTipo.keys()].some(ehTipoRenovacao))) return false;
             if (!ehEssentia) return true;
             const o = vagasDoTipo.get(t.value);
             return !(o && o.status === 'realizada');

@@ -1,3 +1,4 @@
+import { ehTipoRenovacao } from '../../lib/renovacao.js';
 import { useEffect, useMemo, useState } from 'react';
 import { lerTodasPaginas } from '../../lib/lerPaginas.js';
 import { restanteACombinar } from '../../lib/parcelasEntrada.js';
@@ -136,7 +137,7 @@ export default function Visao() {
       const [
         pacRes, agSemanaRes, parcRes, checkRes,
         parcelasMesRes, realizadasRes, nutriRes,
-        msgRes, feedRes, supRes, supLogRes, lembRes, vendasRes,
+        msgRes, feedRes, supRes, supLogRes, lembRes, vendasRes, renovacaoRes,
       ] = await Promise.all([
         // pacientes ativas (com nascimento pra aniversário)
         supabase.from('pacientes').select('id, nome, tipo_plano, nascimento').eq('nutri_id', user.id).eq('status_paciente', 'ativo'),
@@ -200,6 +201,10 @@ export default function Visao() {
         lerTodasPaginas(() => supabase.from('vendas')
           .select('id, valor_total, servico, paciente:pacientes(id, nome), parcelas(valor)')
           .eq('nutri_id', user.id).not('paciente_id', 'is', null).order('id')),
+        // Quem já renovou (tem consulta "Renovação", não cancelada): para o
+        // aviso "plano terminando" contar só o ciclo novo. Erro → lista vazia.
+        supabase.from('consultas').select('paciente_id')
+          .eq('nutri_id', user.id).like('tipo', 'renovacao%').neq('status', 'cancelada'),
       ]);
 
       if (!active) return;
@@ -223,8 +228,13 @@ export default function Visao() {
       // A nutri agenda o pacote de 6 inteiro de uma vez e vai marcando como
       // 'realizada'; contar as agendadas daria 6 pra todo mundo no dia 1.
       const contagem = {};
+      // Quem renovou conta só as "Renovação" realizadas; o ciclo anterior não
+      // entra, senão o aviso de plano terminando nunca sairia.
+      const renovaram = new Set((renovacaoRes?.data ?? []).map(c => c.paciente_id));
       for (const c of realizadasRes.data ?? []) {
-        if (!ehConsultaDoPacote(c.tipo)) continue;
+        if (renovaram.has(c.paciente_id)) {
+          if (!ehTipoRenovacao(c.tipo)) continue;
+        } else if (!ehConsultaDoPacote(c.tipo)) continue;
         contagem[c.paciente_id] = (contagem[c.paciente_id] ?? 0) + 1;
       }
       const terminando = (pacRes.data ?? [])

@@ -6,6 +6,8 @@
 // de agendar. Consultas de outro tipo (avulsa antiga, avaliação, retorno no
 // Essentia, tipo desconhecido) vão para `outras`, por data.
 
+import { TIPOS_RENOVACAO, numeroDaRenovacao, temConsultasDeRenovacao } from './renovacao.js';
+
 const TIPOS_ESSENTIA = ['primeira', 'consulta_2', 'consulta_3', 'consulta_4', 'consulta_5', 'consulta_6'];
 const TIPOS_AVULSA = ['primeira', 'retorno'];
 
@@ -15,6 +17,8 @@ export function rotuloTipo(tipo) {
   if (tipo === 'avaliacao') return 'Avaliação';
   if (tipo === 'retorno') return 'Retorno';
   if (tipo === 'avulsa') return 'Consulta avulsa';
+  const r = numeroDaRenovacao(tipo);
+  if (r !== null) return `Renovação ${r}`;
   const m = String(tipo).match(/^consulta_(\d+)$/);
   return m ? `Consulta ${m[1]}` : String(tipo);
 }
@@ -36,7 +40,12 @@ const porData = (a, b) => {
 export function montarSlots(tipoPlano, consultas) {
   const lista = [...(consultas ?? [])].filter(c => c.status !== 'cancelada').sort(porData);
   const usadas = new Set();
-  const slots = tiposDoPlano(tipoPlano).map(tipo => {
+  // Ciclo de renovação: as seis "Renovação 1…6" entram depois das seis do
+  // pacote, só quando a paciente já tem alguma consulta de renovação.
+  const tipos = ehPlanoEssentia(tipoPlano) && temConsultasDeRenovacao(lista)
+    ? [...TIPOS_ESSENTIA, ...TIPOS_RENOVACAO]
+    : tiposDoPlano(tipoPlano);
+  const slots = tipos.map(tipo => {
     // Se houver duas do mesmo tipo, a posição fica com a mais antiga e a outra
     // aparece em `outras`: nada é escondido.
     const c = lista.find(x => x.tipo === tipo && !usadas.has(x.id)) ?? null;

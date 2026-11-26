@@ -1,0 +1,28 @@
+import { TIPOS_RENOVACAO, numeroDaRenovacao, ehTipoRenovacao, ehServicoRenovacao, temConsultasDeRenovacao, vendaPedindoRenovacao as v } from './renovacao.js';
+let ok = 0, bad = 0;
+const t = (n, a, b) => { const x = JSON.stringify(a) === JSON.stringify(b); x ? ok++ : bad++; console.log((x ? '  PASS  ' : '  FALHA  ') + n + (x ? '' : `  (esperado ${JSON.stringify(b)}, obteve ${JSON.stringify(a)})`)); };
+t('seis tipos', TIPOS_RENOVACAO, ['renovacao_1','renovacao_2','renovacao_3','renovacao_4','renovacao_5','renovacao_6']);
+t('numero 3', numeroDaRenovacao('renovacao_3'), 3);
+t('numero 7 inválido', numeroDaRenovacao('renovacao_7'), null);
+t('consulta_3 não é renovação', ehTipoRenovacao('consulta_3'), false);
+t('serviço Renovação', ehServicoRenovacao('Renovação'), true);
+t('serviço renovacao minúsculo sem acento', ehServicoRenovacao('renovacao essentia'), true);
+t('serviço com espaço', ehServicoRenovacao('  RENOVAÇÃO  '), true);
+t('ESSENTIA não é renovação', ehServicoRenovacao('ESSENTIA'), false);
+t('Consulta avulsa não', ehServicoRenovacao('Consulta avulsa CTO'), false);
+t('vazio', ehServicoRenovacao(null), false);
+t('tem consultas: cancelada não conta', temConsultasDeRenovacao([{ tipo: 'renovacao_1', status: 'cancelada' }]), false);
+t('tem consultas: agendada conta', temConsultasDeRenovacao([{ tipo: 'renovacao_1', status: 'agendada' }]), true);
+const venda = { id: 'v1', servico: 'Renovação', created_at: '2026-11-26' };
+t('pede: essentia ativa + venda + sem consultas', v({ ehEssentia: true, ativa: true, vendas: [venda], consultas: [{ tipo: 'consulta_6', status: 'realizada' }] })?.id, 'v1');
+t('não pede: já tem consultas de renovação', v({ ehEssentia: true, ativa: true, vendas: [venda], consultas: [{ tipo: 'renovacao_1', status: 'agendada' }] }), null);
+t('não pede: não é essentia', v({ ehEssentia: false, ativa: true, vendas: [venda], consultas: [] }), null);
+t('não pede: arquivada', v({ ehEssentia: true, ativa: false, vendas: [venda], consultas: [] }), null);
+t('não pede: venda de outro serviço', v({ ehEssentia: true, ativa: true, vendas: [{ servico: 'ESSENTIA' }], consultas: [] }), null);
+t('pede: pega a venda mais recente', v({ ehEssentia: true, ativa: true, vendas: [{ id: 'a', servico: 'Renovação', created_at: '2026-10-01' }, { id: 'b', servico: 'Renovação', created_at: '2026-11-01' }], consultas: [] })?.id, 'b');
+const vA = { id: 'x', servico: 'Renovação', created_at: '2026-11-01T10:00:00Z' };
+t('renovação antiga (consulta criada depois da venda) não reaparece', v({ ehEssentia: true, ativa: true, vendas: [vA], consultas: [{ tipo: 'primeira', status: 'agendada', created_at: '2026-11-02T10:00:00Z' }] }), null);
+t('só consultas anteriores à venda: oferece', v({ ehEssentia: true, ativa: true, vendas: [vA], consultas: [{ tipo: 'consulta_6', status: 'realizada', created_at: '2026-10-01T10:00:00Z' }] })?.id, 'x');
+console.log(`${ok} passaram, ${bad} falharam, ${ok + bad} no total`);
+process.exit(bad ? 1 : 0);
+

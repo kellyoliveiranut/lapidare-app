@@ -35,6 +35,8 @@ import { confirmar as confirmarJanela, avisar as avisarJanela } from '../../lib/
 import ModalShell from '../../components/ModalShell.jsx';
 import { CATEGORIAS_SUGERIDAS, mover as moverItem, resumo as resumoSubs, importarSubstituicoes } from '../../lib/substituicoes.js';
 import { montarSlots, rotuloTipo, ehPlanoEssentia } from '../../lib/slotsConsultas.js';
+import { TIPOS_RENOVACAO, vendaPedindoRenovacao } from '../../lib/renovacao.js';
+import { criarContratoPendente } from '../../lib/contratoEssentia.js';
 import { faltandoParaNota } from '../../lib/dadosNotaFiscal.js';
 import { horariosDoPacote } from '../../lib/horariosDoPacote.js';
 // O gráfico de área saiu daqui para ser usado também pelos exames. O
@@ -141,6 +143,18 @@ export default function PacientePerfil() {
       .then(({ count, error }) => { if (vivo && !error) setQtdVendas(count ?? 0); });
     return () => { vivo = false; };
   }, [id, user?.id, financeiroAberto]);
+  // Renovação: venda do serviço "Renovação" → o Essentia oferece gerar o contrato
+  // de renovação e as 6 consultas (Renovação 1 a 6). Só a Kelly (não a secretária).
+  const [vendasRenov, setVendasRenov] = useState([]);
+  const [renovAberta, setRenovAberta] = useState(false);
+  useEffect(() => {
+    if (!id || !user?.id || secretaria) return;
+    let vivo = true;
+    supabase.from('vendas').select('id, servico, valor_total, created_at, data_venda')
+      .eq('paciente_id', id).eq('nutri_id', user.id).ilike('servico', 'renova%')
+      .then(({ data, error }) => { if (vivo && !error) setVendasRenov(data ?? []); });
+    return () => { vivo = false; };
+  }, [id, user?.id, secretaria, financeiroAberto, renovAberta]);
   const faltaNota = paciente ? faltandoParaNota(paciente) : [];
   const avisoFinanceiro = paciente?.status_paciente === 'ativo'
     ? [
@@ -150,6 +164,10 @@ export default function PacientePerfil() {
     : [];
 
   const planoEssentia = ehPlanoEssentia(paciente?.tipo_plano);
+  const vendaRenov = useMemo(() => secretaria || acompList == null ? null : vendaPedindoRenovacao({
+    ehEssentia: planoEssentia, ativa: paciente?.status_paciente === 'ativo',
+    vendas: vendasRenov, consultas: acompList,
+  }), [secretaria, planoEssentia, paciente?.status_paciente, vendasRenov, acompList]);
   const { slots: slotsPlano, outras: outrasConsultas } = useMemo(
     () => montarSlots(paciente?.tipo_plano, acompList ?? []),
     [paciente?.tipo_plano, acompList],
@@ -303,7 +321,7 @@ export default function PacientePerfil() {
       .from('consultas')
       // duracao_min entra por causa do ModalDefinirData: sem ela a verificação
       // de conflito ao dar data mediria o intervalo errado.
-      .select('id, data_hora, tipo, status, duracao_min, iniciada_em, encerrada_em')
+      .select('id, data_hora, tipo, status, duracao_min, iniciada_em, encerrada_em, created_at')
       .eq('paciente_id', id)
       .eq('nutri_id', user.id)
       .neq('status', 'cancelada')
@@ -981,6 +999,27 @@ export default function PacientePerfil() {
         </div>
       )}
 
+      {/* Renovação: 6 consultas novas + contrato de renovação */}
+      {renovAberta && vendaRenov && (
+        <ModalAgendarAcompanhamento
+          pacienteId={id}
+          nutriId={user?.id}
+          consultaAtiva={null}
+          modalidadePaciente={paciente?.modalidade}
+          tipos={TIPOS_RENOVACAO}
+          dataInicial={null}
+          onClose={() => setRenovAberta(false)}
+          onSalvo={async () => {
+            setRenovAberta(false);
+            const { erro } = await criarContratoPendente(supabase, {
+              nutriId: user.id, pacienteId: id, valor: Number(vendaRenov.valor_total), tipo: 'renovacao',
+            });
+            if (erro) avisarJanela(`As 6 consultas foram agendadas, mas o contrato de renovação não foi gerado: ${erro}`);
+            Promise.all([reloadConsultaAtiva(), loadAcompConsultas(), carregar()]);
+          }}
+        />
+      )}
+
       {/* Agendar acompanhamento */}
       {agendarAcompOpen && (
         <ModalAgendarAcompanhamento
@@ -1238,6 +1277,23 @@ export default function PacientePerfil() {
           </div>
         );
       })()}
+
+      {vendaRenov && !renovAberta && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 14,
+          padding: '10px 14px', borderRadius: 10, background: 'var(--gold-soft, #faf6ee)',
+          border: '1px solid var(--gold-deep, #a08456)',
+        }}>
+          <i className="ti ti-refresh" style={{ fontSize: 18, color: 'var(--gold-deep, #a08456)' }} aria-hidden="true" />
+          <div style={{ flex: '1 1 220px', fontSize: 13, color: 'var(--dark)' }}>
+            <strong>Renovação vendida.</strong> Agende as 6 consultas (Renovação 1 a 6) — o contrato de renovação é gerado junto.
+          </div>
+          <button onClick={() => setRenovAberta(true)} style={{
+            background: 'var(--gold-deep, #a08456)', color: '#fff', border: 'none', borderRadius: 8,
+            padding: '8px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-sans)',
+          }}>Agendar renovação</button>
+        </div>
+      )}
 
       {/* Botões de agendamento */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>

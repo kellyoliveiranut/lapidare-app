@@ -10,6 +10,8 @@
    o que aparece na tela.
    ============================================================ */
 
+import { numeroDaRenovacao, TOTAL_RENOVACAO } from './renovacao.js';
+
 /** Cor do tipo de consulta. É a mesma da bolinha do calendário e da legenda. */
 export function tipoColor(tipo) {
   if (tipo === 'primeira') return 'var(--blue)';
@@ -110,6 +112,12 @@ export function proximoTipoDoPacote(tiposLancados) {
     (tiposLancados ?? []).map(numeroDoTipo).filter(n => n !== null && n <= ULTIMA_DO_PACOTE));
   for (let n = 1; n <= ULTIMA_DO_PACOTE; n++) {
     if (!usados.has(n)) return tipoSugerido(n);
+  }
+  // Pacote cheio. Se a paciente já renovou (tem consultas "Renovação"), a
+  // próxima é a primeira vaga livre do ciclo novo; senão, avulsa.
+  const renov = new Set((tiposLancados ?? []).map(numeroDaRenovacao).filter(n => n !== null));
+  if (renov.size) {
+    for (let n = 1; n <= TOTAL_RENOVACAO; n++) if (!renov.has(n)) return `renovacao_${n}`;
   }
   return 'avulsa';
 }

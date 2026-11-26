@@ -178,5 +178,24 @@ t('agendada antiga antes de uma feita é pulada (1R 2A 3R)',
   t('consulta realizada mantém a data mesmo com a marca', dataDe(realizadaOculta, 1), '2026-11-05T14:00:00Z');
 }
 
+// ─── Ciclo de renovação (tipos renovacao_1…6, 2026-11-26) ───
+{
+  const R = '2026-11-26T12:00:00+00:00';
+  const ren = (mapa, criada = R) => mapa.split(' ').map(s => ({
+    tipo: `renovacao_${s.slice(0, -1)}`, status: STATUS[s.slice(-1)], created_at: criada, data_hora: null,
+  }));
+  const ciclo1 = leva('2026-08-03T15:00:00+00:00', '1R 2R 3R 4R 5R 6R');
+  const so1 = rodar(ciclo1);
+  t('sem renovação: pacote 1 concluído, sem flag', [so1.realizadas, so1.concluido], [6, true]);
+  const j = rodar([...ciclo1, ...ren('1R 2A 3A 4A 5A 6A')]);
+  t('renovação: conta só o ciclo novo (1 de 6), em andamento', [j.realizadas, j.total, j.situacao], [1, 6, 'em_andamento']);
+  t('renovação: marcador na Renovação 2', estados(j), ['feito', 'atual', 'futuro', 'futuro', 'futuro', 'futuro']);
+  t('renovação: slot 1 é a renovacao_1, não a 1ª do ciclo anterior', slot(j, 1).tipo, 'renovacao_1');
+  const so_cancel = rodar([...ciclo1, ...ren('1C 2C 3C 4C 5C 6C')]);
+  t('renovação toda cancelada: volta ao ciclo anterior', [so_cancel.realizadas, slot(so_cancel, 1).tipo], [6, 'primeira']);
+  const nova = rodar([...ciclo1, ...ren('1C 2A 3A 4A 5A 6A')]);
+  t('renovação com a 1 cancelada: slot 1 mostra a cancelada, marcador na 2', [slot(nova, 1).status, estados(nova)[1]], ['cancelada', 'atual']);
+}
+
 console.log(`\n${ok} PASS, ${falhou} FALHA`);
 process.exitCode = falhou ? 1 : 0;

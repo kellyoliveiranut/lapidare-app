@@ -5,8 +5,12 @@
  * no pacote: 1ª, Consulta 2, 3… ; tipos fora do pacote (avaliação, retorno,
  * avulsa) vêm depois. Empate: a mais antiga criada, depois o id.
  */
+import { numeroDaRenovacao } from './renovacao.js';
+
 function posicao(tipo) {
   if (tipo === 'primeira') return 1;
+  const r = numeroDaRenovacao(tipo);
+  if (r !== null) return 6 + r;   // depois das seis do pacote
   const m = String(tipo ?? '').match(/^consulta_(\d+)$/);
   return m ? Number(m[1]) : 100;
 }

@@ -21,6 +21,8 @@
 //     agendada no mesmo pacote): a cancelada ocupa o slot, para a trilha
 //     mostrar o que aconteceu em vez de um buraco. Ela nunca vira âncora.
 
+import { numeroDaRenovacao } from './renovacao.js';
+
 export const TOTAL_CONSULTAS_PACOTE = 6;
 
 // 'primeira' → 1, 'consulta_4' → 4, qualquer outro tipo → null (avulsa,
@@ -45,9 +47,34 @@ function ms(iso) {
  * marco do plano usa.
  */
 export function pacoteAtual(consultas) {
-  const numeradas = (consultas ?? [])
-    .map(c => ({ ...c, _n: numeroDoPacote(c.tipo), _criada: ms(c.created_at) }))
+  const todas = (consultas ?? [])
+    .map(c => ({
+      ...c, _n: numeroDoPacote(c.tipo) ?? numeroDaRenovacao(c.tipo),
+      _ren: numeroDaRenovacao(c.tipo) !== null, _criada: ms(c.created_at),
+    }))
     .filter(c => c._n != null);
+
+  // CICLO DE RENOVAÇÃO (2026-11-26): as consultas "Renovação 1…6" têm tipo
+  // próprio. Havendo alguma não cancelada, o pacote atual é o delas — a
+  // âncora é a mais antiga (as seis nascem juntas). Sem nenhuma, elas (só
+  // canceladas) ficam fora e o resto segue como sempre.
+  const renovValidas = todas.filter(c => c._ren && c.status !== 'cancelada');
+  if (renovValidas.length) {
+    const ancoraRen = renovValidas.reduce(
+      (min, c) => (c._criada != null && (min == null || c._criada < min) ? c._criada : min), null);
+    const doCiclo = todas.filter(c => c._ren);
+    const maisRecenteRen = lista => lista.slice().sort((a, b) => (b._criada ?? 0) - (a._criada ?? 0))[0];
+    const slotsRen = [];
+    for (let n = 1; n <= TOTAL_CONSULTAS_PACOTE; n++) {
+      const cand = doCiclo.filter(c => c._n === n);
+      slotsRen.push(cand.find(c => c.status === 'realizada')
+        ?? maisRecenteRen(cand.filter(c => c.status !== 'cancelada'))
+        ?? maisRecenteRen(cand) ?? null);
+    }
+    return { slots: slotsRen, ancora: ancoraRen, renovacao: true };
+  }
+
+  const numeradas = todas.filter(c => !c._ren);
   const validas = numeradas.filter(c => c.status !== 'cancelada');
 
   const primeiras = validas.filter(c => c._n === 1 && c.tipo === 'primeira');
