@@ -5,7 +5,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
 import {
-  dataBR, iniciais, horaConsultaBR, TZ_CLINICA,
+  dataBR, horaConsultaBR, TZ_CLINICA,
   validarPlano, validarLista, contarItensLista,
 HORARIO_CONSULTA_PADRAO, horaConsultaValida,
   dataLocalISO, montarDataHoraISO, partesLocaisISO,
@@ -30,6 +30,7 @@ import { verificarAgenda, textoImpedimentos, textoConfirmacao, opcoesHorario, ho
 import { useHorariosLivres, useOcupacaoDeDatas } from '../../lib/useHorariosLivres.js';
 import { gravar } from '../../lib/gravar.js';
 import NotaFiscalPaciente from './_NotaFiscalPaciente.jsx';
+import FotoPaciente from './_FotoPaciente.jsx';
 import { confirmar as confirmarJanela, avisar as avisarJanela } from '../../lib/dialogos.js';
 import ModalShell from '../../components/ModalShell.jsx';
 import { CATEGORIAS_SUGERIDAS, mover as moverItem, resumo as resumoSubs, importarSubstituicoes } from '../../lib/substituicoes.js';
@@ -650,12 +651,8 @@ export default function PacientePerfil() {
       </button>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18 }}>
-        <div style={{
-          width: 52, height: 52, borderRadius: '50%',
-          background: 'var(--amber)', display: 'flex',
-          alignItems: 'center', justifyContent: 'center',
-          fontSize: 18, fontWeight: 600, color: 'var(--dark)',
-        }}>{iniciais(paciente.nome)}</div>
+        <FotoPaciente paciente={paciente} podeEditar={!secretaria}
+          onMudou={(url) => setPaciente(p => ({ ...p, avatar_url: url }))} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2, flexWrap: 'wrap' }}>
             <div className="page-title" style={{ margin: 0 }}>{paciente.nome}</div>
