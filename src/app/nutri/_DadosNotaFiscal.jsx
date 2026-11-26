@@ -68,7 +68,8 @@ export default function DadosNotaFiscal({ paciente, vendaRecente = null, onSalvo
   const [sugerido, setSugerido] = useState(false);
   // Travado quando a nota é da própria paciente e os dados estão completos: só
   // se edita se faltar algo, se foi sugerido do cadastro, ou se for outra pessoa.
-  const editavel = outra || faltando.length > 0 || sugerido;
+  const [preenchidoColado, setPreenchidoColado] = useState(false);
+  const editavel = outra || faltando.length > 0 || sugerido || preenchidoColado;
   const set = (k) => (e) => setF(prev => ({ ...prev, [k]: e.target.value }));
 
   async function salvar() {
@@ -93,7 +94,7 @@ export default function DadosNotaFiscal({ paciente, vendaRecente = null, onSalvo
     setMsg(null);
     if (v) setF(paciente.nf_outra_pessoa ? CAMPOS_INICIAIS(paciente, true)
       : { nf_nome: '', cpf: '', end_cep: '', end_logradouro: '', end_numero: '', end_complemento: '', end_bairro: '', end_cidade: '', end_uf: '' });
-    else { setF(CAMPOS_INICIAIS(paciente, false)); setColado(''); }
+    else { setF(CAMPOS_INICIAIS(paciente, false)); setColado(''); setPreenchidoColado(false); }
   }
 
   // Cola a mensagem com os dados de quem vai na nota (nome, CPF, endereço) e a IA
@@ -116,7 +117,7 @@ ${colado.slice(0, 4000)}
       if (vazio) { setMsg({ tipo: 'erro', texto: 'Não encontrei dados no texto colado.' }); return; }
       setF(prev => ({
         ...prev,
-        nf_nome: v('nome') || prev.nf_nome,
+        nf_nome: outra ? (v('nome') || prev.nf_nome) : prev.nf_nome,   // nota da própria paciente: o nome é o dela
         cpf: v('cpf') || prev.cpf,
         end_cep: v('end_cep') ? formatarCep(v('end_cep')) : prev.end_cep,
         end_logradouro: v('end_logradouro') || prev.end_logradouro,
@@ -126,6 +127,7 @@ ${colado.slice(0, 4000)}
         end_cidade: v('end_cidade') || prev.end_cidade,
         end_uf: (v('end_uf') || prev.end_uf).toUpperCase().slice(0, 2),
       }));
+      setPreenchidoColado(true);
       setMsg({ tipo: 'ok', texto: 'Campos preenchidos a partir do texto. Confira antes de salvar.' });
       if (v('end_cep').replace(/\D/g, '').length === 8) buscarCep(v('end_cep'));
     } catch {
@@ -221,9 +223,8 @@ ${colado.slice(0, 4000)}
             <input type="checkbox" checked={outra} onChange={e => alternarOutra(e.target.checked)} />
             Nota em nome de outra pessoa
           </label>
-          {outra && (
             <div style={{ background: 'var(--bg2)', borderRadius: 8, padding: 10, marginBottom: 10 }}>
-              <label className="field-label">Colar os dados de quem vai na nota (nome, CPF, endereço)</label>
+              <label className="field-label">{outra ? 'Colar os dados de quem vai na nota (nome, CPF, endereço)' : 'Colar os dados da paciente (CPF e endereço)'}</label>
               <textarea rows={3} value={colado} onChange={e => setColado(e.target.value)}
                 placeholder="Cole aqui a mensagem com os dados e clique em Preencher" style={{ width: '100%', resize: 'vertical' }} />
               <button type="button" className="btn-outline" style={{ marginTop: 6, fontSize: 12 }}
@@ -231,7 +232,6 @@ ${colado.slice(0, 4000)}
                 <i className="ti ti-sparkles" aria-hidden="true" /> {lendo ? 'Lendo…' : 'Preencher os campos'}
               </button>
             </div>
-          )}
           {outra && (
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
               {campo('Nome de quem vai na nota', 'nf_nome', { flex: 1, min: 220 })}
