@@ -260,6 +260,7 @@ export default function Agenda() {
     setProximasAberta(a => !a);
   }
   const [novaPacienteOpen, setNovaPacienteOpen] = useState(false);
+  const [pacienteNova, setPacienteNova] = useState(null);   // { id, n }: cadastrada de dentro do modal da consulta
   // Convite da paciente recém-criada pelo cadastro rápido: fica na faixa verde
   // do topo até a nutri dispensar. Sem isso o link de primeiro acesso ficaria
   // escondido na tela Cadastrar, e a paciente nunca receberia.
@@ -1013,7 +1014,7 @@ export default function Agenda() {
   // Clique num horário livre da lista/régua: modal de consulta NOVA já na data do dia e na hora clicada.
   const abrirNovaNoHorario = (hora) => setModalState({ open: true, consulta: null, pacienteInicialId: null, remarcando: false, dataInicial: isoLocalDeData(diaSelecionado), horaInicial: hora });
   const abrirEdit = (consulta) => setModalState({ open: true, consulta, pacienteInicialId: null, remarcando: false });
-  const fechar = () => setModalState({ open: false, consulta: null, pacienteInicialId: null, remarcando: false });
+  const fechar = () => { setPacienteNova(null); setModalState({ open: false, consulta: null, pacienteInicialId: null, remarcando: false }); };
   // Remarcar da linha: abre o modal já no modo remarcação (nova data) — de lá
   // ela também pode deixar em "A definir".
   const abrirRemarcar = (consulta) => setModalState({ open: true, consulta, pacienteInicialId: null, remarcando: true });
@@ -1060,7 +1061,11 @@ export default function Agenda() {
     setNovaPacienteOpen(false);
     setConvite({ paciente, pendente, avisoPendente });
     await carregarPacientes();
-    setModalState({ open: true, consulta: null, pacienteInicialId: paciente.id });
+    // Cadastrada de dentro de "Nova consulta": o modal continua aberto, com o
+    // que já estava preenchido, e só ganha a paciente. Fora dele (botão "Nova
+    // paciente" da barra), abre o agendamento já com ela, como sempre.
+    if (modalState.open && !modalState.consulta) setPacienteNova({ id: paciente.id, n: Date.now() });
+    else setModalState({ open: true, consulta: null, pacienteInicialId: paciente.id });
   }
 
   return (
@@ -1570,6 +1575,8 @@ export default function Agenda() {
           remarcarAoAbrir={modalState.remarcando}
           dataInicial={modalState.dataInicial}
           horaInicial={modalState.horaInicial}
+          pacienteNovaId={pacienteNova}
+          onCadastrarNova={() => setNovaPacienteOpen(true)}
           onClose={fechar}
           onSaved={() => consultaSalva(modalState.consulta?.id ?? null)}
           onToggleConfirmada={toggleConfirmada}
@@ -2839,7 +2846,7 @@ const destaqueRemarcacao = {
  * ficaria marcado com o nome da última paciente agendada, sugerindo um estado
  * que não existe. Default false, então o uso de dentro do modal não muda.
  */
-function SelectPacienteBusca({ pacientes, value, onChange, disabled, limparAoEscolher = false, placeholder }) {
+function SelectPacienteBusca({ pacientes, value, onChange, disabled, limparAoEscolher = false, placeholder, onCadastrarNova }) {
   const [aberto, setAberto] = useState(false);
   const [termo, setTermo] = useState('');
   const [hoverId, setHoverId] = useState(null);
@@ -2926,6 +2933,21 @@ function SelectPacienteBusca({ pacientes, value, onChange, disabled, limparAoEsc
             border: '0.5px solid var(--border)',
             boxShadow: '0 4px 16px rgba(28,23,18,.12)',
           }}>
+          {onCadastrarNova && (
+            <div
+              role="option"
+              aria-selected={false}
+              onClick={() => { setAberto(false); setTermo(''); onCadastrarNova(); }}
+              style={{
+                position: 'sticky', top: 0, padding: '9px 12px', cursor: 'pointer', fontSize: 13,
+                display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600,
+                background: 'var(--gold-soft, #faf6ee)', color: 'var(--gold-deep, #a08456)',
+                borderBottom: '0.5px solid var(--border)',
+              }}>
+              <i className="ti ti-user-plus" aria-hidden="true" style={{ fontSize: 14 }} />
+              <span style={{ flex: 1 }}>Cadastrar nova paciente</span>
+            </div>
+          )}
           {filtradas.length === 0 ? (
             <div style={{ padding: '14px 12px', textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>
               Nenhuma paciente encontrada.
@@ -3301,7 +3323,7 @@ function BloqueioModal({ nutriId, dataInicial, onClose, onSaved }) {
   );
 }
 
-function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId, remarcarAoAbrir, dataInicial, horaInicial, onClose, onSaved, onToggleConfirmada, onADefinir }) {
+function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId, remarcarAoAbrir, dataInicial, horaInicial, pacienteNovaId, onCadastrarNova, onClose, onSaved, onToggleConfirmada, onADefinir }) {
   const isEdit = !!consulta;
   const navigate = useNavigate();
   const { profile: perfilModal } = useSession();
@@ -3486,6 +3508,15 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
     const p = pacientes.find(x => x.id === novoId);
     trocarModalidade(modalidadeDaPaciente(p?.modalidade));
   }
+
+  // Paciente cadastrada na hora, a partir deste modal: entra escolhida, sem
+  // perder a data, o horário e o tipo que já estavam preenchidos. O objeto
+  // muda a cada cadastro (n), então cadastrar duas seguidas funciona.
+  useEffect(() => {
+    if (!pacienteNovaId?.id || isEdit) return;
+    if (pacientes.some(x => x.id === pacienteNovaId.id)) trocarPaciente(pacienteNovaId.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pacienteNovaId, pacientes]);
 
   // Online não tem local: zera o state para não gravar lixo (e não esbarrar em
   // consultas_local_modalidade_check). Voltando para presencial, recupera o que
@@ -3676,6 +3707,7 @@ function ConsultaModal({ consulta, pacientes, locais, nutriId, pacienteInicialId
           value={pacienteId}
           onChange={trocarPaciente}
           disabled={isEdit}
+          onCadastrarNova={isEdit ? undefined : onCadastrarNova}
         />
 
         <label className="form-lbl">Tipo</label>
