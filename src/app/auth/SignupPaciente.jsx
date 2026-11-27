@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { comLimite } from '../../lib/comLimite.js';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useSession } from '../../lib/session.jsx';
@@ -67,7 +68,9 @@ export default function SignupPaciente() {
 
       let resposta;
       try {
-        resposta = await supabase.rpc('buscar_pendente_por_token', { p_token: token });
+        // Limite de 12 s: sem resposta, vira "Sem conexão" com "Tentar de novo"
+        // em vez de "Validando link…" para sempre.
+        resposta = await comLimite(supabase.rpc('buscar_pendente_por_token', { p_token: token }), 12000);
       } catch (e) {
         resposta = { error: e };
       }

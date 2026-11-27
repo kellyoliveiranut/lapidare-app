@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useTheme } from '../../lib/theme.jsx';
 import BrandFooter from '../../components/BrandFooter.jsx';
+import { comLimite } from '../../lib/comLimite.js';
 
 /**
  * Tela onde a paciente (ou nutri) chega DEPOIS de clicar no link do email
@@ -19,6 +20,7 @@ export default function RedefinirSenha() {
   const [erro, setErro] = useState(null);
   const [sucesso, setSucesso] = useState(false);
   const [tokenOk, setTokenOk] = useState(undefined); // undefined = checando, true = ok, false = inválido
+  const [demorou, setDemorou] = useState(false);     // a checagem não respondeu (celular/rede): oferece tentar de novo
 
   // Quando a paciente clica no link do email, o Supabase joga o token no
   // hash da URL e dispara o evento PASSWORD_RECOVERY no client.
@@ -31,10 +33,13 @@ export default function RedefinirSenha() {
       }
     });
 
-    supabase.auth.getSession().then(({ data }) => {
+    // Limite de 10 s: em alguns celulares a sessão fica pendurada e a tela
+    // ficava em "Validando link..." para sempre. O hash do link continua na URL,
+    // então recarregar a página tenta de novo com o mesmo link.
+    comLimite(supabase.auth.getSession(), 10000).then(({ data }) => {
       if (data.session) setTokenOk(true);
       else setTokenOk((v) => v ?? false);
-    });
+    }).catch(() => setDemorou(true));
 
     return () => sub.subscription.unsubscribe();
   }, []);
@@ -107,9 +112,25 @@ export default function RedefinirSenha() {
           </p>
         </div>
 
-        {tokenOk === undefined && (
+        {tokenOk === undefined && !demorou && (
           <div style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 13, padding: 20 }}>
             Validando link...
+          </div>
+        )}
+
+        {tokenOk === undefined && demorou && (
+          <div style={{ textAlign: 'center', fontSize: 13, color: 'var(--ink)', padding: '14px 4px', lineHeight: 1.5 }}>
+            Está demorando mais que o normal para abrir o link. Confira a internet e tente de novo.
+            <button onClick={() => window.location.reload()}
+              style={{
+                marginTop: 12, width: '100%',
+                background: 'var(--ink)', color: 'var(--bg-soft)',
+                padding: '10px 14px', borderRadius: 8,
+                border: 'none', cursor: 'pointer', fontSize: 13,
+                fontFamily: 'var(--font-sans)',
+              }}>
+              Tentar de novo
+            </button>
           </div>
         )}
 

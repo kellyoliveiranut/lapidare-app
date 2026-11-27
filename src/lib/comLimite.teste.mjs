@@ -1,0 +1,10 @@
+import { comLimite } from './comLimite.js';
+let ok = 0, bad = 0;
+const t = (n, a, b) => { const x = JSON.stringify(a) === JSON.stringify(b); x ? ok++ : bad++; console.log((x ? '  PASS  ' : '  FALHA  ') + n + (x ? '' : `  (esperado ${JSON.stringify(b)}, obteve ${JSON.stringify(a)})`)); };
+const espera = (ms, v) => new Promise(r => setTimeout(() => r(v), ms));
+t('resolve a tempo', await comLimite(espera(10, 'a'), 200), 'a');
+t('estoura o limite', await comLimite(espera(300, 'a'), 30).catch(e => e.message), 'limite');
+t('propaga o erro da própria chamada', await comLimite(Promise.reject(new Error('x')), 200).catch(e => e.message), 'x');
+t('aceita valor que não é promessa', await comLimite(5, 50), 5);
+console.log(`${ok} passaram, ${bad} falharam, ${ok + bad} no total`);
+process.exit(bad ? 1 : 0);
