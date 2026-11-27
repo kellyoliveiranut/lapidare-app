@@ -170,11 +170,10 @@ export function StatusContrato({ contratos, paciente }) {
     return (
       <span style={{ color: 'var(--orange)' }}>
         Contrato {versaoDe(primeiro)} aguardando assinatura
-        {/* Sem CPF nem RG a paciente NAO chega a ver o contrato: o gate em
-            components/ContratoEssentia.jsx deixa passar em vez de trancar o
-            app por um campo que ela nao pode preencher. Entao este aviso e o
-            UNICO lugar onde isso aparece. Vermelho, e nao laranja, porque
-            pendente e um passo do fluxo normal e isto esta parado. */}
+        {/* Sem CPF nem RG a paciente VÊ o contrato, mas o aceite é recusado
+            (o documento vem só do cadastro; ela não digita). A tela dela diz
+            para avisar a nutricionista; este aviso é o lado de cá. Vermelho,
+            e não laranja, porque pendente é um passo normal e isto está parado. */}
         {!(paciente?.cpf || paciente?.rg) && (
           <span style={{ color: 'var(--red)' }}> · sem CPF/RG no cadastro</span>
         )}

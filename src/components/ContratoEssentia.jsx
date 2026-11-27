@@ -31,6 +31,10 @@ import { decidirGateContrato, TELAS_LIBERADAS_SEM_CONTRATO } from '../lib/contra
  * erro. Sem documento no cadastro ela aceita do mesmo jeito: a prévia do banco
  * já devolve a linha em branco no lugar do RG/CPF.
  */
+// A identificação vem do cadastro (a nutri preenche); a paciente não digita.
+// Sem RG nem CPF lá, o aceite é recusado — e ela precisa saber a quem pedir.
+const MSG_SEM_DOCUMENTO = 'Seu RG ou CPF ainda não está no seu cadastro. Avise sua nutricionista para completar; depois é só atualizar esta página.';
+
 export default function ContratoEssentia({ children }) {
   const { profile, role } = useSession();
   const { pathname } = useLocation();
@@ -121,8 +125,9 @@ export default function ContratoEssentia({ children }) {
     });
     setAceitando(false);
     if (error) {
-      // As mensagens da função já são escritas para a paciente ler.
-      setErro(error.message);
+      // As mensagens da função já são escritas para a paciente ler. Exceção: a
+      // do documento, que mandava ela "informar" algo sem ter onde digitar.
+      setErro(/Informe o RG ou o CPF/i.test(error.message ?? '') ? MSG_SEM_DOCUMENTO : error.message);
       return;
     }
     // `novo: false` é a RPC dizendo que só devolveu o carimbo que já existia —
@@ -250,6 +255,14 @@ export default function ContratoEssentia({ children }) {
             Li e concordo com os termos
           </span>
         </label>
+
+        {!identificacao && !erro && profile?.nome && (
+          <div style={{
+            margin: '12px 24px 0', padding: '8px 12px',
+            background: 'var(--orange-bg, #fdf1e7)', color: 'var(--orange, #b45309)',
+            borderRadius: 8, fontSize: 12, lineHeight: 1.45,
+          }}>{MSG_SEM_DOCUMENTO}</div>
+        )}
 
         {erro && (
           <div style={{
